@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ExternalLink, ThumbsUp, ThumbsDown, Tag, DollarSign, ChevronDown, ChevronUp } from 'lucide-react'
+import { ExternalLink, ThumbsUp, ThumbsDown, Tag, DollarSign, ChevronDown, ChevronUp, Award } from 'lucide-react'
+import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
 const platformColors: Record<string, string> = {
@@ -11,46 +12,81 @@ const platformColors: Record<string, string> = {
 interface CompetitorCardProps {
   competitor: Competitor
   rank: number
+  variant?: 'featured' | 'standard'
+  compareSelected?: boolean
+  onToggleCompare?: () => void
 }
 
-export function CompetitorCard({ competitor, rank }: CompetitorCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const scorePercent = Math.round(competitor.relevance_score * 100)
-  const scoreColor = scorePercent >= 70 ? 'text-cta' : scorePercent >= 40 ? 'text-warning' : 'text-text-dim'
+function LinkWithFavicon({ link, name }: { link: string; name: string }) {
+  let hostname = 'link'
+  let faviconUrl = ''
+  try {
+    const u = new URL(link)
+    hostname = u.hostname.replace('www.', '').split('.')[0]
+    faviconUrl = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=16`
+  } catch { /* use defaults */ }
 
-  const featuresLimit = isExpanded ? competitor.features.length : 5
+  return (
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={e => e.stopPropagation()}
+      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer"
+      aria-label={`Open ${name} on ${hostname}`}
+    >
+      {faviconUrl && <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm" loading="lazy" />}
+      <ExternalLink className="w-3 h-3" />
+      {hostname}
+    </a>
+  )
+}
+
+export function CompetitorCard({ competitor, rank, variant = 'standard', compareSelected, onToggleCompare }: CompetitorCardProps) {
+  const isFeatured = variant === 'featured'
+  const [isExpanded, setIsExpanded] = useState(isFeatured)
+
+  const featuresLimit = isExpanded ? competitor.features.length : 4
   const prosLimit = isExpanded ? competitor.strengths.length : 3
   const consLimit = isExpanded ? competitor.weaknesses.length : 3
   const hasMore =
-    competitor.features.length > 5 ||
+    competitor.features.length > 4 ||
     competitor.strengths.length > 3 ||
     competitor.weaknesses.length > 3
 
   return (
     <div
-      onClick={() => setIsExpanded(prev => !prev)}
-      className="rounded-xl border border-border bg-bg-card p-5 transition-all duration-200 hover:border-cta/30 hover:shadow-lg hover:shadow-cta/5 cursor-pointer select-none"
+      id={`competitor-${rank}`}
+      className={`
+        rounded-xl border bg-bg-card transition-all duration-200 select-none
+        ${isFeatured
+          ? 'border-l-4 border-l-cta border-t-border border-r-border border-b-border p-6 col-span-full'
+          : 'border-border p-5 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cta/5'
+        }
+        hover:border-cta/30
+      `}
     >
+      {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono text-text-dim">#{rank}</span>
-            <h3 className="text-lg font-semibold font-[family-name:var(--font-heading)] text-text truncate">{competitor.name}</h3>
+            {isFeatured && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-cta/15 text-cta">
+                <Award className="w-3 h-3" />
+                Top Competitor
+              </span>
+            )}
+            <h3 className={`font-semibold font-[family-name:var(--font-heading)] text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}>
+              {competitor.name}
+            </h3>
           </div>
           <p className="text-sm text-text-muted leading-relaxed">{competitor.one_liner}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-sm font-semibold ${scoreColor}`}>
-            {scorePercent}%
-          </span>
-          {hasMore && (
-            isExpanded
-              ? <ChevronUp className="w-4 h-4 text-text-dim" />
-              : <ChevronDown className="w-4 h-4 text-text-dim" />
-          )}
-        </div>
+        <RelevanceRing score={competitor.relevance_score} size={isFeatured ? 44 : 36} />
       </div>
 
+      {/* Feature Tags */}
       {competitor.features.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {competitor.features.slice(0, featuresLimit).map((f, i) => (
@@ -58,12 +94,13 @@ export function CompetitorCard({ competitor, rank }: CompetitorCardProps) {
               <Tag className="w-3 h-3" />{f}
             </span>
           ))}
-          {!isExpanded && competitor.features.length > 5 && (
-            <span className="text-xs text-text-dim">+{competitor.features.length - 5} more</span>
+          {!isExpanded && competitor.features.length > 4 && (
+            <span className="text-xs text-text-dim self-center">+{competitor.features.length - 4} more</span>
           )}
         </div>
       )}
 
+      {/* Pricing */}
       {competitor.pricing && (
         <div className="flex items-center gap-1.5 text-xs text-text-muted mb-3">
           <DollarSign className="w-3.5 h-3.5" />
@@ -71,56 +108,75 @@ export function CompetitorCard({ competitor, rank }: CompetitorCardProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {competitor.strengths.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1 text-xs text-cta mb-1">
-              <ThumbsUp className="w-3 h-3" /> Strengths
+      {/* Strengths / Weaknesses */}
+      {(isExpanded || isFeatured) && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {competitor.strengths.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1 text-xs text-cta mb-1.5">
+                <ThumbsUp className="w-3 h-3" /> Strengths
+              </div>
+              <ul className="space-y-0.5">
+                {competitor.strengths.slice(0, prosLimit).map((s, i) => (
+                  <li key={i} className="text-xs text-text-muted">&bull; {s}</li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-0.5">
-              {competitor.strengths.slice(0, prosLimit).map((s, i) => (
-                <li key={i} className="text-xs text-text-muted">&#x2022; {s}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {competitor.weaknesses.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1 text-xs text-danger mb-1">
-              <ThumbsDown className="w-3 h-3" /> Weaknesses
+          )}
+          {competitor.weaknesses.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1 text-xs text-danger mb-1.5">
+                <ThumbsDown className="w-3 h-3" /> Weaknesses
+              </div>
+              <ul className="space-y-0.5">
+                {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
+                  <li key={i} className="text-xs text-text-muted">&bull; {w}</li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-0.5">
-              {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
-                <li key={i} className="text-xs text-text-muted">&#x2022; {w}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="flex gap-1.5">
-          {competitor.source_platforms.map(p => (
-            <span key={p} className={`text-xs px-2 py-0.5 rounded-full ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
-              {p}
-            </span>
-          ))}
+          )}
         </div>
-        <div className="flex flex-wrap gap-1">
-          {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
-            <a
-              key={i}
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-1"
-              aria-label={`Open ${competitor.name} link`}
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex gap-1.5 shrink-0">
+            {competitor.source_platforms.map(p => (
+              <span key={p} className={`text-xs px-2 py-0.5 rounded-full ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
+                {p}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
+              <LinkWithFavicon key={i} link={link} name={competitor.name} />
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {onToggleCompare && (
+            <button
+              onClick={e => { e.stopPropagation(); onToggleCompare() }}
+              className={`text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
+                compareSelected
+                  ? 'border-cta/50 bg-cta/10 text-cta'
+                  : 'border-border text-text-dim hover:border-cta/30 hover:text-text-muted'
+              }`}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
-              {(() => { try { return new URL(link).hostname.replace('www.', '').split('.')[0] } catch { return 'link' } })()}
-            </a>
-          ))}
+              {compareSelected ? '✓ Compare' : '⇔ Compare'}
+            </button>
+          )}
+          {!isFeatured && hasMore && (
+            <button
+              onClick={() => setIsExpanded(prev => !prev)}
+              className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer"
+            >
+              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {isExpanded ? 'Less' : 'Details'}
+            </button>
+          )}
         </div>
       </div>
     </div>

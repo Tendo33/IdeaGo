@@ -33,6 +33,33 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
 }
 
+@keyframes verdict-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 8px transparent; opacity: 0.8; }
+}
+
+@keyframes hero-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.92; }
+}
+
+.animate-verdict-pulse {
+  animation: verdict-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-hero-glow {
+  animation: hero-glow 3s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 400ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -47,7 +74,7 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 12pt;
   }
 
-  nav, .no-print, button, select {
+  nav, .no-print, button, select, [class*="fixed"] {
     display: none !important;
   }
 
