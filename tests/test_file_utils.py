@@ -5,8 +5,8 @@
 
 from pathlib import Path
 
-from python_template.utils import decorator_utils
-from python_template.utils.file_utils import (
+from ideago.utils import decorator_utils
+from ideago.utils.file_utils import (
     calculate_file_hash,
     copy_file,
     delete_file,

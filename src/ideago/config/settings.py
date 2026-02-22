@@ -10,7 +10,7 @@ Features / 特性:
 - Easy to extend / 易于扩展
 
 Usage / 使用方法:
-    from python_template.config.settings import get_settings
+    from ideago.config.settings import get_settings
 
     settings = get_settings()
     print(settings.environment)
@@ -134,7 +134,7 @@ def get_settings() -> Settings:
         Settings instance / 配置实例
 
     Example:
-        >>> from python_template.config.settings import get_settings
+        >>> from ideago.config.settings import get_settings
         >>> settings = get_settings()
         >>> print(settings.environment)
         development

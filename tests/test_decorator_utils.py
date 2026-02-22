@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from python_template.utils.decorator_utils import (
+from ideago.utils.decorator_utils import (
     ContextTimer,
     catch_exceptions,
     deprecated,

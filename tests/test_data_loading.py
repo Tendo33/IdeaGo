@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from python_template.utils import read_json
+from ideago.utils import read_json
 
 
 def test_load_data_file() -> None:

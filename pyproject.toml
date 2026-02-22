@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "python-template"
+name = "ideago"
 version = "0.2.0"
 description = "A modern Python project template with loguru, ruff, and uv"
 readme = "README.md"
@@ -51,11 +51,11 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Tendo33/python-template"
-Repository = "https://github.com/Tendo33/python-template"
-Documentation = "https://github.com/Tendo33/python-template/tree/main/doc"
-Changelog = "https://github.com/Tendo33/python-template/blob/main/CHANGELOG.md"
-"Bug Tracker" = "https://github.com/Tendo33/python-template/issues"
+Homepage = "https://github.com/Tendo33/ideago"
+Repository = "https://github.com/Tendo33/ideago"
+Documentation = "https://github.com/Tendo33/ideago/tree/main/doc"
+Changelog = "https://github.com/Tendo33/ideago/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Tendo33/ideago/issues"
 
 # Ruff configuration
 [tool.ruff]
@@ -149,7 +149,7 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.isort]
-known-first-party = ["python_template"]
+known-first-party = ["ideago"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -166,7 +166,7 @@ minversion = "7.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=python_template",
+    "--cov=ideago",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -211,7 +211,7 @@ skip_covered = false
 
 # Hatch configuration for building
 [tool.hatch.version]
-path = "src/python_template/__init__.py"
+path = "src/ideago/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
@@ -235,4 +235,4 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/python_template"]
+packages = ["src/ideago"]

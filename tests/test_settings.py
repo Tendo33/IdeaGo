@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from python_template.config.settings import Settings, get_settings, reload_settings
+from ideago.config.settings import Settings, get_settings, reload_settings
 
 
 def test_get_settings_uses_singleton_cache() -> None:

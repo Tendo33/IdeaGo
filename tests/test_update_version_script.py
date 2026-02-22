@@ -21,9 +21,9 @@ def test_update_all_updates_required_files(tmp_path: Path) -> None:
     module = _load_update_version_module()
     updater = module.VersionUpdater(tmp_path)
 
-    (tmp_path / "src" / "python_template").mkdir(parents=True)
+    (tmp_path / "src" / "ideago").mkdir(parents=True)
     (tmp_path / "pyproject.toml").write_text('version = "0.1.0"\n', encoding="utf-8")
-    (tmp_path / "src" / "python_template" / "__init__.py").write_text(
+    (tmp_path / "src" / "ideago" / "__init__.py").write_text(
         '__version__ = "0.1.0"\n',
         encoding="utf-8",
     )
@@ -34,7 +34,7 @@ def test_update_all_updates_required_files(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert '__version__ = "0.2.0"' in (
-        tmp_path / "src" / "python_template" / "__init__.py"
+        tmp_path / "src" / "ideago" / "__init__.py"
     ).read_text(encoding="utf-8")
 
 
@@ -43,9 +43,9 @@ def test_update_all_does_not_report_missing_optional_env_file(tmp_path: Path) ->
     module = _load_update_version_module()
     updater = module.VersionUpdater(tmp_path)
 
-    (tmp_path / "src" / "python_template").mkdir(parents=True)
+    (tmp_path / "src" / "ideago").mkdir(parents=True)
     (tmp_path / "pyproject.toml").write_text('version = "0.1.0"\n', encoding="utf-8")
-    (tmp_path / "src" / "python_template" / "__init__.py").write_text(
+    (tmp_path / "src" / "ideago" / "__init__.py").write_text(
         '__version__ = "0.1.0"\n',
         encoding="utf-8",
     )

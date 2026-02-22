@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from python_template.contracts.protocols import (
+from ideago.contracts.protocols import (
     AsyncCloseable,
     AsyncFileReader,
     AsyncFileWriter,

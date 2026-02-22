@@ -6,8 +6,8 @@
 import json
 from pathlib import Path
 
-from python_template.utils import decorator_utils
-from python_template.utils.json_utils import (
+from ideago.utils import decorator_utils
+from ideago.utils.json_utils import (
     merge_json_files,
     read_json,
     safe_json_dumps,

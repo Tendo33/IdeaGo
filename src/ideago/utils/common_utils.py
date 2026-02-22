@@ -7,7 +7,7 @@ import asyncio
 from collections.abc import Callable, Coroutine, Generator
 from typing import Any, TypeVar
 
-from python_template.observability.log_config import get_logger
+from ideago.observability.log_config import get_logger
 
 from .decorator_utils import _async_retry_impl, _sync_retry_impl
 

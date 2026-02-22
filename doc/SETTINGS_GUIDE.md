@@ -16,7 +16,7 @@ cp .env.example .env
 
 ### 2. 使用配置
 ```python
-from python_template.config.settings import get_settings
+from ideago.config.settings import get_settings
 
 settings = get_settings()
 print(f"Env: {settings.environment}")

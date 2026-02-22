@@ -5,8 +5,8 @@
 
 from datetime import datetime, timedelta, timezone
 
-import python_template.utils.date_utils as date_utils_module
-from python_template.utils.date_utils import (
+import ideago.utils.date_utils as date_utils_module
+from ideago.utils.date_utils import (
     add_days,
     add_hours,
     add_minutes,

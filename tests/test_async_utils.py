@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from python_template.utils.common_utils import (
+from ideago.utils.common_utils import (
     async_batch_process,
     async_batch_process_concurrent,
     async_retry_on_exception,
 )
-from python_template.utils.file_utils import (
+from ideago.utils.file_utils import (
     async_calculate_file_hash,
     async_copy_file,
     async_delete_file,
@@ -23,7 +23,7 @@ from python_template.utils.file_utils import (
     async_read_text_file,
     async_write_text_file,
 )
-from python_template.utils.json_utils import (
+from ideago.utils.json_utils import (
     async_load_json_batch,
     async_merge_json_files,
     async_read_json,

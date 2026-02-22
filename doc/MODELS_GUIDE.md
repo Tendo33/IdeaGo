@@ -1,6 +1,6 @@
 # Pydantic Models 使用指南 (Models Usage Guide)
 
-本文档介绍如何在 `python_template` 项目中使用 Pydantic BaseModel 定义和管理数据模型。
+本文档介绍如何在 `ideago` 项目中使用 Pydantic BaseModel 定义和管理数据模型。
 
 ## 📌 核心原则
 
@@ -14,7 +14,7 @@
 ## 🏗️ Models 目录结构
 
 ```
-src/python_template/models/
+src/ideago/models/
 ├── __init__.py        # 导出所有公开模型
 ├── base.py            # 基础模型和 Mixins
 └── examples.py        # 示例模型实现
@@ -68,7 +68,7 @@ __all__ = [
 
 ```python
 from pydantic import Field
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class Product(BaseModel):
     """产品模型 / Product model."""
@@ -87,7 +87,7 @@ class Product(BaseModel):
 ### 使用 Mixins
 
 ```python
-from python_template.models import BaseModel, TimestampMixin
+from ideago.models import BaseModel, TimestampMixin
 
 class Article(TimestampMixin):
     """文章模型,自动包含 created_at 和 updated_at 字段"""
@@ -103,7 +103,7 @@ class Article(TimestampMixin):
 
 ```python
 from pydantic import Field
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class User(BaseModel):
     username: str = Field(
@@ -123,7 +123,7 @@ class User(BaseModel):
 
 ```python
 from pydantic import field_validator
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class User(BaseModel):
     username: str
@@ -152,7 +152,7 @@ class User(BaseModel):
 
 ```python
 from pydantic import model_validator
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class DateRange(BaseModel):
     start_date: datetime
@@ -170,7 +170,7 @@ class DateRange(BaseModel):
 
 ```python
 from typing import Generic, TypeVar, List, Optional
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 T = TypeVar("T")
 
@@ -194,7 +194,7 @@ user_response: Response[User] = Response(
 ### 1. 创建实例
 
 ```python
-from python_template.models import User
+from ideago.models import User
 
 # 直接传参
 user = User(
@@ -259,7 +259,7 @@ user.email = "newemail@example.com"
 
 ```python
 from pydantic import Field
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class Good(BaseModel):
     """良好的模型定义"""
@@ -310,7 +310,7 @@ class User(BaseModel):
 ### 5. 实现辅助方法
 
 ```python
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class User(BaseModel):
     first_name: str
@@ -335,15 +335,15 @@ class User(BaseModel):
 
 ```python
 # ❌ 错误:不要在 utils 中定义数据模型
-# src/python_template/utils/my_utils.py
+# src/ideago/utils/my_utils.py
 class UserData:  # 错误!
     def __init__(self, name: str, email: str):
         self.name = name
         self.email = email
 
 # ✅ 正确:在 models 中定义
-# src/python_template/models/user.py
-from python_template.models import BaseModel
+# src/ideago/models/user.py
+from ideago.models import BaseModel
 
 class UserData(BaseModel):
     name: str
@@ -354,7 +354,7 @@ class UserData(BaseModel):
 
 ```python
 # ❌ 错误:使用 v1 语法
-from python_template.models import BaseModel
+from ideago.models import BaseModel
 
 class User(BaseModel):
     name: str
@@ -394,7 +394,7 @@ except ValidationError as e:
 ### 1. 模型继承
 
 ```python
-from python_template.models import BaseModel, TimestampMixin
+from ideago.models import BaseModel, TimestampMixin
 
 class BaseUser(TimestampMixin):
     """基础用户模型"""

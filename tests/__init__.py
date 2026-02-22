@@ -1,4 +1,4 @@
-"""Test package for python-template.
+"""Test package for ideago.
 
-This package contains all test modules for the python-template project.
+This package contains all test modules for the ideago project.
 """

@@ -9,7 +9,7 @@
     python scripts/rename_package.py my_awesome_project
 
 此脚本会自动完成以下操作:
-    1. 重命名 src/python_template 目录为 src/<新包名>
+    1. 重命名 src/ideago 目录为 src/<新包名>
     2. 更新 pyproject.toml 中的所有包名引用
     3. 更新 README.md 中的所有包名引用
     4. 更新所有 Python 文件中的导入语句
@@ -28,8 +28,8 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # 旧包名
-OLD_PACKAGE_NAME = "python_template"
-OLD_PROJECT_NAME = "python-template"
+OLD_PACKAGE_NAME = "ideago"
+OLD_PROJECT_NAME = "ideago"
 
 
 def get_project_root() -> Path:

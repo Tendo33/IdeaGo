@@ -6,7 +6,7 @@
 import traceback
 from datetime import datetime, timedelta, timezone
 
-from python_template.observability.log_config import get_logger
+from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
 

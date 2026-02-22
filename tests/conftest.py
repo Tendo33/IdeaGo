@@ -1,4 +1,4 @@
-"""Pytest configuration and fixtures for python-template tests.
+"""Pytest configuration and fixtures for ideago tests.
 
 提供测试所需的通用 fixtures 和配置。
 """

@@ -45,8 +45,8 @@ def setup_logging(
 
     # 如果未指定日志文件，则使用默认路径
     if log_file is None:
-        # 获取项目根目录 (假设当前文件在 src/python_template/observability/log_config.py)
-        # 向上回溯4级: observability -> python_template -> src -> python-template (root)
+        # 获取项目根目录 (假设当前文件在 src/ideago/observability/log_config.py)
+        # 向上回溯4级: observability -> ideago -> src -> ideago (root)
         project_root = Path(__file__).resolve().parents[3]
         log_dir = project_root / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -186,7 +186,7 @@ def get_default_logger():
         默认日志器实例
     """
     _ensure_logging_initialized()
-    return get_logger("python_template")
+    return get_logger("ideago")
 
 
 # 便捷的日志函数

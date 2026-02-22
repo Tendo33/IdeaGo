@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Version update script for python-template project.
+"""Version update script for ideago project.
 
 This script updates the version number across all relevant files in the project:
 - pyproject.toml
-- src/python_template/__init__.py
+- src/ideago/__init__.py
 
 该脚本用于更新项目中所有相关文件的版本号。
 
@@ -54,7 +54,7 @@ class VersionUpdater:
                 replacement='version = "{version}"',
             ),
             VersionTarget(
-                path=project_root / "src" / "python_template" / "__init__.py",
+                path=project_root / "src" / "ideago" / "__init__.py",
                 pattern=r'^__version__ = "([^"]+)"',
                 replacement='__version__ = "{version}"',
             ),

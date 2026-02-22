@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from python_template.utils.common_utils import (
+from ideago.utils.common_utils import (
     batch_process,
     chunk_list,
     clamp,
@@ -414,4 +414,4 @@ class TestRetryOnException:
 def test_common_utils_does_not_reexport_settings_api() -> None:
     """common_utils should not re-export Settings accessors."""
     with pytest.raises(ImportError):
-        exec("from python_template.utils.common_utils import get_settings")
+        exec("from ideago.utils.common_utils import get_settings")

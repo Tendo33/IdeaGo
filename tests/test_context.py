@@ -5,7 +5,7 @@
 
 import pytest
 
-from python_template.core.context import (
+from ideago.core.context import (
     Context,
     ContextManager,
     async_context_scope,

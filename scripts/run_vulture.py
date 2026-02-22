@@ -72,7 +72,7 @@ Examples:
     python scripts/run_vulture.py
     python scripts/run_vulture.py --min-confidence 80
     python scripts/run_vulture.py --sort-by-size
-    python scripts/run_vulture.py src/python_template tests
+    python scripts/run_vulture.py src/ideago tests
         """,
     )
     parser.add_argument(

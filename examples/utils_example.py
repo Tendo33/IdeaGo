@@ -3,8 +3,8 @@
 演示如何使用 utils 包中的各种工具函数。
 """
 
-import python_template.utils as utils
-from python_template.utils import (
+import ideago.utils as utils
+from ideago.utils import (
     ContextTimer,
     get_logger,
     read_json,
@@ -194,7 +194,7 @@ def main():
 
 if __name__ == "__main__":
     # 设置日志
-    from python_template.utils import setup_logging
+    from ideago.utils import setup_logging
 
     setup_logging(level="INFO")
 

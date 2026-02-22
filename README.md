@@ -54,7 +54,7 @@ uv run pytest
 ### 1) 复制模板仓库
 
 ```bash
-git clone https://github.com/Tendo33/python-template.git my-new-project
+git clone https://github.com/Tendo33/ideago.git my-new-project
 cd my-new-project
 ```
 
@@ -101,17 +101,17 @@ python scripts/setup_pre_commit.py
 ### Canonical 导入（推荐）
 
 ```python
-from python_template.config.settings import get_settings
-from python_template.observability.log_config import get_logger, setup_logging
-from python_template.utils import read_json, read_text_file, write_json, write_text_file
+from ideago.config.settings import get_settings
+from ideago.observability.log_config import get_logger, setup_logging
+from ideago.utils import read_json, read_text_file, write_json, write_text_file
 ```
 
 ### 高级能力请从子模块导入
 
 ```python
-from python_template.utils.decorator_utils import retry_decorator
-from python_template.utils.common_utils import chunk_list
-from python_template.core.context import Context
+from ideago.utils.decorator_utils import retry_decorator
+from ideago.utils.common_utils import chunk_list
+from ideago.core.context import Context
 ```
 
 ## 常用示例
@@ -119,7 +119,7 @@ from python_template.core.context import Context
 ### 日志
 
 ```python
-from python_template.observability.log_config import get_logger, setup_logging
+from ideago.observability.log_config import get_logger, setup_logging
 
 setup_logging(level="INFO", log_file="logs/app.log")
 logger = get_logger(__name__)
@@ -129,7 +129,7 @@ logger.info("service started")
 ### 配置
 
 ```python
-from python_template.config.settings import get_settings
+from ideago.config.settings import get_settings
 
 settings = get_settings()
 print(settings.environment)
@@ -139,7 +139,7 @@ print(settings.log_level)
 ### 文件与 JSON
 
 ```python
-from python_template.utils import read_json, write_json, read_text_file, write_text_file
+from ideago.utils import read_json, write_json, read_text_file, write_text_file
 
 write_text_file("hello", "data/hello.txt")
 content = read_text_file("data/hello.txt")
@@ -151,8 +151,8 @@ config = read_json("data/config.json", default={})
 ## 项目结构
 
 ```text
-python-template/
-├── src/python_template/
+ideago/
+├── src/ideago/
 │   ├── config/
 │   ├── contracts/
 │   ├── core/
@@ -176,7 +176,7 @@ python-template/
 
 ## Release 自动发布
 
-- 推送 tag（如 `v0.3.0`）会触发 `/Users/simonsun/github_project/python-template/.github/workflows/release.yml`。
+- 推送 tag（如 `v0.3.0`）会触发 `/Users/simonsun/github_project/ideago/.github/workflows/release.yml`。
 - Workflow 会生成 release notes，并执行“存在则更新，不存在则创建”。
 - 模型相关配置统一走 CI 环境变量（如 `OPENAI_API_KEY`、`RELEASE_NOTES_MODEL`、`OPENAI_BASE_URL`）。
 - 若未配置模型密钥或模型调用失败，会自动回退到 deterministic 的非模型说明，不会阻塞发布。

@@ -14,8 +14,8 @@ from typing import cast
 
 import aiofiles
 
-from python_template.observability.log_config import get_logger
-from python_template.utils.decorator_utils import timing
+from ideago.observability.log_config import get_logger
+from ideago.utils.decorator_utils import timing
 
 logger = get_logger(__name__)
 
