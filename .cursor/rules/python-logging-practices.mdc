@@ -1,0 +1,17 @@
+---
+description: Structured logging practices using loguru with proper configuration and formatting.
+globs: **/logger_util.py, **/logging*.py
+---
+- Use loguru for all logging needs; avoid standard library logging.
+- Configure logging once at application startup using setup_logging().
+- Support log rotation, retention, and compression in configuration.
+- Use structured logging with context data: logger.bind(user_id=...).info(...).
+- Implement different log levels appropriately (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+- Configure separate log files for different environments or severity levels.
+- Use logger.opt(exception=True) to log full stack traces.
+- Provide get_logger() factory function that returns configured logger.
+- Add serialization for custom objects in log messages.
+- Use log_calls decorator for automatic function call logging.
+- Configure JSON formatting for production logs if needed.
+- Never log sensitive information (passwords, tokens, PII).
+- Use lazy evaluation for expensive log message formatting.

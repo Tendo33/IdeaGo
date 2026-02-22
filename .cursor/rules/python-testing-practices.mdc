@@ -1,0 +1,18 @@
+---
+description: Testing best practices using pytest with comprehensive coverage and proper test organization.
+globs: **/tests/**/*.py, **/test_*.py
+---
+- Use pytest as the testing framework for all tests.
+- Organize tests to mirror source code structure (e.g., test_date_utils.py for date_utils.py).
+- Use descriptive test function names that explain what is being tested (e.g., test_format_datetime_with_custom_format).
+- Follow Arrange-Act-Assert (AAA) pattern in test functions.
+- Use pytest fixtures in conftest.py for shared test data and setup.
+- Mark tests appropriately (@pytest.mark.slow, @pytest.mark.integration, @pytest.mark.unit).
+- Aim for high test coverage (>80%) but prioritize meaningful tests over coverage metrics.
+- Use parametrize for testing multiple input scenarios efficiently.
+- Mock external dependencies using pytest-mock or unittest.mock.
+- Test both happy paths and edge cases (empty inputs, None values, invalid data).
+- Use tmp_path fixture for file system tests.
+- Test error handling with pytest.raises().
+- Keep tests isolated and independent; avoid test interdependencies.
+- Run tests with coverage: pytest --cov=python_template --cov-report=html.

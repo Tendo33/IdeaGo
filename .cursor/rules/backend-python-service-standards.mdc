@@ -1,0 +1,13 @@
+---
+description: Backend service/API standards for Python projects using typed models, clear layering, and reliable verification.
+globs: src/**/*.py, tests/**/*.py
+---
+- For backend API/service work, follow `doc/BACKEND_STANDARDS.md`.
+- Use layered boundaries: API -> service -> repository -> domain.
+- Keep route handlers thin; place business logic in service layer.
+- Use Pydantic v2 models for request/response and validation.
+- Keep persistence logic in repository layer and use explicit transaction boundaries.
+- Handle errors explicitly and return structured, stable error payloads.
+- Avoid logging secrets, tokens, passwords, or sensitive personal data.
+- Add or update tests for new behavior and bug fixes.
+- Run `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest` before completion.

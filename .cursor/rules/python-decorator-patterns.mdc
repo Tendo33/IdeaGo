@@ -1,0 +1,19 @@
+---
+description: Best practices for creating and using decorators for cross-cutting concerns like timing, retry logic, and logging.
+globs: **/decorator_utils.py, **/decorators.py
+---
+- Use functools.wraps to preserve function metadata in decorators.
+- Create generic, reusable decorators that work with any function signature.
+- Use *args and **kwargs to support flexible function signatures.
+- Provide configurable decorators with default parameters.
+- Implement timing_decorator for performance monitoring.
+- Create retry_decorator with exponential backoff for transient failures.
+- Build log_calls decorator for automatic function call logging.
+- Support both synchronous and asynchronous functions in decorators.
+- Handle exceptions properly within decorators; don't swallow errors silently.
+- Use type hints in decorator signatures for better IDE support.
+- Document decorator parameters and behavior in docstrings.
+- Keep decorators focused on single concerns (timing, logging, retry, etc.).
+- Make decorators stackable and composable.
+- Consider performance impact; avoid expensive operations in decorators.
+- Test decorators independently with various function types.

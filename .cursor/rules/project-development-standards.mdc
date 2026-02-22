@@ -1,0 +1,10 @@
+---
+description: Project-wide engineering contract across backend and frontend work.
+globs: **/*
+---
+- Follow `doc/AI_TOOLING_STANDARDS.md` for workflow and quality gates.
+- Follow `doc/BACKEND_STANDARDS.md` when implementing backend API/service behavior.
+- Plan first, implement minimal changes, and verify before completion.
+- Backend default: Python 3.10+, uv, ruff, pytest.
+- Keep functions typed, explicit, and testable.
+- Handle failures explicitly; avoid silent exception swallowing.

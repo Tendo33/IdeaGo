@@ -1,0 +1,17 @@
+---
+description: Comprehensive error handling patterns with custom exceptions and proper error propagation.
+globs: **/*.py
+---
+- Always handle expected errors explicitly with try-except blocks.
+- Create custom exception classes for domain-specific errors.
+- Use meaningful exception messages with context about what failed.
+- Never use bare except: clauses; always specify exception types.
+- Log errors with full context using logger.exception() or logger.opt(exception=True).
+- Re-raise exceptions after logging when appropriate.
+- Use contextlib.suppress() for acceptable ignored exceptions.
+- Implement retry logic using @retry_decorator for transient failures.
+- Validate inputs early and raise ValueError/TypeError for invalid inputs.
+- Use assertions only for internal invariants, not for user input validation.
+- Clean up resources properly using context managers or try-finally blocks.
+- Document exceptions that functions may raise in docstrings.
+- Return Optional[T] or Result types instead of raising exceptions for expected failures.

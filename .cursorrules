@@ -1,0 +1,13 @@
+Use `.cursor/rules/*.mdc` as the primary rule source for this repository.
+
+Core defaults:
+- Backend: Python + uv + ruff + pytest
+- Frontend: React + TypeScript + Vite + Tailwind
+- Workflow: plan -> implement minimal changes -> verify -> report
+
+For backend API/service tasks, follow:
+- `doc/BACKEND_STANDARDS.md`
+- `.cursor/rules/backend-python-service-standards.mdc`
+
+For UI and UX tasks, first run:
+`python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system -p "<project-name>"`

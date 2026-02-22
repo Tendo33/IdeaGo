@@ -1,0 +1,19 @@
+---
+description: Performance optimization patterns for utility functions including caching, lazy evaluation, and async operations.
+globs: **/utils/**/*.py
+---
+- Use @lru_cache for expensive pure functions that are called repeatedly.
+- Implement lazy evaluation for costly operations that may not always be needed.
+- Use generators and iterators for processing large datasets to save memory.
+- Prefer list comprehensions over map/filter for simple transformations.
+- Use async def for I/O-bound operations (file I/O, network calls).
+- Avoid premature optimization; profile first with cProfile or py-spy.
+- Cache compiled regex patterns at module level.
+- Use appropriate data structures (set for membership tests, dict for lookups).
+- Minimize function call overhead in hot paths.
+- Use str.join() instead of repeated string concatenation.
+- Read files in binary mode when text encoding is not needed.
+- Use pathlib.Path for file operations (more efficient than os.path).
+- Batch operations when possible to reduce overhead.
+- Consider using slots for frequently instantiated classes to reduce memory.
+- Use context managers to ensure proper resource cleanup.
