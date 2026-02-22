@@ -10,11 +10,12 @@ import hashlib
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
+    get_cache,
     get_orchestrator,
     get_processing_reports,
     get_report_queue,
@@ -38,14 +39,18 @@ class _QueueCallback:
 
 async def _run_pipeline(query: str, report_id: str) -> None:
     """Background task: run the pipeline and push events to the queue."""
+    cache = get_cache()
     queue = get_report_queue(report_id)
     callback = _QueueCallback(queue)
+    await cache.put_status(report_id, "processing", query)
     try:
         orchestrator = get_orchestrator()
         report = await orchestrator.run(query, callback=callback, report_id=report_id)
         logger.info("Pipeline completed for report {}", report.id)
+        await cache.put_status(report_id, "complete", query)
     except Exception as exc:
         logger.exception("Pipeline failed for report {}", report_id)
+        await cache.put_status(report_id, "failed", query)
         await queue.put(
             PipelineEvent(
                 type=EventType.ERROR,
@@ -102,3 +107,29 @@ async def stream_progress(report_id: str) -> EventSourceResponse:
             remove_report_queue(report_id)
 
     return EventSourceResponse(event_generator())
+
+
+@router.delete("/reports/{report_id}/cancel")
+async def cancel_analysis(report_id: str) -> dict:
+    """Cancel an in-progress analysis by pushing an error event to the SSE queue."""
+    processing = get_processing_reports()
+    if report_id not in processing.values():
+        raise HTTPException(
+            status_code=404, detail="No active analysis found for this report"
+        )
+
+    queue = get_report_queue(report_id)
+    await queue.put(
+        PipelineEvent(
+            type=EventType.ERROR,
+            stage="pipeline",
+            message="Analysis cancelled by user",
+        )
+    )
+
+    keys_to_remove = [k for k, v in processing.items() if v == report_id]
+    for k in keys_to_remove:
+        processing.pop(k, None)
+
+    logger.info("Analysis cancelled for report {}", report_id)
+    return {"status": "cancelled"}

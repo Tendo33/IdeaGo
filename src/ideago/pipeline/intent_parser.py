@@ -10,6 +10,7 @@ from loguru import logger
 from ideago.llm.client import LLMClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Intent
+from ideago.pipeline.exceptions import IntentParsingError
 
 
 class IntentParser:
@@ -27,12 +28,17 @@ class IntentParser:
         Returns:
             Structured Intent with keywords, app_type, and search queries.
         """
-        prompt = load_prompt("intent_parser", query=query)
-        data = await self._llm.complete_json(
-            prompt,
-            system="You are a startup research assistant. Return only valid JSON.",
-        )
-        logger.debug("Intent parser LLM response: {}", data)
-        intent = Intent.model_validate(data)
-        intent.cache_key = intent.compute_cache_key()
-        return intent
+        try:
+            prompt = load_prompt("intent_parser", query=query)
+            data = await self._llm.complete_json(
+                prompt,
+                system="You are a startup research assistant. Return only valid JSON.",
+            )
+            logger.debug("Intent parser LLM response: {}", data)
+            intent = Intent.model_validate(data)
+            intent.cache_key = intent.compute_cache_key()
+            return intent
+        except IntentParsingError:
+            raise
+        except Exception as exc:
+            raise IntentParsingError(f"Failed to parse intent: {exc}") from exc

@@ -42,11 +42,13 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def rate_limit_analyze(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
-        """Simple in-memory rate limiter for the /analyze endpoint."""
+        """In-memory rate limiter for /analyze, keyed by (IP, session)."""
         if request.method == "POST" and request.url.path.endswith("/analyze"):
             client_ip = request.client.host if request.client else "unknown"
+            session_id = request.headers.get("X-Session-Id", "")
+            rate_key = f"{client_ip}:{session_id}" if session_id else client_ip
             now = time.monotonic()
-            timestamps = _rate_limit_store[client_ip]
+            timestamps = _rate_limit_store[rate_key]
             timestamps[:] = [t for t in timestamps if now - t < _RATE_LIMIT_WINDOW]
             if len(timestamps) >= _RATE_LIMIT_MAX:
                 return JSONResponse(

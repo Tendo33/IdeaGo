@@ -46,6 +46,13 @@ async def get_report(report_id: str) -> dict | JSONResponse:
             content={"status": "processing", "report_id": report_id},
         )
 
+    status = await cache.get_status(report_id)
+    if status and status.get("status") == "processing":
+        return JSONResponse(
+            status_code=202,
+            content={"status": "processing", "report_id": report_id},
+        )
+
     raise HTTPException(status_code=404, detail="Report not found")
 
 

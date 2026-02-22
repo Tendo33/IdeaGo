@@ -140,6 +140,42 @@ class FileCache:
             return True
         return False
 
+    async def put_status(self, report_id: str, status: str, query: str = "") -> None:
+        """Write a lightweight status file for a pipeline run."""
+        await asyncio.to_thread(self._put_status_sync, report_id, status, query)
+
+    def _put_status_sync(self, report_id: str, status: str, query: str) -> None:
+        status_path = self._dir / f"{report_id}.status.json"
+        data = {
+            "report_id": report_id,
+            "status": status,
+            "query": query,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        status_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    async def get_status(self, report_id: str) -> dict | None:
+        """Read a pipeline status file. Returns None if not found."""
+        return await asyncio.to_thread(self._get_status_sync, report_id)
+
+    def _get_status_sync(self, report_id: str) -> dict | None:
+        status_path = self._dir / f"{report_id}.status.json"
+        if not status_path.exists():
+            return None
+        try:
+            return json.loads(status_path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+
+    async def remove_status(self, report_id: str) -> None:
+        """Remove a pipeline status file."""
+        await asyncio.to_thread(self._remove_status_sync, report_id)
+
+    def _remove_status_sync(self, report_id: str) -> None:
+        status_path = self._dir / f"{report_id}.status.json"
+        if status_path.exists():
+            status_path.unlink()
+
     async def cleanup_expired(self) -> int:
         """Remove all expired cache entries. Returns count of removed entries."""
         return await asyncio.to_thread(self._cleanup_expired_sync)

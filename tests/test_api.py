@@ -50,6 +50,24 @@ def test_analyze_endpoint_validates_short_query(client) -> None:
     assert response.status_code == 422
 
 
+def test_analyze_endpoint_rejects_garbage_query(client) -> None:
+    response = client.post("/api/v1/analyze", json={"query": "12345 67890 !!!"})
+    assert response.status_code == 422
+
+
+def test_analyze_endpoint_normalizes_whitespace(client) -> None:
+    response = client.post(
+        "/api/v1/analyze",
+        json={"query": "I  want   to  build   a   markdown   notes   tool"},
+    )
+    assert response.status_code == 200
+
+
+def test_cancel_analysis_not_found(client) -> None:
+    response = client.delete("/api/v1/reports/nonexistent-id/cancel")
+    assert response.status_code == 404
+
+
 def _make_test_report() -> ResearchReport:
     intent = Intent(
         keywords_en=["test"],
@@ -98,6 +116,7 @@ def test_get_report_found(client, tmp_path) -> None:
 def test_get_report_not_found(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
     mock_cache.get_by_id = AsyncMock(return_value=None)
+    mock_cache.get_status = AsyncMock(return_value=None)
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
         response = client.get("/api/v1/reports/nonexistent-id")

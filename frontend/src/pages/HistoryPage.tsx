@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search } from 'lucide-react'
 import { listReports, deleteReport } from '../api/client'
 import { ReportCardSkeleton } from '../components/Skeleton'
 import type { ReportListItem } from '../types/research'
@@ -10,6 +10,13 @@ export function HistoryPage() {
   const [reports, setReports] = useState<ReportListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return reports
+    const q = searchQuery.toLowerCase()
+    return reports.filter(r => r.query.toLowerCase().includes(q))
+  }, [reports, searchQuery])
 
   const fetchReports = async () => {
     setError(null)
@@ -47,9 +54,23 @@ export function HistoryPage() {
           Back to search
         </Link>
 
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text mb-6">
-          Research History
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text">
+            Research History
+          </h1>
+          {reports.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Filter reports..."
+                className="pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-bg-card text-text placeholder-text-dim transition-colors duration-200 focus:outline-none focus:border-cta focus:ring-2 focus:ring-cta/20 w-full sm:w-56"
+              />
+            </div>
+          )}
+        </div>
 
         {error && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 border border-danger/30 mb-4">
@@ -79,9 +100,9 @@ export function HistoryPage() {
           </div>
         )}
 
-        {reports.length > 0 && (
+        {filtered.length > 0 && (
           <div className="space-y-2">
-            {reports.map(report => (
+            {filtered.map(report => (
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
@@ -115,6 +136,10 @@ export function HistoryPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {!loading && reports.length > 0 && filtered.length === 0 && searchQuery.trim() && (
+          <p className="text-center text-sm text-text-dim py-8">No reports match &ldquo;{searchQuery}&rdquo;</p>
         )}
       </div>
     </div>

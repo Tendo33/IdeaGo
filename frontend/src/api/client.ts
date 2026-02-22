@@ -29,6 +29,11 @@ export async function deleteReport(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to delete report: ${res.status}`)
 }
 
+export async function cancelAnalysis(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Failed to cancel analysis: ${res.status}`)
+}
+
 export function getExportUrl(id: string): string {
   return `${API_BASE}/reports/${id}/export`
 }

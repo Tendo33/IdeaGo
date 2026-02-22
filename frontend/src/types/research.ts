@@ -51,6 +51,8 @@ export interface Intent {
   target_scenario: string
 }
 
+export type RecommendationType = 'go' | 'caution' | 'no_go'
+
 export interface ResearchReport {
   id: string
   query: string
@@ -59,6 +61,7 @@ export interface ResearchReport {
   competitors: Competitor[]
   market_summary: string
   go_no_go: string
+  recommendation_type: RecommendationType
   differentiation_angles: string[]
   created_at: string
 }

@@ -119,6 +119,14 @@ class Competitor(BaseModel):
     )
 
 
+class RecommendationType(str, Enum):
+    """Structured recommendation type / 结构化推荐类型。"""
+
+    GO = "go"
+    CAUTION = "caution"
+    NO_GO = "no_go"
+
+
 class SourceStatus(str, Enum):
     """Status of a data source query / 数据源查询状态。"""
 
@@ -169,6 +177,10 @@ class ResearchReport(TimestampMixin):
     go_no_go: str = Field(
         default="",
         description="Go/No-Go recommendation with reasoning / 推荐建议",
+    )
+    recommendation_type: RecommendationType = Field(
+        default=RecommendationType.GO,
+        description="Structured recommendation: go / caution / no_go",
     )
     differentiation_angles: list[str] = Field(
         default_factory=list,

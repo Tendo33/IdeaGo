@@ -70,19 +70,20 @@ function NotFound() {
 
 function NavBar() {
   return (
-    <nav className="fixed top-4 left-4 right-4 z-50 flex items-center justify-between px-5 py-3 rounded-xl bg-bg-card/80 backdrop-blur-md border border-border">
+    <nav className="fixed top-4 left-4 right-4 z-50 flex items-center justify-between px-4 sm:px-5 py-3 rounded-xl bg-bg-card/80 backdrop-blur-md border border-border no-print">
       <Link
         to="/"
-        className="text-lg font-bold font-[family-name:var(--font-heading)] text-text cursor-pointer hover:text-cta transition-colors duration-200"
+        className="text-lg font-bold font-[family-name:var(--font-heading)] text-text cursor-pointer hover:text-cta transition-colors duration-200 min-h-[44px] flex items-center"
       >
         Idea<span className="text-cta">Go</span>
       </Link>
       <Link
         to="/reports"
-        className="flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 cursor-pointer"
+        className="flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 cursor-pointer min-h-[44px] min-w-[44px] justify-center"
+        aria-label="History"
       >
-        <History className="w-4 h-4" />
-        History
+        <History className="w-5 h-5 sm:w-4 sm:h-4" />
+        <span className="hidden sm:inline">History</span>
       </Link>
     </nav>
   )

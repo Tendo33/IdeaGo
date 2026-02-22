@@ -127,3 +127,35 @@ async def test_cache_overwrites_same_cache_key(tmp_path) -> None:
     reports = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "second query"
+
+
+# --- Pipeline status ---
+
+
+@pytest.mark.asyncio
+async def test_cache_put_and_get_status(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    await cache.put_status("report-1", "processing", "my test query")
+
+    status = await cache.get_status("report-1")
+    assert status is not None
+    assert status["status"] == "processing"
+    assert status["query"] == "my test query"
+    assert status["report_id"] == "report-1"
+
+
+@pytest.mark.asyncio
+async def test_cache_get_status_missing(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    status = await cache.get_status("nonexistent")
+    assert status is None
+
+
+@pytest.mark.asyncio
+async def test_cache_remove_status(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    await cache.put_status("report-1", "processing")
+    await cache.remove_status("report-1")
+
+    status = await cache.get_status("report-1")
+    assert status is None

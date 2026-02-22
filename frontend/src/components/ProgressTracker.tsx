@@ -1,4 +1,5 @@
-import { Check, Loader2, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Check, Loader2, X, WifiOff, Clock } from 'lucide-react'
 import type { PipelineEvent } from '../types/research'
 
 interface Stage {
@@ -85,13 +86,40 @@ function StageIcon({ status }: { status: Stage['status'] }) {
 
 interface ProgressTrackerProps {
   events: PipelineEvent[]
+  isReconnecting?: boolean
 }
 
-export function ProgressTracker({ events }: ProgressTrackerProps) {
+function useElapsed() {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return elapsed
+}
+
+export function ProgressTracker({ events, isReconnecting = false }: ProgressTrackerProps) {
   const stages = deriveStages(events)
+  const elapsed = useElapsed()
+  const isDone = stages.at(-1)?.status === 'done' || stages.at(-1)?.status === 'failed'
 
   return (
     <div className="w-full max-w-lg mx-auto py-8">
+      {!isDone && (
+        <div className="flex items-center justify-between mb-5 px-1">
+          <p className="text-xs text-text-dim flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Elapsed: {elapsed}s
+          </p>
+          <p className="text-xs text-text-dim">Usually takes 20–30 seconds</p>
+        </div>
+      )}
+      {isReconnecting && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning">
+          <WifiOff className="w-3.5 h-3.5 shrink-0" />
+          Reconnecting to server...
+        </div>
+      )}
       <div className="space-y-1">
         {stages.map((stage, i) => (
           <div key={stage.id} className="flex items-start gap-4">

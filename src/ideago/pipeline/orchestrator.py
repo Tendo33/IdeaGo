@@ -22,6 +22,11 @@ from ideago.models.research import (
 )
 from ideago.pipeline.aggregator import Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
+from ideago.pipeline.exceptions import (
+    AggregationError,
+    ExtractionError,
+    IntentParsingError,
+)
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.sources.registry import SourceRegistry
@@ -55,6 +60,7 @@ class Orchestrator:
         source_timeout: int = 30,
         extraction_timeout: int = 60,
         max_results_per_source: int = 10,
+        max_concurrent_llm: int = 3,
     ) -> None:
         self._intent_parser = intent_parser
         self._extractor = extractor
@@ -64,6 +70,7 @@ class Orchestrator:
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
         self._max_results = max_results_per_source
+        self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
 
     async def run(
         self,
@@ -90,7 +97,7 @@ class Orchestrator:
         )
         try:
             intent = await self._intent_parser.parse(query)
-        except Exception:
+        except IntentParsingError:
             logger.exception("Intent parsing failed")
             await _emit(
                 callback,
@@ -221,10 +228,11 @@ class Orchestrator:
                 f"Extracting insights from {platform_name}...",
             )
             try:
-                competitors = await asyncio.wait_for(
-                    self._extractor.extract(raw_results, query),
-                    timeout=self._extraction_timeout,
-                )
+                async with self._llm_semaphore:
+                    competitors = await asyncio.wait_for(
+                        self._extractor.extract(raw_results, query),
+                        timeout=self._extraction_timeout,
+                    )
                 await _emit(
                     callback,
                     EventType.EXTRACTION_COMPLETED,
@@ -233,7 +241,7 @@ class Orchestrator:
                     {"platform": platform_name, "count": len(competitors)},
                 )
                 return platform_name, competitors
-            except Exception as exc:
+            except (ExtractionError, asyncio.TimeoutError) as exc:
                 logger.warning(
                     "Extraction failed for {}: {}, degrading to raw results",
                     platform_name,
@@ -272,11 +280,12 @@ class Orchestrator:
             "Analyzing and deduplicating...",
         )
         try:
-            agg_result = await asyncio.wait_for(
-                self._aggregator.aggregate(all_competitors, query),
-                timeout=self._extraction_timeout,
-            )
-        except Exception as exc:
+            async with self._llm_semaphore:
+                agg_result = await asyncio.wait_for(
+                    self._aggregator.aggregate(all_competitors, query),
+                    timeout=self._extraction_timeout,
+                )
+        except (AggregationError, asyncio.TimeoutError) as exc:
             logger.warning("Aggregation failed: {}, using raw competitors", exc)
             from ideago.pipeline.aggregator import AggregationResult
 
@@ -302,6 +311,7 @@ class Orchestrator:
             competitors=agg_result.competitors,
             market_summary=agg_result.market_summary,
             go_no_go=agg_result.go_no_go,
+            recommendation_type=agg_result.recommendation_type,
             differentiation_angles=agg_result.differentiation_angles,
         )
         if report_id:

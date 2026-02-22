@@ -17,6 +17,7 @@ from ideago.models.research import (
 )
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
+from ideago.pipeline.exceptions import ExtractionError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.orchestrator import Orchestrator
@@ -104,7 +105,7 @@ def _build_orchestrator(
 
     extractor = MagicMock(spec=Extractor)
     if extraction_fails:
-        extractor.extract = AsyncMock(side_effect=RuntimeError("LLM failed"))
+        extractor.extract = AsyncMock(side_effect=ExtractionError("LLM failed"))
     else:
         extractor.extract = AsyncMock(return_value=[MOCK_COMPETITOR])
 

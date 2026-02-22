@@ -20,8 +20,9 @@ You are a market research analyst. Your task is to deduplicate, merge, and analy
    - How crowded is this space?
    - What's the dominant approach/solution?
    - Are there clear gaps or underserved segments?
-4. Provide a go_no_go recommendation: "Go", "Go with caution", or "No-Go", with 2-3 sentences of reasoning based on the data.
-5. List 3-5 differentiation_angles — specific gaps or weaknesses in existing competitors that the user could exploit.
+4. Provide a go_no_go recommendation with 2-3 sentences of reasoning based on the data.
+5. Set recommendation_type to exactly one of: "go", "caution", or "no_go".
+6. List 3-5 differentiation_angles — specific gaps or weaknesses in existing competitors that the user could exploit.
 
 ## Output Format
 {
@@ -40,6 +41,7 @@ You are a market research analyst. Your task is to deduplicate, merge, and analy
     }
   ],
   "market_summary": "2-3 paragraphs of market analysis...",
+  "recommendation_type": "go" | "caution" | "no_go",
   "go_no_go": "Go with caution — reasoning...",
   "differentiation_angles": ["angle1", "angle2", "angle3"]
 }

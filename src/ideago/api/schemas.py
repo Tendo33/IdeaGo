@@ -5,9 +5,10 @@ API 请求/响应模型。
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ideago.models.base import BaseModel
 
@@ -20,6 +21,18 @@ class AnalyzeRequest(BaseModel):
         max_length=1000,
         description="Natural language startup idea description",
     )
+
+    @field_validator("query")
+    @classmethod
+    def sanitize_query(cls, v: str) -> str:
+        """Collapse whitespace and reject garbage input."""
+        v = re.sub(r"\s+", " ", v).strip()
+        if len(v) < 5:
+            raise ValueError("Query too short after whitespace normalization")
+        alpha_count = sum(1 for c in v if c.isalpha())
+        if len(v) > 0 and alpha_count / len(v) < 0.4:
+            raise ValueError("Query must contain mostly alphabetic characters")
+        return v
 
 
 class AnalyzeResponse(BaseModel):

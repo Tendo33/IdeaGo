@@ -2,8 +2,15 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
 import { startAnalysis, listReports } from '../api/client'
-import { Clock, ChevronRight, AlertCircle } from 'lucide-react'
+import { Clock, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
 import type { ReportListItem } from '../types/research'
+
+const EXAMPLE_PROMPTS = [
+  'An AI tool that summarizes meeting notes automatically',
+  'A marketplace for local organic food delivery',
+  'A browser extension that converts web pages to Markdown',
+  'A developer tool for real-time API monitoring',
+]
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -39,6 +46,20 @@ export function HomePage() {
           Validate your startup idea with real competitor data from GitHub, web, and Hacker News.
         </p>
         <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
+
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {EXAMPLE_PROMPTS.map(prompt => (
+            <button
+              key={prompt}
+              onClick={() => handleSubmit(prompt)}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted rounded-full border border-border bg-bg-card cursor-pointer transition-all duration-200 hover:border-cta/40 hover:text-cta hover:bg-bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="w-3 h-3" />
+              {prompt}
+            </button>
+          ))}
+        </div>
 
         {error && (
           <div className="mt-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 border border-danger/30 text-left">

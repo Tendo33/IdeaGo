@@ -12,6 +12,7 @@ from loguru import logger
 from ideago.llm.client import LLMClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RawResult
+from ideago.pipeline.exceptions import ExtractionError
 
 
 class Extractor:
@@ -37,36 +38,41 @@ class Extractor:
         if not raw_results:
             return []
 
-        platform = raw_results[0].platform
-        raw_json = json.dumps(
-            [
-                r.model_dump(mode="json", exclude={"raw_data", "fetched_at"})
-                for r in raw_results
-            ],
-            ensure_ascii=False,
-        )
-        prompt = load_prompt(
-            "extractor",
-            platform=platform.value,
-            raw_results_json=raw_json,
-            query_context=query_context,
-        )
-        data = await self._llm.complete_json(
-            prompt,
-            system="You are a competitor analysis expert. Return only valid JSON.",
-        )
-        logger.debug(
-            "Extractor LLM response for {}: {} items",
-            platform.value,
-            len(data.get("competitors", [])),
-        )
+        try:
+            platform = raw_results[0].platform
+            raw_json = json.dumps(
+                [
+                    r.model_dump(mode="json", exclude={"raw_data", "fetched_at"})
+                    for r in raw_results
+                ],
+                ensure_ascii=False,
+            )
+            prompt = load_prompt(
+                "extractor",
+                platform=platform.value,
+                raw_results_json=raw_json,
+                query_context=query_context,
+            )
+            data = await self._llm.complete_json(
+                prompt,
+                system="You are a competitor analysis expert. Return only valid JSON.",
+            )
+            logger.debug(
+                "Extractor LLM response for {}: {} items",
+                platform.value,
+                len(data.get("competitors", [])),
+            )
 
-        result: list[Competitor] = []
-        for entry in data.get("competitors", []):
-            try:
-                comp = Competitor.model_validate(entry)
-                if comp.links:
-                    result.append(comp)
-            except Exception:
-                logger.warning("Skipping invalid competitor entry: {}", entry)
-        return result
+            result: list[Competitor] = []
+            for entry in data.get("competitors", []):
+                try:
+                    comp = Competitor.model_validate(entry)
+                    if comp.links:
+                        result.append(comp)
+                except Exception:
+                    logger.warning("Skipping invalid competitor entry: {}", entry)
+            return result
+        except ExtractionError:
+            raise
+        except Exception as exc:
+            raise ExtractionError(f"Failed to extract competitors: {exc}") from exc

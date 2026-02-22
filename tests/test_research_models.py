@@ -10,6 +10,7 @@ from ideago.models.research import (
     Intent,
     Platform,
     RawResult,
+    RecommendationType,
     ResearchReport,
     SearchQuery,
     SourceResult,
@@ -223,3 +224,30 @@ def test_report_serialization_roundtrip() -> None:
     assert r2.id == r.id
     assert r2.go_no_go == "Go"
     assert r2.created_at == r.created_at
+
+
+# --- RecommendationType ---
+
+
+def test_recommendation_type_enum_values() -> None:
+    assert RecommendationType.GO == "go"
+    assert RecommendationType.CAUTION == "caution"
+    assert RecommendationType.NO_GO == "no_go"
+
+
+def test_report_default_recommendation_type() -> None:
+    r = ResearchReport(query="test", intent=_make_intent())
+    assert r.recommendation_type == RecommendationType.GO
+
+
+def test_report_with_explicit_recommendation_type() -> None:
+    r = ResearchReport(
+        query="test",
+        intent=_make_intent(),
+        recommendation_type=RecommendationType.CAUTION,
+    )
+    assert r.recommendation_type == RecommendationType.CAUTION
+    data = r.model_dump(mode="json")
+    assert data["recommendation_type"] == "caution"
+    r2 = ResearchReport.model_validate(data)
+    assert r2.recommendation_type == RecommendationType.CAUTION

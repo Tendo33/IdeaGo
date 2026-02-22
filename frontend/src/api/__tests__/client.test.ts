@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { startAnalysis, getReport, listReports, deleteReport, getExportUrl, getStreamUrl } from '../client'
+import { startAnalysis, getReport, listReports, deleteReport, cancelAnalysis, getExportUrl, getStreamUrl } from '../client'
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -81,6 +81,23 @@ describe('deleteReport', () => {
   it('throws on failure', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
     await expect(deleteReport('r1')).rejects.toThrow('Failed to delete report: 500')
+  })
+})
+
+describe('cancelAnalysis', () => {
+  it('sends DELETE request to cancel endpoint', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true })
+
+    await cancelAnalysis('r1')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports/r1/cancel'),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('throws on failure', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
+    await expect(cancelAnalysis('r1')).rejects.toThrow('Failed to cancel analysis: 404')
   })
 })
 

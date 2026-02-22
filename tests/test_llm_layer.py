@@ -201,6 +201,7 @@ MOCK_AGGREGATOR_LLM_RESPONSE = {
         }
     ],
     "market_summary": "The markdown clipper space has several players...",
+    "recommendation_type": "caution",
     "go_no_go": "Go with caution — the space is moderately crowded.",
     "differentiation_angles": ["Mobile support", "AI summarization", "Offline mode"],
 }
@@ -233,6 +234,9 @@ async def test_aggregator_deduplicates_and_summarizes() -> None:
     assert len(result.competitors) == 1
     assert "crowded" in result.go_no_go.lower() or "caution" in result.go_no_go.lower()
     assert len(result.differentiation_angles) == 3
+    from ideago.models.research import RecommendationType
+
+    assert result.recommendation_type == RecommendationType.CAUTION
 
 
 @pytest.mark.asyncio

@@ -39,3 +39,38 @@ h1, h2, h3, h4, h5, h6 {
     transition-duration: 0.01ms !important;
   }
 }
+
+@media print {
+  body {
+    background-color: white !important;
+    color: #1a1a1a !important;
+    font-size: 12pt;
+  }
+
+  nav, .no-print, button, select {
+    display: none !important;
+  }
+
+  main {
+    padding-top: 0 !important;
+  }
+
+  * {
+    color: #1a1a1a !important;
+    border-color: #d1d5db !important;
+    background-color: transparent !important;
+  }
+
+  a {
+    text-decoration: underline;
+  }
+
+  .grid {
+    display: block !important;
+  }
+
+  .grid > * {
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+}
