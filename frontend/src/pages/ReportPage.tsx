@@ -7,6 +7,7 @@ import { ProgressTracker } from '../components/ProgressTracker'
 import { CompetitorCard } from '../components/CompetitorCard'
 import { SourceStatusBar } from '../components/SourceStatusBar'
 import { ReportSummary } from '../components/ReportSummary'
+import { Skeleton, CompetitorCardSkeleton } from '../components/Skeleton'
 import type { ResearchReport } from '../types/research'
 
 export function ReportPage() {
@@ -98,6 +99,20 @@ export function ReportPage() {
                 <p className="text-text-muted text-sm">No competitors found. This could be a blue ocean opportunity.</p>
               </div>
             )}
+          </div>
+        )}
+
+        {isComplete && !report && !sseError && !loadError && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <CompetitorCardSkeleton key={i} />
+              ))}
+            </div>
           </div>
         )}
       </div>

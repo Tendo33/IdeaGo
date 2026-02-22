@@ -117,8 +117,12 @@ class FileCache:
         self._write_index(index)
 
     async def list_reports(self) -> list[ReportIndex]:
-        """List all cached reports (including expired ones, for history page)."""
-        return await asyncio.to_thread(self._read_index)
+        """List cached reports, excluding expired entries."""
+        return await asyncio.to_thread(self._list_reports_sync)
+
+    def _list_reports_sync(self) -> list[ReportIndex]:
+        index = self._read_index()
+        return [e for e in index if not self._is_expired(e.created_at)]
 
     async def delete(self, report_id: str) -> bool:
         """Delete a cached report by ID."""

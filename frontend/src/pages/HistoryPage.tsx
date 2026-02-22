@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trash2, Clock, Users, FileText } from 'lucide-react'
+import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle } from 'lucide-react'
 import { listReports, deleteReport } from '../api/client'
+import { ReportCardSkeleton } from '../components/Skeleton'
 import type { ReportListItem } from '../types/research'
 
 export function HistoryPage() {
   const navigate = useNavigate()
   const [reports, setReports] = useState<ReportListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchReports = async () => {
+    setError(null)
     try {
       const data = await listReports()
       setReports(data)
-    } catch {
-      // ignore
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load reports.')
     } finally {
       setLoading(false)
     }
@@ -28,8 +31,8 @@ export function HistoryPage() {
     try {
       await deleteReport(id)
       setReports(prev => prev.filter(r => r.id !== id))
-    } catch {
-      // ignore
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete report.')
     }
   }
 
@@ -48,11 +51,22 @@ export function HistoryPage() {
           Research History
         </h1>
 
-        {loading && (
-          <p className="text-text-muted text-sm">Loading...</p>
+        {error && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 border border-danger/30 mb-4">
+            <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+            <p className="text-sm text-danger">{error}</p>
+          </div>
         )}
 
-        {!loading && reports.length === 0 && (
+        {loading && (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ReportCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && reports.length === 0 && (
           <div className="p-12 rounded-xl bg-bg-card border border-border text-center">
             <FileText className="w-10 h-10 text-text-dim mx-auto mb-3" />
             <p className="text-text-muted text-sm mb-4">No research reports yet.</p>

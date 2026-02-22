@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, BackgroundTasks
@@ -71,8 +72,6 @@ async def start_analysis(
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
     if query_hash in processing:
         return AnalyzeResponse(report_id=processing[query_hash])
-
-    import uuid
 
     report_id = str(uuid.uuid4())
     get_report_queue(report_id)

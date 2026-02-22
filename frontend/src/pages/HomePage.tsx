@@ -2,26 +2,29 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
 import { startAnalysis, listReports } from '../api/client'
-import { Clock, ChevronRight } from 'lucide-react'
+import { Clock, ChevronRight, AlertCircle } from 'lucide-react'
 import type { ReportListItem } from '../types/research'
 
 export function HomePage() {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
 
   useEffect(() => {
     listReports()
       .then(reports => setRecentReports(reports.slice(0, 5)))
-      .catch(() => {})
+      .catch(() => { /* Recent reports are non-critical; fail silently */ })
   }, [])
 
   const handleSubmit = async (query: string) => {
     setIsLoading(true)
+    setError(null)
     try {
       const { report_id } = await startAnalysis(query)
       navigate(`/reports/${report_id}`)
-    } catch {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start analysis. Please try again.')
       setIsLoading(false)
     }
   }
@@ -36,6 +39,13 @@ export function HomePage() {
           Validate your startup idea with real competitor data from GitHub, web, and Hacker News.
         </p>
         <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
+
+        {error && (
+          <div className="mt-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 border border-danger/30 text-left">
+            <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+            <p className="text-sm text-danger">{error}</p>
+          </div>
+        )}
 
         {recentReports.length > 0 && (
           <div className="mt-16 w-full">

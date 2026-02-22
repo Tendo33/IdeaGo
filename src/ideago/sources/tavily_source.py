@@ -16,7 +16,6 @@ class TavilySource:
 
     def __init__(self, api_key: str = "", timeout: int = 30) -> None:
         self._api_key = api_key
-        self._timeout = timeout
         if api_key:
             self._client = AsyncTavilyClient(api_key=api_key)
         else:

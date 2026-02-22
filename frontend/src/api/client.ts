@@ -1,6 +1,6 @@
 import type { ReportListItem, ResearchReport } from '../types/research'
 
-const API_BASE = '/api/v1'
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 
 export async function startAnalysis(query: string): Promise<{ report_id: string }> {
   const res = await fetch(`${API_BASE}/analyze`, {

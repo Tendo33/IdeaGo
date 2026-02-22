@@ -63,6 +63,7 @@ def get_orchestrator() -> Orchestrator:
             cache=get_cache(),
             source_timeout=settings.source_timeout_seconds,
             extraction_timeout=settings.extraction_timeout_seconds,
+            max_results_per_source=settings.max_results_per_source,
         )
     return _orchestrator
 

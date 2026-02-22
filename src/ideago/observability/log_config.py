@@ -133,40 +133,6 @@ def configure_json_logging(
     logger.configure(extra=extra_fields or {})
 
 
-def log_function_calls(func):
-    """Decorator to log function calls with parameters and return values.
-
-    Args:
-        func: Function to be decorated
-
-    Returns:
-        Decorated function
-    """
-    from functools import wraps
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        func_logger = get_logger(f"{func.__module__}.{func.__name__}")
-
-        # 记录函数调用
-        func_logger.debug(f"Calling {func.__name__} with args={args}, kwargs={kwargs}")
-
-        try:
-            # 执行函数
-            result = func(*args, **kwargs)
-
-            # 记录返回值
-            func_logger.debug(f"{func.__name__} returned: {result}")
-
-            return result
-        except Exception as e:
-            # 记录异常
-            func_logger.exception(f"Exception in {func.__name__}: {e}")
-            raise
-
-    return wrapper
-
-
 # 延迟初始化标志
 _logging_initialized = False
 

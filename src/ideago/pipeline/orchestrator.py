@@ -54,6 +54,7 @@ class Orchestrator:
         cache: FileCache,
         source_timeout: int = 30,
         extraction_timeout: int = 60,
+        max_results_per_source: int = 10,
     ) -> None:
         self._intent_parser = intent_parser
         self._extractor = extractor
@@ -62,6 +63,7 @@ class Orchestrator:
         self._cache = cache
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
+        self._max_results = max_results_per_source
 
     async def run(
         self,
@@ -147,7 +149,7 @@ class Orchestrator:
 
             try:
                 results = await asyncio.wait_for(
-                    source.search(queries, limit=10),
+                    source.search(queries, limit=self._max_results),
                     timeout=self._source_timeout,
                 )
                 duration_ms = int((time.monotonic() - start) * 1000)
