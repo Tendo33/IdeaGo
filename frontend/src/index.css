@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1E293B;
+  --color-secondary: #334155;
+  --color-cta: #22C55E;
+  --color-cta-hover: #16A34A;
+  --color-bg: #0F172A;
+  --color-bg-card: #1E293B;
+  --color-bg-card-hover: #334155;
+  --color-text: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-text-dim: #64748B;
+  --color-border: #334155;
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-success: #22C55E;
+
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

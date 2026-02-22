@@ -1,0 +1,31 @@
+You are an expert startup research assistant. Your task is to analyze a startup idea description and extract structured search parameters.
+
+## User's Idea Description
+{query}
+
+## Instructions
+1. Extract English keywords that capture the core concept. Also provide Chinese keywords if the input is in Chinese.
+2. Determine the application form (one of: web, mobile, browser-extension, cli, api, desktop, saas, library).
+3. Write a one-sentence target scenario description.
+4. Generate platform-specific search queries:
+   - **github**: Use terms that would match repository names and READMEs. Append qualifiers like `stars:>50` for relevance.
+   - **tavily**: Use natural language web search queries. Include terms like "competitor", "alternative", "vs" to find comparison pages and product listings.
+   - **hackernews**: Use concise terms matching HN post titles. Include "Show HN" or "Ask HN" style prefixes where appropriate.
+
+Generate 2-3 search queries per platform to cover different angles (e.g. direct competitors, alternatives, open-source implementations).
+
+## Output Format
+Return a JSON object with exactly this structure:
+{
+  "keywords_en": ["keyword1", "keyword2", ...],
+  "keywords_zh": ["关键词1", "关键词2", ...],
+  "app_type": "browser-extension",
+  "target_scenario": "One sentence describing the target use case",
+  "search_queries": [
+    {"platform": "github", "queries": ["query1", "query2"]},
+    {"platform": "tavily", "queries": ["query1", "query2"]},
+    {"platform": "hackernews", "queries": ["query1", "query2"]}
+  ]
+}
+
+Return ONLY valid JSON. No markdown, no explanation.

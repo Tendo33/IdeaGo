@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ideago"
 version = "0.2.0"
-description = "A modern Python project template with loguru, ruff, and uv"
+description = "AI-powered competitor research engine for startup ideas"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -24,13 +24,20 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-keywords = ["template", "python", "loguru", "ruff", "uv"]
+keywords = ["startup", "competitor-research", "ai", "llm"]
 requires-python = ">=3.10"
 dependencies = [
     "loguru>=0.7.0",
     "pydantic>=2.10.6",
     "pydantic-settings>=2.0.0",
     "aiofiles>=23.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "httpx>=0.28.0",
+    "openai>=1.60.0",
+    "tavily-python>=0.5.0",
+    "sse-starlette>=2.0.0",
+    "jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]

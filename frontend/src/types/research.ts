@@ -1,0 +1,71 @@
+export type Platform = 'github' | 'tavily' | 'hackernews' | 'producthunt' | 'google_trends'
+
+export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
+
+export type EventType =
+  | 'intent_parsed'
+  | 'source_started'
+  | 'source_completed'
+  | 'source_failed'
+  | 'extraction_started'
+  | 'extraction_completed'
+  | 'aggregation_started'
+  | 'aggregation_completed'
+  | 'report_ready'
+  | 'error'
+
+export interface PipelineEvent {
+  type: EventType
+  stage: string
+  message: string
+  data: Record<string, unknown>
+  timestamp: string
+}
+
+export interface Competitor {
+  name: string
+  links: string[]
+  one_liner: string
+  features: string[]
+  pricing: string | null
+  strengths: string[]
+  weaknesses: string[]
+  relevance_score: number
+  source_platforms: Platform[]
+  source_urls: string[]
+}
+
+export interface SourceResult {
+  platform: Platform
+  status: SourceStatus
+  raw_count: number
+  competitors: Competitor[]
+  error_msg: string | null
+  duration_ms: number
+}
+
+export interface Intent {
+  keywords_en: string[]
+  keywords_zh: string[]
+  app_type: string
+  target_scenario: string
+}
+
+export interface ResearchReport {
+  id: string
+  query: string
+  intent: Intent
+  source_results: SourceResult[]
+  competitors: Competitor[]
+  market_summary: string
+  go_no_go: string
+  differentiation_angles: string[]
+  created_at: string
+}
+
+export interface ReportListItem {
+  id: string
+  query: string
+  created_at: string
+  competitor_count: number
+}

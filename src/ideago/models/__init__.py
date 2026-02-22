@@ -8,6 +8,16 @@ for data validation and configuration management.
 
 from .base import BaseModel, TimestampMixin
 from .examples import ApiResponse, ConfigModel, PaginatedResponse, User
+from .research import (
+    Competitor,
+    Intent,
+    Platform,
+    RawResult,
+    ResearchReport,
+    SearchQuery,
+    SourceResult,
+    SourceStatus,
+)
 
 __all__ = [
     "BaseModel",
@@ -16,4 +26,12 @@ __all__ = [
     "ApiResponse",
     "PaginatedResponse",
     "ConfigModel",
+    "Platform",
+    "RawResult",
+    "SearchQuery",
+    "Intent",
+    "Competitor",
+    "SourceStatus",
+    "SourceResult",
+    "ResearchReport",
 ]

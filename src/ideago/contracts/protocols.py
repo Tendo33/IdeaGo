@@ -3,7 +3,13 @@
 提供可复用的接口协议，用于类型提示和运行时类型检查。
 """
 
-from typing import Any, Protocol, runtime_checkable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from ideago.models.research import Platform, RawResult
+    from ideago.pipeline.events import PipelineEvent
 
 
 @runtime_checkable
@@ -119,6 +125,36 @@ class Configurable(Protocol):
         ...
 
 
+@runtime_checkable
+class DataSource(Protocol):
+    """Interface that all data source plugins must implement.
+
+    所有数据源插件必须实现的接口。
+    """
+
+    @property
+    def platform(self) -> Platform:
+        """Return the platform this source queries."""
+        ...
+
+    def is_available(self) -> bool:
+        """Check if required credentials are configured."""
+        ...
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        """Execute search and return raw results."""
+        ...
+
+
+@runtime_checkable
+class ProgressCallback(Protocol):
+    """Callback interface for receiving pipeline progress events."""
+
+    async def on_event(self, event: PipelineEvent) -> None:
+        """Handle a pipeline progress event."""
+        ...
+
+
 __all__ = [
     "Serializable",
     "FileReader",
@@ -128,4 +164,6 @@ __all__ = [
     "Closeable",
     "AsyncCloseable",
     "Configurable",
+    "DataSource",
+    "ProgressCallback",
 ]

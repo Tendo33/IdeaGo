@@ -1,195 +1,123 @@
-# Python Template
+# IdeaGo
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+AI-powered competitor research engine for startup ideas. Input a natural language description of your idea, get a structured report with real competitors, market analysis, and differentiation opportunities — all backed by actual data from GitHub, web search, and Hacker News.
 
-一个面向 Python 3.10+ 的现代化工具库模板：
-- `uv` 管理依赖
-- `ruff` 负责 lint/format
-- `mypy` 类型检查
-- `pytest` 测试与覆盖率
+## Features
 
-内置内容聚焦在“开箱可用的基础工程能力”：
-- 配置管理（`pydantic-settings`）
-- 日志（`loguru`）
-- 文件 / JSON / 日期时间工具
-- 装饰器、上下文、通用工具函数
-- 可直接发布的打包与 CI 质量门禁
-- Tag 驱动的 GitHub Release 自动发布（支持模型生成 release message）
+- **Intent Parsing** — LLM extracts keywords, app type, and generates platform-specific search queries
+- **Multi-Source Search** — Concurrent search across GitHub, Tavily (web), and Hacker News
+- **LLM Map-Reduce** — Extracts structured competitor info from raw results, then deduplicates and analyzes
+- **Real-Time Progress** — SSE streaming shows each pipeline stage as it happens
+- **Source Links** — Every competitor entry includes real, verifiable source URLs
+- **Markdown Export** — Download reports for sharing
+- **Local Cache** — Results cached for 24h to save API calls
+- **Plugin Architecture** — Add new data sources by implementing one interface
 
-## 快速开始
+## Quick Start (Local Development)
 
-### 1) 安装依赖
+### 1. Prerequisites
+
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
+- Node.js 18+ and npm
+
+### 2. Install dependencies
 
 ```bash
+# Backend
 uv sync --all-extras
+
+# Frontend
+cd frontend && npm install && cd ..
 ```
 
-### 2) 初始化环境变量
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
+# Edit .env and add your API keys:
+# - OPENAI_API_KEY (required)
+# - TAVILY_API_KEY (required)
+# - GITHUB_TOKEN (optional, improves rate limits)
 ```
 
-默认配置最小化：
-
-```env
-ENVIRONMENT=development
-LOG_LEVEL=INFO
-LOG_FILE=logs/app.log
-```
-
-### 3) 运行质量检查
+### 4. Build frontend
 
 ```bash
-uv run ruff check src tests scripts
-uv run ruff format --check src tests scripts
+cd frontend && npm run build && cd ..
+```
+
+### 5. Run
+
+```bash
+uv run python -m ideago
+```
+
+Open http://localhost:8000 in your browser.
+
+### Development Mode (with hot reload)
+
+Terminal 1 — Backend:
+```bash
+uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
+```
+
+Terminal 2 — Frontend:
+```bash
+cd frontend && npm run dev
+```
+
+Frontend dev server at http://localhost:5173 proxies API calls to the backend.
+
+## Quick Start (Docker)
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+
+docker compose up -d
+```
+
+Open http://localhost:8000.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/analyze` | Start research pipeline |
+| `GET` | `/api/v1/reports/{id}/stream` | SSE progress events |
+| `GET` | `/api/v1/reports/{id}` | Get completed report |
+| `GET` | `/api/v1/reports/{id}/export` | Download as Markdown |
+| `GET` | `/api/v1/reports` | List all cached reports |
+| `DELETE` | `/api/v1/reports/{id}` | Delete a report |
+| `GET` | `/api/v1/health` | Health check |
+
+## Architecture
+
+```
+User Input → IntentParser (LLM) → Concurrent Source Search → Concurrent Extraction (LLM) → Aggregation (LLM) → Report
+```
+
+See [docs/plans/2026-02-22-ideago-mvp-design.md](docs/plans/2026-02-22-ideago-mvp-design.md) for full architecture documentation.
+
+## Quality Checks
+
+```bash
+uv run ruff check src tests
+uv run ruff format --check src tests
 uv run mypy src
-uv run pytest
+uv run pytest --no-cov
+
+cd frontend
+npm run build
 ```
 
-## 用这个 Template 创建新项目
+## Tech Stack
 
-### 1) 复制模板仓库
+- **Backend:** Python 3.10+ / FastAPI / httpx / OpenAI SDK / Tavily SDK / Pydantic v2 / loguru
+- **Frontend:** React 18 / TypeScript / Vite / Tailwind CSS v4 / Lucide Icons
+- **Design System:** Generated via ui-ux-pro-max (Space Grotesk + DM Sans, dark theme)
 
-```bash
-git clone https://github.com/Tendo33/ideago.git my-new-project
-cd my-new-project
-```
+## License
 
-### 2) 重命名包名（建议第一步就做）
-
-```bash
-# 先预览
-python scripts/rename_package.py my_new_project --dry-run
-
-# 再执行
-python scripts/rename_package.py my_new_project
-```
-
-### 3) 更新项目信息
-
-建议至少更新：
-- `pyproject.toml`：`name`、`description`、`authors`、`urls`
-- `src/<your_package>/__init__.py`：`__version__`
-- `README.md`：项目名与示例导入路径
-
-如需统一改版本号：
-
-```bash
-python scripts/update_version.py 0.2.0
-```
-
-### 4) 验证模板改名后可用
-
-```bash
-uv run ruff check src tests scripts
-uv run ruff format --check src tests scripts
-uv run mypy src
-uv run pytest
-```
-
-### 5) （可选）启用提交前检查
-
-```bash
-python scripts/setup_pre_commit.py
-```
-
-## 导入约定
-
-### Canonical 导入（推荐）
-
-```python
-from ideago.config.settings import get_settings
-from ideago.observability.log_config import get_logger, setup_logging
-from ideago.utils import read_json, read_text_file, write_json, write_text_file
-```
-
-### 高级能力请从子模块导入
-
-```python
-from ideago.utils.decorator_utils import retry_decorator
-from ideago.utils.common_utils import chunk_list
-from ideago.core.context import Context
-```
-
-## 常用示例
-
-### 日志
-
-```python
-from ideago.observability.log_config import get_logger, setup_logging
-
-setup_logging(level="INFO", log_file="logs/app.log")
-logger = get_logger(__name__)
-logger.info("service started")
-```
-
-### 配置
-
-```python
-from ideago.config.settings import get_settings
-
-settings = get_settings()
-print(settings.environment)
-print(settings.log_level)
-```
-
-### 文件与 JSON
-
-```python
-from ideago.utils import read_json, write_json, read_text_file, write_text_file
-
-write_text_file("hello", "data/hello.txt")
-content = read_text_file("data/hello.txt")
-
-write_json({"ok": True}, "data/config.json")
-config = read_json("data/config.json", default={})
-```
-
-## 项目结构
-
-```text
-ideago/
-├── src/ideago/
-│   ├── config/
-│   ├── contracts/
-│   ├── core/
-│   ├── models/
-│   ├── observability/
-│   └── utils/
-├── tests/
-├── scripts/
-├── doc/
-├── pyproject.toml
-└── README.md
-```
-
-## 维护脚本
-
-- `python scripts/rename_package.py my_new_project`
-- `python scripts/setup_pre_commit.py`
-- `python scripts/update_version.py 0.2.0`
-- `python scripts/generate_release_notes.py --tag v0.2.0 --output .github/release-notes.md`
-- `uv run python scripts/run_vulture.py --min-confidence 80`
-
-## Release 自动发布
-
-- 推送 tag（如 `v0.3.0`）会触发 `/Users/simonsun/github_project/ideago/.github/workflows/release.yml`。
-- Workflow 会生成 release notes，并执行“存在则更新，不存在则创建”。
-- 模型相关配置统一走 CI 环境变量（如 `OPENAI_API_KEY`、`RELEASE_NOTES_MODEL`、`OPENAI_BASE_URL`）。
-- 若未配置模型密钥或模型调用失败，会自动回退到 deterministic 的非模型说明，不会阻塞发布。
-
-## 文档
-
-- `doc/SETTINGS_GUIDE.md`
-- `doc/MODELS_GUIDE.md`
-- `doc/SDK_USAGE.md`
-- `doc/PRE_COMMIT_GUIDE.md`
-- `doc/AI_TOOLING_STANDARDS.md`
-- `doc/BACKEND_STANDARDS.md`
-
-## 许可证
-
-MIT，见 `LICENSE`。
+MIT

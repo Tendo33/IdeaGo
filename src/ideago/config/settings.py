@@ -59,10 +59,73 @@ class Settings(BaseSettings):
         default="logs/app.log", description="Log file path / 日志文件路径"
     )
 
-    # Example: Add your own settings here / 示例：在这里添加你自己的配置
-    # database_url: str = Field(default="sqlite:///./app.db")
-    # api_key: str = Field(default="")
-    # max_connections: int = Field(default=10, ge=1, le=100)
+    # --- API Keys / API 密钥 ---
+    openai_api_key: str = Field(
+        default="",
+        description="OpenAI API key / OpenAI 密钥",
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        description="OpenAI model name / 模型名称",
+    )
+    openai_timeout_seconds: int = Field(
+        default=60,
+        ge=5,
+        le=300,
+        description="LLM request timeout in seconds / LLM 请求超时秒数",
+    )
+    tavily_api_key: str = Field(
+        default="",
+        description="Tavily search API key / Tavily 搜索密钥",
+    )
+    github_token: str = Field(
+        default="",
+        description="GitHub PAT, optional, improves rate limit / GitHub 令牌（可选）",
+    )
+
+    # --- Pipeline / 管道配置 ---
+    max_results_per_source: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Max results per data source / 每个数据源最大结果数",
+    )
+    source_timeout_seconds: int = Field(
+        default=30,
+        ge=5,
+        le=120,
+        description="Per-source fetch timeout / 单源抓取超时秒数",
+    )
+    extraction_timeout_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=180,
+        description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",
+    )
+
+    # --- Cache / 缓存配置 ---
+    cache_dir: str = Field(
+        default=".cache/ideago",
+        description="Cache directory path / 缓存目录路径",
+    )
+    cache_ttl_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        description="Cache TTL in hours / 缓存有效期（小时）",
+    )
+
+    # --- Server / 服务配置 ---
+    host: str = Field(
+        default="0.0.0.0",
+        description="Server bind host / 服务绑定地址",
+    )
+    port: int = Field(
+        default=8000,
+        ge=1,
+        le=65535,
+        description="Server bind port / 服务绑定端口",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -90,15 +153,6 @@ class Settings(BaseSettings):
         if v_upper not in allowed:
             raise ValueError(f"Log level must be one of {allowed}")
         return v_upper
-
-    # Add your own validators here / 在这里添加你自己的验证器
-    # Example:
-    # @field_validator("api_key")
-    # @classmethod
-    # def validate_api_key(cls, v: str) -> str:
-    #     if not v and cls.environment == "production":
-    #         raise ValueError("API key is required in production")
-    #     return v
 
     def get_project_root(self) -> Path:
         """Get project root directory / 获取项目根目录.
