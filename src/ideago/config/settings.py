@@ -193,7 +193,12 @@ def get_settings() -> Settings:
         >>> print(settings.environment)
         development
     """
+    if _settings_override is not None:
+        return _settings_override
     return Settings()
+
+
+_settings_override: Settings | None = None
 
 
 def reload_settings(env_file: Path | None = None) -> Settings:
@@ -208,7 +213,10 @@ def reload_settings(env_file: Path | None = None) -> Settings:
     Returns:
         New Settings instance / 新的配置实例
     """
+    global _settings_override
     get_settings.cache_clear()
-    if env_file is None:
-        return get_settings()
-    return Settings(_env_file=str(env_file))  # type: ignore[call-arg]
+    if env_file is not None:
+        _settings_override = Settings(_env_file=str(env_file))  # type: ignore[call-arg]
+    else:
+        _settings_override = None
+    return get_settings()

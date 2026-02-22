@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, BackgroundTasks
@@ -40,11 +41,8 @@ async def _run_pipeline(query: str, report_id: str) -> None:
     callback = _QueueCallback(queue)
     try:
         orchestrator = get_orchestrator()
-        report = await orchestrator.run(query, callback=callback)
-        if report.id != report_id:
-            logger.debug(
-                "Report ID changed from {} to {} (cache hit)", report_id, report.id
-            )
+        report = await orchestrator.run(query, callback=callback, report_id=report_id)
+        logger.info("Pipeline completed for report {}", report.id)
     except Exception as exc:
         logger.exception("Pipeline failed for report {}", report_id)
         await queue.put(
@@ -70,7 +68,7 @@ async def start_analysis(
     query = request.query.strip()
 
     processing = get_processing_reports()
-    query_hash = hash(query)
+    query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
     if query_hash in processing:
         return AnalyzeResponse(report_id=processing[query_hash])
 

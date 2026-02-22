@@ -67,12 +67,14 @@ class Orchestrator:
         self,
         query: str,
         callback: ProgressCallback | None = None,
+        report_id: str | None = None,
     ) -> ResearchReport:
         """Execute the full research pipeline.
 
         Args:
             query: User's natural language startup idea description.
             callback: Optional callback for SSE progress events.
+            report_id: Optional client-assigned report ID for consistent referencing.
 
         Returns:
             Complete ResearchReport.
@@ -108,6 +110,9 @@ class Orchestrator:
         cached = await self._cache.get(intent.cache_key)
         if cached:
             logger.info("Cache hit for key {}", intent.cache_key)
+            if report_id and cached.id != report_id:
+                cached = cached.model_copy(update={"id": report_id})
+                await self._cache.put(cached)
             await _emit(
                 callback,
                 EventType.REPORT_READY,
@@ -247,15 +252,15 @@ class Orchestrator:
         extraction_results = await asyncio.gather(
             *extraction_tasks, return_exceptions=True
         )
-        for r in extraction_results:
-            if isinstance(r, tuple):
-                pname, comps = r
+        for ext_r in extraction_results:
+            if isinstance(ext_r, tuple):
+                pname, comps = ext_r
                 all_competitors.extend(comps)
                 for sr in source_results:
                     if sr.platform.value == pname:
                         sr.competitors = comps
-            elif isinstance(r, Exception):
-                logger.error("Unexpected extraction error: {}", r)
+            elif isinstance(ext_r, Exception):
+                logger.error("Unexpected extraction error: {}", ext_r)
 
         # 5. Aggregation (Reduce)
         await _emit(
@@ -288,7 +293,7 @@ class Orchestrator:
         )
 
         # 6. Assemble report
-        report = ResearchReport(
+        report_kwargs: dict[str, Any] = dict(
             query=query,
             intent=intent,
             source_results=source_results,
@@ -297,6 +302,9 @@ class Orchestrator:
             go_no_go=agg_result.go_no_go,
             differentiation_angles=agg_result.differentiation_angles,
         )
+        if report_id:
+            report_kwargs["id"] = report_id
+        report = ResearchReport(**report_kwargs)
 
         await self._cache.put(report)
         await _emit(

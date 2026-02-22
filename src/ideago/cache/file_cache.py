@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +58,9 @@ class FileCache:
 
     async def get(self, cache_key: str) -> ResearchReport | None:
         """Retrieve a cached report by cache key. Returns None if missing or expired."""
+        return await asyncio.to_thread(self._get_sync, cache_key)
+
+    def _get_sync(self, cache_key: str) -> ResearchReport | None:
         index = self._read_index()
         for entry in index:
             if entry.cache_key == cache_key:
@@ -75,6 +79,9 @@ class FileCache:
 
     async def get_by_id(self, report_id: str) -> ResearchReport | None:
         """Retrieve a cached report by its ID."""
+        return await asyncio.to_thread(self._get_by_id_sync, report_id)
+
+    def _get_by_id_sync(self, report_id: str) -> ResearchReport | None:
         report_path = self._dir / f"{report_id}.json"
         if not report_path.exists():
             return None
@@ -87,6 +94,9 @@ class FileCache:
 
     async def put(self, report: ResearchReport) -> None:
         """Store a report in the cache."""
+        await asyncio.to_thread(self._put_sync, report)
+
+    def _put_sync(self, report: ResearchReport) -> None:
         report_path = self._dir / f"{report.id}.json"
         report_path.write_text(
             report.model_dump_json(indent=2),
@@ -108,10 +118,13 @@ class FileCache:
 
     async def list_reports(self) -> list[ReportIndex]:
         """List all cached reports (including expired ones, for history page)."""
-        return self._read_index()
+        return await asyncio.to_thread(self._read_index)
 
     async def delete(self, report_id: str) -> bool:
         """Delete a cached report by ID."""
+        return await asyncio.to_thread(self._delete_sync, report_id)
+
+    def _delete_sync(self, report_id: str) -> bool:
         report_path = self._dir / f"{report_id}.json"
         if report_path.exists():
             report_path.unlink()
@@ -125,6 +138,9 @@ class FileCache:
 
     async def cleanup_expired(self) -> int:
         """Remove all expired cache entries. Returns count of removed entries."""
+        return await asyncio.to_thread(self._cleanup_expired_sync)
+
+    def _cleanup_expired_sync(self) -> int:
         index = self._read_index()
         kept: list[ReportIndex] = []
         removed = 0

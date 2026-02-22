@@ -1,32 +1,54 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import type { PipelineEvent } from '../types/research'
 import { getStreamUrl } from './client'
 
-interface UseSSEResult {
+interface SSEState {
+  events: PipelineEvent[]
+  isComplete: boolean
+  error: string | null
+}
+
+type SSEAction =
+  | { type: 'reset' }
+  | { type: 'event'; event: PipelineEvent }
+  | { type: 'complete' }
+  | { type: 'error'; message: string }
+
+function sseReducer(state: SSEState, action: SSEAction): SSEState {
+  switch (action.type) {
+    case 'reset':
+      return { events: [], isComplete: false, error: null }
+    case 'event':
+      return { ...state, events: [...state.events, action.event] }
+    case 'complete':
+      return { ...state, isComplete: true }
+    case 'error':
+      return { ...state, error: action.message, isComplete: true }
+  }
+}
+
+export interface UseSSEResult {
   events: PipelineEvent[]
   isComplete: boolean
   error: string | null
 }
 
 export function useSSE(reportId: string | null): UseSSEResult {
-  const [events, setEvents] = useState<PipelineEvent[]>([])
-  const [isComplete, setIsComplete] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(sseReducer, {
+    events: [],
+    isComplete: false,
+    error: null,
+  })
   const sourceRef = useRef<EventSource | null>(null)
-
-  const cleanup = useCallback(() => {
-    if (sourceRef.current) {
-      sourceRef.current.close()
-      sourceRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     if (!reportId) return
-    cleanup()
-    setEvents([])
-    setIsComplete(false)
-    setError(null)
+
+    dispatch({ type: 'reset' })
+
+    if (sourceRef.current) {
+      sourceRef.current.close()
+    }
 
     const es = new EventSource(getStreamUrl(reportId))
     sourceRef.current = es
@@ -34,14 +56,13 @@ export function useSSE(reportId: string | null): UseSSEResult {
     const handleEvent = (e: MessageEvent) => {
       try {
         const event: PipelineEvent = JSON.parse(e.data)
-        setEvents(prev => [...prev, event])
+        dispatch({ type: 'event', event })
         if (event.type === 'report_ready') {
-          setIsComplete(true)
+          dispatch({ type: 'complete' })
           es.close()
         }
         if (event.type === 'error') {
-          setError(event.message)
-          setIsComplete(true)
+          dispatch({ type: 'error', message: event.message })
           es.close()
         }
       } catch {
@@ -59,13 +80,15 @@ export function useSSE(reportId: string | null): UseSSEResult {
       es.addEventListener(t, handleEvent)
     }
     es.onerror = () => {
-      setError('Connection lost')
-      setIsComplete(true)
+      dispatch({ type: 'error', message: 'Connection lost' })
       es.close()
     }
 
-    return cleanup
-  }, [reportId, cleanup])
+    return () => {
+      es.close()
+      sourceRef.current = null
+    }
+  }, [reportId])
 
-  return { events, isComplete, error }
+  return state
 }

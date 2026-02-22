@@ -1,8 +1,25 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
-import { History } from 'lucide-react'
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { History, ArrowLeft } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
 import { ReportPage } from './pages/ReportPage'
 import { HistoryPage } from './pages/HistoryPage'
+
+function NotFound() {
+  const navigate = useNavigate()
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+      <h1 className="text-6xl font-bold font-[family-name:var(--font-heading)] text-text-dim mb-4">404</h1>
+      <p className="text-lg text-text-muted mb-6">Page not found</p>
+      <button
+        onClick={() => navigate('/')}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Home
+      </button>
+    </div>
+  )
+}
 
 function NavBar() {
   return (
@@ -33,6 +50,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/reports/:id" element={<ReportPage />} />
           <Route path="/reports" element={<HistoryPage />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </BrowserRouter>

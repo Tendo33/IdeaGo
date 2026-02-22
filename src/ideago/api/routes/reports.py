@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
-from ideago.api.dependencies import get_cache
+from ideago.api.dependencies import get_cache, get_processing_reports
 from ideago.api.schemas import ReportListItem
 from ideago.models.research import ResearchReport
 
@@ -31,14 +31,22 @@ async def list_reports() -> list[ReportListItem]:
     ]
 
 
-@router.get("/reports/{report_id}")
-async def get_report(report_id: str) -> dict:
-    """Get a completed report by ID. Returns 404 if not found."""
+@router.get("/reports/{report_id}", response_model=None)
+async def get_report(report_id: str) -> dict | JSONResponse:
+    """Get a completed report by ID. Returns 202 if still processing, 404 if not found."""
     cache = get_cache()
     report = await cache.get_by_id(report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
-    return report.model_dump(mode="json")
+    if report is not None:
+        return report.model_dump(mode="json")
+
+    processing = get_processing_reports()
+    if report_id in processing.values():
+        return JSONResponse(
+            status_code=202,
+            content={"status": "processing", "report_id": report_id},
+        )
+
+    raise HTTPException(status_code=404, detail="Report not found")
 
 
 @router.delete("/reports/{report_id}")

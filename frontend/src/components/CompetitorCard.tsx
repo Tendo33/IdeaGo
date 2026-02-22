@@ -97,7 +97,7 @@ export function CompetitorCard({ competitor, rank }: CompetitorCardProps) {
               aria-label={`Open ${competitor.name} link`}
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              {new URL(link).hostname.replace('www.', '').split('.')[0]}
+              {(() => { try { return new URL(link).hostname.replace('www.', '').split('.')[0] } catch { return 'link' } })()}
             </a>
           ))}
         </div>
