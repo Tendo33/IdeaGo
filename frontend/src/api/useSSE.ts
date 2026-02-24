@@ -11,25 +11,29 @@ interface SSEState {
   isComplete: boolean
   isReconnecting: boolean
   error: string | null
+  cancelled: string | null
 }
 
 type SSEAction =
   | { type: 'reset' }
   | { type: 'event'; event: PipelineEvent }
   | { type: 'complete' }
+  | { type: 'cancelled'; message: string }
   | { type: 'error'; message: string }
   | { type: 'reconnecting' }
 
 function sseReducer(state: SSEState, action: SSEAction): SSEState {
   switch (action.type) {
     case 'reset':
-      return { events: [], isComplete: false, isReconnecting: false, error: null }
+      return { events: [], isComplete: false, isReconnecting: false, error: null, cancelled: null }
     case 'event':
       return { ...state, events: [...state.events, action.event], isReconnecting: false }
     case 'complete':
       return { ...state, isComplete: true, isReconnecting: false }
+    case 'cancelled':
+      return { ...state, cancelled: action.message, isComplete: true, isReconnecting: false }
     case 'error':
-      return { ...state, error: action.message, isComplete: true, isReconnecting: false }
+      return { ...state, error: action.message, cancelled: null, isComplete: true, isReconnecting: false }
     case 'reconnecting':
       return { ...state, isReconnecting: true }
   }
@@ -40,6 +44,7 @@ export interface UseSSEResult {
   isComplete: boolean
   isReconnecting: boolean
   error: string | null
+  cancelled: string | null
   retry: () => void
 }
 
@@ -79,6 +84,10 @@ function createConnection(
         dispatch({ type: 'error', message: event.message })
         es.close()
       }
+      if (event.type === 'cancelled') {
+        dispatch({ type: 'cancelled', message: event.message })
+        es.close()
+      }
     } catch {
       // ignore parse errors from ping events
     }
@@ -88,7 +97,7 @@ function createConnection(
     'intent_parsed', 'source_started', 'source_completed', 'source_failed',
     'extraction_started', 'extraction_completed',
     'aggregation_started', 'aggregation_completed',
-    'report_ready', 'error',
+    'report_ready', 'cancelled', 'error',
   ]
   for (const t of eventTypes) {
     es.addEventListener(t, handleEvent)
@@ -118,6 +127,7 @@ export function useSSE(reportId: string | null): UseSSEResult {
     isComplete: false,
     isReconnecting: false,
     error: null,
+    cancelled: null,
   })
   const sourceRef = useRef<EventSource | null>(null)
   const attemptRef = useRef(0)

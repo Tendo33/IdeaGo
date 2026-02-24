@@ -6,7 +6,7 @@ interface Step {
   id: string
   label: string
   shortLabel: string
-  status: 'pending' | 'active' | 'done' | 'failed'
+  status: 'pending' | 'active' | 'done' | 'failed' | 'cancelled'
   detail?: string
 }
 
@@ -61,6 +61,9 @@ function deriveSteps(events: PipelineEvent[]): Step[] {
       case 'error':
         steps[6].status = 'failed'
         break
+      case 'cancelled':
+        steps[6].status = 'cancelled'
+        break
     }
   }
 
@@ -91,6 +94,12 @@ function StepDot({ status, detail }: { status: Step['status']; detail?: string }
       return (
         <div className={`${base} bg-danger/20`}>
           <X className="w-3.5 h-3.5 text-danger" />
+        </div>
+      )
+    case 'cancelled':
+      return (
+        <div className={`${base} bg-secondary`}>
+          <Clock className="w-3.5 h-3.5 text-text-dim" />
         </div>
       )
     default:
@@ -125,7 +134,7 @@ interface HorizontalStepperProps {
 export function HorizontalStepper({ events, isReconnecting = false }: HorizontalStepperProps) {
   const steps = deriveSteps(events)
   const elapsed = useElapsed()
-  const isDone = steps.at(-1)?.status === 'done' || steps.at(-1)?.status === 'failed'
+  const isDone = ['done', 'failed', 'cancelled'].includes(steps.at(-1)?.status ?? '')
 
   return (
     <div className="w-full py-6">
@@ -146,6 +155,7 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
                 step.status === 'active' ? 'text-cta font-medium' :
                 step.status === 'done' ? 'text-text' :
                 step.status === 'failed' ? 'text-danger' :
+                step.status === 'cancelled' ? 'text-text-muted' :
                 'text-text-dim'
               }`}>
                 {step.shortLabel}

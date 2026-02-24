@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { AlertCircle, XCircle, ArrowUpDown, LayoutGrid, List, Tag, Globe, Search, Waves, RefreshCw } from 'lucide-react'
+import { AlertCircle, XCircle, ArrowUpDown, LayoutGrid, List, Tag, Globe, Search, Waves, RefreshCw, Info } from 'lucide-react'
 import { useSSE } from '../api/useSSE'
-import { getReport, cancelAnalysis, startAnalysis } from '../api/client'
+import { getReportWithStatus, cancelAnalysis, startAnalysis } from '../api/client'
 import { HorizontalStepper } from '../components/HorizontalStepper'
 import { ReportHeader } from '../components/ReportHeader'
 import { HeroPanel } from '../components/HeroPanel'
@@ -218,7 +218,9 @@ const cardStagger = {
 export function ReportPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { events, isComplete, isReconnecting, error: sseError, retry: retrySSE } = useSSE(id ?? null)
+  const [loadPhase, setLoadPhase] = useState<'loading' | 'processing' | 'ready'>('loading')
+  const { events, isComplete, isReconnecting, error: sseError, cancelled, retry: retrySSE } =
+    useSSE(loadPhase === 'processing' ? (id ?? null) : null)
   const [report, setReport] = useState<ResearchReport | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
@@ -279,24 +281,43 @@ export function ReportPage() {
 
   useEffect(() => {
     if (!id) return
-    getReport(id)
-      .then(setReport)
-      .catch(() => {})
+    getReportWithStatus(id)
+      .then(result => {
+        if (result.status === 'ready') {
+          setLoadError(null)
+          setReport(result.report)
+          setLoadPhase('ready')
+          setTimeout(() => setShowReport(true), 100)
+          return
+        }
+        setLoadError(null)
+        setShowReport(false)
+        setReport(null)
+        setLoadPhase('processing')
+      })
+      .catch(e => {
+        setShowReport(false)
+        setReport(null)
+        setLoadError(e.message)
+        setLoadPhase('loading')
+      })
   }, [id])
 
   useEffect(() => {
-    if (isComplete && !sseError && id) {
-      getReport(id)
-        .then(r => {
-          setReport(r)
-          setTimeout(() => setShowReport(true), 100)
-        })
-        .catch(e => setLoadError(e.message))
-    }
-  }, [isComplete, sseError, id])
+    if (!id || loadPhase !== 'processing' || !isComplete) return
+    if (cancelled || sseError) return
+    getReportWithStatus(id)
+      .then(result => {
+        if (result.status !== 'ready') return
+        setReport(result.report)
+        setLoadPhase('ready')
+        setTimeout(() => setShowReport(true), 100)
+      })
+      .catch(e => setLoadError(e.message))
+  }, [isComplete, sseError, cancelled, id, loadPhase])
 
-  const showProgress = !report || !isComplete
-  const allFailed = report?.source_results.every(sr => sr.status !== 'ok')
+  const showProgress = loadPhase === 'processing' || (loadPhase === 'loading' && !report)
+  const allFailed = report ? report.source_results.every(sr => sr.status !== 'ok') : false
 
   return (
     <div className="min-h-screen px-4 py-8">
@@ -306,7 +327,7 @@ export function ReportPage() {
         {report && <ReportHeader report={report} />}
 
         {/* Section Nav (sticky, appears on scroll) */}
-        {report && isComplete && showReport && !allFailed && (
+        {report && loadPhase === 'ready' && showReport && !allFailed && (
           <SectionNav sections={SECTION_NAV_ITEMS(report.competitors.length)} />
         )}
 
@@ -315,7 +336,7 @@ export function ReportPage() {
           <div>
             <HorizontalStepper events={events} isReconnecting={isReconnecting} />
             <ProgressPreview events={events} />
-            {!isComplete && id && (
+            {loadPhase === 'processing' && !isComplete && id && (
               <div className="flex justify-center mt-4">
                 <button
                   onClick={() => { cancelAnalysis(id).catch(() => {}) }}
@@ -330,7 +351,7 @@ export function ReportPage() {
         )}
 
         {/* Error Banner */}
-        {(sseError || loadError) && (
+        {(sseError || (loadError && !cancelled)) && (
           <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-danger/10 border border-danger/30 mb-6">
             <div className="flex items-center gap-3 min-w-0">
               <AlertCircle className="w-5 h-5 text-danger shrink-0" />
@@ -340,10 +361,16 @@ export function ReportPage() {
               onClick={() => {
                 setLoadError(null)
                 if (id) {
-                  getReport(id)
-                    .then(r => {
-                      setReport(r)
-                      setShowReport(true)
+                  getReportWithStatus(id)
+                    .then(result => {
+                      if (result.status === 'ready') {
+                        setReport(result.report)
+                        setLoadPhase('ready')
+                        setShowReport(true)
+                        return
+                      }
+                      setLoadPhase('processing')
+                      retrySSE()
                     })
                     .catch(() => retrySSE())
                 }
@@ -355,8 +382,25 @@ export function ReportPage() {
           </div>
         )}
 
+        {cancelled && (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-secondary border border-border mb-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <Info className="w-5 h-5 text-text-muted shrink-0" />
+              <p className="text-sm text-text-muted">{cancelled}</p>
+            </div>
+            {report?.query && (
+              <button
+                onClick={handleRetry}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white rounded-lg bg-cta hover:bg-cta-hover cursor-pointer transition-colors duration-200"
+              >
+                Start Again
+              </button>
+            )}
+          </div>
+        )}
+
         {/* ===== Report Dashboard ===== */}
-        {report && isComplete && (
+        {report && loadPhase === 'ready' && (
           <div className={`space-y-10 transition-all duration-500 ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
 
             {/* All Sources Failed */}
@@ -496,7 +540,7 @@ export function ReportPage() {
         )}
 
         {/* Loading skeleton */}
-        {isComplete && !report && !sseError && !loadError && (
+        {showProgress && isComplete && !report && !sseError && !cancelled && !loadError && (
           <div className="space-y-6">
             <div className="space-y-2">
               <Skeleton className="h-6 w-2/3" />

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import hashlib
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from ideago.api import dependencies as deps
 from ideago.api.app import create_app
+from ideago.api.routes import analyze as analyze_route
 from ideago.cache.file_cache import FileCache, ReportIndex
 from ideago.models.research import (
     Competitor,
@@ -17,6 +22,22 @@ from ideago.models.research import (
     ResearchReport,
     SearchQuery,
 )
+from ideago.pipeline.events import EventType, PipelineEvent
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_state() -> None:
+    deps.get_processing_reports().clear()
+    deps._report_runs.clear()
+    for task in list(deps._pipeline_tasks.values()):
+        task.cancel()
+    deps._pipeline_tasks.clear()
+    yield
+    deps.get_processing_reports().clear()
+    deps._report_runs.clear()
+    for task in list(deps._pipeline_tasks.values()):
+        task.cancel()
+    deps._pipeline_tasks.clear()
 
 
 @pytest.fixture
@@ -177,3 +198,84 @@ def test_export_report(client, tmp_path) -> None:
     assert "text/markdown" in response.headers["content-type"]
     assert "Competitor Research Report" in response.text
     assert "TestProduct" in response.text
+
+
+@pytest.mark.asyncio
+async def test_stream_reconnect_replays_history_and_terminal_event() -> None:
+    report_id = "report-reconnect"
+    run_state = deps.get_or_create_report_run(report_id)
+    await run_state.publish(
+        PipelineEvent(
+            type=EventType.INTENT_PARSED,
+            stage="intent_parsing",
+            message="Analyzing idea",
+        )
+    )
+
+    first_stream = analyze_route._stream_events(report_id)
+    first_event = await anext(first_stream)
+    assert first_event["event"] == EventType.INTENT_PARSED.value
+    await first_stream.aclose()
+
+    await run_state.publish(
+        PipelineEvent(
+            type=EventType.SOURCE_COMPLETED,
+            stage="github_search",
+            message="Found 2 results from github",
+            data={"platform": "github", "count": 2},
+        )
+    )
+    await run_state.publish(
+        PipelineEvent(
+            type=EventType.REPORT_READY,
+            stage="complete",
+            message="Report ready",
+        )
+    )
+
+    reconnect_stream = analyze_route._stream_events(report_id)
+    replayed_events = [
+        (await anext(reconnect_stream))["event"],
+        (await anext(reconnect_stream))["event"],
+        (await anext(reconnect_stream))["event"],
+    ]
+    assert replayed_events[-1] == EventType.REPORT_READY.value
+    assert EventType.SOURCE_COMPLETED.value in replayed_events
+    await reconnect_stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
+    query = "A cancellable startup research query"
+    report_id = "report-cancel"
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
+    deps.get_processing_reports()[query_hash] = report_id
+
+    class SlowOrchestrator:
+        async def run(self, *_args, **_kwargs) -> None:
+            await asyncio.sleep(10)
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.analyze.get_orchestrator",
+            return_value=SlowOrchestrator(),
+        ),
+    ):
+        task = asyncio.create_task(analyze_route._run_pipeline(query, report_id))
+        deps.set_pipeline_task(report_id, task)
+
+        result = await analyze_route.cancel_analysis(report_id)
+        assert result["status"] == "cancelled"
+
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=2)
+        assert task.cancelled() or task.done()
+        status = await cache.get_status(report_id)
+        assert status is not None
+        assert status["status"] == "cancelled"
+
+        run_state = deps.get_report_run(report_id)
+        assert run_state is not None
+        assert any(e.type == EventType.CANCELLED for e in run_state.history)

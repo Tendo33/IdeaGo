@@ -5,7 +5,7 @@ import type { PipelineEvent } from '../types/research'
 interface Stage {
   id: string
   label: string
-  status: 'pending' | 'active' | 'done' | 'failed'
+  status: 'pending' | 'active' | 'done' | 'failed' | 'cancelled'
   detail?: string
 }
 
@@ -65,6 +65,10 @@ function deriveStages(events: PipelineEvent[]): Stage[] {
         stages[6].status = 'failed'
         stages[6].detail = event.message
         break
+      case 'cancelled':
+        stages[6].status = 'cancelled'
+        stages[6].detail = event.message
+        break
     }
   }
 
@@ -79,6 +83,8 @@ function StageIcon({ status }: { status: Stage['status'] }) {
       return <div className="w-8 h-8 rounded-full bg-cta/10 flex items-center justify-center"><Loader2 className="w-4 h-4 text-cta animate-spin" /></div>
     case 'failed':
       return <div className="w-8 h-8 rounded-full bg-danger/20 flex items-center justify-center"><X className="w-4 h-4 text-danger" /></div>
+    case 'cancelled':
+      return <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"><Clock className="w-4 h-4 text-text-dim" /></div>
     default:
       return <div className="w-8 h-8 rounded-full bg-border flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-text-dim" /></div>
   }
@@ -101,7 +107,7 @@ function useElapsed() {
 export function ProgressTracker({ events, isReconnecting = false }: ProgressTrackerProps) {
   const stages = deriveStages(events)
   const elapsed = useElapsed()
-  const isDone = stages.at(-1)?.status === 'done' || stages.at(-1)?.status === 'failed'
+  const isDone = ['done', 'failed', 'cancelled'].includes(stages.at(-1)?.status ?? '')
 
   return (
     <div className="w-full max-w-lg mx-auto py-8">
@@ -130,7 +136,7 @@ export function ProgressTracker({ events, isReconnecting = false }: ProgressTrac
               )}
             </div>
             <div className="pt-1 min-w-0">
-              <p className={`text-sm font-medium transition-colors duration-200 ${stage.status === 'active' ? 'text-cta' : stage.status === 'done' ? 'text-text' : stage.status === 'failed' ? 'text-danger' : 'text-text-dim'}`}>
+              <p className={`text-sm font-medium transition-colors duration-200 ${stage.status === 'active' ? 'text-cta' : stage.status === 'done' ? 'text-text' : stage.status === 'failed' ? 'text-danger' : stage.status === 'cancelled' ? 'text-text-muted' : 'text-text-dim'}`}>
                 {stage.label}
               </p>
               {stage.detail && (

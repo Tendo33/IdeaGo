@@ -24,6 +24,7 @@ class EventType(str, Enum):
     AGGREGATION_STARTED = "aggregation_started"
     AGGREGATION_COMPLETED = "aggregation_completed"
     REPORT_READY = "report_ready"
+    CANCELLED = "cancelled"
     ERROR = "error"
 
 

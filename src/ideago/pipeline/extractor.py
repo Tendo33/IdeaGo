@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlsplit, urlunsplit
 
 from loguru import logger
 
@@ -40,6 +41,9 @@ class Extractor:
 
         try:
             platform = raw_results[0].platform
+            allowed_urls = {
+                _normalize_url(r.url) for r in raw_results if _normalize_url(r.url)
+            }
             raw_json = json.dumps(
                 [
                     r.model_dump(mode="json", exclude={"raw_data", "fetched_at"})
@@ -67,8 +71,36 @@ class Extractor:
             for entry in data.get("competitors", []):
                 try:
                     comp = Competitor.model_validate(entry)
-                    if comp.links:
-                        result.append(comp)
+                    filtered_links = [
+                        link
+                        for link in comp.links
+                        if _normalize_url(link) in allowed_urls
+                    ]
+                    filtered_source_urls = [
+                        url
+                        for url in comp.source_urls
+                        if _normalize_url(url) in allowed_urls
+                    ]
+                    if not filtered_links:
+                        logger.warning(
+                            "Dropping competitor '{}' due to unverifiable links",
+                            comp.name,
+                        )
+                        continue
+                    if len(filtered_links) < len(comp.links):
+                        logger.info(
+                            "Filtered {} fabricated links for competitor '{}'",
+                            len(comp.links) - len(filtered_links),
+                            comp.name,
+                        )
+                    result.append(
+                        comp.model_copy(
+                            update={
+                                "links": filtered_links,
+                                "source_urls": filtered_source_urls or filtered_links,
+                            }
+                        )
+                    )
                 except Exception:
                     logger.warning("Skipping invalid competitor entry: {}", entry)
             return result
@@ -76,3 +108,25 @@ class Extractor:
             raise
         except Exception as exc:
             raise ExtractionError(f"Failed to extract competitors: {exc}") from exc
+
+
+def _normalize_url(url: str) -> str:
+    """Normalize URL for strict source-link verification."""
+    if not url:
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+    except ValueError:
+        return ""
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    path = parsed.path.rstrip("/")
+    return urlunsplit(
+        (
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            path,
+            "",
+            "",
+        )
+    )

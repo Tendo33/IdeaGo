@@ -12,6 +12,7 @@ export type EventType =
   | 'aggregation_started'
   | 'aggregation_completed'
   | 'report_ready'
+  | 'cancelled'
   | 'error'
 
 export interface PipelineEvent {

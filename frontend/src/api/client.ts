@@ -18,6 +18,17 @@ export async function getReport(id: string): Promise<ResearchReport> {
   return res.json()
 }
 
+export type ReportFetchResult =
+  | { status: 'ready'; report: ResearchReport }
+  | { status: 'processing' }
+
+export async function getReportWithStatus(id: string): Promise<ReportFetchResult> {
+  const res = await fetch(`${API_BASE}/reports/${id}`)
+  if (res.status === 202) return { status: 'processing' }
+  if (!res.ok) throw new Error(`Report not found: ${res.status}`)
+  return { status: 'ready', report: await res.json() }
+}
+
 export async function listReports(): Promise<ReportListItem[]> {
   const res = await fetch(`${API_BASE}/reports`)
   if (!res.ok) throw new Error(`Failed to list reports: ${res.status}`)

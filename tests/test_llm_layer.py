@@ -172,6 +172,52 @@ async def test_extractor_extracts_valid_competitors() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extractor_filters_unverifiable_links() -> None:
+    llm = MagicMock(spec=LLMClient)
+    llm.complete_json = AsyncMock(
+        return_value={
+            "competitors": [
+                {
+                    "name": "MixedLinks",
+                    "links": [
+                        "https://github.com/user/markdown-clipper",
+                        "https://fake-site.example/fabricated",
+                    ],
+                    "one_liner": "Contains one valid and one fabricated link",
+                    "source_platforms": ["github"],
+                    "source_urls": [
+                        "https://github.com/user/markdown-clipper",
+                        "https://fake-site.example/fabricated",
+                    ],
+                },
+                {
+                    "name": "AllFake",
+                    "links": ["https://fake-site.example/only-fake"],
+                    "one_liner": "Should be removed",
+                    "source_platforms": ["github"],
+                    "source_urls": ["https://fake-site.example/only-fake"],
+                },
+            ]
+        }
+    )
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="markdown-clipper",
+            url="https://github.com/user/markdown-clipper/",
+            platform=Platform.GITHUB,
+        )
+    ]
+    result = await extractor.extract(raw, "markdown notes extension")
+
+    assert len(result) == 1
+    assert result[0].name == "MixedLinks"
+    assert result[0].links == ["https://github.com/user/markdown-clipper"]
+    assert result[0].source_urls == ["https://github.com/user/markdown-clipper"]
+
+
+@pytest.mark.asyncio
 async def test_extractor_empty_input_returns_empty() -> None:
     llm = MagicMock(spec=LLMClient)
     extractor = Extractor(llm)

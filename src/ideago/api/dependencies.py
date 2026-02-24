@@ -6,11 +6,13 @@ FastAPI 依赖注入：从配置构建单例服务实例。
 from __future__ import annotations
 
 import asyncio
+import time
 
 from ideago.cache.file_cache import FileCache
 from ideago.config.settings import get_settings
 from ideago.llm.client import LLMClient
 from ideago.pipeline.aggregator import Aggregator
+from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.orchestrator import Orchestrator
@@ -21,8 +23,49 @@ from ideago.sources.tavily_source import TavilySource
 
 _orchestrator: Orchestrator | None = None
 _cache: FileCache | None = None
-_report_queues: dict[str, asyncio.Queue] = {}
+_report_runs: dict[str, ReportRunState] = {}
 _processing_reports: dict[str, str] = {}
+_pipeline_tasks: dict[str, asyncio.Task[None]] = {}
+_REPORT_RUN_TTL_SECONDS = 600
+_TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}
+
+
+class ReportRunState:
+    """In-memory runtime state for one report pipeline run."""
+
+    def __init__(self, max_history: int = 200) -> None:
+        self.subscribers: set[asyncio.Queue[PipelineEvent]] = set()
+        self.history: list[PipelineEvent] = []
+        self.is_terminal = False
+        self.updated_at = time.monotonic()
+        self._max_history = max_history
+
+    async def publish(self, event: PipelineEvent) -> None:
+        """Store and fan out an event to all active SSE subscribers."""
+        self.history.append(event)
+        if len(self.history) > self._max_history:
+            self.history.pop(0)
+        self.updated_at = time.monotonic()
+        if event.type in _TERMINAL_EVENTS:
+            self.is_terminal = True
+
+        for queue in list(self.subscribers):
+            await queue.put(event)
+
+    def subscribe(self) -> asyncio.Queue[PipelineEvent]:
+        """Create and register an SSE subscriber queue."""
+        queue: asyncio.Queue[PipelineEvent] = asyncio.Queue()
+        self.subscribers.add(queue)
+        self.updated_at = time.monotonic()
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue[PipelineEvent]) -> None:
+        """Detach an SSE subscriber queue."""
+        self.subscribers.discard(queue)
+        self.updated_at = time.monotonic()
+
+    def history_snapshot(self) -> list[PipelineEvent]:
+        return list(self.history)
 
 
 def get_cache() -> FileCache:
@@ -68,16 +111,53 @@ def get_orchestrator() -> Orchestrator:
     return _orchestrator
 
 
-def get_report_queue(report_id: str) -> asyncio.Queue:
-    """Get or create an event queue for a report."""
-    if report_id not in _report_queues:
-        _report_queues[report_id] = asyncio.Queue()
-    return _report_queues[report_id]
+def cleanup_report_runs() -> None:
+    """Drop finished report run states after TTL to avoid memory growth."""
+    now = time.monotonic()
+    stale_ids = [
+        report_id
+        for report_id, run in _report_runs.items()
+        if run.is_terminal
+        and not run.subscribers
+        and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
+    ]
+    for report_id in stale_ids:
+        _report_runs.pop(report_id, None)
 
 
-def remove_report_queue(report_id: str) -> None:
-    """Clean up event queue for a report."""
-    _report_queues.pop(report_id, None)
+def get_or_create_report_run(report_id: str) -> ReportRunState:
+    """Get or create runtime event state for a report."""
+    cleanup_report_runs()
+    run = _report_runs.get(report_id)
+    if run is None:
+        run = ReportRunState()
+        _report_runs[report_id] = run
+    return run
+
+
+def get_report_run(report_id: str) -> ReportRunState | None:
+    """Get runtime event state for a report if present."""
+    cleanup_report_runs()
+    return _report_runs.get(report_id)
+
+
+def clear_processing_report(report_id: str) -> None:
+    """Remove all processing entries that point to this report ID."""
+    keys_to_remove = [k for k, v in _processing_reports.items() if v == report_id]
+    for key in keys_to_remove:
+        _processing_reports.pop(key, None)
+
+
+def set_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
+    _pipeline_tasks[report_id] = task
+
+
+def get_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
+    return _pipeline_tasks.get(report_id)
+
+
+def pop_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
+    return _pipeline_tasks.pop(report_id, None)
 
 
 def get_processing_reports() -> dict[str, str]:

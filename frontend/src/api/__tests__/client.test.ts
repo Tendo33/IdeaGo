@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { startAnalysis, getReport, listReports, deleteReport, cancelAnalysis, getExportUrl, getStreamUrl } from '../client'
+import {
+  startAnalysis,
+  getReport,
+  getReportWithStatus,
+  listReports,
+  deleteReport,
+  cancelAnalysis,
+  getExportUrl,
+  getStreamUrl,
+} from '../client'
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -50,6 +59,25 @@ describe('getReport', () => {
   it('throws on 404', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
     await expect(getReport('missing')).rejects.toThrow('Report not found: 404')
+  })
+})
+
+describe('getReportWithStatus', () => {
+  it('returns processing on 202', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 202 })
+    const result = await getReportWithStatus('pending')
+    expect(result).toEqual({ status: 'processing' })
+  })
+
+  it('returns ready with report on 200', async () => {
+    const report = { id: 'r1', query: 'test' }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(report),
+    })
+    const result = await getReportWithStatus('r1')
+    expect(result).toEqual({ status: 'ready', report })
   })
 })
 
