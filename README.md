@@ -6,11 +6,12 @@ AI-powered competitor research engine for startup ideas. Input a natural languag
 
 - **Intent Parsing** — LLM extracts keywords, app type, and generates platform-specific search queries
 - **Multi-Source Search** — Concurrent search across GitHub, Tavily (web), and Hacker News
-- **LLM Map-Reduce** — Extracts structured competitor info from raw results, then deduplicates and analyzes
+- **LangGraph Pipeline** — State-graph orchestration for intent parsing, source fetch, extraction map, and aggregation reduce
 - **Real-Time Progress** — SSE streaming shows each pipeline stage as it happens
 - **Source Links** — Every competitor entry includes real, verifiable source URLs
 - **Markdown Export** — Download reports for sharing
 - **Local Cache** — Results cached for 24h to save API calls
+- **Checkpoint Resume** — SQLite checkpoints allow same `report_id` thread to resume after interruption
 - **Plugin Architecture** — Add new data sources by implementing one interface
 
 ## Quick Start (Local Development)
@@ -98,10 +99,22 @@ Open http://localhost:8000.
 - SSE `error` events now return a stable `error_code` field (for example `PIPELINE_FAILURE`) and avoid exposing internal exception text.
 - CORS is configurable via `CORS_ALLOW_ORIGINS` (comma-separated). Default remains `*` for self-hosted local usage.
 
+## Runtime Data
+
+- Report cache directory is configured by `CACHE_DIR` (default `.cache/ideago`).
+- LangGraph checkpoints are stored at `LANGGRAPH_CHECKPOINT_DB_PATH` (default `.cache/ideago/langgraph-checkpoints.db`).
+- To reset checkpoints only, remove the checkpoint DB file without deleting report cache JSON files.
+
 ## Architecture
 
 ```
-User Input → IntentParser (LLM) → Concurrent Source Search → Concurrent Extraction (LLM) → Aggregation (LLM) → Report
+User Input
+  -> LangGraph StateGraph
+  -> IntentParser (LLM)
+  -> Concurrent Source Search
+  -> Concurrent Extraction (LLM Map)
+  -> Aggregation (LLM Reduce)
+  -> Cache Persist + SSE Terminal Event
 ```
 
 See [docs/plans/2026-02-22-ideago-mvp-design.md](docs/plans/2026-02-22-ideago-mvp-design.md) for full architecture documentation.
@@ -120,7 +133,7 @@ npm run build
 
 ## Tech Stack
 
-- **Backend:** Python 3.10+ / FastAPI / httpx / OpenAI SDK / Tavily SDK / Pydantic v2 / loguru
+- **Backend:** Python 3.10+ / FastAPI / LangGraph / LangChain OpenAI / httpx / Tavily SDK / Pydantic v2 / loguru
 - **Frontend:** React 18 / TypeScript / Vite / Tailwind CSS v4 / Lucide Icons
 - **Design System:** Generated via ui-ux-pro-max (Space Grotesk + DM Sans, dark theme)
 

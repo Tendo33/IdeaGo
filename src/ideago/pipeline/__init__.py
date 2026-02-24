@@ -1,1 +1,1 @@
-"""Pipeline package — orchestration, events, intent parsing, extraction, aggregation."""
+"""Pipeline package — LangGraph engine, nodes, events, and analysis stages."""

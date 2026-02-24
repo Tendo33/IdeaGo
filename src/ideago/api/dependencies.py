@@ -10,18 +10,18 @@ import time
 
 from ideago.cache.file_cache import FileCache
 from ideago.config.settings import get_settings
-from ideago.llm.client import LLMClient
+from ideago.llm.chat_model import ChatModelClient
 from ideago.pipeline.aggregator import Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
-from ideago.pipeline.orchestrator import Orchestrator
+from ideago.pipeline.langgraph_engine import LangGraphEngine
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
-_orchestrator: Orchestrator | None = None
+_orchestrator: LangGraphEngine | None = None
 _cache: FileCache | None = None
 _report_runs: dict[str, ReportRunState] = {}
 _processing_reports: dict[str, str] = {}
@@ -77,14 +77,15 @@ def get_cache() -> FileCache:
     return _cache
 
 
-def get_orchestrator() -> Orchestrator:
+def get_orchestrator() -> LangGraphEngine:
     global _orchestrator
     if _orchestrator is None:
         settings = get_settings()
-        llm = LLMClient(
+        llm = ChatModelClient(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             timeout=settings.openai_timeout_seconds,
+            max_retries=settings.langgraph_max_retries,
         )
         registry = SourceRegistry()
         registry.register(
@@ -99,12 +100,13 @@ def get_orchestrator() -> Orchestrator:
         )
         registry.register(HackerNewsSource(timeout=settings.source_timeout_seconds))
 
-        _orchestrator = Orchestrator(
+        _orchestrator = LangGraphEngine(
             intent_parser=IntentParser(llm),
             extractor=Extractor(llm),
             aggregator=Aggregator(llm),
             registry=registry,
             cache=get_cache(),
+            checkpoint_db_path=settings.langgraph_checkpoint_db_path,
             source_timeout=settings.source_timeout_seconds,
             extraction_timeout=settings.extraction_timeout_seconds,
             max_results_per_source=settings.max_results_per_source,

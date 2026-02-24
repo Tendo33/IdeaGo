@@ -1,7 +1,4 @@
-"""Pipeline orchestrator — coordinates intent parsing, source fetching, extraction, aggregation.
-
-管道总调度器：协调意图解析、数据源抓取、竞品提取、聚合分析。
-"""
+"""LangGraph node implementations for the research pipeline."""
 
 from __future__ import annotations
 
@@ -20,7 +17,7 @@ from ideago.models.research import (
     SourceResult,
     SourceStatus,
 )
-from ideago.pipeline.aggregator import Aggregator
+from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import (
     AggregationError,
@@ -28,6 +25,7 @@ from ideago.pipeline.exceptions import (
     IntentParsingError,
 )
 from ideago.pipeline.extractor import Extractor
+from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.sources.registry import SourceRegistry
 
@@ -42,66 +40,47 @@ async def _emit(
     if callback:
         await callback.on_event(
             PipelineEvent(
-                type=event_type, stage=stage, message=message, data=data or {}
+                type=event_type,
+                stage=stage,
+                message=message,
+                data=data or {},
             )
         )
 
 
-class Orchestrator:
-    """Coordinates the full research pipeline from query to report."""
+class PipelineNodes:
+    """Node implementation bundle bound to runtime dependencies."""
 
     def __init__(
         self,
+        *,
         intent_parser: IntentParser,
         extractor: Extractor,
         aggregator: Aggregator,
         registry: SourceRegistry,
         cache: FileCache,
-        source_timeout: int = 30,
-        extraction_timeout: int = 60,
-        max_results_per_source: int = 10,
-        max_concurrent_llm: int = 3,
+        callback: ProgressCallback | None,
+        source_timeout: int,
+        extraction_timeout: int,
+        max_results_per_source: int,
+        max_concurrent_llm: int,
     ) -> None:
         self._intent_parser = intent_parser
         self._extractor = extractor
         self._aggregator = aggregator
         self._registry = registry
         self._cache = cache
+        self._callback = callback
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
         self._max_results = max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
 
-    def get_all_sources(self) -> list[DataSource]:
-        """Return all registered source plugins."""
-        return self._registry.get_all()
-
-    def get_source_availability(self) -> dict[str, bool]:
-        """Return source availability map for health checks."""
-        return {
-            source.platform.value: source.is_available()
-            for source in self._registry.get_all()
-        }
-
-    async def run(
-        self,
-        query: str,
-        callback: ProgressCallback | None = None,
-        report_id: str | None = None,
-    ) -> ResearchReport:
-        """Execute the full research pipeline.
-
-        Args:
-            query: User's natural language startup idea description.
-            callback: Optional callback for SSE progress events.
-            report_id: Optional client-assigned report ID for consistent referencing.
-
-        Returns:
-            Complete ResearchReport.
-        """
-        # 1. Parse intent
+    async def parse_intent_node(self, state: GraphState) -> GraphState:
+        """Parse natural language query into structured intent."""
+        query = state["query"]
         await _emit(
-            callback,
+            self._callback,
             EventType.INTENT_PARSED,
             "intent_parsing",
             "Analyzing your idea...",
@@ -111,7 +90,7 @@ class Orchestrator:
         except IntentParsingError:
             logger.exception("Intent parsing failed")
             await _emit(
-                callback,
+                self._callback,
                 EventType.ERROR,
                 "intent_parsing",
                 "Failed to analyze your idea",
@@ -119,43 +98,51 @@ class Orchestrator:
             raise
 
         await _emit(
-            callback,
+            self._callback,
             EventType.INTENT_PARSED,
             "intent_parsing",
             f"Identified: {intent.app_type} — {', '.join(intent.keywords_en)}",
             {"keywords": intent.keywords_en, "app_type": intent.app_type},
         )
+        return {"intent": intent}
 
-        # 2. Check cache
+    async def cache_lookup_node(self, state: GraphState) -> GraphState:
+        """Resolve cache hit/miss for parsed intent."""
+        intent = state["intent"]
+        report_id = state.get("report_id")
+
         cached = await self._cache.get(intent.cache_key)
-        if cached:
-            logger.info("Cache hit for key {}", intent.cache_key)
-            if report_id and cached.id != report_id:
-                cached = cached.model_copy(update={"id": report_id})
-                await self._cache.put(cached)
-            await _emit(
-                callback,
-                EventType.REPORT_READY,
-                "cache",
-                "Found cached report",
-                {"report_id": cached.id},
-            )
-            return cached
+        if cached is None:
+            return {"is_cache_hit": False}
 
-        # 3. Concurrent source fetching
-        sources = self._registry.get_available()
+        logger.info("Cache hit for key {}", intent.cache_key)
+        if report_id and cached.id != report_id:
+            cached = cached.model_copy(update={"id": report_id})
+            await self._cache.put(cached)
+        await _emit(
+            self._callback,
+            EventType.REPORT_READY,
+            "cache",
+            "Found cached report",
+            {"report_id": cached.id},
+        )
+        return {"is_cache_hit": True, "report": cached}
+
+    async def fetch_sources_node(self, state: GraphState) -> GraphState:
+        """Fetch raw results from all available sources concurrently."""
+        intent = state["intent"]
         source_results: list[SourceResult] = []
         raw_by_source: dict[str, list[RawResult]] = {}
+        sources = self._registry.get_available()
 
         async def _fetch_source(source: DataSource) -> SourceResult:
             platform_name = source.platform.value
             await _emit(
-                callback,
+                self._callback,
                 EventType.SOURCE_STARTED,
                 f"{platform_name}_search",
                 f"Searching {platform_name}...",
             )
-
             start = time.monotonic()
             queries = []
             for sq in intent.search_queries:
@@ -173,7 +160,7 @@ class Orchestrator:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 raw_by_source[platform_name] = results
                 await _emit(
-                    callback,
+                    self._callback,
                     EventType.SOURCE_COMPLETED,
                     f"{platform_name}_search",
                     f"Found {len(results)} results from {platform_name}",
@@ -189,7 +176,7 @@ class Orchestrator:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 logger.warning("{} search timed out", platform_name)
                 await _emit(
-                    callback,
+                    self._callback,
                     EventType.SOURCE_FAILED,
                     f"{platform_name}_search",
                     f"{platform_name} search timed out",
@@ -204,7 +191,7 @@ class Orchestrator:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 logger.warning("{} search failed: {}", platform_name, exc)
                 await _emit(
-                    callback,
+                    self._callback,
                     EventType.SOURCE_FAILED,
                     f"{platform_name}_search",
                     f"{platform_name} search failed",
@@ -217,23 +204,33 @@ class Orchestrator:
                 )
 
         fetch_results = await asyncio.gather(
-            *[_fetch_source(s) for s in sources],
+            *[_fetch_source(source) for source in sources],
             return_exceptions=True,
         )
-        for r in fetch_results:
-            if isinstance(r, SourceResult):
-                source_results.append(r)
-            elif isinstance(r, Exception):
-                logger.error("Unexpected fetch error: {}", r)
+        for result in fetch_results:
+            if isinstance(result, SourceResult):
+                source_results.append(result)
+            elif isinstance(result, Exception):
+                logger.error("Unexpected fetch error: {}", result)
 
-        # 4. Concurrent extraction (Map)
+        return {
+            "source_results": source_results,
+            "raw_by_source": raw_by_source,
+        }
+
+    async def extract_map_node(self, state: GraphState) -> GraphState:
+        """Extract competitors from raw source results concurrently."""
+        raw_by_source = state.get("raw_by_source", {})
+        query = state["query"]
+        source_results = state.get("source_results", [])
         all_competitors: list[Competitor] = []
 
         async def _extract_for_source(
-            platform_name: str, raw_results: list[RawResult]
+            platform_name: str,
+            raw_results: list[RawResult],
         ) -> tuple[str, list[Competitor]]:
             await _emit(
-                callback,
+                self._callback,
                 EventType.EXTRACTION_STARTED,
                 f"{platform_name}_extraction",
                 f"Extracting insights from {platform_name}...",
@@ -245,7 +242,7 @@ class Orchestrator:
                         timeout=self._extraction_timeout,
                     )
                 await _emit(
-                    callback,
+                    self._callback,
                     EventType.EXTRACTION_COMPLETED,
                     f"{platform_name}_extraction",
                     f"Extracted {len(competitors)} competitors from {platform_name}",
@@ -259,37 +256,48 @@ class Orchestrator:
                     exc,
                 )
                 degraded = _degrade_raw_to_competitors(raw_results)
-                for sr in source_results:
-                    if sr.platform.value == platform_name:
-                        sr.status = SourceStatus.DEGRADED
-                        sr.error_msg = f"LLM extraction failed: {exc}"
+                for source_result in source_results:
+                    if source_result.platform.value == platform_name:
+                        source_result.status = SourceStatus.DEGRADED
+                        source_result.error_msg = f"LLM extraction failed: {exc}"
                 return platform_name, degraded
 
         extraction_tasks = [
-            _extract_for_source(pname, raws)
-            for pname, raws in raw_by_source.items()
-            if raws
+            _extract_for_source(platform_name, raw_results)
+            for platform_name, raw_results in raw_by_source.items()
+            if raw_results
         ]
         extraction_results = await asyncio.gather(
-            *extraction_tasks, return_exceptions=True
+            *extraction_tasks,
+            return_exceptions=True,
         )
-        for ext_r in extraction_results:
-            if isinstance(ext_r, tuple):
-                pname, comps = ext_r
-                all_competitors.extend(comps)
-                for sr in source_results:
-                    if sr.platform.value == pname:
-                        sr.competitors = comps
-            elif isinstance(ext_r, Exception):
-                logger.error("Unexpected extraction error: {}", ext_r)
+        for extraction_result in extraction_results:
+            if isinstance(extraction_result, tuple):
+                platform_name, competitors = extraction_result
+                all_competitors.extend(competitors)
+                for source_result in source_results:
+                    if source_result.platform.value == platform_name:
+                        source_result.competitors = competitors
+            elif isinstance(extraction_result, Exception):
+                logger.error("Unexpected extraction error: {}", extraction_result)
 
-        # 5. Aggregation (Reduce)
+        return {
+            "all_competitors": all_competitors,
+            "source_results": source_results,
+        }
+
+    async def aggregate_node(self, state: GraphState) -> GraphState:
+        """Aggregate/deduplicate competitor list and generate analysis."""
+        all_competitors = state.get("all_competitors", [])
+        query = state["query"]
+
         await _emit(
-            callback,
+            self._callback,
             EventType.AGGREGATION_STARTED,
             "aggregation",
             "Analyzing and deduplicating...",
         )
+
         try:
             async with self._llm_semaphore:
                 agg_result = await asyncio.wait_for(
@@ -298,8 +306,6 @@ class Orchestrator:
                 )
         except (AggregationError, asyncio.TimeoutError) as exc:
             logger.warning("Aggregation failed: {}, using raw competitors", exc)
-            from ideago.pipeline.aggregator import AggregationResult
-
             agg_result = AggregationResult(
                 competitors=all_competitors,
                 market_summary="Aggregation failed — showing unprocessed results.",
@@ -307,54 +313,65 @@ class Orchestrator:
             )
 
         await _emit(
-            callback,
+            self._callback,
             EventType.AGGREGATION_COMPLETED,
             "aggregation",
             f"Found {len(agg_result.competitors)} unique competitors",
             {"count": len(agg_result.competitors)},
         )
+        return {"aggregation_result": agg_result}
 
-        # 6. Assemble report
-        report_kwargs: dict[str, Any] = dict(
-            query=query,
-            intent=intent,
-            source_results=source_results,
-            competitors=agg_result.competitors,
-            market_summary=agg_result.market_summary,
-            go_no_go=agg_result.go_no_go,
-            recommendation_type=agg_result.recommendation_type,
-            differentiation_angles=agg_result.differentiation_angles,
-        )
-        if report_id:
-            report_kwargs["id"] = report_id
+    async def assemble_report_node(self, state: GraphState) -> GraphState:
+        """Assemble final report object from graph state."""
+        agg_result = state["aggregation_result"]
+        report_kwargs: dict[str, Any] = {
+            "query": state["query"],
+            "intent": state["intent"],
+            "source_results": state.get("source_results", []),
+            "competitors": agg_result.competitors,
+            "market_summary": agg_result.market_summary,
+            "go_no_go": agg_result.go_no_go,
+            "recommendation_type": agg_result.recommendation_type,
+            "differentiation_angles": agg_result.differentiation_angles,
+        }
+        if state.get("report_id"):
+            report_kwargs["id"] = state["report_id"]
         report = ResearchReport(**report_kwargs)
+        return {"report": report}
 
+    async def persist_report_node(self, state: GraphState) -> GraphState:
+        """Persist report to cache and emit terminal ready event."""
+        report = state["report"]
         await self._cache.put(report)
         await _emit(
-            callback,
+            self._callback,
             EventType.REPORT_READY,
             "complete",
             "Report ready",
             {"report_id": report.id},
         )
+        return {}
 
-        return report
+    async def terminal_error_node(self, state: GraphState) -> GraphState:
+        """Terminal node for graph-level controlled failures."""
+        error_code = state.get("error_code", "PIPELINE_FAILURE")
+        raise RuntimeError(error_code)
 
 
 def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor]:
     """Convert raw results to minimal Competitor objects when LLM fails."""
     result: list[Competitor] = []
-    for r in raw_results:
-        if r.url:
+    for raw in raw_results:
+        if raw.url:
             result.append(
                 Competitor(
-                    name=r.title or "Unknown",
-                    links=[r.url],
-                    one_liner=r.description[:200]
-                    if r.description
+                    name=raw.title or "Unknown",
+                    links=[raw.url],
+                    one_liner=raw.description[:200]
+                    if raw.description
                     else "No description available",
-                    source_platforms=[r.platform],
-                    source_urls=[r.url],
+                    source_platforms=[raw.platform],
+                    source_urls=[raw.url],
                     relevance_score=0.3,
                 )
             )

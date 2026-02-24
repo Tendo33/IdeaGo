@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from ideago.llm.client import LLMClient
+from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Intent
 from ideago.pipeline.exceptions import IntentParsingError
@@ -16,7 +16,7 @@ from ideago.pipeline.exceptions import IntentParsingError
 class IntentParser:
     """Parses a user's natural language query into a structured Intent."""
 
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: ChatModelClient) -> None:
         self._llm = llm
 
     async def parse(self, query: str) -> Intent:
@@ -30,7 +30,7 @@ class IntentParser:
         """
         try:
             prompt = load_prompt("intent_parser", query=query)
-            data = await self._llm.complete_json(
+            data = await self._llm.invoke_json(
                 prompt,
                 system="You are a startup research assistant. Return only valid JSON.",
             )

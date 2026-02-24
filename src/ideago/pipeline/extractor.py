@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from loguru import logger
 
-from ideago.llm.client import LLMClient
+from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RawResult
 from ideago.pipeline.exceptions import ExtractionError
@@ -19,7 +19,7 @@ from ideago.pipeline.exceptions import ExtractionError
 class Extractor:
     """Extracts structured Competitor objects from raw search results using LLM."""
 
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: ChatModelClient) -> None:
         self._llm = llm
 
     async def extract(
@@ -57,7 +57,7 @@ class Extractor:
                 raw_results_json=raw_json,
                 query_context=query_context,
             )
-            data = await self._llm.complete_json(
+            data = await self._llm.invoke_json(
                 prompt,
                 system="You are a competitor analysis expert. Return only valid JSON.",
             )

@@ -102,6 +102,16 @@ class Settings(BaseSettings):
         le=180,
         description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",
     )
+    langgraph_checkpoint_db_path: str = Field(
+        default=".cache/ideago/langgraph-checkpoints.db",
+        description="LangGraph checkpoint SQLite path / LangGraph 检查点数据库路径",
+    )
+    langgraph_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=8,
+        description="Max LLM retries for retryable errors / 可重试错误最大重试次数",
+    )
 
     # --- Cache / 缓存配置 ---
     cache_dir: str = Field(

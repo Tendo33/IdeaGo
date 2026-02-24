@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from loguru import logger
 
-from ideago.llm.client import LLMClient
+from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RecommendationType
 from ideago.pipeline.exceptions import AggregationError
@@ -30,7 +30,7 @@ class AggregationResult:
 class Aggregator:
     """Deduplicates competitors across platforms and generates market insights."""
 
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: ChatModelClient) -> None:
         self._llm = llm
 
     async def aggregate(
@@ -63,7 +63,7 @@ class Aggregator:
                 competitors_json=competitors_json,
                 original_query=original_query,
             )
-            data = await self._llm.complete_json(
+            data = await self._llm.invoke_json(
                 prompt,
                 system="You are a market research analyst. Return only valid JSON.",
             )

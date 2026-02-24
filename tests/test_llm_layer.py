@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ideago.llm.client import LLMClient
+from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, Platform, RawResult
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
@@ -48,46 +48,60 @@ def test_load_prompt_missing_raises() -> None:
         load_prompt("nonexistent_template_xyz")
 
 
-# ---------- LLMClient ----------
+# ---------- ChatModelClient ----------
 
 
-def _make_mock_openai_response(content: str) -> MagicMock:
-    choice = MagicMock()
-    choice.message.content = content
+def _make_mock_chat_response(content: str) -> MagicMock:
     response = MagicMock()
-    response.choices = [choice]
+    response.content = content
     return response
 
 
 @pytest.mark.asyncio
-async def test_llm_client_complete_returns_text() -> None:
-    client = LLMClient(api_key="sk-test", model="gpt-4o-mini")
-    mock_resp = _make_mock_openai_response("Hello world")
-    client._client.chat.completions.create = AsyncMock(return_value=mock_resp)
+async def test_chat_model_client_invoke_json_parses() -> None:
+    client = ChatModelClient(api_key="sk-test", model="gpt-4o-mini")
+    mock_resp = _make_mock_chat_response('{"name": "test", "score": 0.8}')
+    client._invoke_with_retry = AsyncMock(return_value=mock_resp)
 
-    result = await client.complete("test prompt")
-    assert result == "Hello world"
-
-
-@pytest.mark.asyncio
-async def test_llm_client_complete_json_parses() -> None:
-    client = LLMClient(api_key="sk-test", model="gpt-4o-mini")
-    mock_resp = _make_mock_openai_response('{"name": "test", "score": 0.8}')
-    client._client.chat.completions.create = AsyncMock(return_value=mock_resp)
-
-    result = await client.complete_json("test prompt")
+    result = await client.invoke_json("test prompt")
     assert result["name"] == "test"
     assert result["score"] == 0.8
 
 
 @pytest.mark.asyncio
-async def test_llm_client_complete_json_invalid_raises() -> None:
-    client = LLMClient(api_key="sk-test", model="gpt-4o-mini")
-    mock_resp = _make_mock_openai_response("not valid json {{{")
-    client._client.chat.completions.create = AsyncMock(return_value=mock_resp)
+async def test_chat_model_client_invoke_json_invalid_raises() -> None:
+    client = ChatModelClient(api_key="sk-test", model="gpt-4o-mini")
+    mock_resp = _make_mock_chat_response("not valid json {{{")
+    client._invoke_with_retry = AsyncMock(return_value=mock_resp)
 
     with pytest.raises(json.JSONDecodeError):
-        await client.complete_json("test")
+        await client.invoke_json("test")
+
+
+@pytest.mark.asyncio
+async def test_chat_model_client_retries_retryable_errors() -> None:
+    class RetryableError(Exception):
+        status_code = 429
+
+    client = ChatModelClient(
+        api_key="sk-test",
+        model="gpt-4o-mini",
+        max_retries=2,
+        base_delay=0.0,
+    )
+    mock_resp = _make_mock_chat_response('{"ok": true}')
+    client._json_model = MagicMock()
+    client._json_model.ainvoke = AsyncMock(
+        side_effect=[
+            RetryableError("rate limit"),
+            RetryableError("rate limit"),
+            mock_resp,
+        ]
+    )
+
+    result = await client.invoke_json("test")
+    assert result["ok"] is True
+    assert client._json_model.ainvoke.call_count == 3
 
 
 # ---------- IntentParser ----------
@@ -113,8 +127,8 @@ MOCK_INTENT_LLM_RESPONSE = {
 
 @pytest.mark.asyncio
 async def test_intent_parser_returns_intent() -> None:
-    llm = MagicMock(spec=LLMClient)
-    llm.complete_json = AsyncMock(return_value=MOCK_INTENT_LLM_RESPONSE)
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json = AsyncMock(return_value=MOCK_INTENT_LLM_RESPONSE)
 
     parser = IntentParser(llm)
     intent = await parser.parse("我想做一个给网页内容做Markdown笔记的浏览器插件")
@@ -154,8 +168,8 @@ MOCK_EXTRACTOR_LLM_RESPONSE = {
 
 @pytest.mark.asyncio
 async def test_extractor_extracts_valid_competitors() -> None:
-    llm = MagicMock(spec=LLMClient)
-    llm.complete_json = AsyncMock(return_value=MOCK_EXTRACTOR_LLM_RESPONSE)
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json = AsyncMock(return_value=MOCK_EXTRACTOR_LLM_RESPONSE)
 
     extractor = Extractor(llm)
     raw = [
@@ -173,8 +187,8 @@ async def test_extractor_extracts_valid_competitors() -> None:
 
 @pytest.mark.asyncio
 async def test_extractor_filters_unverifiable_links() -> None:
-    llm = MagicMock(spec=LLMClient)
-    llm.complete_json = AsyncMock(
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json = AsyncMock(
         return_value={
             "competitors": [
                 {
@@ -219,11 +233,11 @@ async def test_extractor_filters_unverifiable_links() -> None:
 
 @pytest.mark.asyncio
 async def test_extractor_empty_input_returns_empty() -> None:
-    llm = MagicMock(spec=LLMClient)
+    llm = MagicMock(spec=ChatModelClient)
     extractor = Extractor(llm)
     result = await extractor.extract([], "test")
     assert result == []
-    llm.complete_json.assert_not_called()
+    llm.invoke_json.assert_not_called()
 
 
 # ---------- Aggregator ----------
@@ -255,8 +269,8 @@ MOCK_AGGREGATOR_LLM_RESPONSE = {
 
 @pytest.mark.asyncio
 async def test_aggregator_deduplicates_and_summarizes() -> None:
-    llm = MagicMock(spec=LLMClient)
-    llm.complete_json = AsyncMock(return_value=MOCK_AGGREGATOR_LLM_RESPONSE)
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json = AsyncMock(return_value=MOCK_AGGREGATOR_LLM_RESPONSE)
 
     agg = Aggregator(llm)
     competitors = [
@@ -287,7 +301,7 @@ async def test_aggregator_deduplicates_and_summarizes() -> None:
 
 @pytest.mark.asyncio
 async def test_aggregator_empty_competitors() -> None:
-    llm = MagicMock(spec=LLMClient)
+    llm = MagicMock(spec=ChatModelClient)
     agg = Aggregator(llm)
     result = await agg.aggregate([], "test")
     assert result.competitors == []
@@ -295,4 +309,4 @@ async def test_aggregator_empty_competitors() -> None:
         "no competitors" in result.market_summary.lower()
         or "unexplored" in result.go_no_go.lower()
     )
-    llm.complete_json.assert_not_called()
+    llm.invoke_json.assert_not_called()

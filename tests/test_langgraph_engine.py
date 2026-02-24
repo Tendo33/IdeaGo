@@ -1,4 +1,4 @@
-"""Tests for pipeline orchestrator."""
+"""Tests for LangGraph pipeline engine."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ from ideago.models.research import (
 )
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
-from ideago.pipeline.exceptions import ExtractionError
+from ideago.pipeline.exceptions import AggregationError, ExtractionError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
-from ideago.pipeline.orchestrator import Orchestrator
+from ideago.pipeline.langgraph_engine import LangGraphEngine
 from ideago.sources.registry import SourceRegistry
 
 MOCK_INTENT = Intent(
@@ -94,12 +94,13 @@ class EventCollector:
         self.events.append(event)
 
 
-def _build_orchestrator(
+def _build_engine(
     tmp_path,
     sources: list | None = None,
     cache_hit: ResearchReport | None = None,
     extraction_fails: bool = False,
-) -> tuple[Orchestrator, EventCollector]:
+    aggregation_side_effect: object | None = None,
+) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
     intent_parser.parse = AsyncMock(return_value=MOCK_INTENT)
 
@@ -110,7 +111,10 @@ def _build_orchestrator(
         extractor.extract = AsyncMock(return_value=[MOCK_COMPETITOR])
 
     aggregator = MagicMock(spec=Aggregator)
-    aggregator.aggregate = AsyncMock(return_value=MOCK_AGG_RESULT)
+    if aggregation_side_effect is not None:
+        aggregator.aggregate = AsyncMock(side_effect=aggregation_side_effect)
+    else:
+        aggregator.aggregate = AsyncMock(return_value=MOCK_AGG_RESULT)
 
     registry = SourceRegistry()
     for src in sources or [MockSource(Platform.GITHUB)]:
@@ -133,23 +137,24 @@ def _build_orchestrator(
         }
         index_path.write_text(json.dumps([index_entry]), encoding="utf-8")
 
-    orchestrator = Orchestrator(
+    engine = LangGraphEngine(
         intent_parser=intent_parser,
         extractor=extractor,
         aggregator=aggregator,
         registry=registry,
         cache=cache,
+        checkpoint_db_path=str(tmp_path / "checkpoint.db"),
         source_timeout=5,
         extraction_timeout=5,
     )
     collector = EventCollector()
-    return orchestrator, collector
+    return engine, collector, intent_parser, aggregator
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_full_pipeline(tmp_path) -> None:
-    orch, collector = _build_orchestrator(tmp_path)
-    report = await orch.run("test idea", callback=collector)
+async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
+    engine, collector, _, _ = _build_engine(tmp_path)
+    report = await engine.run("test idea", callback=collector)
 
     assert isinstance(report, ResearchReport)
     assert report.query == "test idea"
@@ -164,14 +169,14 @@ async def test_orchestrator_full_pipeline(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_cache_hit_skips_pipeline(tmp_path) -> None:
+async def test_langgraph_engine_cache_hit_skips_pipeline(tmp_path) -> None:
     cached_report = ResearchReport(
         query="test idea",
         intent=MOCK_INTENT,
         competitors=[MOCK_COMPETITOR],
     )
-    orch, collector = _build_orchestrator(tmp_path, cache_hit=cached_report)
-    report = await orch.run("test idea", callback=collector)
+    engine, collector, _, _ = _build_engine(tmp_path, cache_hit=cached_report)
+    report = await engine.run("test idea", callback=collector)
 
     assert report.id == cached_report.id
     event_types = [e.type for e in collector.events]
@@ -180,10 +185,10 @@ async def test_orchestrator_cache_hit_skips_pipeline(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_source_failure_partial_result(tmp_path) -> None:
+async def test_langgraph_engine_source_failure_partial_result(tmp_path) -> None:
     sources = [MockSource(Platform.GITHUB), FailingSource()]
-    orch, collector = _build_orchestrator(tmp_path, sources=sources)
-    report = await orch.run("test idea", callback=collector)
+    engine, collector, _, _ = _build_engine(tmp_path, sources=sources)
+    report = await engine.run("test idea", callback=collector)
 
     assert len(report.source_results) == 2
     statuses = {sr.platform.value: sr.status.value for sr in report.source_results}
@@ -195,10 +200,42 @@ async def test_orchestrator_source_failure_partial_result(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_extraction_failure_degrades(tmp_path) -> None:
-    orch, collector = _build_orchestrator(tmp_path, extraction_fails=True)
-    report = await orch.run("test idea", callback=collector)
+async def test_langgraph_engine_extraction_failure_degrades(tmp_path) -> None:
+    engine, collector, _, _ = _build_engine(tmp_path, extraction_fails=True)
+    report = await engine.run("test idea", callback=collector)
 
     assert len(report.competitors) >= 1
     degraded = [sr for sr in report.source_results if sr.status.value == "degraded"]
     assert len(degraded) == 1
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        aggregation_side_effect=AggregationError("aggregation crash"),
+    )
+    report = await engine.run("test idea")
+
+    assert report.competitors
+    assert "Aggregation failed" in report.market_summary
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_resume_from_checkpoint(tmp_path) -> None:
+    aggregation_side_effect = [
+        RuntimeError("crash in aggregation"),
+        MOCK_AGG_RESULT,
+    ]
+    engine, _, intent_parser, aggregator = _build_engine(
+        tmp_path,
+        aggregation_side_effect=aggregation_side_effect,
+    )
+
+    with pytest.raises(RuntimeError):
+        await engine.run("test idea", report_id="resume-report-id")
+
+    report = await engine.run("test idea", report_id="resume-report-id")
+    assert report.query == "test idea"
+    assert intent_parser.parse.call_count == 1
+    assert aggregator.aggregate.call_count == 2

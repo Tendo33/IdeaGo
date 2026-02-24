@@ -1,1 +1,1 @@
-"""LLM abstraction layer — async OpenAI client, prompt templates, and loader."""
+"""LLM abstraction layer — LangChain chat client, prompts, and loader."""
