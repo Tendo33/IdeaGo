@@ -16,15 +16,16 @@ from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
     cleanup_report_runs,
-    clear_processing_report,
     get_cache,
     get_or_create_report_run,
     get_orchestrator,
-    get_pipeline_task,
-    get_processing_reports,
+    get_pipeline_task_for_report,
     get_report_run,
-    pop_pipeline_task,
-    set_pipeline_task,
+    is_processing_report,
+    register_pipeline_task,
+    release_processing_report,
+    remove_pipeline_task,
+    reserve_processing_report,
 )
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.pipeline.events import EventType, PipelineEvent
@@ -76,20 +77,23 @@ async def _run_pipeline(query: str, report_id: str) -> None:
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _mark_cancelled(report_id)
-    except Exception as exc:
+    except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
         await cache.put_status(report_id, "failed", query)
         await run_state.publish(
             PipelineEvent(
                 type=EventType.ERROR,
                 stage="pipeline",
-                message=f"Pipeline failed: {exc}",
-                data={"report_id": report_id},
+                message="Pipeline failed. Please retry.",
+                data={
+                    "report_id": report_id,
+                    "error_code": "PIPELINE_FAILURE",
+                },
             )
         )
     finally:
-        clear_processing_report(report_id)
-        pop_pipeline_task(report_id)
+        await release_processing_report(report_id)
+        await remove_pipeline_task(report_id)
         cleanup_report_runs()
 
 
@@ -98,21 +102,16 @@ async def start_analysis(request: AnalyzeRequest) -> AnalyzeResponse:
     """Start a competitor research pipeline for the given idea."""
     query = request.query.strip()
 
-    processing = get_processing_reports()
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
-    existing_report_id = processing.get(query_hash)
-    if existing_report_id:
-        task = get_pipeline_task(existing_report_id)
-        if task and not task.done():
-            return AnalyzeResponse(report_id=existing_report_id)
-        processing.pop(query_hash, None)
-
     report_id = str(uuid.uuid4())
+    existing_report_id = await reserve_processing_report(query_hash, report_id)
+    if existing_report_id is not None:
+        return AnalyzeResponse(report_id=existing_report_id)
+
     get_or_create_report_run(report_id)
-    processing[query_hash] = report_id
 
     task = asyncio.create_task(_run_pipeline(query, report_id))
-    set_pipeline_task(report_id, task)
+    await register_pipeline_task(report_id, task)
     return AnalyzeResponse(report_id=report_id)
 
 
@@ -193,9 +192,9 @@ async def stream_progress(report_id: str) -> EventSourceResponse:
 @router.delete("/reports/{report_id}/cancel")
 async def cancel_analysis(report_id: str) -> dict:
     """Cancel an in-progress analysis task."""
-    processing = get_processing_reports()
-    task = get_pipeline_task(report_id)
-    if (task is None or task.done()) and report_id not in processing.values():
+    task = await get_pipeline_task_for_report(report_id)
+    report_is_processing = await is_processing_report(report_id)
+    if (task is None or task.done()) and not report_is_processing:
         raise HTTPException(
             status_code=404, detail="No active analysis found for this report"
         )
@@ -203,10 +202,10 @@ async def cancel_analysis(report_id: str) -> dict:
     if task is not None and not task.done():
         task.cancel()
         await _mark_cancelled(report_id)
-        clear_processing_report(report_id)
+        await release_processing_report(report_id)
     else:
         await _mark_cancelled(report_id)
-        clear_processing_report(report_id)
+        await release_processing_report(report_id)
 
     logger.info("Analysis cancelled for report {}", report_id)
     return {"status": "cancelled"}

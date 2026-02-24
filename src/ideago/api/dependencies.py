@@ -26,6 +26,7 @@ _cache: FileCache | None = None
 _report_runs: dict[str, ReportRunState] = {}
 _processing_reports: dict[str, str] = {}
 _pipeline_tasks: dict[str, asyncio.Task[None]] = {}
+_runtime_state_lock = asyncio.Lock()
 _REPORT_RUN_TTL_SECONDS = 600
 _TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}
 
@@ -146,6 +147,51 @@ def clear_processing_report(report_id: str) -> None:
     keys_to_remove = [k for k, v in _processing_reports.items() if v == report_id]
     for key in keys_to_remove:
         _processing_reports.pop(key, None)
+
+
+async def reserve_processing_report(query_hash: str, report_id: str) -> str | None:
+    """Atomically reserve processing slot; return existing active report_id if present."""
+    async with _runtime_state_lock:
+        existing_report_id = _processing_reports.get(query_hash)
+        if existing_report_id is not None:
+            existing_task = _pipeline_tasks.get(existing_report_id)
+            if existing_task is None or not existing_task.done():
+                return existing_report_id
+            _processing_reports.pop(query_hash, None)
+        _processing_reports[query_hash] = report_id
+        return None
+
+
+async def register_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
+    """Atomically register pipeline task."""
+    async with _runtime_state_lock:
+        _pipeline_tasks[report_id] = task
+
+
+async def remove_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
+    """Atomically remove pipeline task."""
+    async with _runtime_state_lock:
+        return _pipeline_tasks.pop(report_id, None)
+
+
+async def get_pipeline_task_for_report(report_id: str) -> asyncio.Task[None] | None:
+    """Atomically read pipeline task for report."""
+    async with _runtime_state_lock:
+        return _pipeline_tasks.get(report_id)
+
+
+async def release_processing_report(report_id: str) -> None:
+    """Atomically clear all processing entries for report_id."""
+    async with _runtime_state_lock:
+        keys_to_remove = [k for k, v in _processing_reports.items() if v == report_id]
+        for key in keys_to_remove:
+            _processing_reports.pop(key, None)
+
+
+async def is_processing_report(report_id: str) -> bool:
+    """Check whether report_id is still present in processing map."""
+    async with _runtime_state_lock:
+        return report_id in _processing_reports.values()
 
 
 def set_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:

@@ -72,6 +72,17 @@ class Orchestrator:
         self._max_results = max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
 
+    def get_all_sources(self) -> list[DataSource]:
+        """Return all registered source plugins."""
+        return self._registry.get_all()
+
+    def get_source_availability(self) -> dict[str, bool]:
+        """Return source availability map for health checks."""
+        return {
+            source.platform.value: source.is_available()
+            for source in self._registry.get_all()
+        }
+
     async def run(
         self,
         query: str,

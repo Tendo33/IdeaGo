@@ -39,6 +39,7 @@ class MockEventSource {
 describe('useSSE', () => {
   beforeEach(() => {
     MockEventSource.instances = []
+    vi.useRealTimers()
     vi.stubGlobal('EventSource', MockEventSource)
   })
 
@@ -63,5 +64,38 @@ describe('useSSE', () => {
       expect(result.current.cancelled).toBe('Analysis cancelled by user')
       expect(result.current.error).toBeNull()
     })
+  })
+
+  it('deduplicates replayed events after reconnect', async () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useSSE('r1'))
+
+    expect(MockEventSource.instances).toHaveLength(1)
+    const first = MockEventSource.instances[0]
+    const duplicatedEvent = {
+        type: 'source_completed',
+        stage: 'github_search',
+        message: 'Found 3 results from github',
+        data: { platform: 'github', count: 3 },
+        timestamp: '2026-02-24T14:00:00.000Z',
+    }
+
+    act(() => {
+      first.emit('source_completed', duplicatedEvent)
+      first.onerror?.()
+    })
+
+    await act(async () => {
+      vi.runAllTimers()
+      await Promise.resolve()
+    })
+
+    expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(2)
+    const second = MockEventSource.instances[1]
+    act(() => {
+      second.emit('source_completed', duplicatedEvent)
+    })
+
+    expect(result.current.events).toHaveLength(1)
   })
 })

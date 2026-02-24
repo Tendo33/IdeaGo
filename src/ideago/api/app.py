@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from ideago.api.routes import analyze, health, reports
+from ideago.config.settings import get_settings
 
 _FRONTEND_DIST = (
     Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
@@ -28,6 +29,7 @@ _RATE_LIMIT_WINDOW = 60
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    settings = get_settings()
     app = FastAPI(
         title="IdeaGo",
         version="0.3.0",
@@ -35,7 +37,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.get_cors_allow_origins(),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -69,7 +71,7 @@ def create_app() -> FastAPI:
 
         if _orchestrator is None:
             return
-        for source in _orchestrator._registry.get_all():
+        for source in _orchestrator.get_all_sources():
             if hasattr(source, "close"):
                 try:
                     await source.close()

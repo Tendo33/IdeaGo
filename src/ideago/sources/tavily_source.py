@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from loguru import logger
 from tavily import AsyncTavilyClient
 
@@ -16,6 +18,7 @@ class TavilySource:
 
     def __init__(self, api_key: str = "", timeout: int = 30) -> None:
         self._api_key = api_key
+        self._timeout = timeout
         if api_key:
             self._client = AsyncTavilyClient(api_key=api_key)
         else:
@@ -38,10 +41,13 @@ class TavilySource:
 
         for query in queries:
             try:
-                response = await self._client.search(
-                    query=query,
-                    max_results=limit,
-                    search_depth="basic",
+                response = await asyncio.wait_for(
+                    self._client.search(
+                        query=query,
+                        max_results=limit,
+                        search_depth="basic",
+                    ),
+                    timeout=self._timeout,
                 )
                 for item in response.get("results", []):
                     url = item.get("url", "")
@@ -60,6 +66,8 @@ class TavilySource:
                             },
                         )
                     )
+            except asyncio.TimeoutError:
+                logger.warning("Tavily search timed out for '{query}'", query=query)
             except Exception as exc:
                 logger.warning(
                     "Tavily search failed for '{query}': {exc}", query=query, exc=exc

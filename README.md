@@ -92,6 +92,12 @@ Open http://localhost:8000.
 | `DELETE` | `/api/v1/reports/{id}` | Delete a report |
 | `GET` | `/api/v1/health` | Health check |
 
+## Operational Semantics
+
+- `GET /api/v1/health` returns `status: "ok" | "degraded"`.
+- SSE `error` events now return a stable `error_code` field (for example `PIPELINE_FAILURE`) and avoid exposing internal exception text.
+- CORS is configurable via `CORS_ALLOW_ORIGINS` (comma-separated). Default remains `*` for self-hosted local usage.
+
 ## Architecture
 
 ```

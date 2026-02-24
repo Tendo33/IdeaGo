@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -220,6 +221,24 @@ async def test_tavily_search_returns_raw_results() -> None:
     assert len(results) == 2
     assert results[0].platform == Platform.TAVILY
     assert "chromewebstore" in results[0].url
+
+
+@pytest.mark.asyncio
+async def test_tavily_search_times_out_slow_queries() -> None:
+    src = TavilySource(api_key="tvly-test", timeout=0.05)
+
+    async def slow_search(**_kwargs):
+        await asyncio.sleep(1)
+        return {"results": []}
+
+    with patch.object(src._client, "search", new_callable=AsyncMock) as mock_search:
+        mock_search.side_effect = slow_search
+        results = await asyncio.wait_for(
+            src.search(["slow tavily query"], limit=5),
+            timeout=0.2,
+        )
+
+    assert results == []
 
 
 # ---------- HackerNewsSource ----------

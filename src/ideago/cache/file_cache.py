@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from loguru import logger
 
@@ -34,6 +36,7 @@ class FileCache:
         self._dir.mkdir(parents=True, exist_ok=True)
         self._ttl_hours = ttl_hours
         self._index_path = self._dir / "_index.json"
+        self._index_lock = threading.Lock()
 
     def _is_expired(self, created_at: datetime) -> bool:
         age = datetime.now(timezone.utc) - created_at
@@ -51,17 +54,20 @@ class FileCache:
 
     def _write_index(self, entries: list[ReportIndex]) -> None:
         data = [e.model_dump(mode="json") for e in entries]
-        self._index_path.write_text(
+        temp_path = self._dir / f".{self._index_path.name}.{uuid4().hex}.tmp"
+        temp_path.write_text(
             json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        temp_path.replace(self._index_path)
 
     async def get(self, cache_key: str) -> ResearchReport | None:
         """Retrieve a cached report by cache key. Returns None if missing or expired."""
         return await asyncio.to_thread(self._get_sync, cache_key)
 
     def _get_sync(self, cache_key: str) -> ResearchReport | None:
-        index = self._read_index()
+        with self._index_lock:
+            index = self._read_index()
         for entry in index:
             if entry.cache_key == cache_key:
                 if self._is_expired(entry.created_at):
@@ -103,25 +109,27 @@ class FileCache:
             encoding="utf-8",
         )
 
-        index = self._read_index()
-        index = [e for e in index if e.cache_key != report.intent.cache_key]
-        index.append(
-            ReportIndex(
-                report_id=report.id,
-                query=report.query,
-                cache_key=report.intent.cache_key,
-                created_at=report.created_at,
-                competitor_count=len(report.competitors),
+        with self._index_lock:
+            index = self._read_index()
+            index = [e for e in index if e.cache_key != report.intent.cache_key]
+            index.append(
+                ReportIndex(
+                    report_id=report.id,
+                    query=report.query,
+                    cache_key=report.intent.cache_key,
+                    created_at=report.created_at,
+                    competitor_count=len(report.competitors),
+                )
             )
-        )
-        self._write_index(index)
+            self._write_index(index)
 
     async def list_reports(self) -> list[ReportIndex]:
         """List cached reports, excluding expired entries."""
         return await asyncio.to_thread(self._list_reports_sync)
 
     def _list_reports_sync(self) -> list[ReportIndex]:
-        index = self._read_index()
+        with self._index_lock:
+            index = self._read_index()
         return [e for e in index if not self._is_expired(e.created_at)]
 
     async def delete(self, report_id: str) -> bool:
@@ -133,12 +141,13 @@ class FileCache:
         if report_path.exists():
             report_path.unlink()
 
-        index = self._read_index()
-        new_index = [e for e in index if e.report_id != report_id]
-        if len(new_index) < len(index):
-            self._write_index(new_index)
-            return True
-        return False
+        with self._index_lock:
+            index = self._read_index()
+            new_index = [e for e in index if e.report_id != report_id]
+            if len(new_index) < len(index):
+                self._write_index(new_index)
+                return True
+            return False
 
     async def put_status(self, report_id: str, status: str, query: str = "") -> None:
         """Write a lightweight status file for a pipeline run."""
@@ -181,16 +190,17 @@ class FileCache:
         return await asyncio.to_thread(self._cleanup_expired_sync)
 
     def _cleanup_expired_sync(self) -> int:
-        index = self._read_index()
-        kept: list[ReportIndex] = []
-        removed = 0
-        for entry in index:
-            if self._is_expired(entry.created_at):
-                report_path = self._dir / f"{entry.report_id}.json"
-                if report_path.exists():
-                    report_path.unlink()
-                removed += 1
-            else:
-                kept.append(entry)
-        self._write_index(kept)
-        return removed
+        with self._index_lock:
+            index = self._read_index()
+            kept: list[ReportIndex] = []
+            removed = 0
+            for entry in index:
+                if self._is_expired(entry.created_at):
+                    report_path = self._dir / f"{entry.report_id}.json"
+                    if report_path.exists():
+                        report_path.unlink()
+                    removed += 1
+                else:
+                    kept.append(entry)
+            self._write_index(kept)
+            return removed

@@ -5,6 +5,7 @@ import { getStreamUrl } from './client'
 const MAX_RECONNECT_ATTEMPTS = 5
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 15000
+const MAX_EVENT_HISTORY = 200
 
 interface SSEState {
   events: PipelineEvent[]
@@ -22,12 +23,23 @@ type SSEAction =
   | { type: 'error'; message: string }
   | { type: 'reconnecting' }
 
+function eventKey(event: PipelineEvent): string {
+  return `${event.type}|${event.stage}|${event.timestamp}`
+}
+
 function sseReducer(state: SSEState, action: SSEAction): SSEState {
   switch (action.type) {
     case 'reset':
       return { events: [], isComplete: false, isReconnecting: false, error: null, cancelled: null }
     case 'event':
-      return { ...state, events: [...state.events, action.event], isReconnecting: false }
+      if (state.events.some(existing => eventKey(existing) === eventKey(action.event))) {
+        return { ...state, isReconnecting: false }
+      }
+      return {
+        ...state,
+        events: [...state.events, action.event].slice(-MAX_EVENT_HISTORY),
+        isReconnecting: false,
+      }
     case 'complete':
       return { ...state, isComplete: true, isReconnecting: false }
     case 'cancelled':

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -159,3 +162,32 @@ async def test_cache_remove_status(tmp_path) -> None:
 
     status = await cache.get_status("report-1")
     assert status is None
+
+
+@pytest.mark.asyncio
+async def test_cache_concurrent_put_preserves_all_entries(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    reports = [_make_report(f"key-{i}", f"idea-{i}") for i in range(5)]
+
+    original_read_index = cache._read_index
+    barrier = threading.Barrier(parties=len(reports))
+    guarded_calls = 0
+    guarded_lock = threading.Lock()
+
+    def synchronized_read_index():
+        nonlocal guarded_calls
+        with guarded_lock:
+            guarded_calls += 1
+            should_guard = guarded_calls <= len(reports)
+        if should_guard:
+            with contextlib.suppress(threading.BrokenBarrierError):
+                barrier.wait(timeout=0.2)
+        return original_read_index()
+
+    from unittest.mock import patch
+
+    with patch.object(cache, "_read_index", side_effect=synchronized_read_index):
+        await asyncio.gather(*(cache.put(report) for report in reports))
+
+    entries = await cache.list_reports()
+    assert len(entries) == len(reports)

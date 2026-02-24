@@ -126,6 +126,10 @@ class Settings(BaseSettings):
         le=65535,
         description="Server bind port / 服务绑定端口",
     )
+    cors_allow_origins: str = Field(
+        default="*",
+        description="Comma-separated CORS allow origins, use * for all",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -175,6 +179,16 @@ class Settings(BaseSettings):
         if log_path.is_absolute():
             return log_path
         return self.get_project_root() / log_path
+
+    def get_cors_allow_origins(self) -> list[str]:
+        """Return parsed CORS origins from comma-separated config."""
+        raw = self.cors_allow_origins.strip()
+        if not raw:
+            return ["*"]
+        if raw == "*":
+            return ["*"]
+        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return origins or ["*"]
 
 
 @lru_cache

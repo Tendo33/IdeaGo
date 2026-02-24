@@ -1,9 +1,17 @@
-import { Component, type ReactNode, type ErrorInfo } from 'react'
+import { Component, Suspense, lazy, type ReactNode, type ErrorInfo } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { History, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
-import { ReportPage } from './pages/ReportPage'
-import { HistoryPage } from './pages/HistoryPage'
+
+const ReportPage = lazy(async () => {
+  const page = await import('./pages/ReportPage')
+  return { default: page.ReportPage }
+})
+
+const HistoryPage = lazy(async () => {
+  const page = await import('./pages/HistoryPage')
+  return { default: page.HistoryPage }
+})
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -89,18 +97,28 @@ function NavBar() {
   )
 }
 
+function RouteLoading() {
+  return (
+    <div data-testid="route-loading" className="px-4 py-12 text-center text-sm text-text-dim">
+      Loading page...
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <NavBar />
         <main className="pt-20">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/reports/:id" element={<ReportPage />} />
-            <Route path="/reports" element={<HistoryPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/reports/:id" element={<ReportPage />} />
+              <Route path="/reports" element={<HistoryPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </main>
       </BrowserRouter>
     </ErrorBoundary>

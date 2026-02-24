@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import hashlib
+import threading
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
 from ideago.api.routes import analyze as analyze_route
@@ -27,12 +30,14 @@ from ideago.pipeline.events import EventType, PipelineEvent
 
 @pytest.fixture(autouse=True)
 def reset_runtime_state() -> None:
+    app_module._rate_limit_store.clear()
     deps.get_processing_reports().clear()
     deps._report_runs.clear()
     for task in list(deps._pipeline_tasks.values()):
         task.cancel()
     deps._pipeline_tasks.clear()
     yield
+    app_module._rate_limit_store.clear()
     deps.get_processing_reports().clear()
     deps._report_runs.clear()
     for task in list(deps._pipeline_tasks.values()):
@@ -53,6 +58,19 @@ def test_health_endpoint(client) -> None:
     assert data["status"] == "ok"
     assert "sources" in data
     assert data["sources"]["hackernews"] is True
+
+
+def test_health_endpoint_returns_degraded_when_orchestrator_unavailable(client) -> None:
+    with patch(
+        "ideago.api.routes.health.get_orchestrator",
+        side_effect=RuntimeError("dependency init failed"),
+    ):
+        response = client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "degraded"
+    assert data["sources"] == {}
 
 
 def test_analyze_endpoint_returns_report_id(client) -> None:
@@ -82,6 +100,28 @@ def test_analyze_endpoint_normalizes_whitespace(client) -> None:
         json={"query": "I  want   to  build   a   markdown   notes   tool"},
     )
     assert response.status_code == 200
+
+
+def test_analyze_endpoint_deduplicates_concurrent_same_query(client) -> None:
+    query = "I want to build a markdown notes extension for teams"
+    start_barrier = threading.Barrier(parties=8)
+
+    async def fake_run_pipeline(_query: str, _report_id: str) -> None:
+        await asyncio.sleep(1)
+
+    with patch("ideago.api.routes.analyze._run_pipeline", new=fake_run_pipeline):
+
+        def send_request() -> str:
+            with contextlib.suppress(threading.BrokenBarrierError):
+                start_barrier.wait(timeout=0.5)
+            response = client.post("/api/v1/analyze", json={"query": query})
+            assert response.status_code == 200
+            return response.json()["report_id"]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            report_ids = list(pool.map(lambda _i: send_request(), range(8)))
+
+    assert len(set(report_ids)) == 1
 
 
 def test_cancel_analysis_not_found(client) -> None:
@@ -279,3 +319,29 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
         run_state = deps.get_report_run(report_id)
         assert run_state is not None
         assert any(e.type == EventType.CANCELLED for e in run_state.history)
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_redacts_internal_error_details(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "report-internal-error"
+
+    class FailingOrchestrator:
+        async def run(self, *_args, **_kwargs):
+            raise RuntimeError("internal failure: token=abc123")
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.analyze.get_orchestrator",
+            return_value=FailingOrchestrator(),
+        ),
+    ):
+        await analyze_route._run_pipeline("A failing startup query", report_id)
+
+    run_state = deps.get_report_run(report_id)
+    assert run_state is not None
+    error_events = [e for e in run_state.history if e.type == EventType.ERROR]
+    assert error_events
+    assert "token=abc123" not in error_events[-1].message
+    assert error_events[-1].data["error_code"] == "PIPELINE_FAILURE"

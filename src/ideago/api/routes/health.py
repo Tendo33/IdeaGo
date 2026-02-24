@@ -13,15 +13,15 @@ router = APIRouter(tags=["health"])
 @router.get("/health")
 async def health_check() -> dict:
     """Return service health and source availability."""
+    status = "ok"
     try:
         orchestrator = get_orchestrator()
-        sources_status = {
-            s.platform.value: s.is_available() for s in orchestrator._registry.get_all()
-        }
+        sources_status = orchestrator.get_source_availability()
     except Exception:
         logger.warning("Could not initialize orchestrator for health check")
+        status = "degraded"
         sources_status = {}
     return {
-        "status": "ok",
+        "status": status,
         "sources": sources_status,
     }
