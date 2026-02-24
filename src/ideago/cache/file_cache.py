@@ -12,10 +12,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from loguru import logger
-
 from ideago.models.base import BaseModel
 from ideago.models.research import ResearchReport
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class ReportIndex(BaseModel):

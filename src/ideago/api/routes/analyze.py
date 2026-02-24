@@ -11,7 +11,6 @@ import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException
-from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
@@ -28,7 +27,10 @@ from ideago.api.dependencies import (
     reserve_processing_report,
 )
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
+from ideago.observability.log_config import get_logger
 from ideago.pipeline.events import EventType, PipelineEvent
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["analyze"])
 _TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}

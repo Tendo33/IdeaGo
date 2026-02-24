@@ -6,8 +6,6 @@ import asyncio
 import time
 from typing import Any
 
-from loguru import logger
-
 from ideago.cache.file_cache import FileCache
 from ideago.contracts.protocols import DataSource, ProgressCallback
 from ideago.models.research import (
@@ -17,6 +15,7 @@ from ideago.models.research import (
     SourceResult,
     SourceStatus,
 )
+from ideago.observability.log_config import get_logger
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import (
@@ -28,6 +27,8 @@ from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.sources.registry import SourceRegistry
+
+logger = get_logger(__name__)
 
 
 async def _emit(

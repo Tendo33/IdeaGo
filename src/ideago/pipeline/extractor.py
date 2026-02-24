@@ -8,12 +8,13 @@ from __future__ import annotations
 import json
 from urllib.parse import urlsplit, urlunsplit
 
-from loguru import logger
-
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RawResult
+from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import ExtractionError
+
+logger = get_logger(__name__)
 
 
 class Extractor:

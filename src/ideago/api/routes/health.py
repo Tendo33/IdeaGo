@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from loguru import logger
 
 from ideago.api.dependencies import get_orchestrator
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["health"])
 

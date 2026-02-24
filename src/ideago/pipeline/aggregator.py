@@ -8,12 +8,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from loguru import logger
-
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RecommendationType
+from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import AggregationError
+
+logger = get_logger(__name__)
 
 
 @dataclass

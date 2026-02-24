@@ -11,9 +11,12 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from loguru import logger
 from openai import APIStatusError, RateLimitError
 from pydantic import SecretStr
+
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 

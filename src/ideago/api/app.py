@@ -7,16 +7,20 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from loguru import logger
 
 from ideago.api.routes import analyze, health, reports
 from ideago.config.settings import get_settings
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 _FRONTEND_DIST = (
     Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
@@ -27,6 +31,22 @@ _RATE_LIMIT_MAX = 10
 _RATE_LIMIT_WINDOW = 60
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan: startup / shutdown logic."""
+    yield
+    from ideago.api.dependencies import _orchestrator
+
+    if _orchestrator is None:
+        return
+    for source in _orchestrator.get_all_sources():
+        if hasattr(source, "close"):
+            try:
+                await source.close()
+            except Exception:
+                logger.warning("Failed to close source {}", source.platform.value)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
@@ -34,6 +54,7 @@ def create_app() -> FastAPI:
         title="IdeaGo",
         version="0.3.0",
         description="AI-powered competitor research engine for startup ideas",
+        lifespan=_lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -63,20 +84,6 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
-
-    @app.on_event("shutdown")
-    async def _close_sources() -> None:
-        """Close httpx clients held by data sources on app shutdown."""
-        from ideago.api.dependencies import _orchestrator
-
-        if _orchestrator is None:
-            return
-        for source in _orchestrator.get_all_sources():
-            if hasattr(source, "close"):
-                try:
-                    await source.close()
-                except Exception:
-                    logger.warning("Failed to close source {}", source.platform.value)
 
     if _FRONTEND_DIST.is_dir():
         app.mount(

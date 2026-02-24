@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 import httpx
-from loguru import logger
 
 from ideago.models.research import Platform, RawResult
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class HackerNewsSource:

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import asyncio
 
-from loguru import logger
 from tavily import AsyncTavilyClient
 
 from ideago.models.research import Platform, RawResult
+from ideago.observability.log_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class TavilySource:
