@@ -22,13 +22,16 @@ def test_reload_settings_supports_custom_env_file(tmp_path: Path) -> None:
     """reload_settings should rebuild settings from the provided env file."""
     env_file = tmp_path / ".env.test"
     env_file.write_text(
-        "LOG_LEVEL=debug\nENVIRONMENT=production\n",
+        "LOG_LEVEL=debug\n"
+        "ENVIRONMENT=production\n"
+        "OPENAI_BASE_URL=https://openrouter.ai/api/v1\n",
         encoding="utf-8",
     )
 
     settings = reload_settings(env_file=env_file)
     assert settings.log_level == "DEBUG"
     assert settings.environment == "production"
+    assert settings.openai_base_url == "https://openrouter.ai/api/v1"
 
     get_settings.cache_clear()
 

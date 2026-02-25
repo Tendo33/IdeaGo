@@ -104,6 +104,48 @@ async def test_chat_model_client_retries_retryable_errors() -> None:
     assert client._json_model.ainvoke.call_count == 3
 
 
+def test_chat_model_client_passes_custom_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def bind(self, **_: object) -> MagicMock:
+            return MagicMock()
+
+    monkeypatch.setattr("ideago.llm.chat_model.ChatOpenAI", FakeChatOpenAI)
+
+    ChatModelClient(
+        api_key="sk-test",
+        model="gpt-4o-mini",
+        base_url="https://openrouter.ai/api/v1",
+    )
+
+    assert captured["base_url"] == "https://openrouter.ai/api/v1"
+
+
+def test_chat_model_client_treats_blank_base_url_as_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def bind(self, **_: object) -> MagicMock:
+            return MagicMock()
+
+    monkeypatch.setattr("ideago.llm.chat_model.ChatOpenAI", FakeChatOpenAI)
+
+    ChatModelClient(api_key="sk-test", model="gpt-4o-mini", base_url="   ")
+
+    assert captured["base_url"] is None
+
+
 # ---------- IntentParser ----------
 
 MOCK_INTENT_LLM_RESPONSE = {

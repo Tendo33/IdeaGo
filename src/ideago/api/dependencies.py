@@ -85,6 +85,7 @@ def get_orchestrator() -> LangGraphEngine:
         llm = ChatModelClient(
             api_key=settings.openai_api_key,
             model=settings.openai_model,
+            base_url=settings.openai_base_url,
             timeout=settings.openai_timeout_seconds,
             max_retries=settings.langgraph_max_retries,
         )

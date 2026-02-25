@@ -68,6 +68,13 @@ class Settings(BaseSettings):
         default="gpt-4o-mini",
         description="OpenAI model name / 模型名称",
     )
+    openai_base_url: str = Field(
+        default="",
+        description=(
+            "OpenAI-compatible API base URL, optional / "
+            "OpenAI 兼容接口 Base URL（可选）"
+        ),
+    )
     openai_timeout_seconds: int = Field(
         default=60,
         ge=5,

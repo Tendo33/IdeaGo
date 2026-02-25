@@ -40,6 +40,7 @@ cp .env.example .env
 # - OPENAI_API_KEY (required)
 # - TAVILY_API_KEY (required)
 # - GITHUB_TOKEN (optional, improves rate limits)
+# - OPENAI_BASE_URL (optional, for OpenAI-compatible providers)
 ```
 
 ### 4. Build frontend

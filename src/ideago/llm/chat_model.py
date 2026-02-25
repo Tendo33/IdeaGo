@@ -28,15 +28,20 @@ class ChatModelClient:
         self,
         api_key: str,
         model: str = "gpt-4o-mini",
+        base_url: str | None = None,
         timeout: int = 60,
         max_retries: int = 2,
         base_delay: float = 1.0,
     ) -> None:
         self._max_retries = max_retries
         self._base_delay = base_delay
+        normalized_base_url = base_url.strip() if isinstance(base_url, str) else None
+        if not normalized_base_url:
+            normalized_base_url = None
         self._client = ChatOpenAI(
             api_key=SecretStr(api_key),
             model=model,
+            base_url=normalized_base_url,
             timeout=timeout,
             max_retries=0,
         )
