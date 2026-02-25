@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 from ideago.models.research import Platform, RawResult
@@ -18,7 +20,12 @@ class GitHubSource:
 
     _BASE_URL = "https://api.github.com"
 
-    def __init__(self, token: str = "", timeout: int = 30) -> None:
+    def __init__(
+        self,
+        token: str = "",
+        timeout: int = 30,
+        max_concurrent_queries: int = 2,
+    ) -> None:
         headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -27,6 +34,7 @@ class GitHubSource:
             headers=headers,
             timeout=timeout,
         )
+        self._max_concurrent_queries = max(1, max_concurrent_queries)
 
     @property
     def platform(self) -> Platform:
@@ -35,51 +43,64 @@ class GitHubSource:
     def is_available(self) -> bool:
         return True
 
+    async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+        try:
+            resp = await self._client.get(
+                "/search/repositories",
+                params={"q": query, "sort": "stars", "per_page": limit},
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "GitHub API returned {status} for query '{query}'",
+                    status=resp.status_code,
+                    query=query,
+                )
+                return []
+
+            data = resp.json()
+            return [
+                RawResult(
+                    title=item.get("full_name", ""),
+                    description=item.get("description") or "",
+                    url=item.get("html_url", ""),
+                    platform=Platform.GITHUB,
+                    raw_data={
+                        "stargazers_count": item.get("stargazers_count", 0),
+                        "language": item.get("language"),
+                        "topics": item.get("topics", []),
+                        "forks_count": item.get("forks_count", 0),
+                        "updated_at": item.get("updated_at"),
+                    },
+                )
+                for item in data.get("items", [])
+                if item.get("html_url")
+            ]
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "GitHub search failed for '{query}': {exc}", query=query, exc=exc
+            )
+            return []
+
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         """Search GitHub repos for each query and return combined results."""
-        results: list[RawResult] = []
+        if not queries:
+            return []
+
         seen_urls: set[str] = set()
+        semaphore = asyncio.Semaphore(self._max_concurrent_queries)
 
-        for query in queries:
-            try:
-                resp = await self._client.get(
-                    "/search/repositories",
-                    params={"q": query, "sort": "stars", "per_page": limit},
-                )
-                if resp.status_code != 200:
-                    logger.warning(
-                        "GitHub API returned {status} for query '{query}'",
-                        status=resp.status_code,
-                        query=query,
-                    )
+        async def run_query(query: str) -> list[RawResult]:
+            async with semaphore:
+                return await self._search_single_query(query, limit)
+
+        grouped_results = await asyncio.gather(*(run_query(query) for query in queries))
+        results: list[RawResult] = []
+        for query_results in grouped_results:
+            for result in query_results:
+                if result.url in seen_urls:
                     continue
-
-                data = resp.json()
-                for item in data.get("items", []):
-                    url = item.get("html_url", "")
-                    if not url or url in seen_urls:
-                        continue
-                    seen_urls.add(url)
-                    results.append(
-                        RawResult(
-                            title=item.get("full_name", ""),
-                            description=item.get("description") or "",
-                            url=url,
-                            platform=Platform.GITHUB,
-                            raw_data={
-                                "stargazers_count": item.get("stargazers_count", 0),
-                                "language": item.get("language"),
-                                "topics": item.get("topics", []),
-                                "forks_count": item.get("forks_count", 0),
-                                "updated_at": item.get("updated_at"),
-                            },
-                        )
-                    )
-            except httpx.HTTPError as exc:
-                logger.warning(
-                    "GitHub search failed for '{query}': {exc}", query=query, exc=exc
-                )
-
+                seen_urls.add(result.url)
+                results.append(result)
         return results
 
     async def close(self) -> None:

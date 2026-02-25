@@ -82,7 +82,7 @@ class PipelineNodes:
         query = state["query"]
         await _emit(
             self._callback,
-            EventType.INTENT_PARSED,
+            EventType.INTENT_STARTED,
             "intent_parsing",
             "Analyzing your idea...",
         )

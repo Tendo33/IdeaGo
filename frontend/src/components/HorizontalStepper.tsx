@@ -23,6 +23,9 @@ function deriveSteps(events: PipelineEvent[]): Step[] {
 
   for (const event of events) {
     switch (event.type) {
+      case 'intent_started':
+        steps[0].status = 'active'
+        break
       case 'intent_parsed':
         steps[0].status = 'done'
         break
@@ -117,12 +120,15 @@ function Connector({ done }: { done: boolean }) {
   )
 }
 
-function useElapsed() {
+function useElapsed(running: boolean) {
   const [elapsed, setElapsed] = useState(0)
+
   useEffect(() => {
+    if (!running) return
     const t = setInterval(() => setElapsed(s => s + 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [running])
+
   return elapsed
 }
 
@@ -133,8 +139,8 @@ interface HorizontalStepperProps {
 
 export function HorizontalStepper({ events, isReconnecting = false }: HorizontalStepperProps) {
   const steps = deriveSteps(events)
-  const elapsed = useElapsed()
   const isDone = ['done', 'failed', 'cancelled'].includes(steps.at(-1)?.status ?? '')
+  const elapsed = useElapsed(!isDone)
 
   return (
     <div className="w-full py-6">

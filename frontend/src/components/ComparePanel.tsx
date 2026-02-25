@@ -26,6 +26,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-text-dim hover:text-text hover:bg-secondary transition-colors cursor-pointer"
+            aria-label="Close comparison panel"
           >
             <X className="w-5 h-5" />
           </button>

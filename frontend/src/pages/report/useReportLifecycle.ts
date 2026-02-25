@@ -73,9 +73,12 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
   const retryWithQuery = useCallback((query: string | undefined) => {
     if (!query) return
 
+    setLoadError(null)
     startAnalysis(query)
       .then(({ report_id }) => navigate(`/reports/${report_id}`))
-      .catch(() => {})
+      .catch(error => {
+        setLoadError(error instanceof Error ? error.message : 'Failed to restart analysis.')
+      })
   }, [navigate])
 
   const retryCurrentQuery = useCallback(() => {
@@ -103,7 +106,9 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
 
   const cancelCurrentAnalysis = useCallback(() => {
     if (!id) return
-    cancelAnalysis(id).catch(() => {})
+    cancelAnalysis(id).catch(error => {
+      setLoadError(error instanceof Error ? error.message : 'Failed to cancel analysis.')
+    })
   }, [id])
 
   return {

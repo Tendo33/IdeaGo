@@ -92,15 +92,24 @@ def get_orchestrator() -> LangGraphEngine:
         registry = SourceRegistry()
         registry.register(
             GitHubSource(
-                token=settings.github_token, timeout=settings.source_timeout_seconds
+                token=settings.github_token,
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
             )
         )
         registry.register(
             TavilySource(
-                api_key=settings.tavily_api_key, timeout=settings.source_timeout_seconds
+                api_key=settings.tavily_api_key,
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
             )
         )
-        registry.register(HackerNewsSource(timeout=settings.source_timeout_seconds))
+        registry.register(
+            HackerNewsSource(
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
+            )
+        )
 
         _orchestrator = LangGraphEngine(
             intent_parser=IntentParser(llm),

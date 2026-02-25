@@ -109,7 +109,12 @@ export function HistoryPage() {
                 className="flex items-center justify-between px-4 py-4 rounded-xl bg-bg-card border border-border cursor-pointer transition-all duration-200 hover:border-cta/30 hover:bg-bg-card-hover group"
                 role="button"
                 tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter') navigate(`/reports/${report.id}`) }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/reports/${report.id}`)
+                  }
+                }}
               >
                 <div className="min-w-0 flex-1 mr-4">
                   <p className="text-sm text-text font-medium truncate group-hover:text-cta transition-colors duration-200">

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, ArrowUpDown, Info, LayoutGrid, List, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -39,13 +39,15 @@ const cardStagger = {
 
 function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
+  const [broadenError, setBroadenError] = useState<string | null>(null)
 
   const handleBroaden = async () => {
+    setBroadenError(null)
     try {
       const { report_id } = await startAnalysis(broadenQuery(query))
       navigate(`/reports/${report_id}`)
-    } catch {
-      // handled by shared error banner
+    } catch (error) {
+      setBroadenError(error instanceof Error ? error.message : 'Failed to start broadened analysis.')
     }
   }
 
@@ -77,6 +79,7 @@ function BlueOceanState({ query }: { query: string }) {
           <li>Consider why no one has built this yet</li>
         </ol>
       </div>
+      {broadenError && <p className="mt-4 text-xs text-danger">{broadenError}</p>}
     </motion.div>
   )
 }

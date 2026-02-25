@@ -41,6 +41,18 @@ describe('startAnalysis', () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 429 })
     await expect(startAnalysis('test')).rejects.toThrow('Analysis failed: 429')
   })
+
+  it('prefers backend error detail when present', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      json: () => Promise.resolve({ detail: 'Query too short after whitespace normalization' }),
+    })
+
+    await expect(startAnalysis('test')).rejects.toThrow(
+      'Analysis failed: Query too short after whitespace normalization',
+    )
+  })
 })
 
 describe('getReport', () => {
@@ -126,6 +138,17 @@ describe('cancelAnalysis', () => {
   it('throws on failure', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
     await expect(cancelAnalysis('r1')).rejects.toThrow('Failed to cancel analysis: 404')
+  })
+
+  it('uses backend detail on failure when available', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ detail: 'No active analysis found for this report' }),
+    })
+    await expect(cancelAnalysis('r1')).rejects.toThrow(
+      'Failed to cancel analysis: No active analysis found for this report',
+    )
   })
 })
 

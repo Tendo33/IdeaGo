@@ -170,6 +170,30 @@ async def test_github_search_deduplicates_across_queries() -> None:
     assert len(results) == 2
 
 
+@pytest.mark.asyncio
+async def test_github_search_respects_query_concurrency_limit() -> None:
+    src = GitHubSource(token="", max_concurrent_queries=2)
+    in_flight = 0
+    max_in_flight = 0
+    lock = asyncio.Lock()
+
+    async def fake_get(*_args, **_kwargs):
+        nonlocal in_flight, max_in_flight
+        async with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.02)
+        async with lock:
+            in_flight -= 1
+        return httpx.Response(200, json={"items": []})
+
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        await src.search(["q1", "q2", "q3", "q4"], limit=5)
+
+    assert max_in_flight == 2
+
+
 # ---------- TavilySource ----------
 
 
@@ -241,6 +265,30 @@ async def test_tavily_search_times_out_slow_queries() -> None:
     assert results == []
 
 
+@pytest.mark.asyncio
+async def test_tavily_search_respects_query_concurrency_limit() -> None:
+    src = TavilySource(api_key="tvly-test", max_concurrent_queries=2)
+    in_flight = 0
+    max_in_flight = 0
+    lock = asyncio.Lock()
+
+    async def fake_search(**_kwargs):
+        nonlocal in_flight, max_in_flight
+        async with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.02)
+        async with lock:
+            in_flight -= 1
+        return {"results": []}
+
+    with patch.object(src._client, "search", new_callable=AsyncMock) as mock_search:
+        mock_search.side_effect = fake_search
+        await src.search(["q1", "q2", "q3", "q4"], limit=5)
+
+    assert max_in_flight == 2
+
+
 # ---------- HackerNewsSource ----------
 
 
@@ -278,3 +326,27 @@ async def test_hn_search_handles_api_error() -> None:
     ):
         results = await src.search(["test"], limit=5)
     assert results == []
+
+
+@pytest.mark.asyncio
+async def test_hn_search_respects_query_concurrency_limit() -> None:
+    src = HackerNewsSource(max_concurrent_queries=2)
+    in_flight = 0
+    max_in_flight = 0
+    lock = asyncio.Lock()
+
+    async def fake_get(*_args, **_kwargs):
+        nonlocal in_flight, max_in_flight
+        async with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.02)
+        async with lock:
+            in_flight -= 1
+        return httpx.Response(200, json={"hits": []})
+
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        await src.search(["q1", "q2", "q3", "q4"], limit=5)
+
+    assert max_in_flight == 2

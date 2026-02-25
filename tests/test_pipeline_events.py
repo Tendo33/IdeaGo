@@ -8,6 +8,7 @@ from ideago.pipeline.events import EventType, PipelineEvent
 
 
 def test_event_type_values() -> None:
+    assert EventType.INTENT_STARTED == "intent_started"
     assert EventType.SOURCE_STARTED == "source_started"
     assert EventType.REPORT_READY == "report_ready"
     assert EventType.ERROR == "error"

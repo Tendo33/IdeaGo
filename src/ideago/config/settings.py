@@ -103,6 +103,12 @@ class Settings(BaseSettings):
         le=120,
         description="Per-source fetch timeout / 单源抓取超时秒数",
     )
+    source_query_concurrency: int = Field(
+        default=2,
+        ge=1,
+        le=8,
+        description="Max concurrent requests per source / 每个数据源内部最大并发请求数",
+    )
     extraction_timeout_seconds: int = Field(
         default=60,
         ge=10,

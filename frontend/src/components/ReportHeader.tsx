@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Share2, Download, Link2, Check, Printer, ChevronDown } from 'lucide-react'
 import type { ResearchReport } from '../types/research'
@@ -10,28 +10,59 @@ interface ReportHeaderProps {
 
 function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  const menuId = useId()
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
+
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+
+    const firstMenuItem = ref.current?.querySelector<HTMLElement>('[role="menuitem"]')
+    firstMenuItem?.focus()
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [open])
 
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={triggerRef}
         onClick={() => setOpen(o => !o)}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-secondary text-text font-medium cursor-pointer transition-colors duration-200 hover:bg-bg-card-hover focus:outline-none focus:ring-2 focus:ring-cta/30"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
       >
         {trigger}
         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-lg border border-border bg-bg-card shadow-xl shadow-black/30 py-1 z-50">
+        <div
+          id={menuId}
+          role="menu"
+          className="absolute right-0 top-full mt-1.5 w-48 rounded-lg border border-border bg-bg-card shadow-xl shadow-black/30 py-1 z-50"
+          onClick={event => {
+            if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
+              setOpen(false)
+            }
+          }}
+        >
           {children}
         </div>
       )}
@@ -44,7 +75,7 @@ function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Downl
 
   if (href) {
     return (
-      <a href={href} download className={cls}>
+      <a href={href} download className={cls} role="menuitem">
         <Icon className="w-4 h-4" />
         {label}
       </a>
@@ -52,7 +83,7 @@ function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Downl
   }
 
   return (
-    <button onClick={onClick} className={cls}>
+    <button type="button" onClick={onClick} className={cls} role="menuitem">
       <Icon className="w-4 h-4" />
       {label}
     </button>

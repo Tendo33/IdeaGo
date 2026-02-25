@@ -104,6 +104,7 @@ Open http://localhost:8000.
 
 - Report cache directory is configured by `CACHE_DIR` (default `.cache/ideago`).
 - LangGraph checkpoints are stored at `LANGGRAPH_CHECKPOINT_DB_PATH` (default `.cache/ideago/langgraph-checkpoints.db`).
+- Per-source internal query parallelism is controlled by `SOURCE_QUERY_CONCURRENCY` (default `2`) to balance throughput and machine load.
 - To reset checkpoints only, remove the checkpoint DB file without deleting report cache JSON files.
 
 ## Architecture

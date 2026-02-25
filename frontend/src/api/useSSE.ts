@@ -106,6 +106,7 @@ function createConnection(
   }
 
   const eventTypes = [
+    'intent_started',
     'intent_parsed', 'source_started', 'source_completed', 'source_failed',
     'extraction_started', 'extraction_completed',
     'aggregation_started', 'aggregation_completed',

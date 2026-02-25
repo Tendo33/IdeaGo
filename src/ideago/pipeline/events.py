@@ -15,6 +15,7 @@ from ideago.models.base import BaseModel
 class EventType(str, Enum):
     """Pipeline stage event types / 管道阶段事件类型。"""
 
+    INTENT_STARTED = "intent_started"
     INTENT_PARSED = "intent_parsed"
     SOURCE_STARTED = "source_started"
     SOURCE_COMPLETED = "source_completed"

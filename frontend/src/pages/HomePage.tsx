@@ -17,11 +17,17 @@ export function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
+  const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
 
   useEffect(() => {
     listReports()
-      .then(reports => setRecentReports(reports.slice(0, 5)))
-      .catch(() => { /* Recent reports are non-critical; fail silently */ })
+      .then(reports => {
+        setRecentReports(reports.slice(0, 5))
+        setRecentReportsError(null)
+      })
+      .catch(() => {
+        setRecentReportsError('Failed to load recent reports.')
+      })
   }, [])
 
   const handleSubmit = async (query: string) => {
@@ -66,6 +72,10 @@ export function HomePage() {
             <AlertCircle className="w-4 h-4 text-danger shrink-0" />
             <p className="text-sm text-danger">{error}</p>
           </div>
+        )}
+
+        {recentReportsError && (
+          <p className="mt-3 text-xs text-text-dim">{recentReportsError}</p>
         )}
 
         {recentReports.length > 0 && (

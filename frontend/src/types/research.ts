@@ -3,6 +3,7 @@ export type Platform = 'github' | 'tavily' | 'hackernews' | 'producthunt' | 'goo
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 
 export type EventType =
+  | 'intent_started'
   | 'intent_parsed'
   | 'source_started'
   | 'source_completed'

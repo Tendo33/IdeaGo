@@ -29,9 +29,14 @@ class AnalyzeRequest(BaseModel):
         v = re.sub(r"\s+", " ", v).strip()
         if len(v) < 5:
             raise ValueError("Query too short after whitespace normalization")
-        alpha_count = sum(1 for c in v if c.isalpha())
-        if len(v) > 0 and alpha_count / len(v) < 0.4:
-            raise ValueError("Query must contain mostly alphabetic characters")
+        if not any(c.isalpha() for c in v):
+            raise ValueError("Query must contain alphabetic characters")
+        semantic_count = sum(1 for c in v if c.isalnum())
+        if semantic_count < 4:
+            raise ValueError("Query must contain enough meaningful characters")
+        symbol_count = sum(1 for c in v if not c.isalnum() and not c.isspace())
+        if len(v) > 0 and symbol_count / len(v) > 0.5:
+            raise ValueError("Query contains too many symbols")
         return v
 
 

@@ -102,6 +102,14 @@ def test_analyze_endpoint_normalizes_whitespace(client) -> None:
     assert response.status_code == 200
 
 
+def test_analyze_endpoint_accepts_non_latin_query(client) -> None:
+    response = client.post(
+        "/api/v1/analyze",
+        json={"query": "一个可以自动整理会议纪要的AI工具"},
+    )
+    assert response.status_code == 200
+
+
 def test_analyze_endpoint_deduplicates_concurrent_same_query(client) -> None:
     query = "I want to build a markdown notes extension for teams"
     start_barrier = threading.Barrier(parties=8)
