@@ -37,6 +37,10 @@ const cardStagger = {
   }),
 }
 
+function getCompetitorKey(competitor: ResearchReport['competitors'][number]): string {
+  return competitor.source_urls[0] ?? competitor.links[0] ?? competitor.name
+}
+
 function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
   const [broadenError, setBroadenError] = useState<string | null>(null)
@@ -258,7 +262,7 @@ export function ReportContentPane({
               <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                 {filteredCompetitors.map((competitor, index) => (
                   <motion.div
-                    key={`${competitor.name}-${index}`}
+                    key={getCompetitorKey(competitor)}
                     custom={index}
                     initial="hidden"
                     whileInView="visible"
@@ -281,7 +285,7 @@ export function ReportContentPane({
               <div className="space-y-2">
                 {filteredCompetitors.map((competitor, index) => (
                   <motion.div
-                    key={`${competitor.name}-${index}`}
+                    key={getCompetitorKey(competitor)}
                     custom={index}
                     initial="hidden"
                     whileInView="visible"

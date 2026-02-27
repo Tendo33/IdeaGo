@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
 import { cancelAnalysis, getReportWithStatus, startAnalysis } from '../../api/client'
 import { useSSE } from '../../api/useSSE'
@@ -27,9 +27,25 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
   const [report, setReport] = useState<ResearchReport | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { events, isComplete, isReconnecting, error: sseError, cancelled, retry: retrySSE } =
     useSSE(loadPhase === 'processing' ? (id ?? null) : null)
+
+  const clearRevealTimer = useCallback(() => {
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current)
+      revealTimerRef.current = null
+    }
+  }, [])
+
+  const revealReportSoon = useCallback(() => {
+    clearRevealTimer()
+    revealTimerRef.current = setTimeout(() => {
+      setShowReport(true)
+      revealTimerRef.current = null
+    }, 100)
+  }, [clearRevealTimer])
 
   useEffect(() => {
     if (!id) return
@@ -39,22 +55,24 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
           setLoadError(null)
           setReport(result.report)
           setLoadPhase('ready')
-          setTimeout(() => setShowReport(true), 100)
+          revealReportSoon()
           return
         }
 
         setLoadError(null)
+        clearRevealTimer()
         setShowReport(false)
         setReport(null)
         setLoadPhase('processing')
       })
       .catch(error => {
+        clearRevealTimer()
         setShowReport(false)
         setReport(null)
         setLoadError(error.message)
         setLoadPhase('loading')
       })
-  }, [id])
+  }, [clearRevealTimer, id, revealReportSoon])
 
   useEffect(() => {
     if (!id || loadPhase !== 'processing' || !isComplete) return
@@ -65,10 +83,10 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
         if (result.status !== 'ready') return
         setReport(result.report)
         setLoadPhase('ready')
-        setTimeout(() => setShowReport(true), 100)
+        revealReportSoon()
       })
       .catch(error => setLoadError(error.message))
-  }, [cancelled, id, isComplete, loadPhase, sseError])
+  }, [cancelled, id, isComplete, loadPhase, revealReportSoon, sseError])
 
   const retryWithQuery = useCallback((query: string | undefined) => {
     if (!query) return
@@ -92,6 +110,7 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
     getReportWithStatus(id)
       .then(result => {
         if (result.status === 'ready') {
+          clearRevealTimer()
           setReport(result.report)
           setLoadPhase('ready')
           setShowReport(true)
@@ -102,7 +121,7 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
         retrySSE()
       })
       .catch(() => retrySSE())
-  }, [id, retrySSE])
+  }, [clearRevealTimer, id, retrySSE])
 
   const cancelCurrentAnalysis = useCallback(() => {
     if (!id) return
@@ -110,6 +129,8 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
       setLoadError(error instanceof Error ? error.message : 'Failed to cancel analysis.')
     })
   }, [id])
+
+  useEffect(() => () => clearRevealTimer(), [clearRevealTimer])
 
   return {
     loadPhase,

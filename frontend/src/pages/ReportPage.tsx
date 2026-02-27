@@ -54,7 +54,9 @@ export function ReportPage() {
     })
   }, [setCompareSet, setShowCompare])
 
-  const showProgress = loadPhase === 'processing' || (loadPhase === 'loading' && !report)
+  const hasBlockingError = Boolean(sseError || (loadError && !cancelled))
+  const showProgress =
+    !hasBlockingError && (loadPhase === 'processing' || (loadPhase === 'loading' && !report))
   const allFailed = report
     ? report.source_results.length > 0 &&
       report.source_results.every(source => source.status === 'failed' || source.status === 'timeout')

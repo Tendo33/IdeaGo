@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from ideago.models.research import Platform, RawResult
+from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.registry import SourceRegistry
@@ -152,11 +153,13 @@ async def test_github_search_returns_raw_results() -> None:
 async def test_github_search_handles_api_error() -> None:
     src = GitHubSource(token="")
     mock_response = httpx.Response(403, json={"message": "rate limit"})
-    with patch.object(
-        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    with (
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+        pytest.raises(SourceSearchError),
     ):
-        results = await src.search(["test"], limit=5)
-    assert results == []
+        await src.search(["test"], limit=5)
 
 
 @pytest.mark.asyncio
@@ -257,12 +260,11 @@ async def test_tavily_search_times_out_slow_queries() -> None:
 
     with patch.object(src._client, "search", new_callable=AsyncMock) as mock_search:
         mock_search.side_effect = slow_search
-        results = await asyncio.wait_for(
-            src.search(["slow tavily query"], limit=5),
-            timeout=0.2,
-        )
-
-    assert results == []
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                src.search(["slow tavily query"], limit=5),
+                timeout=0.2,
+            )
 
 
 @pytest.mark.asyncio
@@ -321,11 +323,13 @@ async def test_hn_search_returns_raw_results() -> None:
 async def test_hn_search_handles_api_error() -> None:
     src = HackerNewsSource()
     mock_response = httpx.Response(500, json={})
-    with patch.object(
-        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    with (
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+        pytest.raises(SourceSearchError),
     ):
-        results = await src.search(["test"], limit=5)
-    assert results == []
+        await src.search(["test"], limit=5)
 
 
 @pytest.mark.asyncio

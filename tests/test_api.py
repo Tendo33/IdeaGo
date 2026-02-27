@@ -293,6 +293,22 @@ async def test_stream_reconnect_replays_history_and_terminal_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_status_terminal_event_for_failed_status_includes_error_code(
+    tmp_path,
+) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "report-failed-status"
+    await cache.put_status(report_id, "failed", "bad query")
+
+    with patch("ideago.api.routes.analyze.get_cache", return_value=cache):
+        event = await analyze_route._status_terminal_event(report_id)
+
+    assert event is not None
+    assert event.type == EventType.ERROR
+    assert event.data.get("error_code") == "PIPELINE_FAILURE"
+
+
+@pytest.mark.asyncio
 async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
     query = "A cancellable startup research query"
     report_id = "report-cancel"

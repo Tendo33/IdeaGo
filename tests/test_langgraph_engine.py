@@ -166,6 +166,10 @@ async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
     assert EventType.SOURCE_STARTED in event_types
     assert EventType.SOURCE_COMPLETED in event_types
     assert EventType.REPORT_READY in event_types
+    intent_event = next(
+        e for e in collector.events if e.type == EventType.INTENT_PARSED
+    )
+    assert intent_event.data.get("target_scenario") == MOCK_INTENT.target_scenario
 
 
 @pytest.mark.asyncio

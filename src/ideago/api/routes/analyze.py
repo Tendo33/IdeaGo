@@ -142,7 +142,10 @@ async def _status_terminal_event(report_id: str) -> PipelineEvent | None:
             type=EventType.ERROR,
             stage="pipeline",
             message="Pipeline failed",
-            data={"report_id": report_id},
+            data={
+                "report_id": report_id,
+                "error_code": "PIPELINE_FAILURE",
+            },
         )
     return None
 

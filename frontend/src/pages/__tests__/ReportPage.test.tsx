@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReportPage } from '../ReportPage'
 import { getReportWithStatus, startAnalysis } from '../../api/client'
+import { useSSE } from '../../api/useSSE'
 
 vi.mock('../../api/client', () => ({
   getReportWithStatus: vi.fn(),
@@ -11,14 +12,7 @@ vi.mock('../../api/client', () => ({
 }))
 
 vi.mock('../../api/useSSE', () => ({
-  useSSE: () => ({
-    events: [],
-    isComplete: false,
-    isReconnecting: false,
-    error: null,
-    cancelled: null,
-    retry: vi.fn(),
-  }),
+  useSSE: vi.fn(),
 }))
 
 vi.mock('../../components/HorizontalStepper', () => ({ HorizontalStepper: () => <div>STEPPER</div> }))
@@ -47,6 +41,14 @@ vi.mock('../../components/Skeleton', () => ({
 describe('ReportPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: false,
+      isReconnecting: false,
+      error: null,
+      cancelled: null,
+      retry: vi.fn(),
+    })
   })
 
   it('renders completed report immediately without waiting for SSE completion', async () => {
@@ -243,5 +245,32 @@ describe('ReportPage', () => {
     })
     expect(screen.getByTestId('chart-loading')).toBeInTheDocument()
     expect(await screen.findByText('CHART')).toBeInTheDocument()
+  })
+
+  it('shows error banner without progress pane when stream errors', async () => {
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: 'Connection lost',
+      cancelled: null,
+      retry: vi.fn(),
+    })
+    vi.mocked(getReportWithStatus).mockResolvedValue({
+      status: 'processing',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r5']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Connection lost')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
   })
 })
