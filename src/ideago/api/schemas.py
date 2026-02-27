@@ -46,13 +46,6 @@ class AnalyzeResponse(BaseModel):
     report_id: str = Field(description="Unique ID for the report")
 
 
-class ReportStatusResponse(BaseModel):
-    """Status check response for a report."""
-
-    report_id: str
-    status: str = Field(description="processing | completed | error | not_found")
-
-
 class ReportListItem(BaseModel):
     """Summary item for the reports list endpoint."""
 
@@ -60,10 +53,3 @@ class ReportListItem(BaseModel):
     query: str
     created_at: datetime
     competitor_count: int = 0
-
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-
-    error: str
-    detail: str = ""
