@@ -5,14 +5,27 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Literal, cast
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, get_processing_reports
-from ideago.api.schemas import ReportListItem
+from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
 from ideago.models.research import ResearchReport
 
 router = APIRouter(tags=["reports"])
+
+
+def _parse_status_updated_at(raw_value: object) -> datetime | None:
+    """Parse status payload timestamp into datetime if possible."""
+    if not isinstance(raw_value, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw_value)
+    except ValueError:
+        return None
 
 
 @router.get("/reports", response_model=list[ReportListItem])
@@ -54,6 +67,48 @@ async def get_report(report_id: str) -> dict | JSONResponse:
         )
 
     raise HTTPException(status_code=404, detail="Report not found")
+
+
+@router.get("/reports/{report_id}/status", response_model=ReportRuntimeStatus)
+async def get_report_status(report_id: str) -> ReportRuntimeStatus:
+    """Get report runtime status for processing/failed/cancelled/complete/not_found."""
+    cache = get_cache()
+    report = await cache.get_by_id(report_id)
+    if report is not None:
+        return ReportRuntimeStatus(
+            status="complete",
+            report_id=report_id,
+            updated_at=report.updated_at,
+            query=report.query,
+        )
+
+    processing = get_processing_reports()
+    if report_id in processing.values():
+        return ReportRuntimeStatus(status="processing", report_id=report_id)
+
+    status_payload = await cache.get_status(report_id)
+    if status_payload:
+        status_value = status_payload.get("status")
+        if isinstance(status_value, str) and status_value in {
+            "processing",
+            "failed",
+            "cancelled",
+            "complete",
+        }:
+            runtime_status = cast(
+                Literal["processing", "failed", "cancelled", "complete"],
+                status_value,
+            )
+            return ReportRuntimeStatus(
+                status=runtime_status,
+                report_id=report_id,
+                error_code=status_payload.get("error_code"),
+                message=status_payload.get("message"),
+                updated_at=_parse_status_updated_at(status_payload.get("updated_at")),
+                query=status_payload.get("query"),
+            )
+
+    return ReportRuntimeStatus(status="not_found", report_id=report_id)
 
 
 @router.delete("/reports/{report_id}")

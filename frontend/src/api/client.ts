@@ -1,4 +1,4 @@
-import type { ReportListItem, ResearchReport } from '../types/research'
+import type { ReportListItem, ReportRuntimeStatus, ResearchReport } from '../types/research'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
@@ -126,6 +126,15 @@ export async function getReportWithStatus(
   if (res.status === 404) return { status: 'missing' }
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
   return { status: 'ready', report: await res.json() }
+}
+
+export async function getReportRuntimeStatus(
+  id: string,
+  options: RequestOptions = {},
+): Promise<ReportRuntimeStatus> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/status`, {}, options, DEFAULT_TIMEOUT_MS)
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load report status'))
+  return res.json()
 }
 
 export async function listReports(options: RequestOptions = {}): Promise<ReportListItem[]> {

@@ -14,7 +14,7 @@ import { MarketOverview } from '../../components/MarketOverview'
 import { ReportHeader } from '../../components/ReportHeader'
 import { SectionNav } from '../../components/SectionNav'
 import { VirtualizedCompetitorList } from '../../components/VirtualizedCompetitorList'
-import { getCompetitorId } from '../../competitor'
+import { getCompetitorDomIdFromId, getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
 import type { SortKey, ViewMode } from './useCompetitorFilters'
 import { PLATFORM_OPTIONS, SORT_OPTIONS } from './useCompetitorFilters'
@@ -46,14 +46,19 @@ function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [broadenError, setBroadenError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleBroaden = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
     setBroadenError(null)
     try {
       const { report_id } = await startAnalysis(broadenQuery(query))
       navigate(`/reports/${report_id}`)
     } catch (error) {
       setBroadenError(error instanceof Error ? error.message : t('report.error.broaden'))
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -71,10 +76,12 @@ function BlueOceanState({ query }: { query: string }) {
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           onClick={handleBroaden}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors hover:bg-cta-hover"
+          disabled={isSubmitting}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-70"
+          aria-busy={isSubmitting}
         >
-          <RefreshCw className="w-4 h-4" />
-          {t('report.blueOcean.tryBroader')}
+          <RefreshCw className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
+          {isSubmitting ? t('report.blueOcean.tryingBroader') : t('report.blueOcean.tryBroader')}
         </button>
       </div>
       <div className="mt-6 text-left max-w-sm mx-auto">
@@ -249,14 +256,14 @@ export function ReportContentPane({
                   <button
                     onClick={() => setViewMode('grid')}
                     className={`p-1.5 cursor-pointer transition-colors ${viewMode === 'grid' ? 'bg-cta/15 text-cta' : 'text-text-dim hover:text-text-muted'}`}
-                    aria-label="Grid view"
+                    aria-label={t('report.competitors.gridView')}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'bg-cta/15 text-cta' : 'text-text-dim hover:text-text-muted'}`}
-                    aria-label="List view"
+                    aria-label={t('report.competitors.listView')}
                   >
                     <List className="w-3.5 h-3.5" />
                   </button>
@@ -291,7 +298,7 @@ export function ReportContentPane({
 
             {shouldUseVirtualization && (
               <p className="text-xs text-text-dim mb-3">
-                Virtualized scrolling is enabled for smoother performance on large result sets.
+                {t('report.competitors.virtualizedHint')}
               </p>
             )}
 
@@ -305,20 +312,23 @@ export function ReportContentPane({
                 />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                  {filteredCompetitors.map((competitor, index) => (
-                    renderCardWrapper(
-                      getCompetitorId(competitor),
-                      index,
-                      '-30px',
-                      <CompetitorCard
-                        competitor={competitor}
-                        rank={index + 1}
-                        variant={index === 0 ? 'featured' : 'standard'}
-                        compareSelected={compareSet.has(getCompetitorId(competitor))}
-                        onToggleCompare={() => toggleCompare(getCompetitorId(competitor))}
-                      />,
+                  {filteredCompetitors.map((competitor, index) => {
+                    const competitorId = getCompetitorId(competitor)
+                    const domId = getCompetitorDomIdFromId(competitorId)
+                    return renderCardWrapper(
+                        competitorId,
+                        index,
+                        '-30px',
+                        <CompetitorCard
+                          competitor={competitor}
+                          rank={index + 1}
+                          domId={domId}
+                          variant={index === 0 ? 'featured' : 'standard'}
+                          compareSelected={compareSet.has(competitorId)}
+                          onToggleCompare={() => toggleCompare(competitorId)}
+                        />,
                     )
-                  ))}
+                  })}
                 </div>
               )
             )}
@@ -333,19 +343,22 @@ export function ReportContentPane({
                 />
               ) : (
                 <div className="space-y-2">
-                  {filteredCompetitors.map((competitor, index) => (
-                    renderCardWrapper(
-                      getCompetitorId(competitor),
-                      index,
-                      '-20px',
-                      <CompetitorRow
-                        competitor={competitor}
-                        rank={index + 1}
-                        compareSelected={compareSet.has(getCompetitorId(competitor))}
-                        onToggleCompare={() => toggleCompare(getCompetitorId(competitor))}
-                      />,
+                  {filteredCompetitors.map((competitor, index) => {
+                    const competitorId = getCompetitorId(competitor)
+                    const domId = getCompetitorDomIdFromId(competitorId)
+                    return renderCardWrapper(
+                        competitorId,
+                        index,
+                        '-20px',
+                        <CompetitorRow
+                          competitor={competitor}
+                          rank={index + 1}
+                          domId={domId}
+                          compareSelected={compareSet.has(competitorId)}
+                          onToggleCompare={() => toggleCompare(competitorId)}
+                        />,
                     )
-                  ))}
+                  })}
                 </div>
               )
             )}

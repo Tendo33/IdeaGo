@@ -1,4 +1,6 @@
 import { ExternalLink } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { getCompetitorDomId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
@@ -11,16 +13,19 @@ const platformDots: Record<string, string> = {
 interface CompetitorRowProps {
   competitor: Competitor
   rank: number
+  domId?: string
   compareSelected?: boolean
   onToggleCompare?: () => void
 }
 
-export function CompetitorRow({ competitor, rank, compareSelected, onToggleCompare }: CompetitorRowProps) {
+export function CompetitorRow({ competitor, rank, domId, compareSelected, onToggleCompare }: CompetitorRowProps) {
+  const { t } = useTranslation()
   const primaryLink = competitor.links[0]
+  const elementId = domId ?? getCompetitorDomId(competitor)
 
   return (
     <div
-      id={`competitor-${rank}`}
+      id={elementId}
       className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-bg-card transition-all duration-200 hover:border-cta/30 hover:bg-bg-card-hover group"
     >
       <span className="text-xs font-mono text-text-dim w-6 text-right shrink-0">#{rank}</span>
@@ -48,8 +53,9 @@ export function CompetitorRow({ competitor, rank, compareSelected, onToggleCompa
                 ? 'border-cta/50 bg-cta/10 text-cta'
                 : 'border-border text-text-dim hover:border-cta/30'
             }`}
+            aria-label={compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
           >
-            {compareSelected ? '✓' : '⇔'}
+            {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
           </button>
         )}
         {primaryLink && (

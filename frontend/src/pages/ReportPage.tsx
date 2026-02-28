@@ -17,6 +17,8 @@ export function ReportPage() {
     loadPhase,
     report,
     loadError,
+    loadErrorKind,
+    runtimeStatus,
     showReport,
     events,
     isComplete,
@@ -56,7 +58,7 @@ export function ReportPage() {
     })
   }, [setCompareSet, setShowCompare])
 
-  const hasBlockingError = Boolean(sseError || (loadError && !cancelled))
+  const hasBlockingError = Boolean(sseError || loadError)
   const showProgress =
     !hasBlockingError && (loadPhase === 'processing' || (loadPhase === 'loading' && !report))
   const allFailed = report
@@ -77,8 +79,13 @@ export function ReportPage() {
           onCancel={cancelCurrentAnalysis}
         />
 
-        {(sseError || (loadError && !cancelled)) && (
-          <ReportErrorBanner message={sseError || loadError || t('report.error.unknown')} onRetry={retryErrorState} />
+        {(sseError || loadError) && (
+          <ReportErrorBanner
+            message={sseError || loadError || t('report.error.unknown')}
+            onRetry={retryErrorState}
+            errorKind={sseError ? 'system' : (loadErrorKind ?? 'system')}
+            runtimeStatus={runtimeStatus}
+          />
         )}
 
         {report && loadPhase === 'ready' && (

@@ -2,12 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReportPage } from '../ReportPage'
-import { getReportWithStatus, startAnalysis } from '../../api/client'
+import { getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '../../api/client'
 import { useSSE } from '../../api/useSSE'
 import i18n from '../../i18n'
 
 vi.mock('../../api/client', () => ({
   getReportWithStatus: vi.fn(),
+  getReportRuntimeStatus: vi.fn(),
   cancelAnalysis: vi.fn(),
   startAnalysis: vi.fn(),
 }))
@@ -42,6 +43,11 @@ vi.mock('../../components/Skeleton', () => ({
 describe('ReportPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'not_found',
+      report_id: 'default-report',
+      message: 'Report not found or expired. Please start a new analysis.',
+    })
     vi.mocked(useSSE).mockReturnValue({
       events: [],
       isComplete: false,
@@ -278,6 +284,11 @@ describe('ReportPage', () => {
 
   it('shows missing-report guidance when report is not found', async () => {
     vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'not_found',
+      report_id: 'r-missing',
+      message: 'Report not found or expired. Please start a new analysis.',
+    })
 
     render(
       <MemoryRouter initialEntries={['/reports/r-missing']}>
@@ -293,5 +304,56 @@ describe('ReportPage', () => {
       ).toBeInTheDocument()
     })
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+  })
+
+  it('prevents duplicate broaden submissions while request is pending', async () => {
+    const broadenButtonLabel = i18n.t('report.blueOcean.tryBroader')
+    vi.mocked(getReportWithStatus).mockResolvedValue({
+      status: 'ready',
+      report: {
+        id: 'r6',
+        query: 'Niche AI notebook for legal teams',
+        intent: {
+          keywords_en: ['idea'],
+          keywords_zh: [],
+          app_type: 'web',
+          target_scenario: 'test scenario',
+        },
+        source_results: [
+          {
+            platform: 'github',
+            status: 'ok',
+            raw_count: 1,
+            competitors: [],
+            error_msg: null,
+            duration_ms: 100,
+          },
+        ],
+        competitors: [],
+        market_summary: 'summary',
+        go_no_go: 'go',
+        recommendation_type: 'go',
+        differentiation_angles: ['angle'],
+        created_at: new Date().toISOString(),
+      },
+    })
+    vi.mocked(startAnalysis).mockImplementation(
+      () => new Promise(() => {}),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r6']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const broadenButton = await screen.findByRole('button', { name: broadenButtonLabel })
+    fireEvent.click(broadenButton)
+    fireEvent.click(broadenButton)
+
+    expect(startAnalysis).toHaveBeenCalledTimes(1)
+    expect(broadenButton).toBeDisabled()
   })
 })

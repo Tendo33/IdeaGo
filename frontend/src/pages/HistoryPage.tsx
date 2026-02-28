@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search } from 'lucide-react'
+import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '../api/client'
 import { ReportCardSkeleton } from '../components/Skeleton'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +13,7 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return reports
@@ -40,12 +41,27 @@ export function HistoryPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (deletingIds.has(id)) return
     if (!window.confirm(t('history.deleteConfirm'))) return
+
+    setDeletingIds(previous => {
+      const next = new Set(previous)
+      next.add(id)
+      return next
+    })
+    setError(null)
+
     try {
       await deleteReport(id)
       setReports(prev => prev.filter(r => r.id !== id))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('history.errorDelete'))
+    } finally {
+      setDeletingIds(previous => {
+        const next = new Set(previous)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -139,10 +155,15 @@ export function HistoryPage() {
                 </div>
                 <button
                   onClick={e => handleDelete(report.id, e)}
-                  className="p-2 rounded-lg text-text-dim hover:text-danger hover:bg-danger/10 transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-danger/30"
-                  aria-label="Delete report"
+                  disabled={deletingIds.has(report.id)}
+                  className="p-2 rounded-lg text-text-dim hover:text-danger hover:bg-danger/10 transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-danger/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-text-dim disabled:hover:bg-transparent"
+                  aria-label={deletingIds.has(report.id) ? t('history.deleting') : t('history.delete')}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {deletingIds.has(report.id) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             ))}

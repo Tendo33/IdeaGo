@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { getCompetitorId } from '../../../competitor'
 import { useCompetitorFilters } from '../useCompetitorFilters'
@@ -109,5 +109,40 @@ describe('useCompetitorFilters', () => {
       result.current.toggleCompare(secondId)
     })
     expect(result.current.compareCompetitors).toHaveLength(2)
+  })
+
+  it('resets filter, view and compare state when report id changes', async () => {
+    const nextReport: ResearchReport = {
+      ...report,
+      id: 'report-2',
+      competitors: [...report.competitors],
+    }
+
+    const { result, rerender } = renderHook(
+      ({ currentReport }: { currentReport: ResearchReport }) => useCompetitorFilters(currentReport),
+      { initialProps: { currentReport: report } },
+    )
+
+    act(() => {
+      result.current.togglePlatform('github')
+      result.current.setViewMode('list')
+      result.current.toggleCompare(getCompetitorId(report.competitors[0]))
+      result.current.setShowCompare(true)
+    })
+
+    expect(result.current.platformFilter.size).toBe(1)
+    expect(result.current.viewMode).toBe('list')
+    expect(result.current.compareSet.size).toBe(1)
+    expect(result.current.showCompare).toBe(true)
+
+    rerender({ currentReport: nextReport })
+
+    await waitFor(() => {
+      expect(result.current.platformFilter.size).toBe(0)
+      expect(result.current.viewMode).toBe('grid')
+      expect(result.current.compareSet.size).toBe(0)
+      expect(result.current.showCompare).toBe(false)
+      expect(result.current.sortBy).toBe('relevance')
+    })
   })
 })

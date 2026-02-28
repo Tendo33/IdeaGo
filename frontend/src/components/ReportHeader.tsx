@@ -94,12 +94,40 @@ function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Downl
 export function ReportHeader({ report }: ReportHeaderProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+  useEffect(() => () => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current)
+    }
+  }, [])
+
+  const handleCopyLink = async () => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = null
+    }
+    setCopyError(null)
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable')
+      }
+      await navigator.clipboard.writeText(window.location.href)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+      feedbackTimerRef.current = setTimeout(() => {
+        setCopied(false)
+        feedbackTimerRef.current = null
+      }, 2000)
+    } catch {
+      setCopied(false)
+      setCopyError(t('report.header.copyFailed'))
+      feedbackTimerRef.current = setTimeout(() => {
+        setCopyError(null)
+        feedbackTimerRef.current = null
+      }, 3000)
+    }
   }
 
   return (
@@ -143,6 +171,9 @@ export function ReportHeader({ report }: ReportHeaderProps) {
           </Dropdown>
         </div>
       </div>
+      {copyError && (
+        <p className="text-xs text-danger">{copyError}</p>
+      )}
     </div>
   )
 }

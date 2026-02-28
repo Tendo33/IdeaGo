@@ -1,6 +1,8 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { getCompetitorDomId } from '../competitor'
 import type { Competitor } from '../types/research'
 
 interface LandscapeChartProps {
@@ -13,7 +15,7 @@ interface DataPoint {
   features: number
   relevance: number
   sources: number
-  index: number
+  domId: string
 }
 
 const ZONE_COLORS = {
@@ -52,25 +54,53 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
 
 export function LandscapeChart({ competitors }: LandscapeChartProps) {
   const { t } = useTranslation()
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const highlightedElementRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => () => {
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current)
+      highlightTimerRef.current = null
+    }
+    if (highlightedElementRef.current) {
+      highlightedElementRef.current.classList.remove('ring-2', 'ring-cta/50')
+      highlightedElementRef.current = null
+    }
+  }, [])
+
   if (competitors.length === 0) return null
 
-  const data: DataPoint[] = competitors.map((c, i) => ({
+  const data: DataPoint[] = competitors.map(c => ({
     name: c.name,
     oneLiner: c.one_liner,
     features: c.features.length,
     relevance: Math.round(c.relevance_score * 100),
     sources: c.source_platforms.length,
-    index: i,
+    domId: getCompetitorDomId(c),
   }))
 
   const maxFeatures = Math.max(...data.map(d => d.features), 1)
 
   const handleClick = (d: DataPoint) => {
-    const el = document.getElementById(`competitor-${d.index + 1}`)
+    const el = document.getElementById(d.domId)
     if (el) {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current)
+        highlightTimerRef.current = null
+      }
+      if (highlightedElementRef.current && highlightedElementRef.current !== el) {
+        highlightedElementRef.current.classList.remove('ring-2', 'ring-cta/50')
+      }
+      highlightedElementRef.current = el
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       el.classList.add('ring-2', 'ring-cta/50')
-      setTimeout(() => el.classList.remove('ring-2', 'ring-cta/50'), 2000)
+      highlightTimerRef.current = setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-cta/50')
+        if (highlightedElementRef.current === el) {
+          highlightedElementRef.current = null
+        }
+        highlightTimerRef.current = null
+      }, 2000)
     }
   }
 

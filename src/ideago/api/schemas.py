@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -53,3 +54,14 @@ class ReportListItem(BaseModel):
     query: str
     created_at: datetime
     competitor_count: int = 0
+
+
+class ReportRuntimeStatus(BaseModel):
+    """Runtime status payload for report processing state."""
+
+    status: Literal["processing", "failed", "cancelled", "complete", "not_found"]
+    report_id: str
+    error_code: str | None = None
+    message: str | None = None
+    updated_at: datetime | None = None
+    query: str | None = None

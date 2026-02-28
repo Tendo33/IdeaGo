@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import threading
 from datetime import datetime, timezone
@@ -144,6 +145,9 @@ class FileCache:
         report_path = self._dir / f"{report_id}.json"
         if report_path.exists():
             report_path.unlink()
+        status_path = self._dir / f"{report_id}.status.json"
+        if status_path.exists():
+            status_path.unlink()
 
         with self._index_lock:
             index = self._read_index()
@@ -153,11 +157,33 @@ class FileCache:
                 return True
             return False
 
-    async def put_status(self, report_id: str, status: str, query: str = "") -> None:
+    async def put_status(
+        self,
+        report_id: str,
+        status: str,
+        query: str = "",
+        *,
+        error_code: str | None = None,
+        message: str | None = None,
+    ) -> None:
         """Write a lightweight status file for a pipeline run."""
-        await asyncio.to_thread(self._put_status_sync, report_id, status, query)
+        await asyncio.to_thread(
+            self._put_status_sync,
+            report_id,
+            status,
+            query,
+            error_code,
+            message,
+        )
 
-    def _put_status_sync(self, report_id: str, status: str, query: str) -> None:
+    def _put_status_sync(
+        self,
+        report_id: str,
+        status: str,
+        query: str,
+        error_code: str | None,
+        message: str | None,
+    ) -> None:
         status_path = self._dir / f"{report_id}.status.json"
         data = {
             "report_id": report_id,
@@ -165,6 +191,10 @@ class FileCache:
             "query": query,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
+        if error_code:
+            data["error_code"] = error_code
+        if message:
+            data["message"] = message
         status_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     async def get_status(self, report_id: str) -> dict | None:
@@ -207,4 +237,38 @@ class FileCache:
                 else:
                     kept.append(entry)
             self._write_index(kept)
-            return removed
+
+        kept_report_ids = {entry.report_id for entry in kept}
+        for status_path in self._dir.glob("*.status.json"):
+            report_id = status_path.name.removesuffix(".status.json")
+            if report_id in kept_report_ids:
+                continue
+            report_path = self._dir / f"{report_id}.json"
+            if report_path.exists():
+                continue
+            if _is_stale_status_file(status_path, self._ttl_hours):
+                with contextlib.suppress(OSError):
+                    status_path.unlink()
+
+        return removed
+
+
+def _is_stale_status_file(status_path: Path, ttl_hours: int) -> bool:
+    """Return whether a status file is stale enough to be cleaned up."""
+    try:
+        payload = json.loads(status_path.read_text(encoding="utf-8"))
+    except Exception:
+        return True
+
+    raw_updated_at = payload.get("updated_at")
+    if not isinstance(raw_updated_at, str):
+        return True
+    try:
+        updated_at = datetime.fromisoformat(raw_updated_at)
+    except ValueError:
+        return True
+
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - updated_at).total_seconds()
+    return age_seconds > ttl_hours * 3600

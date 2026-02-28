@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useCallback } from 'react'
+import i18n from '../i18n'
 import type { PipelineEvent } from '../types/research'
 import { getStreamUrl } from './client'
 
@@ -124,7 +125,7 @@ function createConnection(
 
     attemptRef.current = (attemptRef.current ?? 0) + 1
     if ((attemptRef.current ?? 0) > MAX_RECONNECT_ATTEMPTS) {
-      dispatch({ type: 'error', message: 'Connection lost. Click retry to try again.' })
+      dispatch({ type: 'error', message: i18n.t('report.error.connectionLost') })
       return
     }
 

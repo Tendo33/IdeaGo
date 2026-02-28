@@ -3,6 +3,7 @@ import {
   startAnalysis,
   getReport,
   getReportWithStatus,
+  getReportRuntimeStatus,
   listReports,
   deleteReport,
   cancelAnalysis,
@@ -99,6 +100,32 @@ describe('getReportWithStatus', () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
     const result = await getReportWithStatus('missing')
     expect(result).toEqual({ status: 'missing' })
+  })
+})
+
+describe('getReportRuntimeStatus', () => {
+  it('returns runtime status payload', async () => {
+    const payload = {
+      status: 'failed',
+      report_id: 'r1',
+      error_code: 'PIPELINE_FAILURE',
+      message: 'Pipeline failed. Please retry.',
+      updated_at: '2026-02-28T12:00:00Z',
+      query: 'test query',
+    }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(payload),
+    })
+
+    const result = await getReportRuntimeStatus('r1')
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports/r1/status'),
+      expect.objectContaining({ signal: expect.anything() }),
+    )
+    expect(result).toEqual(payload)
   })
 })
 

@@ -52,4 +52,26 @@ describe('ReportHeader dropdown accessibility', () => {
     })
     expect(shareButton).toHaveAttribute('aria-expanded', 'false')
   })
+
+  it('shows fallback message when clipboard write fails', async () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: {
+        writeText: vi.fn().mockRejectedValue(new Error('clipboard denied')),
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <ReportHeader report={report} />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /share/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy link/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Unable to copy link. Please copy the URL manually.')).toBeInTheDocument()
+    })
+  })
 })

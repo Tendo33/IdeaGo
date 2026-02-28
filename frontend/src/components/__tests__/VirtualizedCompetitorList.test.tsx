@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Competitor } from '../../types/research'
 import { VirtualizedCompetitorList } from '../VirtualizedCompetitorList'
@@ -59,5 +59,35 @@ describe('VirtualizedCompetitorList', () => {
     expect(renderedRows.length).toBeGreaterThan(0)
     expect(renderedRows.length).toBeLessThan(40)
     expect(screen.queryByText('100:Competitor 100')).not.toBeInTheDocument()
+  })
+
+  it('resets scroll position when view mode changes', async () => {
+    const competitors = createCompetitors(80)
+    const { container, rerender } = render(
+      <VirtualizedCompetitorList
+        competitors={competitors}
+        viewMode="list"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    const scroller = container.firstChild as HTMLElement
+    scroller.scrollTop = 480
+    fireEvent.scroll(scroller)
+    expect(scroller.scrollTop).toBe(480)
+
+    rerender(
+      <VirtualizedCompetitorList
+        competitors={competitors}
+        viewMode="grid"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(scroller.scrollTop).toBe(0)
+    })
   })
 })

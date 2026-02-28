@@ -192,6 +192,98 @@ def test_get_report_not_found(client) -> None:
     assert response.status_code == 404
 
 
+def test_get_report_status_complete(client, tmp_path) -> None:
+    report = _make_test_report()
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    asyncio.run(cache.put(report))
+
+    with (
+        patch("ideago.api.dependencies._cache", cache),
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+    ):
+        response = client.get(f"/api/v1/reports/{report.id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "complete"
+    assert payload["report_id"] == report.id
+    assert payload["query"] == report.query
+
+
+def test_get_report_status_reads_runtime_status_payload(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "report-failed-status"
+    asyncio.run(
+        cache.put_status(
+            report_id,
+            "failed",
+            "query text",
+            error_code="PIPELINE_FAILURE",
+            message="Pipeline failed. Please retry.",
+        )
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get(f"/api/v1/reports/{report_id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "failed"
+    assert payload["report_id"] == report_id
+    assert payload["error_code"] == "PIPELINE_FAILURE"
+    assert payload["message"] == "Pipeline failed. Please retry."
+    assert payload["query"] == "query text"
+
+
+def test_get_report_status_not_found(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get("/api/v1/reports/nonexistent-id/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_found"
+    assert payload["report_id"] == "nonexistent-id"
+
+
+def test_get_report_status_processing_from_runtime_map(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "processing-report"
+    deps.get_processing_reports()["query-hash"] = report_id
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get(f"/api/v1/reports/{report_id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "processing"
+    assert payload["report_id"] == report_id
+
+
+def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "cancelled-report"
+    asyncio.run(
+        cache.put_status(
+            report_id,
+            "cancelled",
+            "query text",
+            error_code="PIPELINE_CANCELLED",
+            message="Analysis cancelled by user",
+        )
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get(f"/api/v1/reports/{report_id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "cancelled"
+    assert payload["report_id"] == report_id
+    assert payload["error_code"] == "PIPELINE_CANCELLED"
+
+
 def test_list_reports(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
     mock_cache.list_reports = AsyncMock(
@@ -339,6 +431,8 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
         status = await cache.get_status(report_id)
         assert status is not None
         assert status["status"] == "cancelled"
+        assert status["error_code"] == "PIPELINE_CANCELLED"
+        assert status["message"] == "Analysis cancelled by user"
 
         run_state = deps.get_report_run(report_id)
         assert run_state is not None
@@ -362,6 +456,12 @@ async def test_run_pipeline_redacts_internal_error_details(tmp_path) -> None:
         ),
     ):
         await analyze_route._run_pipeline("A failing startup query", report_id)
+
+    status = await cache.get_status(report_id)
+    assert status is not None
+    assert status["status"] == "failed"
+    assert status["error_code"] == "PIPELINE_FAILURE"
+    assert status["message"] == "Pipeline failed. Please retry."
 
     run_state = deps.get_report_run(report_id)
     assert run_state is not None

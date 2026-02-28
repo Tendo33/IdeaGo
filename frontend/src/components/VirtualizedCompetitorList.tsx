@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getCompetitorId } from '../competitor'
+import { getCompetitorDomIdFromId, getCompetitorId } from '../competitor'
 import type { Competitor } from '../types/research'
 import { CompetitorCard } from './CompetitorCard'
 import { CompetitorRow } from './CompetitorRow'
@@ -73,6 +73,21 @@ export function VirtualizedCompetitorList({
   const estimatedRowHeight =
     viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT : ESTIMATED_LIST_ROW_HEIGHT
   const rowCount = Math.ceil(competitors.length / columns)
+  const competitorSignature = useMemo(
+    () => competitors.map(competitor => getCompetitorId(competitor)).join('|'),
+    [competitors],
+  )
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMeasuredHeights({})
+      setScrollTop(0)
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0
+      }
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [columns, competitorSignature, viewMode])
 
   const offsets = useMemo(() => {
     const values = new Array(rowCount + 1).fill(0)
@@ -148,6 +163,7 @@ export function VirtualizedCompetitorList({
                         key={competitorId}
                         competitor={competitor}
                         rank={rank}
+                        domId={getCompetitorDomIdFromId(competitorId)}
                         variant={rank === 1 ? 'featured' : 'standard'}
                         compareSelected={compareSet.has(competitorId)}
                         onToggleCompare={() => onToggleCompare(competitorId)}
@@ -165,6 +181,7 @@ export function VirtualizedCompetitorList({
                         key={competitorId}
                         competitor={competitor}
                         rank={rank}
+                        domId={getCompetitorDomIdFromId(competitorId)}
                         compareSelected={compareSet.has(competitorId)}
                         onToggleCompare={() => onToggleCompare(competitorId)}
                       />

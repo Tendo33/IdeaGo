@@ -30,6 +30,8 @@
     "filterPlaceholder": "Filter reports...",
     "errorLoad": "Failed to load reports.",
     "deleteConfirm": "Delete this report?",
+    "delete": "Delete report",
+    "deleting": "Deleting...",
     "errorDelete": "Failed to delete report.",
     "emptyState": "No research reports yet.",
     "startFirst": "Start your first research",
@@ -56,6 +58,7 @@
       "title": "Blue Ocean Detected",
       "description": "We couldn't find direct competitors for your idea. This could mean a genuine market gap worth exploring.",
       "tryBroader": "Try with broader keywords",
+      "tryingBroader": "Starting broader analysis...",
       "suggestedSteps": "Suggested next steps:",
       "step1": "Validate demand with user interviews",
       "step2": "Search for indirect or adjacent competitors",
@@ -80,7 +83,10 @@
       "compareUnselected": "⇔ Compare",
       "details": "Details",
       "less": "Less",
-      "more": "more"
+      "more": "more",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "virtualizedHint": "Virtualized scrolling is enabled for smoother performance on large result sets."
     },
     "hero": {
       "verdict": {
@@ -151,6 +157,7 @@
       "newSearch": "New search",
       "share": "Share",
       "copied": "Copied!",
+      "copyFailed": "Unable to copy link. Please copy the URL manually.",
       "copyLink": "Copy Link",
       "export": "Export",
       "markdown": "Markdown",
@@ -162,6 +169,16 @@
       "sources": "Sources"
     },
     "error": {
+      "systemTitle": "System error",
+      "runtimeTitle": "Analysis status update",
+      "failedTitle": "Analysis failed",
+      "cancelledTitle": "Analysis cancelled",
+      "notFoundTitle": "Report unavailable",
+      "notFoundStatus": "Report not found or expired. Please start a new analysis.",
+      "failedStatus": "Analysis failed. Please retry with a new run.",
+      "cancelledStatus": "Analysis was cancelled.",
+      "unavailableStatus": "Report status is temporarily unavailable.",
+      "connectionLost": "Connection lost. Click retry to try again.",
       "restart": "Failed to restart analysis.",
       "cancel": "Failed to cancel analysis.",
       "broaden": "Failed to start broadened analysis.",

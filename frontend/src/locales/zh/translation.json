@@ -30,6 +30,8 @@
     "filterPlaceholder": "筛选报告...",
     "errorLoad": "加载报告失败。",
     "deleteConfirm": "确定要删除此报告吗？",
+    "delete": "删除报告",
+    "deleting": "删除中...",
     "errorDelete": "删除报告失败。",
     "emptyState": "暂无调研报告。",
     "startFirst": "开始您的第一次调研",
@@ -56,6 +58,7 @@
       "title": "发现蓝海",
       "description": "我们找不到关于该想法的直接竞品。这可能意味着一个值得探索的真正市场空白。",
       "tryBroader": "尝试更宽泛的关键词",
+      "tryingBroader": "正在发起扩展分析...",
       "suggestedSteps": "下一步建议：",
       "step1": "通过用户访谈验证需求",
       "step2": "寻找间接或相近的竞争对手",
@@ -80,7 +83,10 @@
       "compareUnselected": "⇔ 对比",
       "details": "详情",
       "less": "收起",
-      "more": "更多"
+      "more": "更多",
+      "gridView": "网格视图",
+      "listView": "列表视图",
+      "virtualizedHint": "结果较多，已启用虚拟滚动以保持流畅体验。"
     },
     "hero": {
       "verdict": {
@@ -151,6 +157,7 @@
       "newSearch": "新的搜索",
       "share": "分享",
       "copied": "已复制!",
+      "copyFailed": "复制链接失败，请手动复制地址栏 URL。",
       "copyLink": "复制链接",
       "export": "导出",
       "markdown": "Markdown",
@@ -162,6 +169,16 @@
       "sources": "来源数"
     },
     "error": {
+      "systemTitle": "系统错误",
+      "runtimeTitle": "分析状态更新",
+      "failedTitle": "分析失败",
+      "cancelledTitle": "分析已取消",
+      "notFoundTitle": "报告不可用",
+      "notFoundStatus": "报告不存在或已过期，请重新发起分析。",
+      "failedStatus": "分析失败，请重新发起一次分析。",
+      "cancelledStatus": "分析任务已取消。",
+      "unavailableStatus": "报告状态暂时不可用。",
+      "connectionLost": "连接已中断。请点击重试。",
       "restart": "重新启动分析失败。",
       "cancel": "取消分析失败。",
       "broaden": "启动扩充分析失败。",

@@ -74,3 +74,19 @@ export interface ReportListItem {
   created_at: string
   competitor_count: number
 }
+
+export type RuntimeStatus =
+  | 'processing'
+  | 'failed'
+  | 'cancelled'
+  | 'complete'
+  | 'not_found'
+
+export interface ReportRuntimeStatus {
+  status: RuntimeStatus
+  report_id: string
+  error_code?: string | null
+  message?: string | null
+  updated_at?: string | null
+  query?: string | null
+}

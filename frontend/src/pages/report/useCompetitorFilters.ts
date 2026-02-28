@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
 
@@ -19,6 +19,17 @@ export function useCompetitorFilters(report: ResearchReport | null) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [compareSet, setCompareSet] = useState<Set<string>>(new Set())
   const [showCompare, setShowCompare] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSortBy('relevance')
+      setPlatformFilter(new Set())
+      setViewMode('grid')
+      setCompareSet(new Set())
+      setShowCompare(false)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [report?.id])
 
   const filteredCompetitors = useMemo(() => {
     if (!report) return []

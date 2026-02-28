@@ -48,7 +48,12 @@ async def _mark_cancelled(report_id: str) -> None:
                 data={"report_id": report_id},
             )
         )
-    await get_cache().put_status(report_id, "cancelled")
+    await get_cache().put_status(
+        report_id,
+        "cancelled",
+        error_code="PIPELINE_CANCELLED",
+        message="Analysis cancelled by user",
+    )
 
 
 class _RunStateCallback:
@@ -68,20 +73,31 @@ async def _run_pipeline(query: str, report_id: str) -> None:
     run_state = get_or_create_report_run(report_id)
     callback = _RunStateCallback(report_id)
     try:
-        await cache.put_status(report_id, "processing", query)
+        await cache.put_status(
+            report_id,
+            "processing",
+            query,
+            message="Analysis is in progress",
+        )
         orchestrator = get_orchestrator()
         report = await orchestrator.run(query, callback=callback, report_id=report_id)
         if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
-        await cache.put_status(report_id, "complete", query)
+        await cache.put_status(report_id, "complete", query, message="Report ready")
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _mark_cancelled(report_id)
     except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
-        await cache.put_status(report_id, "failed", query)
+        await cache.put_status(
+            report_id,
+            "failed",
+            query,
+            error_code="PIPELINE_FAILURE",
+            message="Pipeline failed. Please retry.",
+        )
         await run_state.publish(
             PipelineEvent(
                 type=EventType.ERROR,
@@ -134,17 +150,17 @@ async def _status_terminal_event(report_id: str) -> PipelineEvent | None:
         return PipelineEvent(
             type=EventType.CANCELLED,
             stage="pipeline",
-            message="Analysis cancelled by user",
+            message=status.get("message", "Analysis cancelled by user"),
             data={"report_id": report_id},
         )
     if state == "failed":
         return PipelineEvent(
             type=EventType.ERROR,
             stage="pipeline",
-            message="Pipeline failed",
+            message=status.get("message", "Pipeline failed"),
             data={
                 "report_id": report_id,
-                "error_code": "PIPELINE_FAILURE",
+                "error_code": status.get("error_code", "PIPELINE_FAILURE"),
             },
         )
     return None

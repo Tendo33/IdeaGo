@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -105,6 +106,20 @@ async def test_cache_delete(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_cache_delete_removes_status_file(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report = _make_report()
+    await cache.put(report)
+    await cache.put_status(
+        report.id, "failed", report.query, error_code="PIPELINE_FAILURE"
+    )
+
+    deleted = await cache.delete(report.id)
+    assert deleted is True
+    assert await cache.get_status(report.id) is None
+
+
+@pytest.mark.asyncio
 async def test_cache_delete_nonexistent(tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     deleted = await cache.delete("nonexistent")
@@ -128,6 +143,32 @@ async def test_cache_cleanup_expired(tmp_path) -> None:
     reports = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "fresh"
+
+
+@pytest.mark.asyncio
+async def test_cache_cleanup_expired_removes_stale_orphan_status_files(
+    tmp_path,
+) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=1)
+    stale_status_path = tmp_path / "cache" / "orphan-report.status.json"
+    stale_status_path.parent.mkdir(parents=True, exist_ok=True)
+    stale_status_path.write_text(
+        json.dumps(
+            {
+                "report_id": "orphan-report",
+                "status": "failed",
+                "updated_at": (
+                    datetime.now(timezone.utc) - timedelta(hours=2)
+                ).isoformat(),
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    removed_count = await cache.cleanup_expired()
+
+    assert removed_count == 0
+    assert not stale_status_path.exists()
 
 
 @pytest.mark.asyncio

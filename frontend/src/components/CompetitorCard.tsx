@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ExternalLink, ThumbsUp, ThumbsDown, Tag, DollarSign, ChevronDown, ChevronUp, Award } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { getCompetitorDomId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
@@ -13,6 +14,7 @@ const platformColors: Record<string, string> = {
 interface CompetitorCardProps {
   competitor: Competitor
   rank: number
+  domId?: string
   variant?: 'featured' | 'standard'
   compareSelected?: boolean
   onToggleCompare?: () => void
@@ -43,10 +45,18 @@ function LinkWithFavicon({ link, name }: { link: string; name: string }) {
   )
 }
 
-export function CompetitorCard({ competitor, rank, variant = 'standard', compareSelected, onToggleCompare }: CompetitorCardProps) {
+export function CompetitorCard({
+  competitor,
+  rank,
+  domId,
+  variant = 'standard',
+  compareSelected,
+  onToggleCompare,
+}: CompetitorCardProps) {
   const { t } = useTranslation()
   const isFeatured = variant === 'featured'
   const [isExpanded, setIsExpanded] = useState(isFeatured)
+  const elementId = domId ?? getCompetitorDomId(competitor)
 
   const featuresLimit = isExpanded ? competitor.features.length : 4
   const prosLimit = isExpanded ? competitor.strengths.length : 3
@@ -58,7 +68,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
 
   return (
     <div
-      id={`competitor-${rank}`}
+      id={elementId}
       className={`
         rounded-xl border bg-bg-card transition-all duration-200 select-none
         ${isFeatured
