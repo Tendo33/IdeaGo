@@ -155,13 +155,6 @@ def get_report_run(report_id: str) -> ReportRunState | None:
     return _report_runs.get(report_id)
 
 
-def clear_processing_report(report_id: str) -> None:
-    """Remove all processing entries that point to this report ID."""
-    keys_to_remove = [k for k, v in _processing_reports.items() if v == report_id]
-    for key in keys_to_remove:
-        _processing_reports.pop(key, None)
-
-
 async def reserve_processing_report(query_hash: str, report_id: str) -> str | None:
     """Atomically reserve processing slot; return existing active report_id if present."""
     with _runtime_state_lock:
@@ -207,16 +200,6 @@ async def is_processing_report(report_id: str) -> bool:
 def set_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
     with _runtime_state_lock:
         _pipeline_tasks[report_id] = task
-
-
-def get_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
-    with _runtime_state_lock:
-        return _pipeline_tasks.get(report_id)
-
-
-def pop_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
-    with _runtime_state_lock:
-        return _pipeline_tasks.pop(report_id, None)
 
 
 def get_processing_reports() -> dict[str, str]:

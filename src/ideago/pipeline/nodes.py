@@ -103,7 +103,11 @@ class PipelineNodes:
             EventType.INTENT_PARSED,
             "intent_parsing",
             f"Identified: {intent.app_type} — {', '.join(intent.keywords_en)}",
-            {"keywords": intent.keywords_en, "app_type": intent.app_type},
+            {
+                "keywords": intent.keywords_en,
+                "app_type": intent.app_type,
+                "target_scenario": intent.target_scenario,
+            },
         )
         return {"intent": intent}
 

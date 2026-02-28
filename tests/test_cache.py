@@ -68,6 +68,17 @@ async def test_cache_expired_returns_none(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_cache_get_by_id_ignores_expired_report(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=1)
+    report = _make_report()
+    report.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
+    await cache.put(report)
+
+    result = await cache.get_by_id(report.id)
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_cache_list_reports(tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     await cache.put(_make_report("key1", "idea 1"))

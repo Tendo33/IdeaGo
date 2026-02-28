@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { X, Check, Minus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { RelevanceRing } from './RelevanceRing'
@@ -10,15 +11,43 @@ interface ComparePanelProps {
 }
 
 export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelProps) {
+<<<<<<< HEAD
   const { t } = useTranslation()
   if (competitors.length < 2) return null
+=======
+  const dialogRef = useRef<HTMLDivElement>(null)
+>>>>>>> 1d13ecff676f773be1ed58ca331f0d0b58ce845f
 
   const allFeatures = Array.from(
     new Set(competitors.flatMap(c => c.features))
   ).sort()
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    dialogRef.current?.focus()
+  }, [])
+
+  if (competitors.length < 2) return null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Compare competitors"
+      tabIndex={-1}
+      ref={dialogRef}
+    >
       <div className="w-full max-w-5xl max-h-[85vh] bg-bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">

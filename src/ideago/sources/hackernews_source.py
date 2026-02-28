@@ -11,6 +11,7 @@ import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
 
@@ -46,7 +47,11 @@ class HackerNewsSource:
                     status=resp.status_code,
                     query=query,
                 )
-                return []
+                raise SourceSearchError(
+                    self.platform.value,
+                    "HN API non-200 response",
+                    status_code=resp.status_code,
+                )
 
             data = resp.json()
             result: list[RawResult] = []
@@ -77,7 +82,7 @@ class HackerNewsSource:
             logger.warning(
                 "HN search failed for '{query}': {exc}", query=query, exc=exc
             )
-            return []
+            raise SourceSearchError(self.platform.value, str(exc)) from exc
 
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         """Search HN stories for each query and return combined results."""

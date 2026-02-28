@@ -11,6 +11,7 @@ import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
 
@@ -55,7 +56,11 @@ class GitHubSource:
                     status=resp.status_code,
                     query=query,
                 )
-                return []
+                raise SourceSearchError(
+                    self.platform.value,
+                    "GitHub API non-200 response",
+                    status_code=resp.status_code,
+                )
 
             data = resp.json()
             return [
@@ -79,7 +84,7 @@ class GitHubSource:
             logger.warning(
                 "GitHub search failed for '{query}': {exc}", query=query, exc=exc
             )
-            return []
+            raise SourceSearchError(self.platform.value, str(exc)) from exc
 
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         """Search GitHub repos for each query and return combined results."""

@@ -94,7 +94,10 @@ class FileCache:
             return None
         try:
             data = json.loads(report_path.read_text(encoding="utf-8"))
-            return ResearchReport.model_validate(data)
+            report = ResearchReport.model_validate(data)
+            if self._is_expired(report.created_at):
+                return None
+            return report
         except Exception:
             logger.warning("Failed to read cached report {}", report_id)
             return None
