@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search } from 'lucide-react'
-import { listReports, deleteReport } from '../api/client'
+import { deleteReport, isRequestAbortError, listReports } from '../api/client'
 import { ReportCardSkeleton } from '../components/Skeleton'
 import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
@@ -20,19 +20,23 @@ export function HistoryPage() {
     return reports.filter(r => r.query.toLowerCase().includes(q))
   }, [reports, searchQuery])
 
-  const fetchReports = useCallback(async () => {
-    setError(null)
-    try {
-      const data = await listReports()
-      setReports(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('history.errorLoad'))
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => {
+    const controller = new AbortController()
+    listReports({ signal: controller.signal })
+      .then(data => {
+        setReports(data)
+      })
+      .catch(error => {
+        if (isRequestAbortError(error)) return
+        setError(error instanceof Error ? error.message : t('history.errorLoad'))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      })
+    return () => controller.abort()
   }, [t])
-
-  useEffect(() => { fetchReports() }, [fetchReports])
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()

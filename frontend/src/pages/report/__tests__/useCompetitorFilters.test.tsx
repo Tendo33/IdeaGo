@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { getCompetitorId } from '../../../competitor'
 import { useCompetitorFilters } from '../useCompetitorFilters'
 import type { ResearchReport } from '../../../types/research'
 
@@ -74,5 +75,39 @@ describe('useCompetitorFilters', () => {
       result.current.setSortBy('name')
     })
     expect(result.current.filteredCompetitors.map(c => c.name)).toEqual(['Alpha', 'Beta', 'Gamma'])
+  })
+
+  it('tracks compare selection by stable competitor id', () => {
+    const duplicateNameReport: ResearchReport = {
+      ...report,
+      competitors: [
+        {
+          ...report.competitors[0],
+          name: 'Duplicate',
+          source_urls: ['https://a.example.com'],
+          links: ['https://a.example.com'],
+        },
+        {
+          ...report.competitors[1],
+          name: 'Duplicate',
+          source_urls: ['https://b.example.com'],
+          links: ['https://b.example.com'],
+        },
+      ],
+    }
+
+    const { result } = renderHook(() => useCompetitorFilters(duplicateNameReport))
+    const firstId = getCompetitorId(duplicateNameReport.competitors[0])
+    const secondId = getCompetitorId(duplicateNameReport.competitors[1])
+
+    act(() => {
+      result.current.toggleCompare(firstId)
+    })
+    expect(result.current.compareCompetitors).toHaveLength(1)
+
+    act(() => {
+      result.current.toggleCompare(secondId)
+    })
+    expect(result.current.compareCompetitors).toHaveLength(2)
   })
 })

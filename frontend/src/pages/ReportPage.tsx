@@ -45,10 +45,10 @@ export function ReportPage() {
     setCompareSet,
   } = useCompetitorFilters(report)
 
-  const removeFromCompare = useCallback((name: string) => {
+  const removeFromCompare = useCallback((competitorId: string) => {
     setCompareSet(previous => {
       const next = new Set(previous)
-      next.delete(name)
+      next.delete(competitorId)
       if (next.size < 2) {
         setShowCompare(false)
       }

@@ -42,7 +42,7 @@ describe('ComparePanel', () => {
       />,
     )
 
-    expect(screen.getByRole('dialog', { name: 'Compare competitors' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Comparing 2 Competitors' })).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })

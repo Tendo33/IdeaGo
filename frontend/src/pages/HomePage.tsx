@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
-import { startAnalysis, listReports } from '../api/client'
+import { isRequestAbortError, listReports, startAnalysis } from '../api/client'
 import { Clock, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
@@ -16,14 +16,17 @@ export function HomePage() {
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
 
   useEffect(() => {
-    listReports()
+    const controller = new AbortController()
+    listReports({ signal: controller.signal })
       .then(reports => {
         setRecentReports(reports.slice(0, 5))
         setRecentReportsError(null)
       })
-      .catch(() => {
+      .catch(error => {
+        if (isRequestAbortError(error)) return
         setRecentReportsError(t('home.errorLoadRecent'))
       })
+    return () => controller.abort()
   }, [t])
 
   const handleSubmit = async (query: string) => {

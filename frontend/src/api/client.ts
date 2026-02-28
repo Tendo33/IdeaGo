@@ -1,6 +1,17 @@
 import type { ReportListItem, ResearchReport } from '../types/research'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
+const DEFAULT_TIMEOUT_MS = 15000
+const ANALYSIS_TIMEOUT_MS = 30000
+
+export interface RequestOptions {
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+export function isRequestAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
 
 function extractErrorDetail(payload: unknown): string | null {
   if (typeof payload === 'string' && payload.trim()) {
@@ -38,18 +49,65 @@ async function buildErrorMessage(res: Response, prefix: string): Promise<string>
   return `${prefix}: ${detail ?? res.status}`
 }
 
-export async function startAnalysis(query: string): Promise<{ report_id: string }> {
-  const res = await fetch(`${API_BASE}/analyze`, {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  options: RequestOptions,
+  fallbackTimeoutMs: number,
+): Promise<Response> {
+  const timeoutMs = options.timeoutMs ?? fallbackTimeoutMs
+  const timeoutController = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    timeoutController.abort()
+  }, timeoutMs)
+
+  const propagateAbort = () => timeoutController.abort()
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timer)
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    options.signal.addEventListener('abort', propagateAbort)
+  }
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: timeoutController.signal,
+    })
+  } catch (error) {
+    if (isRequestAbortError(error) && timedOut) {
+      throw new Error('Request timed out. Please try again.')
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+    if (options.signal) {
+      options.signal.removeEventListener('abort', propagateAbort)
+    }
+  }
+}
+
+export async function startAnalysis(
+  query: string,
+  options: RequestOptions = {},
+): Promise<{ report_id: string }> {
+  const res = await fetchWithTimeout(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
-  })
+  }, options, ANALYSIS_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Analysis failed'))
   return res.json()
 }
 
-export async function getReport(id: string): Promise<ResearchReport> {
-  const res = await fetch(`${API_BASE}/reports/${id}`)
+export async function getReport(
+  id: string,
+  options: RequestOptions = {},
+): Promise<ResearchReport> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
   return res.json()
 }
@@ -57,27 +115,32 @@ export async function getReport(id: string): Promise<ResearchReport> {
 export type ReportFetchResult =
   | { status: 'ready'; report: ResearchReport }
   | { status: 'processing' }
+  | { status: 'missing' }
 
-export async function getReportWithStatus(id: string): Promise<ReportFetchResult> {
-  const res = await fetch(`${API_BASE}/reports/${id}`)
+export async function getReportWithStatus(
+  id: string,
+  options: RequestOptions = {},
+): Promise<ReportFetchResult> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
   if (res.status === 202) return { status: 'processing' }
+  if (res.status === 404) return { status: 'missing' }
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
   return { status: 'ready', report: await res.json() }
 }
 
-export async function listReports(): Promise<ReportListItem[]> {
-  const res = await fetch(`${API_BASE}/reports`)
+export async function listReports(options: RequestOptions = {}): Promise<ReportListItem[]> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports`, {}, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to list reports'))
   return res.json()
 }
 
-export async function deleteReport(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/reports/${id}`, { method: 'DELETE' })
+export async function deleteReport(id: string, options: RequestOptions = {}): Promise<void> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { method: 'DELETE' }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to delete report'))
 }
 
-export async function cancelAnalysis(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE' })
+export async function cancelAnalysis(id: string, options: RequestOptions = {}): Promise<void> {
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE' }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to cancel analysis'))
 }
 

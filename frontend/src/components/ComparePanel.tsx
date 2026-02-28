@@ -1,38 +1,74 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { X, Check, Minus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { RelevanceRing } from './RelevanceRing'
+import { getCompetitorId } from '../competitor'
 import type { Competitor } from '../types/research'
 
 interface ComparePanelProps {
   competitors: Competitor[]
-  onRemove: (name: string) => void
+  onRemove: (competitorId: string) => void
   onClose: () => void
 }
 
 export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelProps) {
   const { t } = useTranslation()
+  const headingId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
-  if (competitors.length < 2) return null
+  const panelRef = useRef<HTMLDivElement>(null)
+  const previousFocusedRef = useRef<HTMLElement | null>(null)
 
   const allFeatures = Array.from(
     new Set(competitors.flatMap(c => c.features))
   ).sort()
 
+  const getFocusableElements = () => {
+    const panel = panelRef.current
+    if (!panel) return []
+    return Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    )
+  }
+
   useEffect(() => {
+    previousFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusable = getFocusableElements()
+    const firstFocusable = focusable[0]
+    if (firstFocusable) {
+      firstFocusable.focus()
+    } else {
+      dialogRef.current?.focus()
+    }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         onClose()
       }
+      if (event.key === 'Tab') {
+        const focusableElements = getFocusableElements()
+        if (focusableElements.length === 0) return
+        const first = focusableElements[0]
+        const last = focusableElements[focusableElements.length - 1]
+        const activeElement = document.activeElement
+        if (event.shiftKey && activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
 
-  useEffect(() => {
-    dialogRef.current?.focus()
-  }, [])
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previousFocusedRef.current?.focus()
+    }
+  }, [onClose])
 
   if (competitors.length < 2) return null
 
@@ -41,17 +77,27 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Compare competitors"
+      aria-labelledby={headingId}
       tabIndex={-1}
       ref={dialogRef}
+      onMouseDown={event => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
     >
-      <div className="w-full max-w-5xl max-h-[85vh] bg-bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div
+        ref={panelRef}
+        className="w-full max-w-5xl max-h-[85vh] bg-bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        onMouseDown={event => event.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h3 className="text-lg font-semibold font-heading text-text">
+          <h3 id={headingId} className="text-lg font-semibold font-heading text-text">
             {t('report.compare.title', { count: competitors.length })}
           </h3>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-text-dim hover:text-text hover:bg-secondary transition-colors cursor-pointer"
             aria-label="Close comparison panel"
@@ -66,29 +112,33 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
             <thead>
               <tr className="border-b border-border">
                 <th className="sticky left-0 bg-bg-card z-10 text-left px-4 py-3 text-xs font-medium text-text-dim w-36 min-w-36" />
-                {competitors.map(c => (
-                  <th key={c.name} className="px-4 py-3 text-left min-w-44">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-text truncate">{c.name}</span>
-                      <button
-                        onClick={() => onRemove(c.name)}
-                        className="p-1 rounded text-text-dim hover:text-danger transition-colors cursor-pointer shrink-0"
-                        aria-label={`Remove ${c.name}`}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </th>
-                ))}
+                {competitors.map(competitor => {
+                  const competitorId = getCompetitorId(competitor)
+                  return (
+                    <th key={competitorId} className="px-4 py-3 text-left min-w-44">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-text truncate">{competitor.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => onRemove(competitorId)}
+                          className="p-1 rounded text-text-dim hover:text-danger transition-colors cursor-pointer shrink-0"
+                          aria-label={`Remove ${competitor.name}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
               {/* Relevance */}
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.relevance')}</td>
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5">
-                    <RelevanceRing score={c.relevance_score} size={32} />
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-relevance`} className="px-4 py-2.5">
+                    <RelevanceRing score={competitor.relevance_score} size={32} />
                   </td>
                 ))}
               </tr>
@@ -96,16 +146,16 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {/* One-liner */}
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.description')}</td>
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5 text-xs text-text-muted">{c.one_liner}</td>
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-description`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.one_liner}</td>
                 ))}
               </tr>
 
               {/* Pricing */}
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.pricing')}</td>
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5 text-xs text-text-muted">{c.pricing ?? '—'}</td>
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.pricing ?? '—'}</td>
                 ))}
               </tr>
 
@@ -120,9 +170,9 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {allFeatures.map(feature => (
                 <tr key={feature} className="border-b border-border/30">
                   <td className="sticky left-0 bg-bg-card z-10 px-4 py-2 text-xs text-text-muted">{feature}</td>
-                  {competitors.map(c => (
-                    <td key={c.name} className="px-4 py-2 text-center">
-                      {c.features.includes(feature) ? (
+                  {competitors.map(competitor => (
+                    <td key={`${getCompetitorId(competitor)}-${feature}`} className="px-4 py-2 text-center">
+                      {competitor.features.includes(feature) ? (
                         <Check className="w-4 h-4 text-cta inline-block" />
                       ) : (
                         <Minus className="w-4 h-4 text-text-dim/40 inline-block" />
@@ -140,10 +190,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               </tr>
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium" />
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5 align-top">
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-strengths`} className="px-4 py-2.5 align-top">
                     <ul className="space-y-0.5">
-                      {c.strengths.map((s, i) => (
+                      {competitor.strengths.map((s, i) => (
                         <li key={i} className="text-xs text-cta">&bull; {s}</li>
                       ))}
                     </ul>
@@ -159,10 +209,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               </tr>
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium" />
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5 align-top">
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-weaknesses`} className="px-4 py-2.5 align-top">
                     <ul className="space-y-0.5">
-                      {c.weaknesses.map((w, i) => (
+                      {competitor.weaknesses.map((w, i) => (
                         <li key={i} className="text-xs text-danger">&bull; {w}</li>
                       ))}
                     </ul>
@@ -173,10 +223,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {/* Sources */}
               <tr>
                 <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.sources')}</td>
-                {competitors.map(c => (
-                  <td key={c.name} className="px-4 py-2.5">
+                {competitors.map(competitor => (
+                  <td key={`${getCompetitorId(competitor)}-sources`} className="px-4 py-2.5">
                     <div className="flex gap-1.5 flex-wrap">
-                      {c.source_platforms.map(p => (
+                      {competitor.source_platforms.map(p => (
                         <span key={p} className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/50 text-text-dim">{p}</span>
                       ))}
                     </div>
@@ -208,12 +258,14 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
         <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
       <button
+        type="button"
         onClick={onCompare}
         className="px-4 py-1.5 text-sm font-medium rounded-lg bg-cta text-white cursor-pointer transition-colors hover:bg-cta-hover"
       >
         {t('report.compare.compareBtn')}
       </button>
       <button
+        type="button"
         onClick={onClear}
         className="text-xs text-text-dim hover:text-text cursor-pointer transition-colors"
       >

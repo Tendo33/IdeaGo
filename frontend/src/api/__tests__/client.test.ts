@@ -64,7 +64,10 @@ describe('getReport', () => {
     })
 
     const result = await getReport('r1')
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/reports/r1'))
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports/r1'),
+      expect.objectContaining({ signal: expect.anything() }),
+    )
     expect(result).toEqual(report)
   })
 
@@ -91,6 +94,12 @@ describe('getReportWithStatus', () => {
     const result = await getReportWithStatus('r1')
     expect(result).toEqual({ status: 'ready', report })
   })
+
+  it('returns missing on 404', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
+    const result = await getReportWithStatus('missing')
+    expect(result).toEqual({ status: 'missing' })
+  })
 })
 
 describe('listReports', () => {
@@ -102,7 +111,10 @@ describe('listReports', () => {
     })
 
     const result = await listReports()
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/reports'))
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports'),
+      expect.objectContaining({ signal: expect.anything() }),
+    )
     expect(result).toEqual(reports)
   })
 })

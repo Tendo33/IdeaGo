@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
 
 export type SortKey = 'relevance' | 'name' | 'sources'
@@ -44,7 +45,7 @@ export function useCompetitorFilters(report: ResearchReport | null) {
 
   const compareCompetitors = useMemo(() => {
     if (!report) return []
-    return report.competitors.filter(competitor => compareSet.has(competitor.name))
+    return report.competitors.filter(competitor => compareSet.has(getCompetitorId(competitor)))
   }, [compareSet, report])
 
   const togglePlatform = useCallback((platform: Platform) => {
@@ -59,13 +60,13 @@ export function useCompetitorFilters(report: ResearchReport | null) {
     })
   }, [])
 
-  const toggleCompare = useCallback((name: string) => {
+  const toggleCompare = useCallback((competitorId: string) => {
     setCompareSet(previous => {
       const next = new Set(previous)
-      if (next.has(name)) {
-        next.delete(name)
+      if (next.has(competitorId)) {
+        next.delete(competitorId)
       } else if (next.size < 4) {
-        next.add(name)
+        next.add(competitorId)
       }
       return next
     })

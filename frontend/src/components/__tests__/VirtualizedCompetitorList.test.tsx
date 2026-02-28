@@ -1,0 +1,63 @@
+import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Competitor } from '../../types/research'
+import { VirtualizedCompetitorList } from '../VirtualizedCompetitorList'
+
+vi.mock('../CompetitorRow', () => ({
+  CompetitorRow: ({ competitor, rank }: { competitor: Competitor; rank: number }) => (
+    <div data-testid="virtual-row">{`${rank}:${competitor.name}`}</div>
+  ),
+}))
+
+vi.mock('../CompetitorCard', () => ({
+  CompetitorCard: ({ competitor, rank }: { competitor: Competitor; rank: number }) => (
+    <div data-testid="virtual-card">{`${rank}:${competitor.name}`}</div>
+  ),
+}))
+
+function createCompetitors(count: number): Competitor[] {
+  return Array.from({ length: count }, (_, index) => ({
+    name: `Competitor ${index + 1}`,
+    links: [`https://example-${index + 1}.com`],
+    one_liner: 'desc',
+    features: [],
+    pricing: null,
+    strengths: [],
+    weaknesses: [],
+    relevance_score: 0.5,
+    source_platforms: ['github'],
+    source_urls: [`https://example-${index + 1}.com`],
+  }))
+}
+
+describe('VirtualizedCompetitorList', () => {
+  beforeEach(() => {
+    if (typeof ResizeObserver === 'undefined') {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe() {}
+          disconnect() {}
+        },
+      )
+    }
+  })
+
+  it('renders only a windowed subset for long list mode', () => {
+    const competitors = createCompetitors(100)
+
+    render(
+      <VirtualizedCompetitorList
+        competitors={competitors}
+        viewMode="list"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    const renderedRows = screen.getAllByTestId('virtual-row')
+    expect(renderedRows.length).toBeGreaterThan(0)
+    expect(renderedRows.length).toBeLessThan(40)
+    expect(screen.queryByText('100:Competitor 100')).not.toBeInTheDocument()
+  })
+})

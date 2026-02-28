@@ -1,5 +1,5 @@
-import { Suspense, lazy, useState } from 'react'
-import { motion } from 'framer-motion'
+import { Suspense, lazy, useState, type ReactNode } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ArrowUpDown, Info, LayoutGrid, List, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +13,8 @@ import { InsightsSection } from '../../components/InsightCard'
 import { MarketOverview } from '../../components/MarketOverview'
 import { ReportHeader } from '../../components/ReportHeader'
 import { SectionNav } from '../../components/SectionNav'
+import { VirtualizedCompetitorList } from '../../components/VirtualizedCompetitorList'
+import { getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
 import type { SortKey, ViewMode } from './useCompetitorFilters'
 import { PLATFORM_OPTIONS, SORT_OPTIONS } from './useCompetitorFilters'
@@ -38,10 +40,7 @@ const cardStagger = {
     transition: { delay: index * 0.06, duration: 0.4, ease: 'easeOut' as const },
   }),
 }
-
-function getCompetitorKey(competitor: ResearchReport['competitors'][number]): string {
-  return competitor.source_urls[0] ?? competitor.links[0] ?? competitor.name
-}
+const VIRTUALIZATION_THRESHOLD = 35
 
 function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
@@ -137,7 +136,7 @@ interface ReportContentPaneProps {
   showCompare: boolean
   setShowCompare: (open: boolean) => void
   clearCompare: () => void
-  removeFromCompare: (name: string) => void
+  removeFromCompare: (competitorId: string) => void
   onRetryAnalysis: () => void
   sortBy: SortKey
   setSortBy: (sortKey: SortKey) => void
@@ -145,7 +144,7 @@ interface ReportContentPaneProps {
   togglePlatform: (platform: Platform) => void
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
-  toggleCompare: (name: string) => void
+  toggleCompare: (competitorId: string) => void
   cancelledMessage: string | null
 }
 
@@ -171,6 +170,33 @@ export function ReportContentPane({
   cancelledMessage,
 }: ReportContentPaneProps) {
   const { t } = useTranslation()
+  const reduceMotion = useReducedMotion()
+  const shouldAnimateCards = !reduceMotion && filteredCompetitors.length <= 20
+  const shouldUseVirtualization =
+    filteredCompetitors.length >= VIRTUALIZATION_THRESHOLD
+
+  const renderCardWrapper = (
+    key: string,
+    index: number,
+    margin: string,
+    child: ReactNode,
+  ) => {
+    if (!shouldAnimateCards) {
+      return <div key={key}>{child}</div>
+    }
+    return (
+      <motion.div
+        key={key}
+        custom={index}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin }}
+        variants={cardStagger}
+      >
+        {child}
+      </motion.div>
+    )
+  }
   return (
     <>
       <ReportHeader report={report} />
@@ -263,49 +289,65 @@ export function ReportContentPane({
               </div>
             </div>
 
+            {shouldUseVirtualization && (
+              <p className="text-xs text-text-dim mb-3">
+                Virtualized scrolling is enabled for smoother performance on large result sets.
+              </p>
+            )}
+
             {viewMode === 'grid' && (
-              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                {filteredCompetitors.map((competitor, index) => (
-                  <motion.div
-                    key={getCompetitorKey(competitor)}
-                    custom={index}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: '-30px' }}
-                    variants={cardStagger}
-                  >
-                    <CompetitorCard
-                      competitor={competitor}
-                      rank={index + 1}
-                      variant={index === 0 ? 'featured' : 'standard'}
-                      compareSelected={compareSet.has(competitor.name)}
-                      onToggleCompare={() => toggleCompare(competitor.name)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
+              shouldUseVirtualization ? (
+                <VirtualizedCompetitorList
+                  competitors={filteredCompetitors}
+                  viewMode="grid"
+                  compareSet={compareSet}
+                  onToggleCompare={toggleCompare}
+                />
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                  {filteredCompetitors.map((competitor, index) => (
+                    renderCardWrapper(
+                      getCompetitorId(competitor),
+                      index,
+                      '-30px',
+                      <CompetitorCard
+                        competitor={competitor}
+                        rank={index + 1}
+                        variant={index === 0 ? 'featured' : 'standard'}
+                        compareSelected={compareSet.has(getCompetitorId(competitor))}
+                        onToggleCompare={() => toggleCompare(getCompetitorId(competitor))}
+                      />,
+                    )
+                  ))}
+                </div>
+              )
             )}
 
             {viewMode === 'list' && (
-              <div className="space-y-2">
-                {filteredCompetitors.map((competitor, index) => (
-                  <motion.div
-                    key={getCompetitorKey(competitor)}
-                    custom={index}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: '-20px' }}
-                    variants={cardStagger}
-                  >
-                    <CompetitorRow
-                      competitor={competitor}
-                      rank={index + 1}
-                      compareSelected={compareSet.has(competitor.name)}
-                      onToggleCompare={() => toggleCompare(competitor.name)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
+              shouldUseVirtualization ? (
+                <VirtualizedCompetitorList
+                  competitors={filteredCompetitors}
+                  viewMode="list"
+                  compareSet={compareSet}
+                  onToggleCompare={toggleCompare}
+                />
+              ) : (
+                <div className="space-y-2">
+                  {filteredCompetitors.map((competitor, index) => (
+                    renderCardWrapper(
+                      getCompetitorId(competitor),
+                      index,
+                      '-20px',
+                      <CompetitorRow
+                        competitor={competitor}
+                        rank={index + 1}
+                        compareSelected={compareSet.has(getCompetitorId(competitor))}
+                        onToggleCompare={() => toggleCompare(getCompetitorId(competitor))}
+                      />,
+                    )
+                  ))}
+                </div>
+              )
             )}
 
             {filteredCompetitors.length === 0 && (

@@ -273,4 +273,23 @@ describe('ReportPage', () => {
     })
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
   })
+
+  it('shows missing-report guidance when report is not found', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-missing']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Report not found or expired. Please start a new analysis.'),
+      ).toBeInTheDocument()
+    })
+    expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+  })
 })
