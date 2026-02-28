@@ -87,9 +87,11 @@ function NotFound() {
 
 function NavBar() {
   const { t, i18n } = useTranslation()
-  
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
+  const isChinese = currentLanguage.startsWith('zh')
+
   const toggleLanguage = () => {
-    const newLang = i18n.language.startsWith('zh') ? 'en' : 'zh'
+    const newLang = isChinese ? 'en' : 'zh'
     i18n.changeLanguage(newLang)
   }
 
@@ -107,7 +109,7 @@ function NavBar() {
           className="text-xs font-medium text-text-muted hover:text-cta transition-colors duration-200 px-2 py-1 rounded cursor-pointer"
           aria-label="Toggle language"
         >
-          {i18n.language.startsWith('zh') ? 'EN' : 'ZH'}
+          {isChinese ? 'EN' : 'ZH'}
         </button>
         <Link
           to="/reports"

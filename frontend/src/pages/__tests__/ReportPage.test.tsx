@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReportPage } from '../ReportPage'
 import { getReportWithStatus, startAnalysis } from '../../api/client'
 import { useSSE } from '../../api/useSSE'
+import i18n from '../../i18n'
 
 vi.mock('../../api/client', () => ({
   getReportWithStatus: vi.fn(),
@@ -136,6 +137,7 @@ describe('ReportPage', () => {
   })
 
   it('uses a broadened query when retrying blue-ocean analysis', async () => {
+    const broadenButtonLabel = i18n.t('report.blueOcean.tryBroader')
     vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-next' })
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
@@ -176,10 +178,10 @@ describe('ReportPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Try with broader keywords')).toBeInTheDocument()
+      expect(screen.getByText(broadenButtonLabel)).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('Try with broader keywords'))
+    fireEvent.click(screen.getByText(broadenButtonLabel))
     await waitFor(() => {
       expect(startAnalysis).toHaveBeenCalledTimes(1)
     })

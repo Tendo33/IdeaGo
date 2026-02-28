@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ComparePanel } from '../ComparePanel'
 import type { Competitor } from '../../types/research'
+import i18n from '../../i18n'
 
 const competitors: Competitor[] = [
   {
@@ -42,7 +43,9 @@ describe('ComparePanel', () => {
       />,
     )
 
-    expect(screen.getByRole('dialog', { name: 'Comparing 2 Competitors' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('dialog', { name: i18n.t('report.compare.title', { count: 2 }) }),
+    ).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
