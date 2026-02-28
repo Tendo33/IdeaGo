@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ideago"
-version = "0.2.0"
+version = "0.1.0"
 description = "AI-powered competitor research engine for startup ideas"
 readme = "README.md"
 license = {file = "LICENSE"}
