@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useId } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Share2, Download, Link2, Check, Printer, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ResearchReport } from '../types/research'
 import { getExportUrl } from '../api/client'
 
@@ -91,6 +92,7 @@ function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Downl
 }
 
 export function ReportHeader({ report }: ReportHeaderProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopyLink = () => {
@@ -109,9 +111,9 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 mb-3 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            New search
+            {t('report.header.newSearch')}
           </Link>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text mb-1">
+          <h1 className="text-2xl font-bold font-heading text-text mb-1">
             {report.query}
           </h1>
           <p className="text-xs text-text-dim">
@@ -120,22 +122,22 @@ export function ReportHeader({ report }: ReportHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 no-print">
-          <Dropdown trigger={<><Share2 className="w-4 h-4" /><span className="hidden sm:inline"> Share</span></>}>
+          <Dropdown trigger={<><Share2 className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.share')}</span></>}>
             <DropdownItem
               icon={copied ? Check : Link2}
-              label={copied ? 'Copied!' : 'Copy Link'}
+              label={copied ? t('report.header.copied') : t('report.header.copyLink')}
               onClick={handleCopyLink}
             />
           </Dropdown>
-          <Dropdown trigger={<><Download className="w-4 h-4" /><span className="hidden sm:inline"> Export</span></>}>
+          <Dropdown trigger={<><Download className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.export')}</span></>}>
             <DropdownItem
               icon={Download}
-              label="Markdown"
+              label={t('report.header.markdown')}
               href={getExportUrl(report.id)}
             />
             <DropdownItem
               icon={Printer}
-              label="Print / PDF"
+              label={t('report.header.print')}
               onClick={() => window.print()}
             />
           </Dropdown>

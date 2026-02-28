@@ -1,4 +1,6 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { Competitor } from '../types/research'
 
 interface LandscapeChartProps {
@@ -32,7 +34,7 @@ function getRadius(sources: number): number {
   return 5
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: DataPoint }> }) {
+function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Array<{ payload: DataPoint }>; t: TFunction }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
@@ -40,15 +42,16 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
       <p className="text-sm font-semibold text-text mb-0.5">{d.name}</p>
       <p className="text-xs text-text-muted mb-1.5 line-clamp-2">{d.oneLiner}</p>
       <div className="flex gap-3 text-xs text-text-dim">
-        <span>Relevance: <span className="font-medium text-text">{d.relevance}%</span></span>
-        <span>Features: <span className="font-medium text-text">{d.features}</span></span>
-        <span>Sources: <span className="font-medium text-text">{d.sources}</span></span>
+        <span>{t('report.chart.relevance').replace(' %', '')}: <span className="font-medium text-text">{d.relevance}%</span></span>
+        <span>{t('report.compare.features')}: <span className="font-medium text-text">{d.features}</span></span>
+        <span>{t('report.compare.sources')}: <span className="font-medium text-text">{d.sources}</span></span>
       </div>
     </div>
   )
 }
 
 export function LandscapeChart({ competitors }: LandscapeChartProps) {
+  const { t } = useTranslation()
   if (competitors.length === 0) return null
 
   const data: DataPoint[] = competitors.map((c, i) => ({
@@ -74,13 +77,13 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   return (
     <div className="rounded-xl border border-border bg-bg-card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold font-[family-name:var(--font-heading)] text-text">
-          Competitive Landscape
+        <h3 className="text-sm font-semibold font-heading text-text">
+          {t('report.chart.title')}
         </h3>
         <div className="flex items-center gap-3 text-[10px] text-text-dim">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cta" /> High</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Medium</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-text-dim" /> Low</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cta" /> {t('report.chart.high')}</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> {t('report.chart.medium')}</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-text-dim" /> {t('report.chart.low')}</span>
         </div>
       </div>
 
@@ -93,7 +96,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
             name="Features"
             domain={[0, maxFeatures + 1]}
             tick={{ fontSize: 10, fill: '#64748B' }}
-            label={{ value: 'Feature Count', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#64748B' }}
+            label={{ value: t('report.chart.featureCount'), position: 'insideBottom', offset: -10, fontSize: 10, fill: '#64748B' }}
           />
           <YAxis
             dataKey="relevance"
@@ -101,11 +104,11 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
             name="Relevance"
             domain={[0, 100]}
             tick={{ fontSize: 10, fill: '#64748B' }}
-            label={{ value: 'Relevance %', angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#64748B' }}
+            label={{ value: t('report.chart.relevance'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#64748B' }}
           />
           <ReferenceLine y={70} stroke="#22C55E" strokeDasharray="4 4" opacity={0.4} />
           <ReferenceLine y={40} stroke="#F59E0B" strokeDasharray="4 4" opacity={0.4} />
-          <Tooltip content={<CustomTooltip />} cursor={false} />
+          <Tooltip content={<CustomTooltip t={t} />} cursor={false} />
           <Scatter
             data={data}
             onClick={(entry: DataPoint) => handleClick(entry)}
@@ -126,7 +129,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
       </ResponsiveContainer>
 
       <p className="text-[10px] text-text-dim text-center mt-2">
-        Click a dot to jump to its competitor card. Dot size reflects number of data sources.
+        {t('report.chart.clickHint')}
       </p>
     </div>
   )

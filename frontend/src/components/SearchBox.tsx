@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Search, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface SearchBoxProps {
   onSubmit: (query: string) => void
@@ -8,6 +9,7 @@ interface SearchBoxProps {
 
 export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
   const [query, setQuery] = useState('')
+  const { t } = useTranslation()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,16 +26,16 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Describe your startup idea..."
+          placeholder={t('search.placeholder')}
           disabled={isLoading}
           className="w-full px-5 py-4 pr-14 text-lg rounded-xl border border-border bg-bg-card text-text placeholder-text-dim transition-colors duration-200 focus:outline-none focus:border-cta focus:ring-2 focus:ring-cta/20 disabled:opacity-50"
-          aria-label="Startup idea description"
+          aria-label={t('search.placeholder')}
         />
         <button
           type="submit"
           disabled={isLoading || query.trim().length < 5}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-lg bg-cta text-white cursor-pointer transition-colors duration-200 hover:bg-cta-hover disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cta/50"
-          aria-label="Start research"
+          aria-label={t('search.button')}
         >
           {isLoading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -43,7 +45,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
         </button>
       </div>
       <p className="mt-2 text-sm text-text-dim text-center">
-        e.g. "A browser extension that converts web pages to Markdown notes"
+        {t('search.example')}
       </p>
     </form>
   )

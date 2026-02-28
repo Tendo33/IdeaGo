@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search } from 'lucide-react'
 import { listReports, deleteReport } from '../api/client'
 import { ReportCardSkeleton } from '../components/Skeleton'
+import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
 
 export function HistoryPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [reports, setReports] = useState<ReportListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -18,28 +20,28 @@ export function HistoryPage() {
     return reports.filter(r => r.query.toLowerCase().includes(q))
   }, [reports, searchQuery])
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setError(null)
     try {
       const data = await listReports()
       setReports(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load reports.')
+      setError(e instanceof Error ? e.message : t('history.errorLoad'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
-  useEffect(() => { fetchReports() }, [])
+  useEffect(() => { fetchReports() }, [fetchReports])
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Delete this report?')) return
+    if (!window.confirm(t('history.deleteConfirm'))) return
     try {
       await deleteReport(id)
       setReports(prev => prev.filter(r => r.id !== id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete report.')
+      setError(err instanceof Error ? err.message : t('history.errorDelete'))
     }
   }
 
@@ -51,12 +53,12 @@ export function HistoryPage() {
           className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 mb-6 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to search
+          {t('history.back')}
         </Link>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text">
-            Research History
+          <h1 className="text-2xl font-bold font-heading text-text">
+            {t('history.title')}
           </h1>
           {reports.length > 0 && (
             <div className="relative">
@@ -65,7 +67,7 @@ export function HistoryPage() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Filter reports..."
+                placeholder={t('history.filterPlaceholder')}
                 className="pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-bg-card text-text placeholder-text-dim transition-colors duration-200 focus:outline-none focus:border-cta focus:ring-2 focus:ring-cta/20 w-full sm:w-56"
               />
             </div>
@@ -90,12 +92,12 @@ export function HistoryPage() {
         {!loading && !error && reports.length === 0 && (
           <div className="p-12 rounded-xl bg-bg-card border border-border text-center">
             <FileText className="w-10 h-10 text-text-dim mx-auto mb-3" />
-            <p className="text-text-muted text-sm mb-4">No research reports yet.</p>
+            <p className="text-text-muted text-sm mb-4">{t('history.emptyState')}</p>
             <Link
               to="/"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-cta-hover"
             >
-              Start your first research
+              {t('history.startFirst')}
             </Link>
           </div>
         )}
@@ -127,7 +129,7 @@ export function HistoryPage() {
                     </span>
                     <span className="text-xs text-text-dim flex items-center gap-1">
                       <Users className="w-3 h-3" />
-                      {report.competitor_count} competitors
+                      {report.competitor_count} {t('home.competitors')}
                     </span>
                   </div>
                 </div>
@@ -144,7 +146,7 @@ export function HistoryPage() {
         )}
 
         {!loading && reports.length > 0 && filtered.length === 0 && searchQuery.trim() && (
-          <p className="text-center text-sm text-text-dim py-8">No reports match &ldquo;{searchQuery}&rdquo;</p>
+          <p className="text-center text-sm text-text-dim py-8">{t('history.noMatch', { query: searchQuery })}</p>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ExternalLink, ThumbsUp, ThumbsDown, Tag, DollarSign, ChevronDown, ChevronUp, Award } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
@@ -43,6 +44,7 @@ function LinkWithFavicon({ link, name }: { link: string; name: string }) {
 }
 
 export function CompetitorCard({ competitor, rank, variant = 'standard', compareSelected, onToggleCompare }: CompetitorCardProps) {
+  const { t } = useTranslation()
   const isFeatured = variant === 'featured'
   const [isExpanded, setIsExpanded] = useState(isFeatured)
 
@@ -74,10 +76,10 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
             {isFeatured && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-cta/15 text-cta">
                 <Award className="w-3 h-3" />
-                Top Competitor
+                {t('report.competitors.top')}
               </span>
             )}
-            <h3 className={`font-semibold font-[family-name:var(--font-heading)] text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}>
+            <h3 className={`font-semibold font-heading text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}>
               {competitor.name}
             </h3>
           </div>
@@ -95,7 +97,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
             </span>
           ))}
           {!isExpanded && competitor.features.length > 4 && (
-            <span className="text-xs text-text-dim self-center">+{competitor.features.length - 4} more</span>
+            <span className="text-xs text-text-dim self-center">+{competitor.features.length - 4} {t('report.competitors.more')}</span>
           )}
         </div>
       )}
@@ -114,7 +116,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
           {competitor.strengths.length > 0 && (
             <div>
               <div className="flex items-center gap-1 text-xs text-cta mb-1.5">
-                <ThumbsUp className="w-3 h-3" /> Strengths
+                <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
               </div>
               <ul className="space-y-0.5">
                 {competitor.strengths.slice(0, prosLimit).map((s, i) => (
@@ -126,7 +128,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
           {competitor.weaknesses.length > 0 && (
             <div>
               <div className="flex items-center gap-1 text-xs text-danger mb-1.5">
-                <ThumbsDown className="w-3 h-3" /> Weaknesses
+                <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
               </div>
               <ul className="space-y-0.5">
                 {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
@@ -165,7 +167,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
                   : 'border-border text-text-dim hover:border-cta/30 hover:text-text-muted'
               }`}
             >
-              {compareSelected ? '✓ Compare' : '⇔ Compare'}
+              {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
             </button>
           )}
           {!isFeatured && hasMore && (
@@ -174,7 +176,7 @@ export function CompetitorCard({ competitor, rank, variant = 'standard', compare
               className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer"
             >
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              {isExpanded ? 'Less' : 'Details'}
+              {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}
             </button>
           )}
         </div>

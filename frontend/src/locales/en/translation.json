@@ -1,0 +1,171 @@
+{
+  "app": {
+    "title": "Idea",
+    "titleHighlight": "Go",
+    "history": "History"
+  },
+  "nav": {
+    "history": "History"
+  },
+  "home": {
+    "description": "Validate your startup idea with real competitor data from GitHub, web, and Hacker News.",
+    "recentResearch": "Recent Research",
+    "competitors": "competitors",
+    "prompt0": "An AI tool that summarizes meeting notes automatically",
+    "prompt1": "A marketplace for local organic food delivery",
+    "prompt2": "A browser extension that converts web pages to Markdown",
+    "prompt3": "A developer tool for real-time API monitoring",
+    "errorLoadRecent": "Failed to load recent reports.",
+    "errorStartAnalysis": "Failed to start analysis. Please try again."
+  },
+  "search": {
+    "placeholder": "Describe your startup idea...",
+    "example": "e.g. \"A browser extension that converts web pages to Markdown notes\"",
+    "button": "Analyze Idea",
+    "analyzing": "Analyzing..."
+  },
+  "history": {
+    "back": "Back to search",
+    "title": "Research History",
+    "filterPlaceholder": "Filter reports...",
+    "errorLoad": "Failed to load reports.",
+    "deleteConfirm": "Delete this report?",
+    "errorDelete": "Failed to delete report.",
+    "emptyState": "No research reports yet.",
+    "startFirst": "Start your first research",
+    "noMatch": "No reports match \"{{query}}\""
+  },
+  "error": {
+    "title": "Something went wrong",
+    "fallbackMessage": "An unexpected error occurred.",
+    "backToHome": "Back to Home",
+    "notFoundTitle": "404",
+    "notFoundMessage": "Page not found"
+  },
+  "loading": {
+    "page": "Loading page..."
+  },
+  "report": {
+    "sections": {
+      "summary": "Summary",
+      "landscape": "Landscape",
+      "competitors": "Competitors",
+      "opportunities": "Opportunities"
+    },
+    "blueOcean": {
+      "title": "Blue Ocean Detected",
+      "description": "We couldn't find direct competitors for your idea. This could mean a genuine market gap worth exploring.",
+      "tryBroader": "Try with broader keywords",
+      "suggestedSteps": "Suggested next steps:",
+      "step1": "Validate demand with user interviews",
+      "step2": "Search for indirect or adjacent competitors",
+      "step3": "Consider why no one has built this yet"
+    },
+    "failed": {
+      "title": "Couldn't reach data sources",
+      "description": "This is usually temporary. Try again in a few minutes.",
+      "retry": "Retry Analysis",
+      "retryShort": "Retry",
+      "startAgain": "Start Again"
+    },
+    "competitors": {
+      "title": "Competitors ({{count}}/{{total}})",
+      "empty": "No competitors match the current filters.",
+      "top": "Top Competitor",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "compare": "Compare",
+      "comparing": "Comparing",
+      "compareSelected": "✓ Compare",
+      "compareUnselected": "⇔ Compare",
+      "details": "Details",
+      "less": "Less",
+      "more": "more"
+    },
+    "hero": {
+      "verdict": {
+        "go": "GO",
+        "caution": "CAUTION",
+        "noGo": "NO-GO"
+      },
+      "readMore": "Read more",
+      "showLess": "Show less",
+      "stats": {
+        "competitors": "Competitors",
+        "avgRelevance": "Avg. Relevance",
+        "competition": "Competition",
+        "opportunities": "Opportunities"
+      }
+    },
+    "insight": {
+      "title": "Differentiation Opportunities",
+      "opportunity": "Opportunity #"
+    },
+    "market": {
+      "title": "Market Overview"
+    },
+    "progress": {
+      "ideaProfile": "Idea Profile",
+      "searchResults": "Search Results",
+      "foundResults": "Found {{count}} results from",
+      "potentialCompetitors": "{{count}} potential competitors identified",
+      "cancel": "Cancel analysis"
+    },
+    "compare": {
+      "title": "Comparing {{count}} Competitors",
+      "relevance": "Relevance",
+      "description": "Description",
+      "pricing": "Pricing",
+      "features": "Features",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "sources": "Sources",
+      "selected": "competitors selected",
+      "clear": "Clear",
+      "compareBtn": "Compare"
+    },
+    "stepper": {
+      "reconnecting": "Reconnecting to server...",
+      "elapsed": "{{elapsed}}s elapsed",
+      "usually": "Usually 20–30 seconds",
+      "steps": {
+        "intent": { "label": "Analyzing idea", "short": "Idea" },
+        "github": { "label": "Searching GitHub", "short": "GitHub" },
+        "tavily": { "label": "Searching web", "short": "Web" },
+        "hackernews": { "label": "Searching HN", "short": "HN" },
+        "extraction": { "label": "Extracting insights", "short": "Extract" },
+        "aggregation": { "label": "Analyzing data", "short": "Analyze" },
+        "complete": { "label": "Report ready", "short": "Done" }
+      }
+    },
+    "chart": {
+      "title": "Competitive Landscape",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "featureCount": "Feature Count",
+      "relevance": "Relevance %",
+      "clickHint": "Click a dot to jump to its competitor card. Dot size reflects number of data sources."
+    },
+    "header": {
+      "newSearch": "New search",
+      "share": "Share",
+      "copied": "Copied!",
+      "copyLink": "Copy Link",
+      "export": "Export",
+      "markdown": "Markdown",
+      "print": "Print / PDF"
+    },
+    "sort": {
+      "relevance": "Relevance",
+      "name": "Name",
+      "sources": "Sources"
+    },
+    "error": {
+      "restart": "Failed to restart analysis.",
+      "cancel": "Failed to cancel analysis.",
+      "broaden": "Failed to start broadened analysis.",
+      "unknown": "Unknown error"
+    }
+  }
+}

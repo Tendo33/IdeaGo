@@ -1,5 +1,7 @@
 import { Check, X, Loader2, WifiOff, Clock } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { PipelineEvent } from '../types/research'
 
 interface Step {
@@ -10,15 +12,15 @@ interface Step {
   detail?: string
 }
 
-function deriveSteps(events: PipelineEvent[]): Step[] {
+function deriveSteps(events: PipelineEvent[], t: TFunction): Step[] {
   const steps: Step[] = [
-    { id: 'intent', label: 'Analyzing idea', shortLabel: 'Idea', status: 'pending' },
-    { id: 'github', label: 'Searching GitHub', shortLabel: 'GitHub', status: 'pending' },
-    { id: 'tavily', label: 'Searching web', shortLabel: 'Web', status: 'pending' },
-    { id: 'hackernews', label: 'Searching HN', shortLabel: 'HN', status: 'pending' },
-    { id: 'extraction', label: 'Extracting insights', shortLabel: 'Extract', status: 'pending' },
-    { id: 'aggregation', label: 'Analyzing data', shortLabel: 'Analyze', status: 'pending' },
-    { id: 'complete', label: 'Report ready', shortLabel: 'Done', status: 'pending' },
+    { id: 'intent', label: t('report.stepper.steps.intent.label'), shortLabel: t('report.stepper.steps.intent.short'), status: 'pending' },
+    { id: 'github', label: t('report.stepper.steps.github.label'), shortLabel: t('report.stepper.steps.github.short'), status: 'pending' },
+    { id: 'tavily', label: t('report.stepper.steps.tavily.label'), shortLabel: t('report.stepper.steps.tavily.short'), status: 'pending' },
+    { id: 'hackernews', label: t('report.stepper.steps.hackernews.label'), shortLabel: t('report.stepper.steps.hackernews.short'), status: 'pending' },
+    { id: 'extraction', label: t('report.stepper.steps.extraction.label'), shortLabel: t('report.stepper.steps.extraction.short'), status: 'pending' },
+    { id: 'aggregation', label: t('report.stepper.steps.aggregation.label'), shortLabel: t('report.stepper.steps.aggregation.short'), status: 'pending' },
+    { id: 'complete', label: t('report.stepper.steps.complete.label'), shortLabel: t('report.stepper.steps.complete.short'), status: 'pending' },
   ]
 
   for (const event of events) {
@@ -138,7 +140,8 @@ interface HorizontalStepperProps {
 }
 
 export function HorizontalStepper({ events, isReconnecting = false }: HorizontalStepperProps) {
-  const steps = deriveSteps(events)
+  const { t } = useTranslation()
+  const steps = deriveSteps(events, t)
   const isDone = ['done', 'failed', 'cancelled'].includes(steps.at(-1)?.status ?? '')
   const elapsed = useElapsed(!isDone)
 
@@ -147,7 +150,7 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
       {isReconnecting && (
         <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning mx-auto max-w-md">
           <WifiOff className="w-3.5 h-3.5 shrink-0" />
-          Reconnecting to server...
+          {t('report.stepper.reconnecting')}
         </div>
       )}
 
@@ -157,7 +160,7 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
           <div key={step.id} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center gap-1.5 min-w-0">
               <StepDot status={step.status} detail={step.detail} />
-              <span className={`text-[10px] text-center leading-tight truncate max-w-[60px] transition-colors duration-200 ${
+              <span className={`text-[10px] text-center leading-tight truncate max-w-15 transition-colors duration-200 ${
                 step.status === 'active' ? 'text-cta font-medium' :
                 step.status === 'done' ? 'text-text' :
                 step.status === 'failed' ? 'text-danger' :
@@ -179,9 +182,9 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
         <div className="flex items-center justify-center gap-4 mt-4 text-xs text-text-dim">
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {elapsed}s elapsed
+            {t('report.stepper.elapsed', { elapsed })}
           </span>
-          <span>Usually 20–30 seconds</span>
+          <span>{t('report.stepper.usually')}</span>
         </div>
       )}
     </div>

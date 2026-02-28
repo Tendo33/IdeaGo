@@ -1,4 +1,5 @@
 import { X, Check, Minus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
@@ -9,6 +10,7 @@ interface ComparePanelProps {
 }
 
 export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelProps) {
+  const { t } = useTranslation()
   if (competitors.length < 2) return null
 
   const allFeatures = Array.from(
@@ -20,8 +22,8 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
       <div className="w-full max-w-5xl max-h-[85vh] bg-bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h3 className="text-lg font-semibold font-[family-name:var(--font-heading)] text-text">
-            Comparing {competitors.length} Competitors
+          <h3 className="text-lg font-semibold font-heading text-text">
+            {t('report.compare.title', { count: competitors.length })}
           </h3>
           <button
             onClick={onClose}
@@ -57,7 +59,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
             <tbody>
               {/* Relevance */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">Relevance</td>
+                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.relevance')}</td>
                 {competitors.map(c => (
                   <td key={c.name} className="px-4 py-2.5">
                     <RelevanceRing score={c.relevance_score} size={32} />
@@ -67,7 +69,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* One-liner */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">Description</td>
+                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.description')}</td>
                 {competitors.map(c => (
                   <td key={c.name} className="px-4 py-2.5 text-xs text-text-muted">{c.one_liner}</td>
                 ))}
@@ -75,7 +77,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Pricing */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">Pricing</td>
+                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.pricing')}</td>
                 {competitors.map(c => (
                   <td key={c.name} className="px-4 py-2.5 text-xs text-text-muted">{c.pricing ?? '—'}</td>
                 ))}
@@ -85,7 +87,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {allFeatures.length > 0 && (
                 <tr className="border-b border-border">
                   <td colSpan={competitors.length + 1} className="px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wider bg-secondary/30">
-                    Features
+                    {t('report.compare.features')}
                   </td>
                 </tr>
               )}
@@ -107,7 +109,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {/* Strengths */}
               <tr className="border-b border-border">
                 <td colSpan={competitors.length + 1} className="px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wider bg-secondary/30">
-                  Strengths
+                  {t('report.compare.strengths')}
                 </td>
               </tr>
               <tr className="border-b border-border/50">
@@ -126,7 +128,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {/* Weaknesses */}
               <tr className="border-b border-border">
                 <td colSpan={competitors.length + 1} className="px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wider bg-secondary/30">
-                  Weaknesses
+                  {t('report.compare.weaknesses')}
                 </td>
               </tr>
               <tr className="border-b border-border/50">
@@ -144,7 +146,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Sources */}
               <tr>
-                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">Sources</td>
+                <td className="sticky left-0 bg-bg-card z-10 px-4 py-2.5 text-xs text-text-dim font-medium">{t('report.compare.sources')}</td>
                 {competitors.map(c => (
                   <td key={c.name} className="px-4 py-2.5">
                     <div className="flex gap-1.5 flex-wrap">
@@ -171,24 +173,25 @@ interface CompareFloatingBarProps {
 }
 
 export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatingBarProps) {
+  const { t } = useTranslation()
   if (count < 2) return null
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-xl bg-bg-card border border-cta/30 shadow-xl shadow-black/30 animate-fade-in no-print">
       <span className="text-sm text-text">
-        <span className="font-semibold text-cta">{count}</span> competitors selected
+        <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
       <button
         onClick={onCompare}
         className="px-4 py-1.5 text-sm font-medium rounded-lg bg-cta text-white cursor-pointer transition-colors hover:bg-cta-hover"
       >
-        Compare
+        {t('report.compare.compareBtn')}
       </button>
       <button
         onClick={onClear}
         className="text-xs text-text-dim hover:text-text cursor-pointer transition-colors"
       >
-        Clear
+        {t('report.compare.clear')}
       </button>
     </div>
   )

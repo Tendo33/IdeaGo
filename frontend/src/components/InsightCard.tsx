@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Lightbulb } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface InsightCardProps {
   angle: string
@@ -7,6 +8,7 @@ interface InsightCardProps {
 }
 
 export function InsightCard({ angle, index }: InsightCardProps) {
+  const { t } = useTranslation()
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -20,7 +22,7 @@ export function InsightCard({ angle, index }: InsightCardProps) {
           <Lightbulb className="w-4 h-4 text-cta" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-medium text-text-dim mb-1">Opportunity #{index + 1}</p>
+          <p className="text-xs font-medium text-text-dim mb-1">{t('report.insight.opportunity')}{index + 1}</p>
           <p className="text-sm text-text leading-relaxed">{angle}</p>
         </div>
       </div>
@@ -33,13 +35,14 @@ interface InsightsSectionProps {
 }
 
 export function InsightsSection({ angles }: InsightsSectionProps) {
+  const { t } = useTranslation()
   if (angles.length === 0) return null
 
   return (
     <section id="section-opportunities">
-      <h2 className="text-lg font-semibold font-[family-name:var(--font-heading)] text-text mb-4 flex items-center gap-2">
+      <h2 className="text-lg font-semibold font-heading text-text mb-4 flex items-center gap-2">
         <Lightbulb className="w-5 h-5 text-cta" />
-        Differentiation Opportunities
+        {t('report.insight.title')}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {angles.map((angle, i) => (

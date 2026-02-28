@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '../components/Skeleton'
 import { ReportContentPane } from './report/ReportContentPane'
@@ -8,6 +9,7 @@ import { useCompetitorFilters } from './report/useCompetitorFilters'
 import { useReportLifecycle } from './report/useReportLifecycle'
 
 export function ReportPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -74,7 +76,7 @@ export function ReportPage() {
         />
 
         {(sseError || (loadError && !cancelled)) && (
-          <ReportErrorBanner message={sseError || loadError || 'Unknown error'} onRetry={retryErrorState} />
+          <ReportErrorBanner message={sseError || loadError || t('report.error.unknown')} onRetry={retryErrorState} />
         )}
 
         {report && loadPhase === 'ready' && (

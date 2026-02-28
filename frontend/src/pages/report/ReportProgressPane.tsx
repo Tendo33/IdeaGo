@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Globe, Search, Tag, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { HorizontalStepper } from '../../components/HorizontalStepper'
 import type { PipelineEvent } from '../../types/research'
 import type { LoadPhase } from './useReportLifecycle'
@@ -41,6 +42,7 @@ function derivePreview(events: PipelineEvent[]): PreviewData {
 }
 
 function ProgressPreview({ events }: { events: PipelineEvent[] }) {
+  const { t } = useTranslation()
   const preview = derivePreview(events)
   const hasContent = preview.appType || preview.sourcePreviews.length > 0
 
@@ -55,7 +57,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           transition={{ duration: 0.4 }}
           className="rounded-xl border border-border bg-bg-card p-4"
         >
-          <p className="text-xs font-medium text-text-dim mb-2">Idea Profile</p>
+          <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.ideaProfile')}</p>
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md bg-cta/10 text-cta">
               <Globe className="w-3 h-3" />
@@ -81,13 +83,13 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="rounded-xl border border-border bg-bg-card p-4"
         >
-          <p className="text-xs font-medium text-text-dim mb-2">Search Results</p>
+          <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.searchResults')}</p>
           <div className="space-y-1.5">
             {preview.sourcePreviews.map((sourcePreview, index) => (
               <div key={index} className="flex items-center gap-2 text-xs">
                 <Search className="w-3 h-3 text-cta" />
                 <span className="text-text-muted">
-                  Found <span className="font-medium text-text">{sourcePreview.count}</span> results from{' '}
+                  {t('report.progress.foundResults', { count: sourcePreview.count })}{' '}
                   <span className="font-medium text-text capitalize">{sourcePreview.platform}</span>
                 </span>
               </div>
@@ -95,7 +97,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           </div>
           {preview.competitorCount !== undefined && (
             <p className="text-xs text-cta mt-2 font-medium">
-              {preview.competitorCount} potential competitors identified
+              {t('report.progress.potentialCompetitors', { count: preview.competitorCount })}
             </p>
           )}
         </motion.div>
@@ -123,6 +125,7 @@ export function ReportProgressPane({
   reportId,
   onCancel,
 }: ReportProgressPaneProps) {
+  const { t } = useTranslation()
   if (!show) return null
 
   return (
@@ -136,7 +139,7 @@ export function ReportProgressPane({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-dim rounded-lg border border-border cursor-pointer transition-colors duration-200 hover:text-danger hover:border-danger/30"
           >
             <XCircle className="w-3.5 h-3.5" />
-            Cancel analysis
+            {t('report.progress.cancel')}
           </button>
         </div>
       )}

@@ -3,17 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
 import { startAnalysis, listReports } from '../api/client'
 import { Clock, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
 
-const EXAMPLE_PROMPTS = [
-  'An AI tool that summarizes meeting notes automatically',
-  'A marketplace for local organic food delivery',
-  'A browser extension that converts web pages to Markdown',
-  'A developer tool for real-time API monitoring',
-]
 
 export function HomePage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
@@ -26,9 +22,9 @@ export function HomePage() {
         setRecentReportsError(null)
       })
       .catch(() => {
-        setRecentReportsError('Failed to load recent reports.')
+        setRecentReportsError(t('home.errorLoadRecent'))
       })
-  }, [])
+  }, [t])
 
   const handleSubmit = async (query: string) => {
     setIsLoading(true)
@@ -37,7 +33,7 @@ export function HomePage() {
       const { report_id } = await startAnalysis(query)
       navigate(`/reports/${report_id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start analysis. Please try again.')
+      setError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
       setIsLoading(false)
     }
   }
@@ -45,26 +41,29 @@ export function HomePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-2xl mx-auto text-center -mt-20">
-        <h1 className="text-5xl font-bold font-[family-name:var(--font-heading)] mb-4 tracking-tight">
-          Idea<span className="text-cta">Go</span>
+        <h1 className="text-5xl font-bold font-heading mb-4 tracking-tight">
+          {t('app.title')}<span className="text-cta">{t('app.titleHighlight')}</span>
         </h1>
         <p className="text-lg text-text-muted mb-10 max-w-md mx-auto">
-          Validate your startup idea with real competitor data from GitHub, web, and Hacker News.
+          {t('home.description')}
         </p>
         <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {EXAMPLE_PROMPTS.map(prompt => (
-            <button
-              key={prompt}
-              onClick={() => handleSubmit(prompt)}
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted rounded-full border border-border bg-bg-card cursor-pointer transition-all duration-200 hover:border-cta/40 hover:text-cta hover:bg-bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles className="w-3 h-3" />
-              {prompt}
-            </button>
-          ))}
+          {[0, 1, 2, 3].map(index => {
+            const prompt = t(`home.prompt${index}`)
+            return (
+              <button
+                key={prompt}
+                onClick={() => handleSubmit(prompt)}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted rounded-full border border-border bg-bg-card cursor-pointer transition-all duration-200 hover:border-cta/40 hover:text-cta hover:bg-bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="w-3 h-3" />
+                {prompt}
+              </button>
+            )
+          })}
         </div>
 
         {error && (
@@ -80,7 +79,7 @@ export function HomePage() {
 
         {recentReports.length > 0 && (
           <div className="mt-16 w-full">
-            <h2 className="text-sm font-medium text-text-dim mb-4 uppercase tracking-wider">Recent Research</h2>
+            <h2 className="text-sm font-medium text-text-dim mb-4 uppercase tracking-wider">{t('home.recentResearch')}</h2>
             <div className="space-y-2">
               {recentReports.map(report => (
                 <button
@@ -95,7 +94,7 @@ export function HomePage() {
                         <Clock className="w-3 h-3" />
                         {new Date(report.created_at).toLocaleDateString()}
                       </span>
-                      <span className="text-xs text-cta">{report.competitor_count} competitors</span>
+                      <span className="text-xs text-cta">{report.competitor_count} {t('home.competitors')}</span>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-text-dim group-hover:text-cta transition-colors duration-200 shrink-0" />

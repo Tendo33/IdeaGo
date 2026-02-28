@@ -2,6 +2,8 @@ import { Suspense, lazy, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, ArrowUpDown, Info, LayoutGrid, List, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { startAnalysis } from '../../api/client'
 import { CompetitorCard } from '../../components/CompetitorCard'
 import { CompareFloatingBar, ComparePanel } from '../../components/ComparePanel'
@@ -21,11 +23,11 @@ const LandscapeChart = lazy(async () => {
   return { default: chartModule.LandscapeChart }
 })
 
-const SECTION_NAV_ITEMS = (count: number) => [
-  { id: 'section-summary', label: 'Summary' },
-  { id: 'section-landscape', label: 'Landscape' },
-  { id: 'section-competitors', label: 'Competitors', count },
-  { id: 'section-opportunities', label: 'Opportunities' },
+const SECTION_NAV_ITEMS = (count: number, t: TFunction) => [
+  { id: 'section-summary', label: t('report.sections.summary') },
+  { id: 'section-landscape', label: t('report.sections.landscape') },
+  { id: 'section-competitors', label: t('report.sections.competitors'), count },
+  { id: 'section-opportunities', label: t('report.sections.opportunities') },
 ]
 
 const cardStagger = {
@@ -39,6 +41,7 @@ const cardStagger = {
 
 function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [broadenError, setBroadenError] = useState<string | null>(null)
 
   const handleBroaden = async () => {
@@ -47,7 +50,7 @@ function BlueOceanState({ query }: { query: string }) {
       const { report_id } = await startAnalysis(broadenQuery(query))
       navigate(`/reports/${report_id}`)
     } catch (error) {
-      setBroadenError(error instanceof Error ? error.message : 'Failed to start broadened analysis.')
+      setBroadenError(error instanceof Error ? error.message : t('report.error.broaden'))
     }
   }
 
@@ -58,9 +61,9 @@ function BlueOceanState({ query }: { query: string }) {
       className="p-10 rounded-xl bg-cta/5 border border-cta/20 text-center"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
-      <h3 className="text-xl font-bold font-[family-name:var(--font-heading)] text-text mb-2">Blue Ocean Detected</h3>
+      <h3 className="text-xl font-bold font-heading text-text mb-2">{t('report.blueOcean.title')}</h3>
       <p className="text-sm text-text-muted mb-6 max-w-md mx-auto">
-        We couldn&apos;t find direct competitors for your idea. This could mean a genuine market gap worth exploring.
+        {t('report.blueOcean.description')}
       </p>
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
@@ -68,15 +71,15 @@ function BlueOceanState({ query }: { query: string }) {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors hover:bg-cta-hover"
         >
           <RefreshCw className="w-4 h-4" />
-          Try with broader keywords
+          {t('report.blueOcean.tryBroader')}
         </button>
       </div>
       <div className="mt-6 text-left max-w-sm mx-auto">
-        <p className="text-xs font-medium text-text-dim mb-2">Suggested next steps:</p>
+        <p className="text-xs font-medium text-text-dim mb-2">{t('report.blueOcean.suggestedSteps')}</p>
         <ol className="space-y-1 text-xs text-text-muted list-decimal list-inside">
-          <li>Validate demand with user interviews</li>
-          <li>Search for indirect or adjacent competitors</li>
-          <li>Consider why no one has built this yet</li>
+          <li>{t('report.blueOcean.step1')}</li>
+          <li>{t('report.blueOcean.step2')}</li>
+          <li>{t('report.blueOcean.step3')}</li>
         </ol>
       </div>
       {broadenError && <p className="mt-4 text-xs text-danger">{broadenError}</p>}
@@ -91,6 +94,7 @@ function AllFailedState({
   sources: ResearchReport['source_results']
   onRetry: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -98,7 +102,7 @@ function AllFailedState({
       className="p-8 rounded-xl bg-warning/10 border border-warning/30 text-center"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
-      <h3 className="text-lg font-bold font-[family-name:var(--font-heading)] text-text mb-3">Couldn&apos;t reach data sources</h3>
+      <h3 className="text-lg font-bold font-heading text-text mb-3">{t('report.failed.title')}</h3>
       <div className="space-y-1.5 mb-5 max-w-sm mx-auto">
         {sources.map(source => (
           <div key={source.platform} className="flex items-center justify-between text-xs">
@@ -107,13 +111,13 @@ function AllFailedState({
           </div>
         ))}
       </div>
-      <p className="text-xs text-text-dim mb-4">This is usually temporary. Try again in a few minutes.</p>
+      <p className="text-xs text-text-dim mb-4">{t('report.failed.description')}</p>
       <button
         onClick={onRetry}
         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-warning text-white text-sm font-medium cursor-pointer transition-colors hover:bg-warning/80"
       >
         <RefreshCw className="w-4 h-4" />
-        Retry Analysis
+        {t('report.failed.retry')}
       </button>
     </motion.div>
   )
@@ -162,12 +166,13 @@ export function ReportContentPane({
   toggleCompare,
   cancelledMessage,
 }: ReportContentPaneProps) {
+  const { t } = useTranslation()
   return (
     <>
       <ReportHeader report={report} />
 
       {showReport && !allFailed && (
-        <SectionNav sections={SECTION_NAV_ITEMS(report.competitors.length)} />
+        <SectionNav sections={SECTION_NAV_ITEMS(report.competitors.length, t)} />
       )}
 
       {cancelledMessage && (
@@ -180,7 +185,7 @@ export function ReportContentPane({
             onClick={onRetryAnalysis}
             className="shrink-0 px-3 py-1.5 text-xs font-medium text-white rounded-lg bg-cta hover:bg-cta-hover cursor-pointer transition-colors duration-200"
           >
-            Start Again
+            {t('report.failed.startAgain')}
           </button>
         </div>
       )}
@@ -206,8 +211,8 @@ export function ReportContentPane({
         {report.competitors.length > 0 && (
           <section id="section-competitors">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-lg font-semibold font-[family-name:var(--font-heading)] text-text">
-                Competitors ({filteredCompetitors.length}/{report.competitors.length})
+              <h2 className="text-lg font-semibold font-heading text-text">
+                {t('report.competitors.title', { count: filteredCompetitors.length, total: report.competitors.length })}
               </h2>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center rounded-lg border border-border overflow-hidden mr-1">
@@ -246,7 +251,7 @@ export function ReportContentPane({
                   >
                     {SORT_OPTIONS.map(option => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(`report.sort.${option.value}`)}
                       </option>
                     ))}
                   </select>
@@ -300,7 +305,7 @@ export function ReportContentPane({
             )}
 
             {filteredCompetitors.length === 0 && (
-              <p className="text-center text-sm text-text-dim py-6">No competitors match the current filters.</p>
+              <p className="text-center text-sm text-text-dim py-6">{t('report.competitors.empty')}</p>
             )}
           </section>
         )}

@@ -1,34 +1,27 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, Users, Target, TrendingUp, Lightbulb } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { ResearchReport, RecommendationType, SourceResult } from '../types/research'
 
 interface HeroPanelProps {
   report: ResearchReport
 }
 
-const VERDICT_CONFIG: Record<RecommendationType, { label: string; glow: string; bg: string; text: string; ring: string }> = {
-  go: {
-    label: 'GO',
-    glow: 'shadow-[0_0_40px_rgba(34,197,94,0.3)]',
-    bg: 'bg-cta/15',
-    text: 'text-cta',
-    ring: 'ring-cta/40',
-  },
-  caution: {
-    label: 'CAUTION',
-    glow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]',
-    bg: 'bg-warning/15',
-    text: 'text-warning',
-    ring: 'ring-warning/40',
-  },
-  no_go: {
-    label: 'NO-GO',
-    glow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]',
-    bg: 'bg-danger/15',
-    text: 'text-danger',
-    ring: 'ring-danger/40',
-  },
+function getVerdictConfig(type: RecommendationType, t: TFunction) {
+  const baseConfigs = {
+    go: { glow: 'shadow-[0_0_40px_rgba(34,197,94,0.3)]', bg: 'bg-cta/15', text: 'text-cta', ring: 'ring-cta/40' },
+    caution: { glow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]', bg: 'bg-warning/15', text: 'text-warning', ring: 'ring-warning/40' },
+    no_go: { glow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]', bg: 'bg-danger/15', text: 'text-danger', ring: 'ring-danger/40' }
+  }
+  
+  const config = baseConfigs[type] || baseConfigs.go
+  
+  return {
+    ...config,
+    label: type === 'go' ? t('report.hero.verdict.go') : type === 'caution' ? t('report.hero.verdict.caution') : t('report.hero.verdict.noGo')
+  }
 }
 
 const SOURCE_STATUS_ICON: Record<string, typeof Check> = {
@@ -90,14 +83,15 @@ function StatCard({ value, label, icon: Icon, index }: { value: string | number;
         <Icon className="w-4 h-4 text-text-dim" />
         <span className="text-xs text-text-dim">{label}</span>
       </div>
-      <p className="text-3xl font-bold font-[family-name:var(--font-heading)] text-text">{value}</p>
+      <p className="text-3xl font-bold font-heading text-text">{value}</p>
     </motion.div>
   )
 }
 
 export function HeroPanel({ report }: HeroPanelProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const verdict = VERDICT_CONFIG[report.recommendation_type] ?? VERDICT_CONFIG.go
+  const verdict = getVerdictConfig(report.recommendation_type, t)
 
   const competitorCount = report.competitors.length
   const avgRelevance = competitorCount > 0
@@ -114,12 +108,12 @@ export function HeroPanel({ report }: HeroPanelProps) {
       <div className={`lg:col-span-3 rounded-xl border border-border ${verdict.bg} p-6 ${verdict.glow} animate-hero-glow`}>
         <div className="flex items-start gap-4 mb-4">
           <div className={`w-14 h-14 rounded-full ${verdict.bg} ring-2 ${verdict.ring} flex items-center justify-center shrink-0 animate-verdict-pulse`}>
-            <span className={`text-lg font-bold font-[family-name:var(--font-heading)] ${verdict.text}`}>
-              {verdict.label === 'GO' ? '✓' : verdict.label === 'NO-GO' ? '✗' : '!'}
+            <span className={`text-lg font-bold font-heading ${verdict.text}`}>
+              {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className={`text-xl font-bold font-[family-name:var(--font-heading)] ${verdict.text} mb-1`}>
+            <h2 className={`text-xl font-bold font-heading ${verdict.text} mb-1`}>
               {verdict.label}
             </h2>
             {report.go_no_go && (
@@ -133,7 +127,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
                     className="mt-1 inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer"
                   >
                     {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    {expanded ? 'Less' : 'Read more'}
+                    {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
                   </button>
                 )}
               </div>
@@ -150,10 +144,10 @@ export function HeroPanel({ report }: HeroPanelProps) {
 
       {/* Stats Grid — right 2/5 */}
       <div className="lg:col-span-2 grid grid-cols-2 gap-3">
-        <StatCard value={competitorCount} label="Competitors" icon={Users} index={0} />
-        <StatCard value={`${avgRelevance}%`} label="Avg. Relevance" icon={Target} index={1} />
-        <StatCard value={`${intensity}/10`} label="Competition" icon={TrendingUp} index={2} />
-        <StatCard value={angleCount} label="Opportunities" icon={Lightbulb} index={3} />
+        <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} />
+        <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} />
+        <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} />
+        <StatCard value={angleCount} label={t('report.hero.stats.opportunities')} icon={Lightbulb} index={3} />
       </div>
     </section>
   )
