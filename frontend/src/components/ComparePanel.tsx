@@ -12,6 +12,7 @@ interface ComparePanelProps {
 
 export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelProps) {
   const { t } = useTranslation()
+  const dialogRef = useRef<HTMLDivElement>(null)
   if (competitors.length < 2) return null
 
   const allFeatures = Array.from(
