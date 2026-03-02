@@ -18,6 +18,7 @@ function deriveSteps(events: PipelineEvent[], t: TFunction): Step[] {
     { id: 'github', label: t('report.stepper.steps.github.label'), shortLabel: t('report.stepper.steps.github.short'), status: 'pending' },
     { id: 'tavily', label: t('report.stepper.steps.tavily.label'), shortLabel: t('report.stepper.steps.tavily.short'), status: 'pending' },
     { id: 'hackernews', label: t('report.stepper.steps.hackernews.label'), shortLabel: t('report.stepper.steps.hackernews.short'), status: 'pending' },
+    { id: 'appstore', label: t('report.stepper.steps.appstore.label'), shortLabel: t('report.stepper.steps.appstore.short'), status: 'pending' },
     { id: 'extraction', label: t('report.stepper.steps.extraction.label'), shortLabel: t('report.stepper.steps.extraction.short'), status: 'pending' },
     { id: 'aggregation', label: t('report.stepper.steps.aggregation.label'), shortLabel: t('report.stepper.steps.aggregation.short'), status: 'pending' },
     { id: 'complete', label: t('report.stepper.steps.complete.label'), shortLabel: t('report.stepper.steps.complete.short'), status: 'pending' },
@@ -35,39 +36,42 @@ function deriveSteps(events: PipelineEvent[], t: TFunction): Step[] {
         if (event.stage.includes('github')) steps[1].status = 'active'
         else if (event.stage.includes('tavily')) steps[2].status = 'active'
         else if (event.stage.includes('hackernews')) steps[3].status = 'active'
+        else if (event.stage.includes('appstore')) steps[4].status = 'active'
         break
       case 'source_completed': {
         const count = event.data?.count as number | undefined
         if (event.stage.includes('github')) { steps[1].status = 'done'; steps[1].detail = count !== undefined ? `${count}` : undefined }
         else if (event.stage.includes('tavily')) { steps[2].status = 'done'; steps[2].detail = count !== undefined ? `${count}` : undefined }
         else if (event.stage.includes('hackernews')) { steps[3].status = 'done'; steps[3].detail = count !== undefined ? `${count}` : undefined }
+        else if (event.stage.includes('appstore')) { steps[4].status = 'done'; steps[4].detail = count !== undefined ? `${count}` : undefined }
         break
       }
       case 'source_failed':
         if (event.stage.includes('github')) steps[1].status = 'failed'
         else if (event.stage.includes('tavily')) steps[2].status = 'failed'
         else if (event.stage.includes('hackernews')) steps[3].status = 'failed'
+        else if (event.stage.includes('appstore')) steps[4].status = 'failed'
         break
       case 'extraction_started':
-        steps[4].status = 'active'
-        break
-      case 'extraction_completed':
-        steps[4].status = 'done'
-        break
-      case 'aggregation_started':
         steps[5].status = 'active'
         break
-      case 'aggregation_completed':
+      case 'extraction_completed':
         steps[5].status = 'done'
         break
-      case 'report_ready':
+      case 'aggregation_started':
+        steps[6].status = 'active'
+        break
+      case 'aggregation_completed':
         steps[6].status = 'done'
         break
+      case 'report_ready':
+        steps[7].status = 'done'
+        break
       case 'error':
-        steps[6].status = 'failed'
+        steps[7].status = 'failed'
         break
       case 'cancelled':
-        steps[6].status = 'cancelled'
+        steps[7].status = 'cancelled'
         break
     }
   }

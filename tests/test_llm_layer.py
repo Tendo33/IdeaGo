@@ -20,6 +20,7 @@ from ideago.pipeline.intent_parser import IntentParser
 def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
+    assert "appstore" in prompt
     assert "{query}" not in prompt
 
 
@@ -294,6 +295,10 @@ MOCK_INTENT_LLM_RESPONSE = {
             "queries": ["markdown notes chrome extension competitor"],
         },
         {"platform": "hackernews", "queries": ["Show HN markdown notes extension"]},
+        {
+            "platform": "appstore",
+            "queries": ["ios markdown notes app competitor"],
+        },
     ],
 }
 
@@ -308,7 +313,7 @@ async def test_intent_parser_returns_intent() -> None:
 
     assert "markdown" in intent.keywords_en
     assert intent.app_type == "browser-extension"
-    assert len(intent.search_queries) == 3
+    assert len(intent.search_queries) == 4
     assert len(intent.cache_key) == 16
 
 

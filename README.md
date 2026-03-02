@@ -2,12 +2,12 @@
 
 ![IdeaGo Banner](docs/assets/banner.png)
 
-AI-powered competitor research engine for startup ideas. Input a natural language description of your idea, get a structured report with real competitors, market analysis, and differentiation opportunities — all backed by actual data from GitHub, web search, and Hacker News.
+AI-powered competitor research engine for startup ideas. Input a natural language description of your idea, get a structured report with real competitors, market analysis, and differentiation opportunities — all backed by actual data from GitHub, web search, Hacker News, and App Store search.
 
 ## Features
 
 - **Intent Parsing** — LLM extracts keywords, app type, and generates platform-specific search queries
-- **Multi-Source Search** — Concurrent search across GitHub, Tavily (web), and Hacker News
+- **Multi-Source Search** — Concurrent search across GitHub, Tavily (web), Hacker News, and App Store
 - **LLM Fault Tolerance** — Error-classified retries, endpoint failover, and JSON-parse retry recovery
 - **LangGraph Pipeline** — State-graph orchestration for intent parsing, source fetch, extraction map, and aggregation reduce
 - **Real-Time Progress** — SSE streaming shows each pipeline stage as it happens
@@ -43,6 +43,7 @@ cp .env.example .env
 # Edit .env and add your API keys:
 # - OPENAI_API_KEY (required)
 # - TAVILY_API_KEY (required)
+# - APPSTORE_COUNTRY (optional, default: us)
 # - GITHUB_TOKEN (optional, improves rate limits)
 # - OPENAI_BASE_URL (optional, for OpenAI-compatible providers)
 # - OPENAI_FALLBACK_ENDPOINTS (optional JSON array for failover endpoints)
@@ -123,6 +124,7 @@ Open http://localhost:8000.
 - Report cache directory is configured by `CACHE_DIR` (default `.cache/ideago`).
 - LangGraph checkpoints are stored at `LANGGRAPH_CHECKPOINT_DB_PATH` (default `.cache/ideago/langgraph-checkpoints.db`).
 - Per-source internal query parallelism is controlled by `SOURCE_QUERY_CONCURRENCY` (default `2`) to balance throughput and machine load.
+- App Store market scope is controlled by `APPSTORE_COUNTRY` (default `us`).
 - LLM fault-tolerance knobs:
   - `OPENAI_FALLBACK_ENDPOINTS` for alternate OpenAI-compatible endpoints
   - `LANGGRAPH_MAX_RETRIES` for retryable API/network failures

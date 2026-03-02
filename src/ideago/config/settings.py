@@ -98,6 +98,10 @@ class Settings(BaseSettings):
         default="",
         description="GitHub PAT, optional, improves rate limit / GitHub 令牌（可选）",
     )
+    appstore_country: str = Field(
+        default="us",
+        description="iTunes Search country code / iTunes 搜索国家代码",
+    )
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(

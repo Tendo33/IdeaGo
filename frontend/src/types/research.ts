@@ -1,4 +1,4 @@
-export type Platform = 'github' | 'tavily' | 'hackernews' | 'producthunt' | 'google_trends'
+export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'google_trends'
 
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 

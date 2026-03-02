@@ -17,6 +17,7 @@ from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.langgraph_engine import LangGraphEngine
+from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.registry import SourceRegistry
@@ -110,6 +111,13 @@ def get_orchestrator() -> LangGraphEngine:
             HackerNewsSource(
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
+            )
+        )
+        registry.register(
+            AppStoreSource(
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
+                country=settings.appstore_country,
             )
         )
 

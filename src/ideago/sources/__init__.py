@@ -1,1 +1,1 @@
-"""Data source plugins — GitHub, Tavily, Hacker News, and source registry."""
+"""Data source plugins — GitHub, Tavily, Hacker News, App Store, and registry."""

@@ -8,7 +8,7 @@
     "history": "历史记录"
   },
   "home": {
-    "description": "通过来自 GitHub、Web 和 Hacker News 的真实竞品数据验证您的创业想法。",
+    "description": "通过来自 GitHub、网页、Hacker News 和 App Store 的真实竞品数据验证您的创业想法。",
     "recentResearch": "最近的调研",
     "competitors": "个竞品",
     "prompt0": "自动总结会议记录的 AI 工具",
@@ -172,6 +172,7 @@
         "github": { "label": "搜索 GitHub", "short": "GitHub" },
         "tavily": { "label": "搜索网页", "short": "网页" },
         "hackernews": { "label": "搜索 Hacker News", "short": "HN" },
+        "appstore": { "label": "搜索 App Store", "short": "商店" },
         "extraction": { "label": "提取洞察", "short": "提取" },
         "aggregation": { "label": "分析数据", "short": "数据" },
         "complete": { "label": "报告就绪", "short": "完成" }

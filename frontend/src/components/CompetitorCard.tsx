@@ -9,6 +9,7 @@ const platformColors: Record<string, string> = {
   github: 'bg-purple-500/20 text-purple-300',
   tavily: 'bg-blue-500/20 text-blue-300',
   hackernews: 'bg-orange-500/20 text-orange-300',
+  appstore: 'bg-emerald-500/20 text-emerald-300',
 }
 
 interface CompetitorCardProps {

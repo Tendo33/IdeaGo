@@ -20,6 +20,7 @@ class Platform(str, Enum):
     GITHUB = "github"
     TAVILY = "tavily"
     HACKERNEWS = "hackernews"
+    APPSTORE = "appstore"
     PRODUCT_HUNT = "producthunt"
     GOOGLE_TRENDS = "google_trends"
 

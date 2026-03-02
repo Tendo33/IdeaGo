@@ -11,7 +11,7 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'sources', label: 'Sources' },
 ]
 
-export const PLATFORM_OPTIONS: Platform[] = ['github', 'tavily', 'hackernews']
+export const PLATFORM_OPTIONS: Platform[] = ['github', 'tavily', 'hackernews', 'appstore']
 
 export function useCompetitorFilters(report: ResearchReport | null) {
   const [sortBy, setSortBy] = useState<SortKey>('relevance')

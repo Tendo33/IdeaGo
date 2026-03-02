@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from ideago.models.research import Platform, RawResult
+from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
@@ -64,6 +65,44 @@ MOCK_HN_RESPONSE = {
             "author": "user2",
         },
     ]
+}
+
+MOCK_APPSTORE_RESPONSE = {
+    "resultCount": 2,
+    "results": [
+        {
+            "trackId": 1001,
+            "trackName": "Focus Notes",
+            "description": "Capture quick notes",
+            "trackViewUrl": "https://apps.apple.com/us/app/focus-notes/id1001",
+            "bundleId": "com.example.focusnotes",
+            "sellerName": "Example Inc",
+            "primaryGenreName": "Productivity",
+            "averageUserRating": 4.8,
+            "userRatingCount": 9021,
+            "price": 0.0,
+            "formattedPrice": "Free",
+            "currency": "USD",
+            "version": "2.3.1",
+            "releaseDate": "2025-12-01T00:00:00Z",
+        },
+        {
+            "trackId": 1002,
+            "trackName": "Idea Scanner",
+            "description": "",
+            "trackViewUrl": "https://apps.apple.com/us/app/idea-scanner/id1002",
+            "bundleId": "com.example.ideascanner",
+            "sellerName": "Example Labs",
+            "primaryGenreName": "Business",
+            "averageUserRating": 4.4,
+            "userRatingCount": 1200,
+            "price": 2.99,
+            "formattedPrice": "$2.99",
+            "currency": "USD",
+            "version": "1.8.0",
+            "releaseDate": "2025-10-15T00:00:00Z",
+        },
+    ],
 }
 
 
@@ -348,6 +387,83 @@ async def test_hn_search_respects_query_concurrency_limit() -> None:
         async with lock:
             in_flight -= 1
         return httpx.Response(200, json={"hits": []})
+
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        await src.search(["q1", "q2", "q3", "q4"], limit=5)
+
+    assert max_in_flight == 2
+
+
+# ---------- AppStoreSource ----------
+
+
+def test_appstore_source_platform() -> None:
+    src = AppStoreSource()
+    assert src.platform == Platform.APPSTORE
+
+
+def test_appstore_source_is_available_without_api_key() -> None:
+    src = AppStoreSource()
+    assert src.is_available() is True
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_returns_raw_results() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(200, json=MOCK_APPSTORE_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["focus notes"], limit=10)
+
+    assert len(results) == 2
+    assert results[0].platform == Platform.APPSTORE
+    assert "apps.apple.com" in results[0].url
+    assert results[0].raw_data["track_id"] == 1001
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_deduplicates_by_track_id() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(200, json=MOCK_APPSTORE_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["query1", "query2"], limit=10)
+
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_handles_non_200() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(503, json={"errorMessage": "service unavailable"})
+    with (
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+        pytest.raises(SourceSearchError),
+    ):
+        await src.search(["test"], limit=5)
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_respects_query_concurrency_limit() -> None:
+    src = AppStoreSource(country="us", max_concurrent_queries=2)
+    in_flight = 0
+    max_in_flight = 0
+    lock = asyncio.Lock()
+
+    async def fake_get(*_args, **_kwargs):
+        nonlocal in_flight, max_in_flight
+        async with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.02)
+        async with lock:
+            in_flight -= 1
+        return httpx.Response(200, json={"resultCount": 0, "results": []})
 
     with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
         mock_get.side_effect = fake_get

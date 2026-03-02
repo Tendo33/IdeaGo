@@ -8,6 +8,7 @@ const platformDots: Record<string, string> = {
   github: 'bg-purple-400',
   tavily: 'bg-blue-400',
   hackernews: 'bg-orange-400',
+  appstore: 'bg-emerald-400',
 }
 
 interface CompetitorRowProps {

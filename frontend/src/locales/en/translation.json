@@ -8,7 +8,7 @@
     "history": "History"
   },
   "home": {
-    "description": "Validate your startup idea with real competitor data from GitHub, web, and Hacker News.",
+    "description": "Validate your startup idea with real competitor data from GitHub, web, Hacker News, and App Store.",
     "recentResearch": "Recent Research",
     "competitors": "competitors",
     "prompt0": "An AI tool that summarizes meeting notes automatically",
@@ -172,6 +172,7 @@
         "github": { "label": "Searching GitHub", "short": "GitHub" },
         "tavily": { "label": "Searching web", "short": "Web" },
         "hackernews": { "label": "Searching HN", "short": "HN" },
+        "appstore": { "label": "Searching App Store", "short": "Store" },
         "extraction": { "label": "Extracting insights", "short": "Extract" },
         "aggregation": { "label": "Analyzing data", "short": "Analyze" },
         "complete": { "label": "Report ready", "short": "Done" }

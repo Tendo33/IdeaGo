@@ -28,6 +28,7 @@ def test_platform_enum_values() -> None:
     assert Platform.GITHUB == "github"
     assert Platform.TAVILY == "tavily"
     assert Platform.HACKERNEWS == "hackernews"
+    assert Platform.APPSTORE == "appstore"
     assert Platform.PRODUCT_HUNT == "producthunt"
 
 

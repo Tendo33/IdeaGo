@@ -58,6 +58,7 @@ def test_health_endpoint(client) -> None:
     assert data["status"] == "ok"
     assert "sources" in data
     assert data["sources"]["hackernews"] is True
+    assert data["sources"]["appstore"] is True
 
 
 def test_health_endpoint_returns_degraded_when_orchestrator_unavailable(client) -> None:

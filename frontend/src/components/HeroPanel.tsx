@@ -15,9 +15,9 @@ function getVerdictConfig(type: RecommendationType, t: TFunction) {
     caution: { glow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]', bg: 'bg-warning/15', text: 'text-warning', ring: 'ring-warning/40' },
     no_go: { glow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]', bg: 'bg-danger/15', text: 'text-danger', ring: 'ring-danger/40' }
   }
-  
+
   const config = baseConfigs[type] || baseConfigs.go
-  
+
   return {
     ...config,
     label: type === 'go' ? t('report.hero.verdict.go') : type === 'caution' ? t('report.hero.verdict.caution') : t('report.hero.verdict.noGo')
@@ -44,6 +44,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   github: 'GitHub',
   tavily: 'Web',
   hackernews: 'HN',
+  appstore: 'App Store',
 }
 
 function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
