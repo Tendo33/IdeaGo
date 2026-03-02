@@ -38,8 +38,8 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     const { t } = this.props
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center px-4 bg-bg">
-          <div className="max-w-md text-center">
+        <div className="min-h-screen px-4 py-10 bg-bg">
+          <div className="surface-card mx-auto mt-16 max-w-md px-6 py-10 text-center">
             <AlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
             <h1 className="text-2xl font-bold font-heading text-text mb-2">
               {t('error.title')}
@@ -52,7 +52,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 this.setState({ hasError: false, error: null })
                 window.location.href = '/'
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cta text-white hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               {t('error.backToHome')}
@@ -71,16 +71,18 @@ function NotFound() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-      <h1 className="text-6xl font-bold font-heading text-text-dim mb-4">{t('error.notFoundTitle')}</h1>
-      <p className="text-lg text-text-muted mb-6">{t('error.notFoundMessage')}</p>
-      <button
-        onClick={() => navigate('/')}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {t('error.backToHome')}
-      </button>
+    <div className="app-shell px-4">
+      <div className="surface-card mx-auto mt-16 max-w-xl px-6 py-10 text-center">
+        <h1 className="mb-4 text-6xl font-bold text-text-dim">{t('error.notFoundTitle')}</h1>
+        <p className="mb-6 text-lg text-text-muted">{t('error.notFoundMessage')}</p>
+        <button
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-2 rounded-xl bg-cta px-4 py-2 text-white transition-colors duration-200 hover:bg-cta-hover cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {t('error.backToHome')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -96,24 +98,24 @@ function NavBar() {
   }
 
   return (
-    <nav className="fixed top-4 left-4 right-4 z-50 flex items-center justify-between px-4 sm:px-5 py-3 rounded-xl bg-bg-card/80 backdrop-blur-md border border-border no-print">
+    <nav className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl border border-border/80 bg-bg-card/85 px-4 py-3 shadow-[0_18px_50px_-34px_rgba(16,24,40,0.6)] backdrop-blur-md no-print sm:px-5">
       <Link
         to="/"
-        className="text-lg font-bold font-heading text-text cursor-pointer hover:text-cta transition-colors duration-200 min-h-11 flex items-center"
+        className="min-h-11 flex items-center text-lg font-bold text-text transition-colors duration-200 hover:text-primary cursor-pointer"
       >
-        {t('app.title')}<span className="text-cta">{t('app.titleHighlight')}</span>
+        {t('app.title')}<span className="text-primary">{t('app.titleHighlight')}</span>
       </Link>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={toggleLanguage}
-          className="text-xs font-medium text-text-muted hover:text-cta transition-colors duration-200 px-2 py-1 rounded cursor-pointer"
+          className="min-h-10 rounded-lg border border-border bg-bg-card-hover px-3 text-xs font-semibold text-text-muted transition-colors duration-200 hover:text-primary cursor-pointer"
           aria-label="Toggle language"
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
         <Link
           to="/reports"
-          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 cursor-pointer min-h-11 min-w-11 justify-center"
+          className="min-h-10 min-w-11 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-bg-card-hover px-3 text-sm text-text-muted transition-colors duration-200 hover:border-primary/35 hover:text-primary cursor-pointer"
           aria-label={t('app.history')}
         >
           <History className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -127,8 +129,10 @@ function NavBar() {
 function RouteLoading() {
   const { t } = useTranslation()
   return (
-    <div data-testid="route-loading" className="px-4 py-12 text-center text-sm text-text-dim">
-      {t('loading.page')}
+    <div className="app-shell px-4">
+      <div data-testid="route-loading" className="surface-card mt-10 px-4 py-12 text-center text-sm text-text-dim">
+        {t('loading.page')}
+      </div>
     </div>
   )
 }
@@ -138,7 +142,7 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <NavBar />
-        <main className="pt-20">
+        <main className="pb-10 pt-24">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<HomePage />} />

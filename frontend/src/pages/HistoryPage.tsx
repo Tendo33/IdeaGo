@@ -66,37 +66,42 @@ export function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen px-4 pb-12 pt-8">
+      <div className="app-shell max-w-5xl">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-cta transition-colors duration-200 mb-6 cursor-pointer"
+          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted transition-colors duration-200 hover:text-primary"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('history.back')}
         </Link>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold font-heading text-text">
-            {t('history.title')}
-          </h1>
-          {reports.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder={t('history.filterPlaceholder')}
-                className="pl-9 pr-3 py-2 text-sm bg-bg-card text-text placeholder-text-dim input focus:border-primary focus:ring-3 focus:ring-primary/20 w-full sm:w-56"
-              />
-            </div>
-          )}
+        <div className="surface-card mb-6 bg-gradient-to-r from-white to-primary/5 px-5 py-5 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-text sm:text-3xl">
+              {t('history.title')}
+            </h1>
+            {reports.length > 0 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder={t('history.filterPlaceholder')}
+                  className="input w-full bg-bg-card pl-9 pr-3 py-2 text-sm text-text placeholder-text-dim sm:w-64"
+                />
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-text-muted">
+            {t('home.description')}
+          </p>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 border border-danger/30 mb-4">
-            <AlertCircle className="w-4 h-4 text-danger shrink-0" />
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger/25 bg-danger/10 px-4 py-3">
+            <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
             <p className="text-sm text-danger">{error}</p>
           </div>
         )}
@@ -110,12 +115,12 @@ export function HistoryPage() {
         )}
 
         {!loading && !error && reports.length === 0 && (
-          <div className="p-12 rounded-xl bg-bg-card border border-border text-center">
-            <FileText className="w-10 h-10 text-text-dim mx-auto mb-3" />
-            <p className="text-text-muted text-sm mb-4">{t('history.emptyState')}</p>
+          <div className="surface-card p-12 text-center">
+            <FileText className="mx-auto mb-3 h-10 w-10 text-text-dim" />
+            <p className="mb-4 text-sm text-text-muted">{t('history.emptyState')}</p>
             <Link
               to="/"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-cta-hover"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-cta px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-cta-hover"
             >
               {t('history.startFirst')}
             </Link>
@@ -123,12 +128,12 @@ export function HistoryPage() {
         )}
 
         {filtered.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {filtered.map(report => (
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="flex items-center justify-between card card-clickable p-4! group"
+                className="group card card-clickable flex items-center justify-between px-4 py-4"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
@@ -138,17 +143,17 @@ export function HistoryPage() {
                   }
                 }}
               >
-                <div className="min-w-0 flex-1 mr-4">
-                  <p className="text-sm text-text font-medium truncate group-hover:text-primary transition-colors duration-200">
+                <div className="mr-4 min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-text transition-colors duration-200 group-hover:text-primary">
                     {report.query}
                   </p>
-                  <div className="flex items-center gap-4 mt-1.5">
-                    <span className="text-xs text-text-dim flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                  <div className="mt-1.5 flex items-center gap-4">
+                    <span className="inline-flex items-center gap-1 text-xs text-text-dim">
+                      <Clock className="h-3 w-3" />
                       {new Date(report.created_at).toLocaleDateString()}
                     </span>
-                    <span className="text-xs text-text-dim flex items-center gap-1">
-                      <Users className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <Users className="h-3 w-3" />
                       {report.competitor_count} {t('home.competitors')}
                     </span>
                   </div>
@@ -156,13 +161,13 @@ export function HistoryPage() {
                 <button
                   onClick={e => handleDelete(report.id, e)}
                   disabled={deletingIds.has(report.id)}
-                  className="p-2 rounded-lg text-text-dim hover:text-danger hover:bg-danger/10 transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-danger/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-text-dim disabled:hover:bg-transparent"
+                  className="cursor-pointer rounded-lg p-2 text-text-dim transition-colors duration-200 hover:bg-danger/10 hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-text-dim"
                   aria-label={deletingIds.has(report.id) ? t('history.deleting') : t('history.delete')}
                 >
                   {deletingIds.has(report.id) ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="h-4 w-4" />
                   )}
                 </button>
               </div>
@@ -171,7 +176,7 @@ export function HistoryPage() {
         )}
 
         {!loading && reports.length > 0 && filtered.length === 0 && searchQuery.trim() && (
-          <p className="text-center text-sm text-text-dim py-8">{t('history.noMatch', { query: searchQuery })}</p>
+          <p className="py-8 text-center text-sm text-text-dim">{t('history.noMatch', { query: searchQuery })}</p>
         )}
       </div>
     </div>
