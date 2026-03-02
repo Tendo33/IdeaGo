@@ -88,7 +88,7 @@ export function HistoryPage() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={t('history.filterPlaceholder')}
-                className="pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-bg-card text-text placeholder-text-dim transition-colors duration-200 focus:outline-none focus:border-cta focus:ring-2 focus:ring-cta/20 w-full sm:w-56"
+                className="pl-9 pr-3 py-2 text-sm bg-bg-card text-text placeholder-text-dim input focus:border-primary focus:ring-3 focus:ring-primary/20 w-full sm:w-56"
               />
             </div>
           )}
@@ -128,7 +128,7 @@ export function HistoryPage() {
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="flex items-center justify-between px-4 py-4 rounded-xl bg-bg-card border border-border cursor-pointer transition-all duration-200 hover:border-cta/30 hover:bg-bg-card-hover group"
+                className="flex items-center justify-between card card-clickable p-4! group"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
@@ -139,7 +139,7 @@ export function HistoryPage() {
                 }}
               >
                 <div className="min-w-0 flex-1 mr-4">
-                  <p className="text-sm text-text font-medium truncate group-hover:text-cta transition-colors duration-200">
+                  <p className="text-sm text-text font-medium truncate group-hover:text-primary transition-colors duration-200">
                     {report.query}
                   </p>
                   <div className="flex items-center gap-4 mt-1.5">

@@ -47,7 +47,7 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
   const tone = getConfidenceTone(score)
 
   return (
-    <div className="rounded-xl border border-border bg-bg-card p-5">
+    <div className="card">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h3 className="text-sm font-semibold font-heading text-text inline-flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-cta" />

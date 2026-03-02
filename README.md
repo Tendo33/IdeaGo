@@ -1,5 +1,7 @@
 # IdeaGo
 
+![IdeaGo Banner](docs/assets/banner.png)
+
 AI-powered competitor research engine for startup ideas. Input a natural language description of your idea, get a structured report with real competitors, market analysis, and differentiation opportunities — all backed by actual data from GitHub, web search, and Hacker News.
 
 ## Features

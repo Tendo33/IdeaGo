@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #1E293B;
-  --color-secondary: #334155;
-  --color-cta: #22C55E;
-  --color-cta-hover: #16A34A;
+  --color-primary: #6366F1;
+  --color-secondary: #818CF8;
+  --color-cta: #10B981;
+  --color-cta-hover: #059669;
   --color-bg: #0F172A;
   --color-bg-card: #1E293B;
   --color-bg-card-hover: #334155;
@@ -14,10 +14,40 @@
   --color-border: #334155;
   --color-danger: #EF4444;
   --color-warning: #F59E0B;
-  --color-success: #22C55E;
+  --color-success: #10B981;
 
   --font-heading: 'Space Grotesk', sans-serif;
   --font-body: 'DM Sans', sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-cta text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 cursor-pointer border-none;
+  }
+  .btn-primary:hover {
+    @apply opacity-90 -translate-y-[1px];
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent text-primary border-2 border-primary px-6 py-3 rounded-lg font-semibold transition-all duration-200 cursor-pointer;
+  }
+  .btn-secondary:hover {
+    @apply bg-primary/10;
+  }
+
+  .card {
+    @apply bg-bg-card rounded-xl p-6 shadow-md transition-all duration-200;
+  }
+  .card-clickable {
+    @apply cursor-pointer hover:shadow-lg hover:-translate-y-[2px] hover:bg-bg-card-hover border border-transparent hover:border-cta/30;
+  }
+
+  .input {
+    @apply px-4 py-3 border border-border rounded-lg text-base bg-transparent transition-colors duration-200 outline-none;
+  }
+  .input:focus {
+    @apply border-primary ring-3 ring-primary/20;
+  }
 }
 
 body {
