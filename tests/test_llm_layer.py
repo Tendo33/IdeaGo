@@ -61,7 +61,9 @@ def _make_mock_chat_response(content: str) -> MagicMock:
 async def test_chat_model_client_invoke_json_parses() -> None:
     client = ChatModelClient(api_key="sk-test", model="gpt-4o-mini")
     mock_resp = _make_mock_chat_response('{"name": "test", "score": 0.8}')
-    client._invoke_with_retry = AsyncMock(return_value=mock_resp)
+    client._invoke_with_retry_meta = AsyncMock(
+        return_value=(mock_resp, {"llm_calls": 1})
+    )
 
     result = await client.invoke_json("test prompt")
     assert result["name"] == "test"
@@ -72,7 +74,9 @@ async def test_chat_model_client_invoke_json_parses() -> None:
 async def test_chat_model_client_invoke_json_invalid_raises() -> None:
     client = ChatModelClient(api_key="sk-test", model="gpt-4o-mini")
     mock_resp = _make_mock_chat_response("not valid json {{{")
-    client._invoke_with_retry = AsyncMock(return_value=mock_resp)
+    client._invoke_with_retry_meta = AsyncMock(
+        return_value=(mock_resp, {"llm_calls": 1})
+    )
 
     with pytest.raises(json.JSONDecodeError):
         await client.invoke_json("test")
@@ -99,9 +103,136 @@ async def test_chat_model_client_retries_retryable_errors() -> None:
         ]
     )
 
-    result = await client.invoke_json("test")
+    result, metadata = await client.invoke_json_with_meta("test")
     assert result["ok"] is True
     assert client._json_model.ainvoke.call_count == 3
+    assert metadata["llm_calls"] == 3
+    assert metadata["llm_retries"] == 2
+    assert metadata["endpoint_used"] == "primary"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_client_failovers_on_auth_error() -> None:
+    class AuthError(Exception):
+        status_code = 401
+
+    client = ChatModelClient(
+        api_key="sk-primary",
+        model="gpt-4o-mini",
+        max_retries=0,
+        fallback_endpoints=[
+            {"api_key": "sk-fallback", "model": "gpt-4o-mini"},
+        ],
+    )
+    primary_model = MagicMock()
+    fallback_model = MagicMock()
+    primary_model.ainvoke = AsyncMock(side_effect=AuthError("forbidden"))
+    fallback_model.ainvoke = AsyncMock(
+        return_value=_make_mock_chat_response('{"ok": true}')
+    )
+    client._json_model = primary_model
+    client._fallback_json_models = [fallback_model]
+
+    payload, metadata = await client.invoke_json_with_meta("test prompt")
+
+    assert payload["ok"] is True
+    assert metadata["llm_calls"] == 2
+    assert metadata["llm_retries"] == 1
+    assert metadata["fallback_used"] is True
+    assert metadata["endpoint_failovers"] == 1
+    assert metadata["endpoints_tried"] == ["primary", "fallback-1"]
+    assert metadata["endpoint_used"] == "fallback-1"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_client_all_endpoints_fail_exposes_error_class() -> None:
+    class AuthError(Exception):
+        status_code = 403
+
+    client = ChatModelClient(
+        api_key="sk-primary",
+        model="gpt-4o-mini",
+        max_retries=0,
+        fallback_endpoints=[
+            {"api_key": "sk-fallback", "model": "gpt-4o-mini"},
+        ],
+    )
+    primary_model = MagicMock()
+    fallback_model = MagicMock()
+    primary_model.ainvoke = AsyncMock(side_effect=AuthError("forbidden"))
+    fallback_model.ainvoke = AsyncMock(side_effect=AuthError("forbidden"))
+    client._json_model = primary_model
+    client._fallback_json_models = [fallback_model]
+
+    with pytest.raises(AuthError):
+        await client.invoke_json("test prompt")
+
+    metadata = client.pop_last_call_metadata()
+    assert metadata["llm_calls"] == 2
+    assert metadata["llm_retries"] == 1
+    assert metadata["fallback_used"] is True
+    assert metadata["endpoints_tried"] == ["primary", "fallback-1"]
+    assert metadata["last_error_class"] == "auth_error"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_client_json_parse_retry_with_endpoint_failover_succeeds() -> (
+    None
+):
+    client = ChatModelClient(
+        api_key="sk-primary",
+        model="gpt-4o-mini",
+        max_retries=0,
+        json_parse_max_retries=1,
+        fallback_endpoints=[{"api_key": "sk-fallback", "model": "gpt-4o-mini"}],
+    )
+    primary_model = MagicMock()
+    fallback_model = MagicMock()
+    primary_model.ainvoke = AsyncMock(
+        return_value=_make_mock_chat_response("not valid json {{{")
+    )
+    fallback_model.ainvoke = AsyncMock(
+        return_value=_make_mock_chat_response('{"ok": true}')
+    )
+    client._json_model = primary_model
+    client._fallback_json_models = [fallback_model]
+
+    payload, metadata = await client.invoke_json_with_meta("test prompt")
+
+    assert payload["ok"] is True
+    assert primary_model.ainvoke.call_count == 1
+    assert fallback_model.ainvoke.call_count == 1
+    assert metadata["llm_calls"] == 2
+    assert metadata["llm_retries"] == 1
+    assert metadata["fallback_used"] is True
+    assert metadata["endpoints_tried"] == ["primary", "fallback-1"]
+    assert metadata["endpoint_used"] == "fallback-1"
+
+
+@pytest.mark.asyncio
+async def test_chat_model_client_json_parse_retry_exhausted_keeps_metadata() -> None:
+    client = ChatModelClient(
+        api_key="sk-primary",
+        model="gpt-4o-mini",
+        max_retries=0,
+        json_parse_max_retries=1,
+    )
+    primary_model = MagicMock()
+    primary_model.ainvoke = AsyncMock(
+        return_value=_make_mock_chat_response("not valid json {{{")
+    )
+    client._json_model = primary_model
+    client._fallback_json_models = []
+
+    with pytest.raises(json.JSONDecodeError):
+        await client.invoke_json("test prompt")
+
+    metadata = client.pop_last_call_metadata()
+    assert metadata["llm_calls"] == 2
+    assert metadata["llm_retries"] == 1
+    assert metadata["fallback_used"] is False
+    assert metadata["endpoints_tried"] == ["primary"]
+    assert metadata["last_error_class"] == "json_parse_error"
 
 
 def test_chat_model_client_passes_custom_base_url(

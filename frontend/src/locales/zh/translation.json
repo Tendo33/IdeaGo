@@ -103,6 +103,39 @@
         "opportunities": "潜在机会数"
       }
     },
+    "transparency": {
+      "unavailable": "透明度数据暂不可用。",
+      "confidence": {
+        "title": "数据可信度",
+        "score": "可信度评分",
+        "samples": "样本量",
+        "coverage": "来源覆盖",
+        "successRate": "成功率",
+        "defaultFreshness": "时效信息暂不可用",
+        "high": "高可信",
+        "medium": "中等可信",
+        "low": "低可信",
+        "suggestionHigh": "来源覆盖较好，可用于支持决策。",
+        "suggestionMedium": "建议结合关键假设进行人工复核。",
+        "suggestionLow": "建议扩大关键词或重新分析后再决策。"
+      },
+      "evidence": {
+        "title": "证据与成本透明",
+        "empty": "暂无可展示的证据摘要。",
+        "unknown": "未知证据",
+        "viewSource": "来源"
+      },
+      "cost": {
+        "title": "运行成本",
+        "llmCalls": "LLM 调用",
+        "retries": "重试次数",
+        "failovers": "故障切换",
+        "latency": "总耗时",
+        "yes": "是",
+        "no": "否",
+        "meta": "已启用回退：{{fallbackUsed}} · 尝试端点：{{endpoints}} · 最后错误：{{errorClass}}"
+      }
+    },
     "insight": {
       "title": "差异化机会",
       "opportunity": "机会 #"

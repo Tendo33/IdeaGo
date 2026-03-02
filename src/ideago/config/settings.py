@@ -28,8 +28,10 @@ How to add your own settings / 如何添加自己的配置项:
         )
 """
 
+import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -81,6 +83,13 @@ class Settings(BaseSettings):
         le=300,
         description="LLM request timeout in seconds / LLM 请求超时秒数",
     )
+    openai_fallback_endpoints: str = Field(
+        default="",
+        description=(
+            "JSON array for fallback LLM endpoints. Each item supports: "
+            "name, base_url, api_key, model, timeout"
+        ),
+    )
     tavily_api_key: str = Field(
         default="",
         description="Tavily search API key / Tavily 搜索密钥",
@@ -124,6 +133,12 @@ class Settings(BaseSettings):
         ge=0,
         le=8,
         description="Max LLM retries for retryable errors / 可重试错误最大重试次数",
+    )
+    langgraph_json_parse_max_retries: int = Field(
+        default=1,
+        ge=0,
+        le=3,
+        description="Max retries when LLM returns invalid JSON / LLM 返回非法 JSON 时的最大重试次数",
     )
 
     # --- Cache / 缓存配置 ---
@@ -212,6 +227,33 @@ class Settings(BaseSettings):
             return ["*"]
         origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
         return origins or ["*"]
+
+    def get_openai_fallback_endpoints(self) -> list[dict[str, Any]]:
+        """Parse fallback endpoint JSON config for ChatModelClient."""
+        raw = self.openai_fallback_endpoints.strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(parsed, list):
+            return []
+
+        endpoints: list[dict[str, Any]] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            endpoints.append(
+                {
+                    "name": item.get("name"),
+                    "base_url": item.get("base_url"),
+                    "api_key": item.get("api_key"),
+                    "model": item.get("model"),
+                    "timeout": item.get("timeout"),
+                }
+            )
+        return endpoints
 
 
 @lru_cache

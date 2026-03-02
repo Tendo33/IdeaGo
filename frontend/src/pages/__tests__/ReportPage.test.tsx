@@ -5,6 +5,7 @@ import { ReportPage } from '../ReportPage'
 import { getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '../../api/client'
 import { useSSE } from '../../api/useSSE'
 import i18n from '../../i18n'
+import type { ResearchReport } from '../../types/research'
 
 vi.mock('../../api/client', () => ({
   getReportWithStatus: vi.fn(),
@@ -22,6 +23,8 @@ vi.mock('../../components/ReportHeader', () => ({
   ReportHeader: ({ report }: { report: { query: string } }) => <div>{`HEADER:${report.query}`}</div>,
 }))
 vi.mock('../../components/HeroPanel', () => ({ HeroPanel: () => <div>HERO</div> }))
+vi.mock('../../components/ConfidenceCard', () => ({ ConfidenceCard: () => <div>CONFIDENCE</div> }))
+vi.mock('../../components/EvidenceCostCard', () => ({ EvidenceCostCard: () => <div>EVIDENCE_COST</div> }))
 vi.mock('../../components/MarketOverview', () => ({ MarketOverview: () => <div>MARKET</div> }))
 vi.mock('../../components/CompetitorCard', () => ({ CompetitorCard: () => <div>CARD</div> }))
 vi.mock('../../components/CompetitorRow', () => ({ CompetitorRow: () => <div>ROW</div> }))
@@ -39,6 +42,81 @@ vi.mock('../../components/Skeleton', () => ({
   Skeleton: () => <div>SKELETON</div>,
   CompetitorCardSkeleton: () => <div>CARD-SKELETON</div>,
 }))
+
+const BASE_REPORT: ResearchReport = {
+  id: 'base-report',
+  query: 'base query',
+  intent: {
+    keywords_en: ['idea'],
+    keywords_zh: [],
+    app_type: 'web',
+    target_scenario: 'test scenario',
+  },
+  source_results: [],
+  competitors: [],
+  market_summary: 'summary',
+  go_no_go: 'go',
+  recommendation_type: 'go',
+  differentiation_angles: [],
+  confidence: {
+    sample_size: 0,
+    source_coverage: 0,
+    source_success_rate: 0,
+    freshness_hint: 'Generated moments ago',
+    score: 0,
+  },
+  evidence_summary: {
+    top_evidence: [],
+    evidence_items: [],
+  },
+  cost_breakdown: {
+    llm_calls: 0,
+    llm_retries: 0,
+    endpoint_failovers: 0,
+    source_calls: 0,
+    pipeline_latency_ms: 0,
+    tokens_prompt: 0,
+    tokens_completion: 0,
+  },
+  report_meta: {
+    llm_fault_tolerance: {
+      fallback_used: false,
+      endpoints_tried: ['primary'],
+      last_error_class: '',
+    },
+  },
+  created_at: new Date().toISOString(),
+}
+
+function buildReport(overrides: Partial<ResearchReport> = {}): ResearchReport {
+  return {
+    ...BASE_REPORT,
+    ...overrides,
+    intent: {
+      ...BASE_REPORT.intent,
+      ...(overrides.intent ?? {}),
+    },
+    confidence: {
+      ...BASE_REPORT.confidence,
+      ...(overrides.confidence ?? {}),
+    },
+    evidence_summary: {
+      ...BASE_REPORT.evidence_summary,
+      ...(overrides.evidence_summary ?? {}),
+    },
+    cost_breakdown: {
+      ...BASE_REPORT.cost_breakdown,
+      ...(overrides.cost_breakdown ?? {}),
+    },
+    report_meta: {
+      ...BASE_REPORT.report_meta,
+      llm_fault_tolerance: {
+        ...BASE_REPORT.report_meta.llm_fault_tolerance,
+        ...(overrides.report_meta?.llm_fault_tolerance ?? {}),
+      },
+    },
+  }
+}
 
 describe('ReportPage', () => {
   beforeEach(() => {
@@ -61,23 +139,10 @@ describe('ReportPage', () => {
   it('renders completed report immediately without waiting for SSE completion', async () => {
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
-      report: {
+      report: buildReport({
         id: 'r1',
         query: 'Completed report query',
-        intent: {
-          keywords_en: ['idea'],
-          keywords_zh: [],
-          app_type: 'web',
-          target_scenario: 'test scenario',
-        },
-        source_results: [],
-        competitors: [],
-        market_summary: 'summary',
-        go_no_go: 'go',
-        recommendation_type: 'go',
-        differentiation_angles: [],
-        created_at: new Date().toISOString(),
-      },
+      }),
     })
 
     render(
@@ -93,20 +158,17 @@ describe('ReportPage', () => {
     })
 
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+    expect(screen.getByText('HERO')).toBeInTheDocument()
+    expect(screen.getByText('CONFIDENCE')).toBeInTheDocument()
+    expect(screen.getByText('EVIDENCE_COST')).toBeInTheDocument()
   })
 
   it('does not treat degraded sources as all-failed', async () => {
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
-      report: {
+      report: buildReport({
         id: 'r2',
         query: 'Degraded source report',
-        intent: {
-          keywords_en: ['idea'],
-          keywords_zh: [],
-          app_type: 'web',
-          target_scenario: 'test scenario',
-        },
         source_results: [
           {
             platform: 'github',
@@ -117,13 +179,8 @@ describe('ReportPage', () => {
             duration_ms: 1000,
           },
         ],
-        competitors: [],
-        market_summary: 'summary',
-        go_no_go: 'go',
-        recommendation_type: 'go',
         differentiation_angles: ['angle'],
-        created_at: new Date().toISOString(),
-      },
+      }),
     })
 
     render(
@@ -147,15 +204,9 @@ describe('ReportPage', () => {
     vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-next' })
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
-      report: {
+      report: buildReport({
         id: 'r3',
         query: 'Niche AI notebook for legal teams',
-        intent: {
-          keywords_en: ['idea'],
-          keywords_zh: [],
-          app_type: 'web',
-          target_scenario: 'test scenario',
-        },
         source_results: [
           {
             platform: 'github',
@@ -166,13 +217,8 @@ describe('ReportPage', () => {
             duration_ms: 100,
           },
         ],
-        competitors: [],
-        market_summary: 'summary',
-        go_no_go: 'go',
-        recommendation_type: 'go',
         differentiation_angles: ['angle'],
-        created_at: new Date().toISOString(),
-      },
+      }),
     })
 
     render(
@@ -199,15 +245,9 @@ describe('ReportPage', () => {
   it('shows chart fallback before loading landscape visualization', async () => {
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
-      report: {
+      report: buildReport({
         id: 'r4',
         query: 'Visualization query',
-        intent: {
-          keywords_en: ['idea'],
-          keywords_zh: [],
-          app_type: 'web',
-          target_scenario: 'test scenario',
-        },
         source_results: [
           {
             platform: 'github',
@@ -232,12 +272,8 @@ describe('ReportPage', () => {
             source_platforms: ['github'],
           },
         ],
-        market_summary: 'summary',
-        go_no_go: 'go',
-        recommendation_type: 'go',
         differentiation_angles: ['angle'],
-        created_at: new Date().toISOString(),
-      },
+      }),
     })
 
     render(
@@ -310,15 +346,9 @@ describe('ReportPage', () => {
     const broadenButtonLabel = i18n.t('report.blueOcean.tryBroader')
     vi.mocked(getReportWithStatus).mockResolvedValue({
       status: 'ready',
-      report: {
+      report: buildReport({
         id: 'r6',
         query: 'Niche AI notebook for legal teams',
-        intent: {
-          keywords_en: ['idea'],
-          keywords_zh: [],
-          app_type: 'web',
-          target_scenario: 'test scenario',
-        },
         source_results: [
           {
             platform: 'github',
@@ -329,13 +359,8 @@ describe('ReportPage', () => {
             duration_ms: 100,
           },
         ],
-        competitors: [],
-        market_summary: 'summary',
-        go_no_go: 'go',
-        recommendation_type: 'go',
         differentiation_angles: ['angle'],
-        created_at: new Date().toISOString(),
-      },
+      }),
     })
     vi.mocked(startAnalysis).mockImplementation(
       () => new Promise(() => {}),

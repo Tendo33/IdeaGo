@@ -56,6 +56,33 @@ const report: ResearchReport = {
   go_no_go: '',
   recommendation_type: 'go',
   differentiation_angles: [],
+  confidence: {
+    sample_size: 3,
+    source_coverage: 2,
+    source_success_rate: 0.8,
+    freshness_hint: 'Generated moments ago',
+    score: 74,
+  },
+  evidence_summary: {
+    top_evidence: ['Alpha has strong relevance'],
+    evidence_items: [],
+  },
+  cost_breakdown: {
+    llm_calls: 3,
+    llm_retries: 1,
+    endpoint_failovers: 0,
+    source_calls: 2,
+    pipeline_latency_ms: 1200,
+    tokens_prompt: 0,
+    tokens_completion: 0,
+  },
+  report_meta: {
+    llm_fault_tolerance: {
+      fallback_used: false,
+      endpoints_tried: ['primary'],
+      last_error_class: '',
+    },
+  },
   created_at: new Date().toISOString(),
 }
 

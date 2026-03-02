@@ -7,10 +7,14 @@ from pydantic import ValidationError
 
 from ideago.models.research import (
     Competitor,
+    ConfidenceMetrics,
+    CostBreakdown,
+    EvidenceSummary,
     Intent,
     Platform,
     RawResult,
     RecommendationType,
+    ReportMeta,
     ResearchReport,
     SearchQuery,
     SourceResult,
@@ -215,6 +219,10 @@ def test_report_auto_generates_id() -> None:
     assert r.competitors == []
     assert r.market_summary == ""
     assert r.go_no_go == ""
+    assert r.confidence == ConfidenceMetrics()
+    assert r.evidence_summary == EvidenceSummary()
+    assert r.cost_breakdown == CostBreakdown()
+    assert r.report_meta == ReportMeta()
 
 
 def test_report_serialization_roundtrip() -> None:
@@ -224,6 +232,10 @@ def test_report_serialization_roundtrip() -> None:
     assert r2.id == r.id
     assert r2.go_no_go == "Go"
     assert r2.created_at == r.created_at
+    assert r2.confidence.score == 0
+    assert r2.evidence_summary.top_evidence == []
+    assert r2.cost_breakdown.llm_calls == 0
+    assert r2.report_meta.llm_fault_tolerance.fallback_used is False
 
 
 # --- RecommendationType ---

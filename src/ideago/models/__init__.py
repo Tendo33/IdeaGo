@@ -10,9 +10,15 @@ from .base import BaseModel, TimestampMixin
 from .examples import ApiResponse, ConfigModel, PaginatedResponse, User
 from .research import (
     Competitor,
+    ConfidenceMetrics,
+    CostBreakdown,
+    EvidenceItem,
+    EvidenceSummary,
     Intent,
+    LlmFaultToleranceMeta,
     Platform,
     RawResult,
+    ReportMeta,
     ResearchReport,
     SearchQuery,
     SourceResult,
@@ -33,5 +39,11 @@ __all__ = [
     "Competitor",
     "SourceStatus",
     "SourceResult",
+    "ConfidenceMetrics",
+    "EvidenceItem",
+    "EvidenceSummary",
+    "CostBreakdown",
+    "LlmFaultToleranceMeta",
+    "ReportMeta",
     "ResearchReport",
 ]

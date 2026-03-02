@@ -103,6 +103,39 @@
         "opportunities": "Opportunities"
       }
     },
+    "transparency": {
+      "unavailable": "Transparency data is temporarily unavailable.",
+      "confidence": {
+        "title": "Data Confidence",
+        "score": "Confidence Score",
+        "samples": "Sample Size",
+        "coverage": "Source Coverage",
+        "successRate": "Success Rate",
+        "defaultFreshness": "Freshness details unavailable",
+        "high": "High Confidence",
+        "medium": "Moderate Confidence",
+        "low": "Low Confidence",
+        "suggestionHigh": "Coverage is strong; insights are reliable for decision support.",
+        "suggestionMedium": "Review key assumptions before major decisions.",
+        "suggestionLow": "Run another analysis or expand keywords before deciding."
+      },
+      "evidence": {
+        "title": "Evidence & Cost Transparency",
+        "empty": "No evidence summary is available yet.",
+        "unknown": "Unknown evidence",
+        "viewSource": "Source"
+      },
+      "cost": {
+        "title": "Runtime Cost",
+        "llmCalls": "LLM Calls",
+        "retries": "Retries",
+        "failovers": "Failovers",
+        "latency": "Latency",
+        "yes": "Yes",
+        "no": "No",
+        "meta": "Fallback used: {{fallbackUsed}} · Endpoints: {{endpoints}} · Last error: {{errorClass}}"
+      }
+    },
     "insight": {
       "title": "Differentiation Opportunities",
       "opportunity": "Opportunity #"

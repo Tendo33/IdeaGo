@@ -26,6 +26,8 @@ class GraphState(TypedDict, total=False):
     all_competitors: list[Competitor]
     aggregation_result: AggregationResult
     report: ResearchReport
+    pipeline_started_at_ms: int
+    llm_usage: dict[str, object]
 
     is_cache_hit: bool
     error_code: str

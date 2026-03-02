@@ -160,6 +160,13 @@ async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
     assert report.query == "test idea"
     assert len(report.competitors) == 1
     assert report.market_summary != ""
+    assert report.confidence.sample_size >= 1
+    assert 0 <= report.confidence.score <= 100
+    assert isinstance(report.evidence_summary.top_evidence, list)
+    assert report.cost_breakdown.source_calls >= 1
+    assert report.report_meta.llm_fault_tolerance.endpoints_tried == []
+    assert report.confidence.freshness_hint.startswith("Generated ")
+    assert report.confidence.freshness_hint != "Generated moments ago"
 
     event_types = [e.type for e in collector.events]
     assert EventType.INTENT_PARSED in event_types
@@ -223,6 +230,13 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
 
     assert report.competitors
     assert "Aggregation failed" in report.market_summary
+    assert report.confidence.sample_size >= 1
+    assert report.cost_breakdown.llm_calls >= 0
+    assert report.evidence_summary.evidence_items
+    assert report.report_meta.llm_fault_tolerance.last_error_class in {
+        "",
+        "unknown_error",
+    }
 
 
 @pytest.mark.asyncio

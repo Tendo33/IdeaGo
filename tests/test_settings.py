@@ -48,3 +48,15 @@ def test_settings_environment_validation() -> None:
     """Settings should reject invalid environment values."""
     with pytest.raises(ValidationError):
         Settings(environment="invalid")
+
+
+def test_langgraph_json_parse_max_retries_default() -> None:
+    settings = Settings()
+    assert settings.langgraph_json_parse_max_retries == 1
+
+
+def test_langgraph_json_parse_max_retries_bounds() -> None:
+    with pytest.raises(ValidationError):
+        Settings(langgraph_json_parse_max_retries=-1)
+    with pytest.raises(ValidationError):
+        Settings(langgraph_json_parse_max_retries=4)

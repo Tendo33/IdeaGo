@@ -154,6 +154,60 @@ class SourceResult(BaseModel):
     )
 
 
+class ConfidenceMetrics(BaseModel):
+    """Confidence metrics for report quality and source reliability."""
+
+    sample_size: int = Field(default=0, ge=0)
+    source_coverage: int = Field(default=0, ge=0)
+    source_success_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    freshness_hint: str = Field(default="Generated moments ago")
+    score: int = Field(default=0, ge=0, le=100)
+
+
+class EvidenceItem(BaseModel):
+    """Single evidence item attached to report conclusion."""
+
+    title: str = Field(default="")
+    url: str = Field(default="")
+    platform: str = Field(default="")
+    snippet: str = Field(default="")
+
+
+class EvidenceSummary(BaseModel):
+    """Evidence summary section for transparency."""
+
+    top_evidence: list[str] = Field(default_factory=list)
+    evidence_items: list[EvidenceItem] = Field(default_factory=list)
+
+
+class CostBreakdown(BaseModel):
+    """Cost and latency telemetry of one report run."""
+
+    llm_calls: int = Field(default=0, ge=0)
+    llm_retries: int = Field(default=0, ge=0)
+    endpoint_failovers: int = Field(default=0, ge=0)
+    source_calls: int = Field(default=0, ge=0)
+    pipeline_latency_ms: int = Field(default=0, ge=0)
+    tokens_prompt: int = Field(default=0, ge=0)
+    tokens_completion: int = Field(default=0, ge=0)
+
+
+class LlmFaultToleranceMeta(BaseModel):
+    """LLM fault-tolerance metadata for this report."""
+
+    fallback_used: bool = Field(default=False)
+    endpoints_tried: list[str] = Field(default_factory=list)
+    last_error_class: str = Field(default="")
+
+
+class ReportMeta(BaseModel):
+    """Additional report metadata for observability and debugging."""
+
+    llm_fault_tolerance: LlmFaultToleranceMeta = Field(
+        default_factory=LlmFaultToleranceMeta
+    )
+
+
 class ResearchReport(TimestampMixin):
     """Complete research report / 完整调研报告。"""
 
@@ -186,3 +240,7 @@ class ResearchReport(TimestampMixin):
         default_factory=list,
         description="Suggested differentiation points / 差异化切入点",
     )
+    confidence: ConfidenceMetrics = Field(default_factory=ConfidenceMetrics)
+    evidence_summary: EvidenceSummary = Field(default_factory=EvidenceSummary)
+    cost_breakdown: CostBreakdown = Field(default_factory=CostBreakdown)
+    report_meta: ReportMeta = Field(default_factory=ReportMeta)

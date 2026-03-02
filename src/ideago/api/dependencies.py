@@ -88,6 +88,8 @@ def get_orchestrator() -> LangGraphEngine:
             base_url=settings.openai_base_url,
             timeout=settings.openai_timeout_seconds,
             max_retries=settings.langgraph_max_retries,
+            json_parse_max_retries=settings.langgraph_json_parse_max_retries,
+            fallback_endpoints=settings.get_openai_fallback_endpoints(),
         )
         registry = SourceRegistry()
         registry.register(

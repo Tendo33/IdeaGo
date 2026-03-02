@@ -46,6 +46,46 @@ export interface SourceResult {
   duration_ms: number
 }
 
+export interface ConfidenceMetrics {
+  sample_size: number
+  source_coverage: number
+  source_success_rate: number
+  freshness_hint: string
+  score: number
+}
+
+export interface EvidenceItem {
+  title: string
+  url: string
+  platform: string
+  snippet: string
+}
+
+export interface EvidenceSummary {
+  top_evidence: string[]
+  evidence_items: EvidenceItem[]
+}
+
+export interface CostBreakdown {
+  llm_calls: number
+  llm_retries: number
+  endpoint_failovers: number
+  source_calls: number
+  pipeline_latency_ms: number
+  tokens_prompt: number
+  tokens_completion: number
+}
+
+export interface LlmFaultToleranceMeta {
+  fallback_used: boolean
+  endpoints_tried: string[]
+  last_error_class: string
+}
+
+export interface ReportMeta {
+  llm_fault_tolerance: LlmFaultToleranceMeta
+}
+
 export interface Intent {
   keywords_en: string[]
   keywords_zh: string[]
@@ -65,6 +105,10 @@ export interface ResearchReport {
   go_no_go: string
   recommendation_type: RecommendationType
   differentiation_angles: string[]
+  confidence: ConfidenceMetrics
+  evidence_summary: EvidenceSummary
+  cost_breakdown: CostBreakdown
+  report_meta: ReportMeta
   created_at: string
 }
 

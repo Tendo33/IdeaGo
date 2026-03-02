@@ -8,6 +8,8 @@ import { startAnalysis } from '../../api/client'
 import { CompetitorCard } from '../../components/CompetitorCard'
 import { CompareFloatingBar, ComparePanel } from '../../components/ComparePanel'
 import { CompetitorRow } from '../../components/CompetitorRow'
+import { ConfidenceCard } from '../../components/ConfidenceCard'
+import { EvidenceCostCard } from '../../components/EvidenceCostCard'
 import { HeroPanel } from '../../components/HeroPanel'
 import { InsightsSection } from '../../components/InsightCard'
 import { MarketOverview } from '../../components/MarketOverview'
@@ -233,6 +235,16 @@ export function ReportContentPane({
         )}
 
         {!allFailed && <HeroPanel report={report} />}
+        {!allFailed && (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ConfidenceCard confidence={report.confidence} />
+            <EvidenceCostCard
+              evidenceSummary={report.evidence_summary}
+              costBreakdown={report.cost_breakdown}
+              reportMeta={report.report_meta}
+            />
+          </section>
+        )}
 
         {!allFailed && (report.market_summary || report.competitors.length > 0) && (
           <section id="section-landscape" className="space-y-6">
