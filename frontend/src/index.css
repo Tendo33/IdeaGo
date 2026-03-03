@@ -1,53 +1,53 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #2f6fed;
-  --color-secondary: #4f8ef7;
-  --color-cta: #0ea974;
-  --color-cta-hover: #0a8d60;
-  --color-bg: #f3f6fb;
-  --color-bg-card: #ffffff;
-  --color-bg-card-hover: #f5f8ff;
-  --color-text: #111827;
-  --color-text-muted: #344054;
-  --color-text-dim: #667085;
-  --color-border: #d6e0eb;
-  --color-danger: #d92d20;
-  --color-warning: #dc6803;
-  --color-success: #12b76a;
+  --color-primary: #1C1917;
+  --color-secondary: #44403C;
+  --color-cta: #FBBF24;
+  --color-cta-hover: #F59E0B;
+  --color-bg: #0A0A0A;
+  --color-bg-card: #171717;
+  --color-bg-card-hover: #262626;
+  --color-text: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-text-dim: #64748B;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-success: #10B981;
 
-  --font-heading: 'Sora', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-cta text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 cursor-pointer border-none shadow-[0_10px_25px_-15px_rgba(14,169,116,0.9)];
+    @apply bg-cta text-bg px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border border-cta/50 shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)];
   }
   .btn-primary:hover {
-    @apply bg-cta-hover -translate-y-[1px];
+    @apply bg-cta-hover shadow-[0_0_20px_-3px_rgba(245,158,11,0.6)] -translate-y-[1px];
   }
 
   .btn-secondary {
-    @apply bg-transparent text-primary border border-primary/35 px-6 py-3 rounded-xl font-semibold transition-all duration-200 cursor-pointer;
+    @apply bg-transparent text-text border border-border px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer backdrop-blur-md hover:bg-white/5;
   }
   .btn-secondary:hover {
-    @apply bg-primary/8 border-primary/55;
+    @apply border-white/20;
   }
 
   .card {
-    @apply bg-bg-card rounded-2xl p-6 border border-border shadow-[0_24px_40px_-32px_rgba(16,24,40,0.55)] transition-all duration-200;
+    @apply bg-bg-card/80 backdrop-blur-xl rounded-2xl p-6 border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300;
   }
   .card-clickable {
-    @apply cursor-pointer hover:shadow-[0_28px_40px_-30px_rgba(47,111,237,0.55)] hover:-translate-y-[2px] hover:bg-bg-card-hover border border-border hover:border-primary/25;
+    @apply cursor-pointer hover:shadow-[0_8px_30px_rgba(251,191,36,0.1)] hover:-translate-y-[2px] hover:bg-bg-card-hover/90 hover:border-white/20;
   }
 
   .input {
-    @apply px-4 py-3 border border-border rounded-xl text-base bg-bg-card transition-all duration-200 outline-none;
+    @apply px-4 py-3 border border-border rounded-xl text-base bg-black/50 text-text transition-all duration-300 outline-none backdrop-blur-md;
   }
   .input:focus {
-    @apply border-primary ring-3 ring-primary/20;
+    @apply border-cta ring-1 ring-cta/30 bg-black/80;
   }
 
   .app-shell {
@@ -55,11 +55,11 @@
   }
 
   .surface-card {
-    @apply rounded-2xl border border-border bg-bg-card/90 shadow-[0_20px_45px_-30px_rgba(16,24,40,0.45)] backdrop-blur-[2px];
+    @apply rounded-2xl border border-border bg-bg-card/80 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)];
   }
 
   .panel-soft {
-    @apply rounded-3xl border border-primary/10 bg-gradient-to-br from-white via-white to-primary/5 shadow-[0_24px_50px_-28px_rgba(47,111,237,0.35)];
+    @apply rounded-3xl border border-white/5 bg-gradient-to-br from-white/5 via-transparent to-black/20 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
   }
 }
 
@@ -68,9 +68,8 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(circle at 8% -8%, rgba(79, 142, 247, 0.24), transparent 36%),
-    radial-gradient(circle at 100% 0%, rgba(14, 169, 116, 0.18), transparent 32%),
-    linear-gradient(160deg, #f8fbff 0%, #f3f6fb 45%, #eef3ff 100%);
+    radial-gradient(circle at 15% 50%, rgba(251, 191, 36, 0.06), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.03), transparent 25%);
   background-attachment: fixed;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
@@ -83,7 +82,31 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 @keyframes verdict-pulse {
@@ -92,8 +115,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes hero-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.92; }
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.3)); }
+  50% { opacity: 0.8; filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.1)); }
 }
 
 .animate-verdict-pulse {
@@ -101,7 +124,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-hero-glow {
-  animation: hero-glow 3s ease-in-out infinite;
+  animation: hero-glow 4s ease-in-out infinite;
 }
 
 @keyframes fade-in {
@@ -110,7 +133,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-fade-in {
-  animation: fade-in 400ms ease-out;
+  animation: fade-in 400ms ease-out forwards;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fade-in 400ms ease-out 100ms forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fade-in 400ms ease-out 200ms forwards;
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

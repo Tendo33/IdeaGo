@@ -70,13 +70,13 @@ export function HistoryPage() {
       <div className="app-shell max-w-5xl">
         <Link
           to="/"
-          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted transition-colors duration-200 hover:text-primary"
+          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-dim transition-colors duration-300 hover:text-text-muted hover:bg-white/5"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('history.back')}
         </Link>
 
-        <div className="surface-card mb-6 bg-gradient-to-r from-white to-primary/5 px-5 py-5 sm:px-6">
+        <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl mb-6 px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-bold text-text sm:text-3xl">
               {t('history.title')}
@@ -89,7 +89,7 @@ export function HistoryPage() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder={t('history.filterPlaceholder')}
-                  className="input w-full bg-bg-card pl-9 pr-3 py-2 text-sm text-text placeholder-text-dim sm:w-64"
+                  className="input w-full bg-black/40 pl-9 pr-3 py-2 text-sm text-text placeholder-text-dim sm:w-64 border-white/10 focus:border-cta"
                 />
               </div>
             )}
@@ -115,7 +115,7 @@ export function HistoryPage() {
         )}
 
         {!loading && !error && reports.length === 0 && (
-          <div className="surface-card p-12 text-center">
+          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-12 text-center shadow-2xl">
             <FileText className="mx-auto mb-3 h-10 w-10 text-text-dim" />
             <p className="mb-4 text-sm text-text-muted">{t('history.emptyState')}</p>
             <Link
@@ -133,7 +133,7 @@ export function HistoryPage() {
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="group card card-clickable flex items-center justify-between px-4 py-4"
+                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px hover:shadow-[0_4px_10px_rgba(251,191,36,0.1)] cursor-pointer"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
@@ -144,7 +144,7 @@ export function HistoryPage() {
                 }}
               >
                 <div className="mr-4 min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-text transition-colors duration-200 group-hover:text-primary">
+                  <p className="truncate text-sm font-semibold text-text transition-colors duration-300 group-hover:text-cta">
                     {report.query}
                   </p>
                   <div className="mt-1.5 flex items-center gap-4">
@@ -152,7 +152,7 @@ export function HistoryPage() {
                       <Clock className="h-3 w-3" />
                       {new Date(report.created_at).toLocaleDateString()}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-cta">
                       <Users className="h-3 w-3" />
                       {report.competitor_count} {t('home.competitors')}
                     </span>

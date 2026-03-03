@@ -72,7 +72,7 @@ export function CompetitorCard({
       id={elementId}
       className={`card select-none ${
         isFeatured
-          ? 'border-l-4! border-l-primary! border-t-border! border-r-border! border-b-border! col-span-full'
+          ? 'border-l-4! border-l-cta! border-t-white/10! border-r-white/10! border-b-white/10! col-span-full'
           : 'card-clickable p-5!'
       }`}
     >
@@ -82,7 +82,7 @@ export function CompetitorCard({
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono text-text-dim">#{rank}</span>
             {isFeatured && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/15 text-primary">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-cta/15 text-cta">
                 <Award className="w-3 h-3" />
                 {t('report.competitors.top')}
               </span>
@@ -169,10 +169,10 @@ export function CompetitorCard({
           {onToggleCompare && (
             <button
               onClick={e => { e.stopPropagation(); onToggleCompare() }}
-              className={`text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
+              className={`text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-all duration-300 ${
                 compareSelected
-                  ? 'border-primary/50 bg-primary/10 text-primary'
-                  : 'border-border text-text-dim hover:border-primary/30 hover:text-text-muted'
+                  ? 'border-cta/50 bg-cta/10 text-cta'
+                  : 'border-white/10 text-text-dim hover:border-cta/30 hover:text-text-muted hover:bg-white/5'
               }`}
             >
               {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}

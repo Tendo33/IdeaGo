@@ -11,9 +11,9 @@ interface HeroPanelProps {
 
 function getVerdictConfig(type: RecommendationType, t: TFunction) {
   const baseConfigs = {
-    go: { glow: 'shadow-[0_0_40px_rgba(34,197,94,0.3)]', bg: 'bg-cta/15', text: 'text-cta', ring: 'ring-cta/40' },
-    caution: { glow: 'shadow-[0_0_40px_rgba(245,158,11,0.3)]', bg: 'bg-warning/15', text: 'text-warning', ring: 'ring-warning/40' },
-    no_go: { glow: 'shadow-[0_0_40px_rgba(239,68,68,0.3)]', bg: 'bg-danger/15', text: 'text-danger', ring: 'ring-danger/40' }
+    go: { glow: 'shadow-[0_0_40px_rgba(16,185,129,0.2)]', bg: 'bg-success/10 backdrop-blur-xl', text: 'text-success', ring: 'ring-success/30' },
+    caution: { glow: 'shadow-[0_0_40px_rgba(251,191,36,0.2)]', bg: 'bg-warning/10 backdrop-blur-xl', text: 'text-warning', ring: 'ring-warning/30' },
+    no_go: { glow: 'shadow-[0_0_40px_rgba(239,68,68,0.2)]', bg: 'bg-danger/10 backdrop-blur-xl', text: 'text-danger', ring: 'ring-danger/30' }
   }
 
   const config = baseConfigs[type] || baseConfigs.go
@@ -78,7 +78,7 @@ function StatCard({ value, label, icon: Icon, index }: { value: string | number;
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: 'easeOut' }}
-      className="rounded-xl bg-bg-card border border-border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20"
+      className="rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-white/20 hover:bg-white/5"
     >
       <div className="flex items-center gap-2 mb-1.5">
         <Icon className="w-4 h-4 text-text-dim" />
@@ -106,7 +106,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
   return (
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       {/* Verdict Card — left 3/5 */}
-      <div className={`lg:col-span-3 rounded-xl border border-border ${verdict.bg} p-6 ${verdict.glow} animate-hero-glow`}>
+      <div className={`lg:col-span-3 rounded-xl border border-white/10 ${verdict.bg} p-6 ${verdict.glow} animate-hero-glow`}>
         <div className="flex items-start gap-4 mb-4">
           <div className={`w-14 h-14 rounded-full ${verdict.bg} ring-2 ${verdict.ring} flex items-center justify-center shrink-0 animate-verdict-pulse`}>
             <span className={`text-lg font-bold font-heading ${verdict.text}`}>

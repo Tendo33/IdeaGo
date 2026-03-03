@@ -33,13 +33,13 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
           onChange={e => setQuery(e.target.value)}
           placeholder={t('search.placeholder')}
           disabled={isLoading}
-          className="w-full rounded-2xl border border-border bg-bg-card px-5 py-4 pr-14 text-lg text-text placeholder-text-dim shadow-[0_16px_30px_-26px_rgba(16,24,40,0.55)] transition-all duration-200 outline-none focus:border-primary focus:ring-3 focus:ring-primary/20 disabled:opacity-50 hover:border-primary/25"
+          className="w-full rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-5 py-4 pr-14 text-lg text-text placeholder-text-dim shadow-2xl transition-all duration-300 outline-none focus:border-cta focus:ring-1 focus:ring-cta/30 focus:bg-black/80 disabled:opacity-50 hover:border-white/20"
           aria-label={t('search.placeholder')}
         />
         <button
           type="submit"
           disabled={isLoading || query.trim().length < 5}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-white outline-none transition-all duration-200 hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-2 focus:ring-primary/50"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-bg outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
           aria-label={t('search.button')}
         >
           {isLoading ? (

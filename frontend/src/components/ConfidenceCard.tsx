@@ -69,21 +69,21 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="rounded-lg border border-border bg-secondary/40 p-2">
+        <div className="rounded-lg border border-white/10 bg-white/5 p-2">
           <p className="text-[11px] text-text-dim">{t('report.transparency.confidence.samples')}</p>
           <p className="text-sm font-semibold text-text">{sampleSize}</p>
         </div>
-        <div className="rounded-lg border border-border bg-secondary/40 p-2">
+        <div className="rounded-lg border border-white/10 bg-white/5 p-2">
           <p className="text-[11px] text-text-dim">{t('report.transparency.confidence.coverage')}</p>
           <p className="text-sm font-semibold text-text">{sourceCoverage}</p>
         </div>
-        <div className="rounded-lg border border-border bg-secondary/40 p-2">
+        <div className="rounded-lg border border-white/10 bg-white/5 p-2">
           <p className="text-[11px] text-text-dim">{t('report.transparency.confidence.successRate')}</p>
           <p className="text-sm font-semibold text-text">{successRate}%</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-secondary/30 p-3">
+      <div className="rounded-lg border border-white/10 bg-white/5 p-3">
         <p className="text-xs text-text-muted">{freshnessHint}</p>
       </div>
 

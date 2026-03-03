@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-lg bg-bg-card border border-border p-3 shadow-xl shadow-black/30 max-w-xs">
+    <div className="rounded-xl bg-black/80 backdrop-blur-2xl border border-white/10 p-3 shadow-2xl max-w-xs">
       <p className="text-sm font-semibold text-text mb-0.5">{d.name}</p>
       <p className="text-xs text-text-muted mb-1.5 line-clamp-2">{d.oneLiner}</p>
       <div className="flex gap-3 text-xs text-text-dim">
@@ -105,7 +105,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-bg-card p-5">
+    <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl p-5 hover:border-white/20 transition-colors duration-300">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold font-heading text-text">
           {t('report.chart.title')}

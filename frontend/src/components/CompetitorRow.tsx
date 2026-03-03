@@ -27,7 +27,7 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
   return (
     <div
       id={elementId}
-      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-bg-card transition-all duration-200 hover:border-cta/30 hover:bg-bg-card-hover group"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-bg-card/40 backdrop-blur-md transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px group"
     >
       <span className="text-xs font-mono text-text-dim w-6 text-right shrink-0">#{rank}</span>
       <RelevanceRing score={competitor.relevance_score} size={28} />

@@ -68,7 +68,7 @@ function BlueOceanState({ query }: { query: string }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="p-10 rounded-xl bg-cta/5 border border-cta/20 text-center"
+      className="p-10 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 text-center shadow-2xl"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
       <h3 className="text-xl font-bold font-heading text-text mb-2">{t('report.blueOcean.title')}</h3>
@@ -79,7 +79,7 @@ function BlueOceanState({ query }: { query: string }) {
         <button
           onClick={handleBroaden}
           disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cta text-white text-sm font-medium cursor-pointer transition-colors hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-bg text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:-translate-y-0.5 hover:shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)] disabled:cursor-not-allowed disabled:opacity-70"
           aria-busy={isSubmitting}
         >
           <RefreshCw className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
@@ -111,7 +111,7 @@ function AllFailedState({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="p-8 rounded-xl bg-warning/10 border border-warning/30 text-center"
+      className="p-8 rounded-2xl bg-black/40 backdrop-blur-xl border border-warning/30 text-center shadow-2xl"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
       <h3 className="text-lg font-bold font-heading text-text mb-3">{t('report.failed.title')}</h3>
@@ -126,7 +126,7 @@ function AllFailedState({
       <p className="text-xs text-text-dim mb-4">{t('report.failed.description')}</p>
       <button
         onClick={onRetry}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-warning text-white text-sm font-medium cursor-pointer transition-colors hover:bg-warning/80"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-transparent border border-warning text-warning text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-warning/10 hover:-translate-y-0.5"
       >
         <RefreshCw className="w-4 h-4" />
         {t('report.failed.retry')}
@@ -215,7 +215,7 @@ export function ReportContentPane({
       )}
 
       {cancelledMessage && (
-        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-secondary border border-border mb-6">
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 mb-6">
           <div className="flex items-center gap-3 min-w-0">
             <Info className="w-5 h-5 text-text-muted shrink-0" />
             <p className="text-sm text-text-muted">{cancelledMessage}</p>

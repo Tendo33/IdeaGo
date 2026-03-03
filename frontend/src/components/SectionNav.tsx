@@ -58,15 +58,15 @@ export function SectionNav({ sections }: SectionNavProps) {
   return (
     <div className="fixed top-16 left-0 right-0 z-40 no-print animate-fade-in">
       <div className="max-w-5xl mx-auto px-4">
-        <nav className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-bg-card/90 backdrop-blur-md border border-border shadow-lg shadow-black/20 overflow-x-auto">
+        <nav className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-black/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] overflow-x-auto">
           {sections.map(s => (
             <button
               key={s.id}
               onClick={() => handleClick(s.id)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap cursor-pointer transition-all duration-200 ${
                 activeId === s.id
-                  ? 'bg-cta/15 text-cta'
-                  : 'text-text-dim hover:text-text-muted hover:bg-secondary/50'
+                  ? 'bg-cta/15 text-cta shadow-[0_0_10px_rgba(251,191,36,0.1)]'
+                  : 'text-text-dim hover:text-text hover:bg-white/5'
               }`}
             >
               {s.label}

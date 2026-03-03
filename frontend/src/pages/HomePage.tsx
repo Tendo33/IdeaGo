@@ -45,14 +45,14 @@ export function HomePage() {
     <div className="min-h-screen px-4 pb-12 pt-10 sm:pt-14">
       <div className="app-shell grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)] lg:gap-8">
         <section className="panel-soft px-6 py-8 text-center sm:px-10 sm:py-10 lg:text-left animate-fade-in">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cta/30 bg-cta/10 px-3 py-1 text-xs font-semibold text-cta shadow-[0_0_10px_rgba(251,191,36,0.15)]">
             <Sparkles className="h-3.5 w-3.5" />
             {t('app.title')}
             {t('app.titleHighlight')}
           </div>
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-text sm:text-5xl">
             {t('app.title')}
-            <span className="text-primary">{t('app.titleHighlight')}</span>
+            <span className="text-cta ml-2 drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]">{t('app.titleHighlight')}</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-base leading-relaxed text-text-muted sm:text-lg lg:mx-0">
             {t('home.description')}
@@ -68,7 +68,7 @@ export function HomePage() {
                   key={prompt}
                   onClick={() => handleSubmit(prompt)}
                   disabled={isLoading}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-bg-card px-3 py-1.5 text-xs text-text-muted transition-all duration-200 hover:border-primary/30 hover:bg-bg-card-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-text-muted transition-all duration-300 hover:border-cta/30 hover:bg-white/10 hover:text-cta hover:-translate-y-px hover:shadow-[0_4px_10px_rgba(251,191,36,0.1)] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Sparkles className="h-3 w-3" />
                   {prompt}
@@ -103,7 +103,7 @@ export function HomePage() {
                 <button
                   key={report.id}
                   onClick={() => navigate(`/reports/${report.id}`)}
-                  className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-border bg-bg-card px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-bg-card-hover focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-left backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-cta/30 hover:bg-white/5 hover:shadow-xl focus:outline-none focus:ring-1 focus:ring-cta/50"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">{report.query}</p>
@@ -112,12 +112,12 @@ export function HomePage() {
                         <Clock className="h-3 w-3" />
                         {new Date(report.created_at).toLocaleDateString()}
                       </span>
-                      <span className="text-xs font-medium text-primary">
+                      <span className="text-xs font-medium text-cta">
                         {report.competitor_count} {t('home.competitors')}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-text-dim transition-colors duration-200 group-hover:text-primary" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-text-dim transition-colors duration-300 group-hover:text-cta" />
                 </button>
               ))}
             </div>

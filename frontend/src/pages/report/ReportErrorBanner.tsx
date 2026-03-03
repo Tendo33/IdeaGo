@@ -57,7 +57,7 @@ export function ReportErrorBanner({
   const { t } = useTranslation()
   const text = getBannerText(errorKind, runtimeStatus, t)
   return (
-    <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-danger/10 border border-danger/30 mb-6">
+    <div className="flex items-center justify-between gap-3 p-5 rounded-2xl bg-black/40 backdrop-blur-xl border border-warning/30 shadow-lg mb-6">
       <div className="flex items-center gap-3 min-w-0">
         <AlertCircle className="w-5 h-5 text-danger shrink-0" />
         <div className="min-w-0">
@@ -70,7 +70,7 @@ export function ReportErrorBanner({
       </div>
       <button
         onClick={onRetry}
-        className="shrink-0 px-3 py-1.5 text-xs font-medium text-white rounded-lg bg-danger hover:bg-danger/80 cursor-pointer transition-colors duration-200"
+      className="shrink-0 px-4 py-2 text-sm font-semibold text-bg rounded-xl bg-warning hover:bg-warning/80 hover:-translate-y-px hover:shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)] cursor-pointer transition-all duration-300"
       >
         {text.retryLabel}
       </button>
