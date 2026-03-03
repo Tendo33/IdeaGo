@@ -143,6 +143,108 @@ User Input
   -> Cache Persist + SSE Terminal Event
 ```
 
+## Execution Flow (End-to-End)
+
+This section documents the actual runtime flow from the first API call to final report rendering.
+
+### 1) Analysis kickoff (`POST /api/v1/analyze`)
+
+1. Client sends idea text to `POST /api/v1/analyze`.
+2. Backend normalizes and hashes the query for de-duplication.
+3. If the same normalized query is already processing, backend returns the existing `report_id` (no duplicate pipeline run).
+4. Otherwise backend:
+   - Creates in-memory runtime state for this `report_id`
+   - Starts a background task (`_run_pipeline`)
+   - Returns `report_id` immediately
+
+### 2) Runtime status + SSE channel
+
+1. Background task writes a lightweight status file as `processing`.
+2. Frontend opens `GET /api/v1/reports/{id}/stream` (SSE).
+3. SSE behavior:
+   - Replays historical events for reconnect clients
+   - Streams live pipeline events
+   - Sends ping heartbeats on long idle periods
+   - Stops on terminal events: `report_ready`, `error`, `cancelled`
+4. If no active run state exists, stream endpoint falls back to status-file-derived terminal event.
+
+### 3) LangGraph pipeline execution (backend core)
+
+Pipeline graph order:
+
+1. `parse_intent`
+   - LLM parses keywords, app type, scenario, and per-platform queries.
+2. `cache_lookup`
+   - Uses deterministic `intent.cache_key`.
+   - Cache hit: emits `report_ready` from cache and exits early.
+   - Cache miss: continue.
+3. `fetch_sources` (concurrent)
+   - Runs all available source plugins in parallel:
+     - `github`
+     - `tavily`
+     - `hackernews`
+     - `appstore` (iTunes Search API, `APPSTORE_COUNTRY` scoped)
+   - Emits `source_started` / `source_completed` / `source_failed`.
+   - Source timeout and failures are isolated per source (partial progress is preserved).
+4. `extract_map` (concurrent per source)
+   - LLM extraction converts `RawResult` into structured competitors.
+   - If extraction fails for a source, pipeline degrades to raw-to-competitor fallback entries (status becomes `degraded`) instead of aborting the full run.
+5. `aggregate`
+   - LLM deduplicates and merges cross-source competitors.
+   - Generates market summary, recommendation type, recommendation text, and differentiation angles.
+   - On aggregation failure, pipeline falls back to unprocessed competitors.
+6. `assemble_report`
+   - Builds final `ResearchReport` including:
+     - `source_results`
+     - `confidence`
+     - `evidence_summary`
+     - `cost_breakdown`
+     - `report_meta.llm_fault_tolerance`
+7. `persist_report`
+   - Writes report JSON to cache + updates index.
+   - Emits terminal `report_ready`.
+
+### 4) Failure / cancellation semantics
+
+1. Any unhandled pipeline exception:
+   - Writes status as `failed`
+   - Emits terminal `error` with stable `error_code` (for example `PIPELINE_FAILURE`)
+   - Avoids leaking internal stack details to clients
+2. `DELETE /api/v1/reports/{id}/cancel`:
+   - Cancels running task if active
+   - Writes `cancelled` status
+   - Emits terminal `cancelled`
+
+### 5) Frontend lifecycle behavior
+
+1. Report page first calls report fetch API:
+   - If report exists: render directly (`ready`)
+   - If processing: enter live-progress mode and attach SSE
+   - If missing: query runtime status endpoint to distinguish `processing` / `failed` / `cancelled` / `not_found`
+2. While processing:
+   - Horizontal stepper updates from SSE event stream
+   - Source preview cards aggregate per-source result counts
+3. On terminal SSE:
+   - `report_ready`: refetch full report JSON and render
+   - `error` / `cancelled`: show runtime error state + retry actions
+4. SSE auto-reconnect:
+   - Exponential backoff
+   - Event de-duplication by `(type, stage, timestamp)`
+   - Max reconnect attempts with user-visible connection error
+
+### 6) Cache and persistence model
+
+1. Report cache:
+   - One JSON file per report: `{report_id}.json`
+   - Central index file: `_index.json`
+   - TTL-based expiration (`CACHE_TTL_HOURS`)
+2. Runtime status cache:
+   - One status file per run: `{report_id}.status.json`
+   - States: `processing | complete | failed | cancelled`
+3. LangGraph checkpoint store:
+   - SQLite DB (`LANGGRAPH_CHECKPOINT_DB_PATH`)
+   - Enables resume for the same `report_id` thread if interrupted
+
 See [docs/plans/2026-02-22-ideago-mvp-design.md](docs/plans/2026-02-22-ideago-mvp-design.md) for full architecture documentation.
 
 ## Quality Checks
