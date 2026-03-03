@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type SetStateAction } from 'react'
 import { getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
 
@@ -13,33 +13,96 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 
 export const PLATFORM_OPTIONS: Platform[] = ['github', 'tavily', 'hackernews', 'appstore']
 
-export function useCompetitorFilters(report: ResearchReport | null) {
-  const [sortBy, setSortBy] = useState<SortKey>('relevance')
-  const [platformFilter, setPlatformFilter] = useState<Set<Platform>>(new Set())
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [compareSet, setCompareSet] = useState<Set<string>>(new Set())
-  const [showCompare, setShowCompare] = useState(false)
+interface CompetitorFilterState {
+  reportId: string | null
+  sortBy: SortKey
+  platformFilter: Set<Platform>
+  viewMode: ViewMode
+  compareSet: Set<string>
+  showCompare: boolean
+}
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSortBy('relevance')
-      setPlatformFilter(new Set())
-      setViewMode('grid')
-      setCompareSet(new Set())
-      setShowCompare(false)
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [report?.id])
+function createDefaultState(reportId: string | null): CompetitorFilterState {
+  return {
+    reportId,
+    sortBy: 'relevance',
+    platformFilter: new Set(),
+    viewMode: 'grid',
+    compareSet: new Set(),
+    showCompare: false,
+  }
+}
+
+export function useCompetitorFilters(report: ResearchReport | null) {
+  const reportId = report?.id ?? null
+  const [state, setState] = useState<CompetitorFilterState>(() => createDefaultState(reportId))
+
+  const activeState = useMemo(
+    () => (state.reportId === reportId ? state : createDefaultState(reportId)),
+    [reportId, state],
+  )
+
+  const updateState = useCallback(
+    (updater: (previous: CompetitorFilterState) => CompetitorFilterState) => {
+      setState(previous => {
+        const scoped = previous.reportId === reportId ? previous : createDefaultState(reportId)
+        return updater(scoped)
+      })
+    },
+    [reportId],
+  )
+
+  const setSortBy = useCallback(
+    (nextValue: SetStateAction<SortKey>) => {
+      updateState(previous => ({
+        ...previous,
+        sortBy: typeof nextValue === 'function' ? nextValue(previous.sortBy) : nextValue,
+      }))
+    },
+    [updateState],
+  )
+
+  const setViewMode = useCallback(
+    (nextValue: SetStateAction<ViewMode>) => {
+      updateState(previous => ({
+        ...previous,
+        viewMode: typeof nextValue === 'function' ? nextValue(previous.viewMode) : nextValue,
+      }))
+    },
+    [updateState],
+  )
+
+  const setShowCompare = useCallback(
+    (nextValue: SetStateAction<boolean>) => {
+      updateState(previous => ({
+        ...previous,
+        showCompare: typeof nextValue === 'function' ? nextValue(previous.showCompare) : nextValue,
+      }))
+    },
+    [updateState],
+  )
+
+  const setCompareSet = useCallback(
+    (nextValue: SetStateAction<Set<string>>) => {
+      updateState(previous => ({
+        ...previous,
+        compareSet: typeof nextValue === 'function' ? nextValue(previous.compareSet) : nextValue,
+      }))
+    },
+    [updateState],
+  )
 
   const filteredCompetitors = useMemo(() => {
     if (!report) return []
 
     let list = [...report.competitors]
-    if (platformFilter.size > 0) {
-      list = list.filter(competitor => competitor.source_platforms.some(platform => platformFilter.has(platform)))
+    if (activeState.platformFilter.size > 0) {
+      list = list.filter(competitor =>
+        competitor.source_platforms.some(platform => activeState.platformFilter.has(platform)),
+      )
     }
 
-    switch (sortBy) {
+    switch (activeState.sortBy) {
       case 'name':
         list.sort((a, b) => a.name.localeCompare(b.name))
         break
@@ -52,54 +115,53 @@ export function useCompetitorFilters(report: ResearchReport | null) {
     }
 
     return list
-  }, [platformFilter, report, sortBy])
+  }, [activeState.platformFilter, activeState.sortBy, report])
 
   const compareCompetitors = useMemo(() => {
     if (!report) return []
-    return report.competitors.filter(competitor => compareSet.has(getCompetitorId(competitor)))
-  }, [compareSet, report])
+    return report.competitors.filter(competitor => activeState.compareSet.has(getCompetitorId(competitor)))
+  }, [activeState.compareSet, report])
 
   const togglePlatform = useCallback((platform: Platform) => {
-    setPlatformFilter(previous => {
-      const next = new Set(previous)
+    updateState(previous => {
+      const next = new Set(previous.platformFilter)
       if (next.has(platform)) {
         next.delete(platform)
       } else {
         next.add(platform)
       }
-      return next
+      return { ...previous, platformFilter: next }
     })
-  }, [])
+  }, [updateState])
 
   const toggleCompare = useCallback((competitorId: string) => {
-    setCompareSet(previous => {
-      const next = new Set(previous)
+    updateState(previous => {
+      const next = new Set(previous.compareSet)
       if (next.has(competitorId)) {
         next.delete(competitorId)
       } else if (next.size < 4) {
         next.add(competitorId)
       }
-      return next
+      return { ...previous, compareSet: next }
     })
-  }, [])
+  }, [updateState])
 
   const clearCompare = useCallback(() => {
-    setCompareSet(new Set())
-    setShowCompare(false)
-  }, [])
+    updateState(previous => ({ ...previous, compareSet: new Set(), showCompare: false }))
+  }, [updateState])
 
   return {
-    sortBy,
+    sortBy: activeState.sortBy,
     setSortBy,
-    platformFilter,
+    platformFilter: activeState.platformFilter,
     togglePlatform,
-    viewMode,
+    viewMode: activeState.viewMode,
     setViewMode,
     filteredCompetitors,
-    compareSet,
+    compareSet: activeState.compareSet,
     toggleCompare,
     compareCompetitors,
-    showCompare,
+    showCompare: activeState.showCompare,
     setShowCompare,
     clearCompare,
     setCompareSet,

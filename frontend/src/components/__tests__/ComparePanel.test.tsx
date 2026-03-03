@@ -49,4 +49,18 @@ describe('ComparePanel', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('uses localized close button label', () => {
+    render(
+      <ComparePanel
+        competitors={competitors}
+        onRemove={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: i18n.t('report.compare.closePanel') }),
+    ).toBeInTheDocument()
+  })
 })

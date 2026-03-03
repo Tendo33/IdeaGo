@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Competitor } from '../../types/research'
 import { VirtualizedCompetitorList } from '../VirtualizedCompetitorList'
@@ -61,7 +61,7 @@ describe('VirtualizedCompetitorList', () => {
     expect(screen.queryByText('100:Competitor 100')).not.toBeInTheDocument()
   })
 
-  it('resets scroll position when view mode changes', async () => {
+  it('resets scroll position when view mode changes', () => {
     const competitors = createCompetitors(80)
     const { container, rerender } = render(
       <VirtualizedCompetitorList
@@ -86,8 +86,6 @@ describe('VirtualizedCompetitorList', () => {
       />,
     )
 
-    await waitFor(() => {
-      expect(scroller.scrollTop).toBe(0)
-    })
+    expect(scroller.scrollTop).toBe(0)
   })
 })

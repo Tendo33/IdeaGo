@@ -161,7 +161,8 @@
       "sources": "Sources",
       "selected": "competitors selected",
       "clear": "Clear",
-      "compareBtn": "Compare"
+      "compareBtn": "Compare",
+      "closePanel": "Close comparison panel"
     },
     "stepper": {
       "reconnecting": "Reconnecting to server...",

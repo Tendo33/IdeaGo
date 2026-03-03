@@ -161,7 +161,8 @@
       "sources": "来源渠道",
       "selected": "已选择个竞品进行对比",
       "clear": "清除",
-      "compareBtn": "开始对比"
+      "compareBtn": "开始对比",
+      "closePanel": "关闭对比面板"
     },
     "stepper": {
       "reconnecting": "正在重新连接服务器...",

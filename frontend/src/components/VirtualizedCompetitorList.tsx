@@ -18,6 +18,16 @@ interface VirtualizedCompetitorListProps {
   onToggleCompare: (competitorId: string) => void
 }
 
+interface ScrollState {
+  key: string
+  value: number
+}
+
+interface MeasuredHeightsState {
+  key: string
+  values: Record<number, number>
+}
+
 function binarySearchOffset(offsets: number[], target: number): number {
   let low = 0
   let high = offsets.length - 2
@@ -46,8 +56,29 @@ export function VirtualizedCompetitorList({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [containerHeight, setContainerHeight] = useState(DEFAULT_VIEWPORT_HEIGHT)
   const [containerWidth, setContainerWidth] = useState(0)
-  const [scrollTop, setScrollTop] = useState(0)
-  const [measuredHeights, setMeasuredHeights] = useState<Record<number, number>>({})
+
+  const columns = viewMode === 'grid' && containerWidth >= 1024 ? 2 : 1
+  const estimatedRowHeight =
+    viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT : ESTIMATED_LIST_ROW_HEIGHT
+  const rowCount = Math.ceil(competitors.length / columns)
+  const competitorSignature = useMemo(
+    () => competitors.map(competitor => getCompetitorId(competitor)).join('|'),
+    [competitors],
+  )
+  const resetKey = `${viewMode}:${columns}:${competitorSignature}`
+  const [scrollState, setScrollState] = useState<ScrollState>(() => ({ key: resetKey, value: 0 }))
+  const [measuredHeights, setMeasuredHeights] = useState<MeasuredHeightsState>(() => ({
+    key: resetKey,
+    values: {},
+  }))
+  const effectiveScrollTop = useMemo(
+    () => (scrollState.key === resetKey ? scrollState.value : 0),
+    [resetKey, scrollState],
+  )
+  const effectiveMeasuredHeights = useMemo(
+    () => (measuredHeights.key === resetKey ? measuredHeights.values : {}),
+    [measuredHeights, resetKey],
+  )
 
   useEffect(() => {
     const node = scrollRef.current
@@ -67,49 +98,35 @@ export function VirtualizedCompetitorList({
     const observer = new ResizeObserver(updateSize)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
-
-  const columns = viewMode === 'grid' && containerWidth >= 1024 ? 2 : 1
-  const estimatedRowHeight =
-    viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT : ESTIMATED_LIST_ROW_HEIGHT
-  const rowCount = Math.ceil(competitors.length / columns)
-  const competitorSignature = useMemo(
-    () => competitors.map(competitor => getCompetitorId(competitor)).join('|'),
-    [competitors],
-  )
+  }, [resetKey])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setMeasuredHeights({})
-      setScrollTop(0)
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = 0
-      }
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [columns, competitorSignature, viewMode])
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0
+    }
+  }, [resetKey])
 
   const offsets = useMemo(() => {
     const values = new Array(rowCount + 1).fill(0)
     for (let index = 0; index < rowCount; index += 1) {
-      const rowHeight = measuredHeights[index] ?? estimatedRowHeight
+      const rowHeight = effectiveMeasuredHeights[index] ?? estimatedRowHeight
       values[index + 1] = values[index] + rowHeight
     }
     return values
-  }, [estimatedRowHeight, measuredHeights, rowCount])
+  }, [effectiveMeasuredHeights, estimatedRowHeight, rowCount])
 
   const totalHeight = offsets[rowCount] ?? 0
   const visibleRange = useMemo(() => {
     if (rowCount === 0) {
       return { startRow: 0, endRow: -1 }
     }
-    const start = binarySearchOffset(offsets, Math.max(0, scrollTop))
-    const end = binarySearchOffset(offsets, scrollTop + containerHeight)
+    const start = binarySearchOffset(offsets, Math.max(0, effectiveScrollTop))
+    const end = binarySearchOffset(offsets, effectiveScrollTop + containerHeight)
     return {
       startRow: Math.max(0, start - OVERSCAN_ROWS),
       endRow: Math.min(rowCount - 1, end + OVERSCAN_ROWS),
     }
-  }, [containerHeight, offsets, rowCount, scrollTop])
+  }, [containerHeight, effectiveScrollTop, offsets, rowCount])
 
   const visibleRows = useMemo(() => {
     if (visibleRange.endRow < visibleRange.startRow) return []
@@ -125,18 +142,25 @@ export function VirtualizedCompetitorList({
       const nextHeight = Math.ceil(node.getBoundingClientRect().height)
       if (nextHeight <= 0) return
       setMeasuredHeights(previous => {
-        if (previous[rowIndex] === nextHeight) return previous
-        return { ...previous, [rowIndex]: nextHeight }
+        const base = previous.key === resetKey ? previous.values : {}
+        if (base[rowIndex] === nextHeight && previous.key === resetKey) return previous
+        return { key: resetKey, values: { ...base, [rowIndex]: nextHeight } }
       })
     },
-    [],
+    [resetKey],
   )
 
   return (
     <div
       ref={scrollRef}
       className="max-h-[68vh] min-h-[380px] overflow-auto pr-1"
-      onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+      onScroll={event => {
+        const nextScrollTop = event.currentTarget.scrollTop
+        setScrollState(previous => {
+          if (previous.key === resetKey && previous.value === nextScrollTop) return previous
+          return { key: resetKey, value: nextScrollTop }
+        })
+      }}
     >
       <div style={{ height: totalHeight, position: 'relative' }}>
         {visibleRows.map(rowIndex => {
