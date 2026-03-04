@@ -72,7 +72,7 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
               onClick={() => handleClick(s.id)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap cursor-pointer transition-all duration-200 ${
                 resolvedActiveId === s.id
-                  ? 'bg-cta/15 text-cta shadow-[0_0_10px_rgba(251,191,36,0.1)]'
+                  ? 'bg-cta/15 text-cta shadow-[0_0_10px_rgba(196,245,103,0.15)]'
                   : 'text-text-dim hover:text-text hover:bg-white/5'
               }`}
             >

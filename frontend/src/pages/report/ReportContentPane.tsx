@@ -80,7 +80,7 @@ function BlueOceanState({ query }: { query: string }) {
         <button
           onClick={handleBroaden}
           disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-bg text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:-translate-y-0.5 hover:shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-bg text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:-translate-y-0.5 hover:shadow-[0_0_18px_-3px_rgba(196,245,103,0.5)] disabled:cursor-not-allowed disabled:opacity-70"
           aria-busy={isSubmitting}
         >
           <RefreshCw className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />

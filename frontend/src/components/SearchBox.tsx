@@ -47,7 +47,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-bg outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-bg outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_18px_rgba(196,245,103,0.5)] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
           aria-label={t('search.button')}
         >
           {isLoading ? (

@@ -260,7 +260,7 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
       <button
         type="button"
         onClick={onCompare}
-        className="px-5 py-2 text-sm font-semibold rounded-xl bg-cta text-bg cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)] hover:-translate-y-px"
+        className="px-5 py-2 text-sm font-semibold rounded-xl bg-cta text-bg cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_18px_-3px_rgba(196,245,103,0.5)] hover:-translate-y-px"
       >
         {t('report.compare.compareBtn')}
       </button>

@@ -3,8 +3,8 @@
 @theme {
   --color-primary: #1C1917;
   --color-secondary: #44403C;
-  --color-cta: #FBBF24;
-  --color-cta-hover: #F59E0B;
+  --color-cta: #c4f567;
+  --color-cta-hover: #a8e04a;
   --color-bg: #0A0A0A;
   --color-bg-card: #171717;
   --color-bg-card-hover: #262626;
@@ -24,10 +24,10 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-cta text-bg px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border border-cta/50 shadow-[0_0_15px_-3px_rgba(251,191,36,0.4)];
+    @apply bg-cta text-bg px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border border-cta/50 shadow-[0_0_15px_-3px_rgba(196,245,103,0.4)];
   }
   .btn-primary:hover {
-    @apply bg-cta-hover shadow-[0_0_20px_-3px_rgba(245,158,11,0.6)] -translate-y-[1px];
+    @apply bg-cta-hover shadow-[0_0_20px_-3px_rgba(168,224,74,0.6)] -translate-y-[1px];
   }
 
   .btn-secondary {
@@ -41,7 +41,7 @@
     @apply bg-bg-card/80 backdrop-blur-xl rounded-2xl p-6 border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300;
   }
   .card-clickable {
-    @apply cursor-pointer hover:shadow-[0_8px_30px_rgba(251,191,36,0.1)] hover:-translate-y-[2px] hover:bg-bg-card-hover/90 hover:border-white/20;
+    @apply cursor-pointer hover:shadow-[0_8px_30px_rgba(196,245,103,0.08)] hover:-translate-y-[2px] hover:bg-bg-card-hover/90 hover:border-white/20;
   }
 
   .input {
@@ -69,8 +69,9 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(circle at 15% 50%, rgba(251, 191, 36, 0.06), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.03), transparent 25%);
+    radial-gradient(circle at 15% 50%, rgba(196, 245, 103, 0.05), transparent 28%),
+    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.025), transparent 25%),
+    radial-gradient(circle at 60% 80%, rgba(168, 224, 74, 0.03), transparent 20%);
   background-attachment: fixed;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
@@ -88,8 +89,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -97,17 +98,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(196, 245, 103, 0.12);
+  border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(196, 245, 103, 0.25);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: rgba(196, 245, 103, 0.12) transparent;
 }
 
 @keyframes verdict-pulse {
@@ -116,8 +117,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes hero-glow {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.3)); }
-  50% { opacity: 0.8; filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.1)); }
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 15px rgba(196, 245, 103, 0.3)); }
+  50% { opacity: 0.85; filter: drop-shadow(0 0 5px rgba(196, 245, 103, 0.1)); }
 }
 
 .animate-verdict-pulse {
@@ -133,6 +134,16 @@ h1, h2, h3, h4, h5, h6 {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to { background-position: 200% center; }
+}
+
 .animate-fade-in {
   animation: fade-in 400ms ease-out forwards;
 }
@@ -145,6 +156,26 @@ h1, h2, h3, h4, h5, h6 {
 .animate-fade-in-delay-2 {
   animation: fade-in 400ms ease-out 200ms forwards;
   opacity: 0;
+}
+
+.animate-slide-up {
+  animation: slide-up 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Shimmer gradient text utility */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #c4f567 0%,
+    #e8ffb0 40%,
+    #c4f567 60%,
+    #a8e04a 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

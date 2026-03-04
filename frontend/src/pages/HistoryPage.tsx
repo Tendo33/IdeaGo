@@ -168,7 +168,7 @@ export function HistoryPage() {
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px hover:shadow-[0_4px_10px_rgba(251,191,36,0.1)] cursor-pointer"
+                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(196,245,103,0.08)] cursor-pointer"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
