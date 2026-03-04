@@ -47,6 +47,18 @@ function binarySearchOffset(offsets: number[], target: number): number {
   return Math.max(0, Math.min(offsets.length - 2, low))
 }
 
+function createCompetitorSignature(competitors: Competitor[]): string {
+  let hash = 2166136261
+  for (const competitor of competitors) {
+    const competitorId = getCompetitorId(competitor)
+    for (let index = 0; index < competitorId.length; index += 1) {
+      hash ^= competitorId.charCodeAt(index)
+      hash = Math.imul(hash, 16777619)
+    }
+  }
+  return `${competitors.length}:${(hash >>> 0).toString(36)}`
+}
+
 export function VirtualizedCompetitorList({
   competitors,
   viewMode,
@@ -62,7 +74,7 @@ export function VirtualizedCompetitorList({
     viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT : ESTIMATED_LIST_ROW_HEIGHT
   const rowCount = Math.ceil(competitors.length / columns)
   const competitorSignature = useMemo(
-    () => competitors.map(competitor => getCompetitorId(competitor)).join('|'),
+    () => createCompetitorSignature(competitors),
     [competitors],
   )
   const resetKey = `${viewMode}:${columns}:${competitorSignature}`

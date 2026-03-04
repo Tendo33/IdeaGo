@@ -128,14 +128,29 @@ class FileCache:
             )
             self._write_index(index)
 
-    async def list_reports(self) -> list[ReportIndex]:
+    async def list_reports(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[ReportIndex]:
         """List cached reports, excluding expired entries."""
-        return await asyncio.to_thread(self._list_reports_sync)
+        return await asyncio.to_thread(self._list_reports_sync, limit, offset)
 
-    def _list_reports_sync(self) -> list[ReportIndex]:
+    def _list_reports_sync(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[ReportIndex]:
         with self._index_lock:
             index = self._read_index()
-        return [e for e in index if not self._is_expired(e.created_at)]
+        reports = [e for e in index if not self._is_expired(e.created_at)]
+        reports.sort(key=lambda entry: entry.created_at, reverse=True)
+        if offset > 0:
+            reports = reports[offset:]
+        if limit is not None:
+            reports = reports[:limit]
+        return reports
 
     async def delete(self, report_id: str) -> bool:
         """Delete a cached report by ID."""

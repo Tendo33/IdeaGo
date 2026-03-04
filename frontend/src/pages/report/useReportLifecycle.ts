@@ -13,6 +13,33 @@ import type { ReportRuntimeStatus, ResearchReport } from '../../types/research'
 
 export type LoadPhase = 'loading' | 'processing' | 'ready'
 export type ReportLoadErrorKind = 'system' | 'runtime'
+const COMPLETE_MISSING_POLL_ATTEMPTS = 3
+const COMPLETE_MISSING_BASE_DELAY_MS = 250
+const COMPLETE_MISSING_MAX_DELAY_MS = 1500
+
+function isAbortSignalError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function waitWithBackoff(attempt: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'))
+  }
+
+  const delayMs = Math.min(COMPLETE_MISSING_BASE_DELAY_MS * Math.pow(2, attempt), COMPLETE_MISSING_MAX_DELAY_MS)
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort)
+      resolve()
+    }, delayMs)
+    const handleAbort = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', handleAbort)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    signal?.addEventListener('abort', handleAbort)
+  })
+}
 
 export interface ReportLifecycleState {
   loadPhase: LoadPhase
@@ -77,6 +104,32 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
     setShowReport(true)
   }, [clearRevealTimer, revealReportSoon])
 
+  const applyRuntimeStatus = useCallback((status: ReportRuntimeStatus) => {
+    setRuntimeStatus(status)
+    setLoadPhase('ready')
+
+    if (status.status === 'failed') {
+      setLoadError(status.message ?? t('report.error.failedStatus'))
+      setLoadErrorKind('runtime')
+      return
+    }
+
+    if (status.status === 'cancelled') {
+      setLoadError(status.message ?? t('report.error.cancelledStatus'))
+      setLoadErrorKind('runtime')
+      return
+    }
+
+    if (status.status === 'not_found') {
+      setLoadError(status.message ?? t('report.error.notFoundStatus'))
+      setLoadErrorKind('runtime')
+      return
+    }
+
+    setLoadError(t('report.error.unavailableStatus'))
+    setLoadErrorKind('system')
+  }, [t])
+
   const resolveMissingReportStatus = useCallback(
     async (reportId: string, signal?: AbortSignal): Promise<void> => {
       const status = await getReportRuntimeStatus(reportId, { signal })
@@ -93,31 +146,51 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
         return
       }
 
-      setRuntimeStatus(status)
-      setLoadPhase('ready')
-
-      if (status.status === 'failed') {
-        setLoadError(status.message ?? t('report.error.failedStatus'))
-        setLoadErrorKind('runtime')
-        return
-      }
-
-      if (status.status === 'cancelled') {
-        setLoadError(status.message ?? t('report.error.cancelledStatus'))
-        setLoadErrorKind('runtime')
-        return
-      }
-
-      if (status.status === 'not_found') {
-        setLoadError(status.message ?? t('report.error.notFoundStatus'))
-        setLoadErrorKind('runtime')
-        return
-      }
-
-      setLoadError(t('report.error.unavailableStatus'))
-      setLoadErrorKind('system')
+      applyRuntimeStatus(status)
     },
-    [clearRevealTimer, t],
+    [applyRuntimeStatus, clearRevealTimer],
+  )
+
+  const resolveMissingAfterComplete = useCallback(
+    async (reportId: string, signal?: AbortSignal): Promise<void> => {
+      for (let attempt = 0; attempt < COMPLETE_MISSING_POLL_ATTEMPTS; attempt += 1) {
+        const status = await getReportRuntimeStatus(reportId, { signal })
+        setRetryQuery(status.query ?? null)
+
+        if (status.status === 'processing') {
+          if (attempt < COMPLETE_MISSING_POLL_ATTEMPTS - 1) {
+            await waitWithBackoff(attempt, signal)
+            continue
+          }
+          setRuntimeStatus(null)
+          setLoadError(null)
+          setLoadErrorKind(null)
+          setLoadPhase('processing')
+          return
+        }
+
+        if (status.status === 'complete') {
+          const refreshed = await getReportWithStatus(reportId, { signal })
+          if (refreshed.status === 'ready') {
+            setReadyReportState(refreshed.report, true)
+            return
+          }
+          if (attempt < COMPLETE_MISSING_POLL_ATTEMPTS - 1) {
+            await waitWithBackoff(attempt, signal)
+            continue
+          }
+          setRuntimeStatus(status)
+          setLoadError(t('report.error.unavailableStatus'))
+          setLoadErrorKind('system')
+          setLoadPhase('ready')
+          return
+        }
+
+        applyRuntimeStatus(status)
+        return
+      }
+    },
+    [applyRuntimeStatus, setReadyReportState, t],
   )
 
   useEffect(() => {
@@ -168,16 +241,16 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
         }
 
         if (result.status === 'missing') {
-          await resolveMissingReportStatus(id, controller.signal)
+          await resolveMissingAfterComplete(id, controller.signal)
         }
       })
       .catch(error => {
-        if (isRequestAbortError(error)) return
+        if (isRequestAbortError(error) || isAbortSignalError(error)) return
         setLoadError(error instanceof Error ? error.message : t('report.error.unavailableStatus'))
         setLoadErrorKind('system')
       })
     return () => controller.abort()
-  }, [cancelled, id, isComplete, loadPhase, resolveMissingReportStatus, setReadyReportState, sseError, t])
+  }, [cancelled, id, isComplete, loadPhase, resolveMissingAfterComplete, setReadyReportState, sseError, t])
 
   const retryWithQuery = useCallback(
     (query: string | undefined) => {

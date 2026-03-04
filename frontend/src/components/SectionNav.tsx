@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface NavSection {
   id: string
@@ -8,15 +8,22 @@ interface NavSection {
 
 interface SectionNavProps {
   sections: NavSection[]
+  sectionIdsKey?: string
 }
 
-export function SectionNav({ sections }: SectionNavProps) {
+export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
   const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? '')
   const [visible, setVisible] = useState(false)
+  const stableSectionIdsKey = sectionIdsKey ?? sections.map(section => section.id).join('|')
+  const sectionIds = useMemo(
+    () => stableSectionIdsKey.split('|').filter(Boolean),
+    [stableSectionIdsKey],
+  )
+  const resolvedActiveId = sectionIds.includes(activeId) ? activeId : (sectionIds[0] ?? '')
 
   useEffect(() => {
-    const sectionEls = sections
-      .map(s => document.getElementById(s.id))
+    const sectionEls = sectionIds
+      .map(id => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null)
 
     if (sectionEls.length === 0) return
@@ -44,7 +51,7 @@ export function SectionNav({ sections }: SectionNavProps) {
       observer.disconnect()
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [sections])
+  }, [sectionIds])
 
   if (!visible) return null
 
@@ -64,7 +71,7 @@ export function SectionNav({ sections }: SectionNavProps) {
               key={s.id}
               onClick={() => handleClick(s.id)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap cursor-pointer transition-all duration-200 ${
-                activeId === s.id
+                resolvedActiveId === s.id
                   ? 'bg-cta/15 text-cta shadow-[0_0_10px_rgba(251,191,36,0.1)]'
                   : 'text-text-dim hover:text-text hover:bg-white/5'
               }`}

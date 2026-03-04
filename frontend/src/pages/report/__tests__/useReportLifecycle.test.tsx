@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '../../../api/client'
 import { useSSE } from '../../../api/useSSE'
 import { useReportLifecycle } from '../useReportLifecycle'
+import type { ResearchReport } from '../../../types/research'
 
 vi.mock('../../../api/client', () => ({
   cancelAnalysis: vi.fn(),
@@ -19,9 +20,54 @@ vi.mock('../../../api/useSSE', () => ({
 
 describe('useReportLifecycle', () => {
   const navigate = vi.fn() as unknown as NavigateFunction
+  const reportFixture: ResearchReport = {
+    id: 'r-ready',
+    query: 'Niche AI assistant for legal teams',
+    intent: {
+      keywords_en: ['ai', 'assistant'],
+      keywords_zh: [],
+      app_type: 'web',
+      target_scenario: 'legal workflow',
+    },
+    source_results: [],
+    competitors: [],
+    market_summary: 'summary',
+    go_no_go: 'go',
+    recommendation_type: 'go',
+    differentiation_angles: [],
+    confidence: {
+      sample_size: 0,
+      source_coverage: 0,
+      source_success_rate: 0,
+      freshness_hint: 'Fresh',
+      score: 0,
+    },
+    evidence_summary: {
+      top_evidence: [],
+      evidence_items: [],
+    },
+    cost_breakdown: {
+      llm_calls: 0,
+      llm_retries: 0,
+      endpoint_failovers: 0,
+      source_calls: 0,
+      pipeline_latency_ms: 0,
+      tokens_prompt: 0,
+      tokens_completion: 0,
+    },
+    report_meta: {
+      llm_fault_tolerance: {
+        fallback_used: false,
+        endpoints_tried: ['primary'],
+        last_error_class: '',
+      },
+    },
+    created_at: new Date().toISOString(),
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
     vi.mocked(useSSE).mockReturnValue({
       events: [],
       isComplete: false,
@@ -77,5 +123,61 @@ describe('useReportLifecycle', () => {
       expect(startAnalysis).toHaveBeenCalledWith('Local food delivery startup')
       expect(navigate).toHaveBeenCalledWith('/reports/r-retry')
     })
+  })
+
+  it('polls runtime status when stream completes but report is still missing', async () => {
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: null,
+      cancelled: null,
+      retry: vi.fn(),
+    })
+
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockResolvedValueOnce({ status: 'missing' })
+      .mockResolvedValueOnce({ status: 'ready', report: reportFixture })
+    vi.mocked(getReportRuntimeStatus)
+      .mockResolvedValueOnce({
+        status: 'processing',
+        report_id: 'r-ready',
+        query: reportFixture.query,
+      })
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-ready',
+        query: reportFixture.query,
+      })
+
+    const { result } = renderHook(() => useReportLifecycle('r-ready', navigate))
+
+    await waitFor(() => {
+      expect(result.current.loadPhase).toBe('ready')
+      expect(result.current.report?.id).toBe('r-ready')
+    })
+
+    expect(getReportRuntimeStatus).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps connection errors separate from runtime-status errors', async () => {
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: false,
+      isReconnecting: false,
+      error: 'Connection lost',
+      cancelled: null,
+      retry: vi.fn(),
+    })
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'processing' })
+
+    const { result } = renderHook(() => useReportLifecycle('r-processing', navigate))
+
+    await waitFor(() => {
+      expect(result.current.sseError).toBe('Connection lost')
+    })
+    expect(result.current.loadError).toBeNull()
+    expect(result.current.loadErrorKind).toBeNull()
   })
 })

@@ -21,13 +21,11 @@ interface CompetitorCardProps {
   onToggleCompare?: () => void
 }
 
-function LinkWithFavicon({ link, name }: { link: string; name: string }) {
+function LinkWithHost({ link, name }: { link: string; name: string }) {
   let hostname = 'link'
-  let faviconUrl = ''
   try {
     const u = new URL(link)
-    hostname = u.hostname.replace('www.', '').split('.')[0]
-    faviconUrl = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=16`
+    hostname = u.hostname.replace(/^www\./, '')
   } catch { /* use defaults */ }
 
   return (
@@ -39,7 +37,6 @@ function LinkWithFavicon({ link, name }: { link: string; name: string }) {
       className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer"
       aria-label={`Open ${name} on ${hostname}`}
     >
-      {faviconUrl && <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm" loading="lazy" />}
       <ExternalLink className="w-3 h-3" />
       {hostname}
     </a>
@@ -160,7 +157,7 @@ export function CompetitorCard({
           </div>
           <div className="flex flex-wrap gap-2">
             {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
-              <LinkWithFavicon key={i} link={link} name={competitor.name} />
+              <LinkWithHost key={i} link={link} name={competitor.name} />
             ))}
           </div>
         </div>

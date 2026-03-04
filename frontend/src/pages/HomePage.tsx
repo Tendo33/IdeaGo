@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
 import { isRequestAbortError, listReports, startAnalysis } from '../api/client'
@@ -6,6 +6,8 @@ import { Clock, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
 
+const MIN_QUERY_LENGTH = 5
+const MAX_QUERY_LENGTH = 1000
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -14,12 +16,13 @@ export function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
+  const isSubmittingRef = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
-    listReports({ signal: controller.signal })
+    listReports({ limit: 5, offset: 0, signal: controller.signal })
       .then(reports => {
-        setRecentReports(reports.slice(0, 5))
+        setRecentReports(reports)
         setRecentReportsError(null)
       })
       .catch(error => {
@@ -30,13 +33,25 @@ export function HomePage() {
   }, [t])
 
   const handleSubmit = async (query: string) => {
+    const normalizedQuery = query.trim()
+    if (
+      isSubmittingRef.current ||
+      normalizedQuery.length < MIN_QUERY_LENGTH ||
+      normalizedQuery.length > MAX_QUERY_LENGTH
+    ) {
+      return
+    }
+
+    isSubmittingRef.current = true
     setIsLoading(true)
     setError(null)
     try {
-      const { report_id } = await startAnalysis(query)
+      const { report_id } = await startAnalysis(normalizedQuery)
       navigate(`/reports/${report_id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
+    } finally {
+      isSubmittingRef.current = false
       setIsLoading(false)
     }
   }

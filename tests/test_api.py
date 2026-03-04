@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 import contextlib
 import hashlib
+import json
 import threading
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
@@ -305,6 +306,31 @@ def test_list_reports(client) -> None:
     data = response.json()
     assert len(data) == 1
     assert data[0]["query"] == "test idea"
+    mock_cache.list_reports.assert_awaited_once_with(limit=None, offset=0)
+
+
+def test_list_reports_with_pagination_query_params(client) -> None:
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.list_reports = AsyncMock(
+        return_value=[
+            ReportIndex(
+                report_id="paginated-id",
+                query="paged idea",
+                cache_key="k",
+                created_at=datetime.now(timezone.utc),
+                competitor_count=1,
+            )
+        ]
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
+        response = client.get("/api/v1/reports?limit=1&offset=20")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["id"] == "paginated-id"
+    mock_cache.list_reports.assert_awaited_once_with(limit=1, offset=20)
 
 
 def test_delete_report(client) -> None:
@@ -383,6 +409,97 @@ async def test_stream_reconnect_replays_history_and_terminal_event() -> None:
     assert replayed_events[-1] == EventType.REPORT_READY.value
     assert EventType.SOURCE_COMPLETED.value in replayed_events
     await reconnect_stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_status_only_processing_keeps_ping_until_complete() -> None:
+    report_id = "report-status-only-processing"
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_status = AsyncMock(
+        side_effect=[
+            {"status": "processing"},
+            {"status": "processing"},
+            {"status": "complete"},
+            {"status": "complete"},
+        ]
+    )
+    sleep_mock = AsyncMock(return_value=None)
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
+        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
+    ):
+        stream = analyze_route._stream_events(report_id)
+        first = await anext(stream)
+        second = await anext(stream)
+        terminal = await anext(stream)
+        await stream.aclose()
+
+    assert first["event"] == "ping"
+    assert second["event"] == "ping"
+    assert terminal["event"] == EventType.REPORT_READY.value
+    assert sleep_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_stream_status_only_processing_emits_failed_terminal_event() -> None:
+    report_id = "report-status-only-failed"
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_status = AsyncMock(
+        side_effect=[
+            {"status": "processing"},
+            {
+                "status": "failed",
+                "error_code": "PIPELINE_FAILURE",
+                "message": "Pipeline failed. Please retry.",
+            },
+            {
+                "status": "failed",
+                "error_code": "PIPELINE_FAILURE",
+                "message": "Pipeline failed. Please retry.",
+            },
+        ]
+    )
+    sleep_mock = AsyncMock(return_value=None)
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
+        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
+    ):
+        stream = analyze_route._stream_events(report_id)
+        first = await anext(stream)
+        terminal = await anext(stream)
+        await stream.aclose()
+
+    assert first["event"] == "ping"
+    assert terminal["event"] == EventType.ERROR.value
+    assert sleep_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_status_only_processing_times_out_with_terminal_error() -> None:
+    report_id = "report-status-only-stale-processing"
+    ping_iterations = 90
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_status = AsyncMock(
+        side_effect=[{"status": "processing"}] * (ping_iterations + 5)
+    )
+    sleep_mock = AsyncMock(return_value=None)
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
+        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
+    ):
+        stream = analyze_route._stream_events(report_id)
+        pings = [await anext(stream) for _ in range(ping_iterations)]
+        terminal = await anext(stream)
+        await stream.aclose()
+
+    assert all(item["event"] == "ping" for item in pings)
+    assert terminal["event"] == EventType.ERROR.value
+    payload = json.loads(terminal["data"])
+    assert payload["data"]["error_code"] == "PIPELINE_PROCESSING_STALE"
+    assert sleep_mock.await_count == ping_iterations
 
 
 @pytest.mark.asyncio

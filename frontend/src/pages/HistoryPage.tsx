@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, AlertCircle, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '../api/client'
 import { ReportCardSkeleton } from '../components/Skeleton'
 import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
+
+const PAGE_SIZE = 20
+const PAGE_FETCH_LIMIT = PAGE_SIZE + 1
 
 export function HistoryPage() {
   const navigate = useNavigate()
@@ -14,6 +17,19 @@ export function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const [pageIndex, setPageIndex] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const loadPage = useCallback(async (targetPage: number, signal?: AbortSignal) => {
+    const fetched = await listReports({
+      limit: PAGE_FETCH_LIMIT,
+      offset: targetPage * PAGE_SIZE,
+      signal,
+    })
+    return {
+      reports: fetched.slice(0, PAGE_SIZE),
+      hasNext: fetched.length > PAGE_SIZE,
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return reports
@@ -23,9 +39,16 @@ export function HistoryPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    listReports({ signal: controller.signal })
-      .then(data => {
-        setReports(data)
+    setLoading(true)
+    loadPage(pageIndex, controller.signal)
+      .then(({ reports: nextReports, hasNext }) => {
+        if (!controller.signal.aborted && nextReports.length === 0 && pageIndex > 0) {
+          setPageIndex(previous => Math.max(0, previous - 1))
+          return
+        }
+        setReports(nextReports)
+        setHasNextPage(hasNext)
+        setError(null)
       })
       .catch(error => {
         if (isRequestAbortError(error)) return
@@ -37,7 +60,7 @@ export function HistoryPage() {
         }
       })
     return () => controller.abort()
-  }, [t])
+  }, [loadPage, pageIndex, t])
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -53,7 +76,19 @@ export function HistoryPage() {
 
     try {
       await deleteReport(id)
-      setReports(prev => prev.filter(r => r.id !== id))
+      const targetPage = reports.length === 1 && pageIndex > 0 ? pageIndex - 1 : pageIndex
+      if (targetPage !== pageIndex) {
+        setPageIndex(targetPage)
+        return
+      }
+
+      const { reports: refreshed, hasNext } = await loadPage(targetPage)
+      if (refreshed.length === 0 && targetPage > 0) {
+        setPageIndex(targetPage - 1)
+        return
+      }
+      setReports(refreshed)
+      setHasNextPage(hasNext)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('history.errorDelete'))
     } finally {
@@ -177,6 +212,28 @@ export function HistoryPage() {
 
         {!loading && reports.length > 0 && filtered.length === 0 && searchQuery.trim() && (
           <p className="py-8 text-center text-sm text-text-dim">{t('history.noMatch', { query: searchQuery })}</p>
+        )}
+
+        {!loading && !error && (reports.length > 0 || pageIndex > 0) && (
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={() => setPageIndex(previous => Math.max(0, previous - 1))}
+              disabled={pageIndex === 0}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer enabled:hover:border-cta/30 enabled:hover:text-text-muted"
+            >
+              {t('history.prevPage')}
+            </button>
+            <span className="text-xs text-text-dim">
+              {t('history.pageLabel', { page: pageIndex + 1 })}
+            </span>
+            <button
+              onClick={() => setPageIndex(previous => previous + 1)}
+              disabled={!hasNextPage}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer enabled:hover:border-cta/30 enabled:hover:text-text-muted"
+            >
+              {t('history.nextPage')}
+            </button>
+          </div>
         )}
       </div>
     </div>

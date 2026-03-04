@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, cast
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, get_processing_reports
@@ -29,10 +29,13 @@ def _parse_status_updated_at(raw_value: object) -> datetime | None:
 
 
 @router.get("/reports", response_model=list[ReportListItem])
-async def list_reports() -> list[ReportListItem]:
+async def list_reports(
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> list[ReportListItem]:
     """List all cached research reports."""
     cache = get_cache()
-    entries = await cache.list_reports()
+    entries = await cache.list_reports(limit=limit, offset=offset)
     return [
         ReportListItem(
             id=e.report_id,
@@ -40,7 +43,7 @@ async def list_reports() -> list[ReportListItem]:
             created_at=e.created_at,
             competitor_count=e.competitor_count,
         )
-        for e in sorted(entries, key=lambda x: x.created_at, reverse=True)
+        for e in entries
     ]
 
 

@@ -7,6 +7,20 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 15000
 const MAX_EVENT_HISTORY = 200
+const STREAM_EVENT_TYPES = [
+  'intent_started',
+  'intent_parsed',
+  'source_started',
+  'source_completed',
+  'source_failed',
+  'extraction_started',
+  'extraction_completed',
+  'aggregation_started',
+  'aggregation_completed',
+  'report_ready',
+  'cancelled',
+  'error',
+] as const
 
 interface SSEState {
   events: PipelineEvent[]
@@ -61,77 +75,10 @@ export interface UseSSEResult {
   retry: () => void
 }
 
-function createConnection(
-  id: string,
-  dispatch: React.Dispatch<SSEAction>,
-  sourceRef: React.RefObject<EventSource | null>,
-  attemptRef: React.RefObject<number>,
-  reconnectTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
-  isCompleteRef: React.RefObject<boolean>,
-  selfRef: React.RefObject<((id: string) => void) | null>,
-) {
-  if (isCompleteRef.current) return
-
-  if (sourceRef.current) {
-    sourceRef.current.close()
-    sourceRef.current = null
-  }
-  if (reconnectTimerRef.current) {
-    clearTimeout(reconnectTimerRef.current)
-    reconnectTimerRef.current = null
-  }
-
-  const es = new EventSource(getStreamUrl(id))
-  sourceRef.current = es
-
-  const handleEvent = (e: MessageEvent) => {
-    try {
-      const event: PipelineEvent = JSON.parse(e.data)
-      attemptRef.current = 0
-      dispatch({ type: 'event', event })
-      if (event.type === 'report_ready') {
-        dispatch({ type: 'complete' })
-        es.close()
-      }
-      if (event.type === 'error') {
-        dispatch({ type: 'error', message: event.message })
-        es.close()
-      }
-      if (event.type === 'cancelled') {
-        dispatch({ type: 'cancelled', message: event.message })
-        es.close()
-      }
-    } catch {
-      // ignore parse errors from ping events
-    }
-  }
-
-  const eventTypes = [
-    'intent_started',
-    'intent_parsed', 'source_started', 'source_completed', 'source_failed',
-    'extraction_started', 'extraction_completed',
-    'aggregation_started', 'aggregation_completed',
-    'report_ready', 'cancelled', 'error',
-  ]
-  for (const t of eventTypes) {
-    es.addEventListener(t, handleEvent)
-  }
-
-  es.onerror = () => {
-    es.close()
-    sourceRef.current = null
-
-    if (isCompleteRef.current) return
-
-    attemptRef.current = (attemptRef.current ?? 0) + 1
-    if ((attemptRef.current ?? 0) > MAX_RECONNECT_ATTEMPTS) {
-      dispatch({ type: 'error', message: i18n.t('report.error.connectionLost') })
-      return
-    }
-
-    dispatch({ type: 'reconnecting' })
-    const delay = Math.min(BASE_DELAY_MS * Math.pow(2, (attemptRef.current ?? 1) - 1), MAX_DELAY_MS)
-    reconnectTimerRef.current = setTimeout(() => selfRef.current?.(id), delay)
+function clearReconnectTimer(timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>): void {
+  if (timerRef.current) {
+    clearTimeout(timerRef.current)
+    timerRef.current = null
   }
 }
 
@@ -147,45 +94,119 @@ export function useSSE(reportId: string | null): UseSSEResult {
   const attemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isCompleteRef = useRef(false)
-  const connectFnRef = useRef<((id: string) => void) | null>(null)
+  const cleanupConnectionRef = useRef<(() => void) | null>(null)
+  const connectRef = useRef<((id: string) => void) | null>(null)
+
+  const cleanupConnection = useCallback(() => {
+    if (cleanupConnectionRef.current) {
+      cleanupConnectionRef.current()
+      cleanupConnectionRef.current = null
+      return
+    }
+    if (sourceRef.current) {
+      sourceRef.current.close()
+      sourceRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     isCompleteRef.current = state.isComplete
   }, [state.isComplete])
 
+  const connect = useCallback((id: string) => {
+    if (isCompleteRef.current) return
+    cleanupConnection()
+    clearReconnectTimer(reconnectTimerRef)
+
+    const es = new EventSource(getStreamUrl(id))
+    sourceRef.current = es
+
+    const cleanupCurrentEventSource = () => {
+      for (const eventType of STREAM_EVENT_TYPES) {
+        es.removeEventListener(eventType, handleEvent)
+      }
+      es.onerror = null
+      es.close()
+      if (sourceRef.current === es) {
+        sourceRef.current = null
+      }
+    }
+
+    const handleEvent = (e: MessageEvent) => {
+      if (sourceRef.current !== es) return
+      try {
+        const event: PipelineEvent = JSON.parse(e.data)
+        attemptRef.current = 0
+        dispatch({ type: 'event', event })
+        if (event.type === 'report_ready') {
+          dispatch({ type: 'complete' })
+          cleanupCurrentEventSource()
+          cleanupConnectionRef.current = null
+        }
+        if (event.type === 'error') {
+          dispatch({ type: 'error', message: event.message })
+          cleanupCurrentEventSource()
+          cleanupConnectionRef.current = null
+        }
+        if (event.type === 'cancelled') {
+          dispatch({ type: 'cancelled', message: event.message })
+          cleanupCurrentEventSource()
+          cleanupConnectionRef.current = null
+        }
+      } catch {
+        // ignore parse errors from ping events
+      }
+    }
+
+    cleanupConnectionRef.current = cleanupCurrentEventSource
+    for (const eventType of STREAM_EVENT_TYPES) {
+      es.addEventListener(eventType, handleEvent)
+    }
+
+    es.onerror = () => {
+      if (sourceRef.current !== es) return
+      cleanupCurrentEventSource()
+      cleanupConnectionRef.current = null
+
+      if (isCompleteRef.current) return
+
+      attemptRef.current += 1
+      if (attemptRef.current > MAX_RECONNECT_ATTEMPTS) {
+        dispatch({ type: 'error', message: i18n.t('report.error.connectionLost') })
+        return
+      }
+
+      dispatch({ type: 'reconnecting' })
+      const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attemptRef.current - 1), MAX_DELAY_MS)
+      reconnectTimerRef.current = setTimeout(() => connectRef.current?.(id), delay)
+    }
+  }, [cleanupConnection])
+
   useEffect(() => {
-    connectFnRef.current = (id: string) =>
-      createConnection(id, dispatch, sourceRef, attemptRef, reconnectTimerRef, isCompleteRef, connectFnRef)
-  })
+    connectRef.current = connect
+  }, [connect])
 
   const retry = useCallback(() => {
     if (!reportId) return
     dispatch({ type: 'reset' })
     attemptRef.current = 0
-    connectFnRef.current?.(reportId)
-  }, [reportId])
+    isCompleteRef.current = false
+    connect(reportId)
+  }, [connect, reportId])
 
   useEffect(() => {
     if (!reportId) return
 
     dispatch({ type: 'reset' })
     attemptRef.current = 0
-    const fn = (id: string) =>
-      createConnection(id, dispatch, sourceRef, attemptRef, reconnectTimerRef, isCompleteRef, connectFnRef)
-    connectFnRef.current = fn
-    fn(reportId)
+    isCompleteRef.current = false
+    connect(reportId)
 
     return () => {
-      if (sourceRef.current) {
-        sourceRef.current.close()
-        sourceRef.current = null
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current)
-        reconnectTimerRef.current = null
-      }
+      cleanupConnection()
+      clearReconnectTimer(reconnectTimerRef)
     }
-  }, [reportId])
+  }, [cleanupConnection, connect, reportId])
 
   return { ...state, retry }
 }

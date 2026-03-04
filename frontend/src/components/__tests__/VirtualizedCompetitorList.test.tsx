@@ -88,4 +88,39 @@ describe('VirtualizedCompetitorList', () => {
 
     expect(scroller.scrollTop).toBe(0)
   })
+
+  it('resets scroll position when competitor identity changes', () => {
+    const competitors = createCompetitors(80)
+    const { container, rerender } = render(
+      <VirtualizedCompetitorList
+        competitors={competitors}
+        viewMode="list"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    const scroller = container.firstChild as HTMLElement
+    scroller.scrollTop = 300
+    fireEvent.scroll(scroller)
+    expect(scroller.scrollTop).toBe(300)
+
+    const updatedCompetitors = [...competitors]
+    updatedCompetitors[0] = {
+      ...updatedCompetitors[0],
+      source_urls: ['https://changed-source.example.com'],
+      links: ['https://changed-source.example.com'],
+    }
+
+    rerender(
+      <VirtualizedCompetitorList
+        competitors={updatedCompetitors}
+        viewMode="list"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    expect(scroller.scrollTop).toBe(0)
+  })
 })

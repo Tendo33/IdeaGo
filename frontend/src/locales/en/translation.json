@@ -22,7 +22,11 @@
     "placeholder": "Describe your startup idea...",
     "example": "e.g. \"A browser extension that converts web pages to Markdown notes\"",
     "button": "Analyze Idea",
-    "analyzing": "Analyzing..."
+    "analyzing": "Analyzing...",
+    "tooShort": "Enter at least {{min}} characters (currently {{current}}).",
+    "tooLong": "Keep it under {{max}} characters.",
+    "lengthCount": "{{current}} / {{max}} characters",
+    "submittingHint": "Submitting your idea..."
   },
   "history": {
     "back": "Back to search",
@@ -35,7 +39,10 @@
     "errorDelete": "Failed to delete report.",
     "emptyState": "No research reports yet.",
     "startFirst": "Start your first research",
-    "noMatch": "No reports match \"{{query}}\""
+    "noMatch": "No reports match \"{{query}}\"",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageLabel": "Page {{page}}"
   },
   "error": {
     "title": "Something went wrong",

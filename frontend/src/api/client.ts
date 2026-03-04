@@ -9,6 +9,11 @@ export interface RequestOptions {
   timeoutMs?: number
 }
 
+export interface ListReportsOptions extends RequestOptions {
+  limit?: number
+  offset?: number
+}
+
 export function isRequestAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError'
 }
@@ -137,8 +142,18 @@ export async function getReportRuntimeStatus(
   return res.json()
 }
 
-export async function listReports(options: RequestOptions = {}): Promise<ReportListItem[]> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports`, {}, options, DEFAULT_TIMEOUT_MS)
+export async function listReports(options: ListReportsOptions = {}): Promise<ReportListItem[]> {
+  const { limit, offset, ...requestOptions } = options
+  const params = new URLSearchParams()
+  if (typeof limit === 'number') {
+    params.set('limit', String(limit))
+  }
+  if (typeof offset === 'number') {
+    params.set('offset', String(offset))
+  }
+  const query = params.toString()
+  const url = query ? `${API_BASE}/reports?${query}` : `${API_BASE}/reports`
+  const res = await fetchWithTimeout(url, {}, requestOptions, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to list reports'))
   return res.json()
 }

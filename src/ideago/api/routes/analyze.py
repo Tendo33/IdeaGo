@@ -34,6 +34,11 @@ logger = get_logger(__name__)
 
 router = APIRouter(tags=["analyze"])
 _TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}
+_STATUS_ONLY_PING_INTERVAL_SECONDS = 2
+_STATUS_ONLY_MAX_WAIT_SECONDS = 180
+_STATUS_ONLY_MAX_PINGS = (
+    _STATUS_ONLY_MAX_WAIT_SECONDS // _STATUS_ONLY_PING_INTERVAL_SECONDS
+)
 
 
 async def _mark_cancelled(report_id: str) -> None:
@@ -170,16 +175,43 @@ async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
     """Yield replay + live SSE events for a report run."""
     run_state = get_report_run(report_id)
     if run_state is None:
-        terminal = await _status_terminal_event(report_id)
-        if terminal is None:
-            terminal = PipelineEvent(
-                type=EventType.ERROR,
-                stage="pipeline",
-                message="No active analysis found for this report",
-                data={"report_id": report_id},
-            )
-        yield {"event": terminal.type.value, "data": terminal.to_sse()}
-        return
+        processing_ping_count = 0
+        while True:
+            status = await get_cache().get_status(report_id)
+            if status and status.get("status") == "processing":
+                if processing_ping_count >= _STATUS_ONLY_MAX_PINGS:
+                    stale_terminal = PipelineEvent(
+                        type=EventType.ERROR,
+                        stage="pipeline",
+                        message=(
+                            "Analysis is still marked processing but no active "
+                            "runtime was found. Please retry."
+                        ),
+                        data={
+                            "report_id": report_id,
+                            "error_code": "PIPELINE_PROCESSING_STALE",
+                        },
+                    )
+                    yield {
+                        "event": stale_terminal.type.value,
+                        "data": stale_terminal.to_sse(),
+                    }
+                    return
+                processing_ping_count += 1
+                yield {"event": "ping", "data": "{}"}
+                await asyncio.sleep(_STATUS_ONLY_PING_INTERVAL_SECONDS)
+                continue
+
+            terminal = await _status_terminal_event(report_id)
+            if terminal is None:
+                terminal = PipelineEvent(
+                    type=EventType.ERROR,
+                    stage="pipeline",
+                    message="No active analysis found for this report",
+                    data={"report_id": report_id},
+                )
+            yield {"event": terminal.type.value, "data": terminal.to_sse()}
+            return
 
     for event in run_state.history_snapshot():
         yield {"event": event.type.value, "data": event.to_sse()}

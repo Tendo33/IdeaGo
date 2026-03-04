@@ -26,6 +26,10 @@ class MockEventSource {
     this.listeners.get(type)!.add(handler)
   }
 
+  removeEventListener(type: string, handler: EventHandler) {
+    this.listeners.get(type)?.delete(handler)
+  }
+
   emit(type: string, payload: Record<string, unknown>) {
     const handlers = this.listeners.get(type)
     if (!handlers) return
@@ -97,5 +101,45 @@ describe('useSSE', () => {
     })
 
     expect(result.current.events).toHaveLength(1)
+  })
+
+  it('ignores stale source listeners after reconnect', async () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useSSE('r1'))
+
+    expect(MockEventSource.instances).toHaveLength(1)
+    const first = MockEventSource.instances[0]
+
+    act(() => {
+      first.onerror?.()
+    })
+
+    await act(async () => {
+      vi.runAllTimers()
+      await Promise.resolve()
+    })
+
+    expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(2)
+    const second = MockEventSource.instances[1]
+
+    act(() => {
+      first.emit('source_completed', {
+        type: 'source_completed',
+        stage: 'github_search',
+        message: 'Old source event',
+        data: { platform: 'github', count: 2 },
+        timestamp: '2026-02-24T15:00:00.000Z',
+      })
+      second.emit('source_completed', {
+        type: 'source_completed',
+        stage: 'tavily_search',
+        message: 'Fresh source event',
+        data: { platform: 'tavily', count: 4 },
+        timestamp: '2026-02-24T15:00:01.000Z',
+      })
+    })
+
+    expect(result.current.events).toHaveLength(1)
+    expect(result.current.events[0]?.stage).toBe('tavily_search')
   })
 })

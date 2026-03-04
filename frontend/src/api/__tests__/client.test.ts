@@ -144,6 +144,20 @@ describe('listReports', () => {
     )
     expect(result).toEqual(reports)
   })
+
+  it('supports limit and offset query parameters', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve([]),
+    })
+
+    await listReports({ limit: 5, offset: 20 })
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/v1\/reports\?limit=5&offset=20$/),
+      expect.objectContaining({ signal: expect.anything() }),
+    )
+  })
 })
 
 describe('deleteReport', () => {

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useMemo, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ArrowUpDown, Info, LayoutGrid, List, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -33,6 +33,7 @@ const SECTION_NAV_ITEMS = (count: number, t: TFunction) => [
   { id: 'section-competitors', label: t('report.sections.competitors'), count },
   { id: 'section-opportunities', label: t('report.sections.opportunities') },
 ]
+const SECTION_IDS_KEY = 'section-summary|section-landscape|section-competitors|section-opportunities'
 
 const cardStagger = {
   hidden: { opacity: 0, y: 16 },
@@ -183,6 +184,10 @@ export function ReportContentPane({
   const shouldAnimateCards = !reduceMotion && filteredCompetitors.length <= 20
   const shouldUseVirtualization =
     filteredCompetitors.length >= VIRTUALIZATION_THRESHOLD
+  const sectionNavItems = useMemo(
+    () => SECTION_NAV_ITEMS(report.competitors.length, t),
+    [report.competitors.length, t],
+  )
 
   const renderCardWrapper = (
     key: string,
@@ -211,7 +216,7 @@ export function ReportContentPane({
       <ReportHeader report={report} />
 
       {showReport && !allFailed && (
-        <SectionNav sections={SECTION_NAV_ITEMS(report.competitors.length, t)} />
+        <SectionNav sections={sectionNavItems} sectionIdsKey={SECTION_IDS_KEY} />
       )}
 
       {cancelledMessage && (

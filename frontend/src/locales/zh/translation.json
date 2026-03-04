@@ -22,7 +22,11 @@
     "placeholder": "描述您的创业想法...",
     "example": "例如：“一个将网页转换为 Markdown 笔记的浏览器插件”",
     "button": "分析想法",
-    "analyzing": "分析中..."
+    "analyzing": "分析中...",
+    "tooShort": "请至少输入 {{min}} 个字符（当前 {{current}}）。",
+    "tooLong": "请输入不超过 {{max}} 个字符。",
+    "lengthCount": "{{current}} / {{max}} 字符",
+    "submittingHint": "正在提交您的想法..."
   },
   "history": {
     "back": "返回搜索",
@@ -35,7 +39,10 @@
     "errorDelete": "删除报告失败。",
     "emptyState": "暂无调研报告。",
     "startFirst": "开始您的第一次调研",
-    "noMatch": "没有与“{{query}}”匹配的报告"
+    "noMatch": "没有与“{{query}}”匹配的报告",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "pageLabel": "第 {{page}} 页"
   },
   "error": {
     "title": "出错了",
