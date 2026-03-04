@@ -2,252 +2,285 @@
 
 ![IdeaGo Banner](docs/assets/banner.png)
 
-AI-powered competitor research engine for startup ideas. Input a natural language description of your idea, get a structured report with real competitors, market analysis, and differentiation opportunities — all backed by actual data from GitHub, web search, Hacker News, and App Store search.
+AI-powered competitor research engine for startup ideas.
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A)](https://www.langchain.com/langgraph)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-- **Intent Parsing** — LLM extracts keywords, app type, and generates platform-specific search queries
-- **Multi-Source Search** — Concurrent search across GitHub, Tavily (web), Hacker News, and App Store
-- **LLM Fault Tolerance** — Error-classified retries, endpoint failover, and JSON-parse retry recovery
-- **LangGraph Pipeline** — State-graph orchestration for intent parsing, source fetch, extraction map, and aggregation reduce
-- **Real-Time Progress** — SSE streaming shows each pipeline stage as it happens
-- **Source Links** — Every competitor entry includes real, verifiable source URLs
-- **Report Transparency** — Every report includes confidence, evidence summary, cost breakdown, and fault-tolerance metadata
-- **Markdown Export** — Download reports for sharing
-- **Local Cache** — Results cached for 24h to save API calls
-- **Checkpoint Resume** — SQLite checkpoints allow same `report_id` thread to resume after interruption
-- **Plugin Architecture** — Add new data sources by implementing one interface
+[简体中文](README.zh.md) · English
 
-## Quick Start (Local Development)
+---
 
-### 1. Prerequisites
+## Table of Contents
+
+- [What IdeaGo Does](#what-ideago-does)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [API Overview](#api-overview)
+- [Report Model](#report-model)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Development & Quality](#development--quality)
+- [Roadmap & Docs](#roadmap--docs)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## What IdeaGo Does
+
+IdeaGo turns one natural-language startup idea into a structured competitor report with:
+
+- Market summary and recommendation (`go` / `caution` / `no_go`)
+- Competitor list with traceable source links
+- Differentiation opportunities
+- Confidence, evidence, and runtime cost transparency
+
+It is designed for fast founder validation: start with one sentence, get an auditable research report.
+
+---
+
+## Key Features
+
+- **End-to-end pipeline**: intent parsing → source search → extraction → aggregation → report generation
+- **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store
+- **Resilient LLM layer**: retry, JSON parse recovery, endpoint failover
+- **Strict link grounding**: extracted links are filtered against fetched source URLs
+- **Graceful degradation**: extraction/aggregation failures still return usable output
+- **Real-time UX**: SSE streaming events with reconnect and cancellation
+- **Transparent reports**: confidence/evidence/cost/failover metadata in every report
+- **Performance-focused UI**: lazy routes, virtualized competitor lists, compare panel, export & print
+- **Caching + runtime state**: file cache (TTL) + LangGraph SQLite checkpoints + status files
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A["User Idea"] --> B["POST /api/v1/analyze"]
+    B --> C["LangGraph Engine"]
+    C --> D["parse_intent"]
+    D --> E["cache_lookup"]
+    E -->|hit| F["report_ready"]
+    E -->|miss| G["fetch_sources"]
+    G --> H["extract_map"]
+    H --> I["aggregate"]
+    I --> J["assemble_report"]
+    J --> K["persist_report"]
+    K --> F
+    F --> L["GET /api/v1/reports/{id}"]
+    C --> M["SSE /api/v1/reports/{id}/stream"]
+```
+
+### Runtime notes
+
+- `POST /analyze` starts background execution and returns `report_id` immediately.
+- Frontend subscribes to SSE to render stage-by-stage progress.
+- In-flight duplicate requests for the same normalized query are deduplicated.
+- Built-in in-memory rate limiter for analyze endpoint: `10` requests / `60s` (per IP/session key).
+
+---
+
+## Tech Stack
+
+### Backend
 
 - Python 3.10+
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
-- Node.js 18+ and npm
+- FastAPI + Uvicorn
+- LangGraph state machine pipeline
+- LangChain OpenAI client
+- Pydantic v2 / pydantic-settings
+- File cache + SQLite checkpoint store
 
-### 2. Install dependencies
+### Frontend
+
+- React 19 + TypeScript + Vite 7
+- Tailwind CSS 4
+- React Router 7
+- i18next (zh/en)
+- Framer Motion + Recharts
+
+---
+
+## Quick Start
+
+### 1) Prerequisites
+
+- Python `3.10+`
+- [uv](https://github.com/astral-sh/uv)
+- Node.js `20+`
+
+### 2) Install dependencies
 
 ```bash
 # Backend
 uv sync --all-extras
 
 # Frontend
-cd frontend && npm install && cd ..
+npm --prefix frontend install
 ```
 
-### 3. Configure environment
+### 3) Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys:
-# - OPENAI_API_KEY (required)
-# - TAVILY_API_KEY (required)
-# - APPSTORE_COUNTRY (optional, default: us)
-# - GITHUB_TOKEN (optional, improves rate limits)
-# - OPENAI_BASE_URL (optional, for OpenAI-compatible providers)
-# - OPENAI_FALLBACK_ENDPOINTS (optional JSON array for failover endpoints)
-# - LANGGRAPH_MAX_RETRIES (optional, retryable HTTP/network retries)
-# - LANGGRAPH_JSON_PARSE_MAX_RETRIES (optional, invalid JSON recovery retries)
 ```
 
-### 4. Build frontend
+Minimum recommended setup:
 
-```bash
-cd frontend && npm run build && cd ..
-```
+- Required: `OPENAI_API_KEY`
+- Recommended: `TAVILY_API_KEY`
 
-### 5. Run
+### 4) Development mode (hot reload)
 
-```bash
-uv run python -m ideago
-```
+Terminal 1:
 
-Open http://localhost:8000 in your browser.
-
-### Development Mode (with hot reload)
-
-Terminal 1 — Backend:
 ```bash
 uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
 ```
 
-Terminal 2 — Frontend:
+Terminal 2:
+
 ```bash
-cd frontend && npm run dev
+npm --prefix frontend run dev
 ```
 
-Frontend dev server at http://localhost:5173 proxies API calls to the backend.
+Open:
 
-## Quick Start (Docker)
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- Backend API: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+
+### 5) Single-process local run (serve built frontend from backend)
+
+```bash
+npm --prefix frontend run build
+uv run python -m ideago
+```
+
+Open: [http://localhost:8000](http://localhost:8000)
+
+### 6) Docker
 
 ```bash
 cp .env.example .env
-# Edit .env with your API keys
-
-docker compose up -d
+docker compose up --build -d
 ```
 
-Open http://localhost:8000.
+Open: [http://localhost:8000](http://localhost:8000)
 
-## API Endpoints
+---
+
+## API Overview
+
+Base path: `/api/v1`
 
 | Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/analyze` | Start research pipeline |
-| `GET` | `/api/v1/reports/{id}/stream` | SSE progress events |
-| `GET` | `/api/v1/reports/{id}` | Get completed report |
-| `GET` | `/api/v1/reports/{id}/export` | Download as Markdown |
-| `GET` | `/api/v1/reports` | List all cached reports |
-| `DELETE` | `/api/v1/reports/{id}` | Delete a report |
-| `GET` | `/api/v1/health` | Health check |
+|---|---|---|
+| `POST` | `/analyze` | Start analysis, return `report_id` |
+| `GET` | `/health` | Service health + source availability |
+| `GET` | `/reports` | List reports (`limit`, `offset`) |
+| `GET` | `/reports/{report_id}` | Get report (`202` while processing) |
+| `GET` | `/reports/{report_id}/status` | Runtime status (`processing/failed/cancelled/complete/not_found`) |
+| `GET` | `/reports/{report_id}/stream` | SSE progress stream |
+| `GET` | `/reports/{report_id}/export` | Export markdown |
+| `DELETE` | `/reports/{report_id}` | Delete report |
+| `DELETE` | `/reports/{report_id}/cancel` | Cancel active analysis |
 
-## Operational Semantics
+### SSE event types
 
-- `GET /api/v1/health` returns `status: "ok" | "degraded"`.
-- SSE `error` events now return a stable `error_code` field (for example `PIPELINE_FAILURE`) and avoid exposing internal exception text.
-- CORS is configurable via `CORS_ALLOW_ORIGINS` (comma-separated). Default remains `*` for self-hosted local usage.
-- `cost_breakdown.llm_calls` is the total number of real LLM attempts (includes retries and endpoint failovers), not just logical node calls.
-- `confidence.freshness_hint` is generated dynamically (for example: `Generated just now`, `Generated 3m ago`, `Generated on 2026-03-01`).
+`intent_started`, `intent_parsed`, `source_started`, `source_completed`, `source_failed`, `extraction_started`, `extraction_completed`, `aggregation_started`, `aggregation_completed`, `report_ready`, `cancelled`, `error`
 
-## Report Transparency Fields
+### Example
 
-`GET /api/v1/reports/{id}` returns `ResearchReport` with the following observability blocks:
+```bash
+# Start analysis
+curl -X POST http://localhost:8000/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query":"An AI assistant for indie game analytics"}'
 
-- `confidence`: sample size, source coverage/success rate, freshness hint, overall score (`0-100`)
-- `evidence_summary`: top evidence lines and linkable evidence items (`title/url/platform/snippet`)
-- `cost_breakdown`: LLM attempts/retries/failovers, source call count, pipeline latency, token usage
-- `report_meta.llm_fault_tolerance`: `fallback_used`, ordered `endpoints_tried`, and `last_error_class`
+# Stream events
+curl -N http://localhost:8000/api/v1/reports/<report_id>/stream
 
-## Runtime Data
-
-- Report cache directory is configured by `CACHE_DIR` (default `.cache/ideago`).
-- LangGraph checkpoints are stored at `LANGGRAPH_CHECKPOINT_DB_PATH` (default `.cache/ideago/langgraph-checkpoints.db`).
-- Per-source internal query parallelism is controlled by `SOURCE_QUERY_CONCURRENCY` (default `2`) to balance throughput and machine load.
-- App Store market scope is controlled by `APPSTORE_COUNTRY` (default `us`).
-- LLM fault-tolerance knobs:
-  - `OPENAI_FALLBACK_ENDPOINTS` for alternate OpenAI-compatible endpoints
-  - `LANGGRAPH_MAX_RETRIES` for retryable API/network failures
-  - `LANGGRAPH_JSON_PARSE_MAX_RETRIES` for invalid-JSON recovery loops
-- To reset checkpoints only, remove the checkpoint DB file without deleting report cache JSON files.
-
-## Architecture
-
-```
-User Input
-  -> LangGraph StateGraph
-  -> IntentParser (LLM)
-  -> Concurrent Source Search
-  -> Concurrent Extraction (LLM Map)
-  -> Aggregation (LLM Reduce)
-  -> Cache Persist + SSE Terminal Event
+# Fetch report
+curl http://localhost:8000/api/v1/reports/<report_id>
 ```
 
-## Execution Flow (End-to-End)
+---
 
-This section documents the actual runtime flow from the first API call to final report rendering.
+## Report Model
 
-### 1) Analysis kickoff (`POST /api/v1/analyze`)
+Each report includes:
 
-1. Client sends idea text to `POST /api/v1/analyze`.
-2. Backend normalizes and hashes the query for de-duplication.
-3. If the same normalized query is already processing, backend returns the existing `report_id` (no duplicate pipeline run).
-4. Otherwise backend:
-   - Creates in-memory runtime state for this `report_id`
-   - Starts a background task (`_run_pipeline`)
-   - Returns `report_id` immediately
+- **Core analysis**: competitors, market summary, recommendation, differentiation angles
+- **Confidence**: sample size, source coverage, source success rate, confidence score, freshness hint
+- **Evidence**: top evidence and structured evidence items
+- **Cost telemetry**: LLM calls/retries/failovers, token usage, pipeline latency
+- **Fault-tolerance metadata**: endpoint fallback usage and last error class
 
-### 2) Runtime status + SSE channel
+This makes conclusions inspectable instead of black-box.
 
-1. Background task writes a lightweight status file as `processing`.
-2. Frontend opens `GET /api/v1/reports/{id}/stream` (SSE).
-3. SSE behavior:
-   - Replays historical events for reconnect clients
-   - Streams live pipeline events
-   - Sends ping heartbeats on long idle periods
-   - Stops on terminal events: `report_ready`, `error`, `cancelled`
-4. If no active run state exists, stream endpoint falls back to status-file-derived terminal event.
+---
 
-### 3) LangGraph pipeline execution (backend core)
+## Configuration
 
-Pipeline graph order:
+See full defaults in `.env.example` and schema in `src/ideago/config/settings.py`.
 
-1. `parse_intent`
-   - LLM parses keywords, app type, scenario, and per-platform queries.
-2. `cache_lookup`
-   - Uses deterministic `intent.cache_key`.
-   - Cache hit: emits `report_ready` from cache and exits early.
-   - Cache miss: continue.
-3. `fetch_sources` (concurrent)
-   - Runs all available source plugins in parallel:
-     - `github`
-     - `tavily`
-     - `hackernews`
-     - `appstore` (iTunes Search API, `APPSTORE_COUNTRY` scoped)
-   - Emits `source_started` / `source_completed` / `source_failed`.
-   - Source timeout and failures are isolated per source (partial progress is preserved).
-4. `extract_map` (concurrent per source)
-   - LLM extraction converts `RawResult` into structured competitors.
-   - If extraction fails for a source, pipeline degrades to raw-to-competitor fallback entries (status becomes `degraded`) instead of aborting the full run.
-5. `aggregate`
-   - LLM deduplicates and merges cross-source competitors.
-   - Generates market summary, recommendation type, recommendation text, and differentiation angles.
-   - On aggregation failure, pipeline falls back to unprocessed competitors.
-6. `assemble_report`
-   - Builds final `ResearchReport` including:
-     - `source_results`
-     - `confidence`
-     - `evidence_summary`
-     - `cost_breakdown`
-     - `report_meta.llm_fault_tolerance`
-7. `persist_report`
-   - Writes report JSON to cache + updates index.
-   - Emits terminal `report_ready`.
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `OPENAI_API_KEY` | Yes | `""` | LLM access key |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Primary model |
+| `OPENAI_BASE_URL` | No | `""` | OpenAI-compatible endpoint |
+| `OPENAI_FALLBACK_ENDPOINTS` | No | `""` | JSON array of fallback endpoints |
+| `OPENAI_TIMEOUT_SECONDS` | No | `60` | LLM timeout |
+| `LANGGRAPH_MAX_RETRIES` | No | `2` | Retry budget |
+| `LANGGRAPH_JSON_PARSE_MAX_RETRIES` | No | `1` | JSON recovery retries |
+| `TAVILY_API_KEY` | Recommended | `""` | Enable Tavily source |
+| `GITHUB_TOKEN` | No | `""` | Higher GitHub rate limit |
+| `APPSTORE_COUNTRY` | No | `us` | App Store country code |
+| `MAX_RESULTS_PER_SOURCE` | No | `10` | Raw results per source |
+| `SOURCE_TIMEOUT_SECONDS` | No | `30` | Source timeout |
+| `SOURCE_QUERY_CONCURRENCY` | No | `2` | Per-source concurrency |
+| `EXTRACTION_TIMEOUT_SECONDS` | No | `60` | LLM extraction timeout |
+| `CACHE_DIR` | No | `.cache/ideago` | Cache directory |
+| `CACHE_TTL_HOURS` | No | `24` | Cache TTL |
+| `LANGGRAPH_CHECKPOINT_DB_PATH` | No | `.cache/ideago/langgraph-checkpoints.db` | LangGraph checkpoint DB |
+| `CORS_ALLOW_ORIGINS` | No | `*` | CORS origins |
+| `HOST` / `PORT` | No | `0.0.0.0` / `8000` | Server bind address |
+| `VITE_API_BASE_URL` | No | `""` | Optional frontend API prefix |
 
-### 4) Failure / cancellation semantics
+---
 
-1. Any unhandled pipeline exception:
-   - Writes status as `failed`
-   - Emits terminal `error` with stable `error_code` (for example `PIPELINE_FAILURE`)
-   - Avoids leaking internal stack details to clients
-2. `DELETE /api/v1/reports/{id}/cancel`:
-   - Cancels running task if active
-   - Writes `cancelled` status
-   - Emits terminal `cancelled`
+## Project Structure
 
-### 5) Frontend lifecycle behavior
+```text
+.
+├── src/ideago
+│   ├── api/             # FastAPI app, routes, schemas, dependencies
+│   ├── pipeline/        # LangGraph engine, nodes, events, state
+│   ├── llm/             # Chat model client + prompt templates
+│   ├── sources/         # Source plugins (GitHub/Tavily/HN/AppStore)
+│   ├── cache/           # File-based report/status cache
+│   ├── models/          # Pydantic domain models
+│   ├── config/          # Runtime settings
+│   └── observability/   # Logging config
+├── frontend/            # React + TypeScript UI
+├── tests/               # Pytest suite
+├── scripts/             # Release/dev automation scripts
+├── doc/                 # Engineering docs
+└── docs/                # Plans and design assets
+```
 
-1. Report page first calls report fetch API:
-   - If report exists: render directly (`ready`)
-   - If processing: enter live-progress mode and attach SSE
-   - If missing: query runtime status endpoint to distinguish `processing` / `failed` / `cancelled` / `not_found`
-2. While processing:
-   - Horizontal stepper updates from SSE event stream
-   - Source preview cards aggregate per-source result counts
-3. On terminal SSE:
-   - `report_ready`: refetch full report JSON and render
-   - `error` / `cancelled`: show runtime error state + retry actions
-4. SSE auto-reconnect:
-   - Exponential backoff
-   - Event de-duplication by `(type, stage, timestamp)`
-   - Max reconnect attempts with user-visible connection error
+---
 
-### 6) Cache and persistence model
+## Development & Quality
 
-1. Report cache:
-   - One JSON file per report: `{report_id}.json`
-   - Central index file: `_index.json`
-   - TTL-based expiration (`CACHE_TTL_HOURS`)
-2. Runtime status cache:
-   - One status file per run: `{report_id}.status.json`
-   - States: `processing | complete | failed | cancelled`
-3. LangGraph checkpoint store:
-   - SQLite DB (`LANGGRAPH_CHECKPOINT_DB_PATH`)
-   - Enables resume for the same `report_id` thread if interrupted
-
-See [docs/plans/2026-02-22-ideago-mvp-design.md](docs/plans/2026-02-22-ideago-mvp-design.md) for full architecture documentation.
-
-## Quality Checks
+Run relevant checks before submitting:
 
 ```bash
 uv run ruff check src tests scripts
@@ -260,12 +293,25 @@ npm --prefix frontend run test
 npm --prefix frontend run build
 ```
 
-## Tech Stack
+---
 
-- **Backend:** Python 3.10+ / FastAPI / LangGraph / LangChain OpenAI / httpx / Tavily SDK / Pydantic v2 / loguru
-- **Frontend:** React 18 / TypeScript / Vite / Tailwind CSS v4 / Lucide Icons
-- **Design System:** Generated via ui-ux-pro-max (Space Grotesk + DM Sans, dark theme)
+## Roadmap & Docs
+
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Backend standards: [doc/BACKEND_STANDARDS.md](doc/BACKEND_STANDARDS.md)
+- Tooling standards: [doc/AI_TOOLING_STANDARDS.md](doc/AI_TOOLING_STANDARDS.md)
+- Settings guide: [doc/SETTINGS_GUIDE.md](doc/SETTINGS_GUIDE.md)
+- SDK usage: [doc/SDK_USAGE.md](doc/SDK_USAGE.md)
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before starting.
+
+---
 
 ## License
 
-MIT
+MIT License. See [LICENSE](LICENSE).
