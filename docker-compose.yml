@@ -2,10 +2,10 @@ services:
   ideago:
     build: .
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     env_file: .env
     volumes:
-      - ideago-cache:/app/.cache/ideago
+      - ideago-cache:/app/${CACHE_DIR:-.cache/ideago}
     restart: unless-stopped
 
 volumes:
