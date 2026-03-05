@@ -18,6 +18,12 @@ export function isRequestAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError'
 }
 
+/** Returns X-API-Key header object when APP_API_KEY is configured at runtime. */
+export function getApiHeaders(): Record<string, string> {
+  const key = (window as unknown as { __APP_CONFIG__?: { apiKey?: string } }).__APP_CONFIG__?.apiKey
+  return key ? { 'X-API-Key': key } : {}
+}
+
 function extractErrorDetail(payload: unknown): string | null {
   if (typeof payload === 'string' && payload.trim()) {
     return payload.trim()
@@ -80,6 +86,7 @@ async function fetchWithTimeout(
   try {
     return await fetch(url, {
       ...init,
+      headers: { ...getApiHeaders(), ...(init.headers as Record<string, string> | undefined) },
       signal: timeoutController.signal,
     })
   } catch (error) {

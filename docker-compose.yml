@@ -5,6 +5,8 @@ services:
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
     env_file: .env
+    environment:
+      - APP_API_KEY=${APP_API_KEY:-}
     volumes:
       - ideago-cache:/app/${CACHE_DIR:-.cache/ideago}
     restart: unless-stopped

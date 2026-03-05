@@ -5,6 +5,7 @@ FastAPI 应用工厂。
 
 from __future__ import annotations
 
+import secrets
 import time
 from collections import defaultdict
 from collections.abc import AsyncGenerator
@@ -21,6 +22,7 @@ from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
+
 
 _FRONTEND_DIST = (
     Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
@@ -62,6 +64,23 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def api_key_auth(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        """Validate X-API-Key header when APP_API_KEY is configured."""
+        configured_key = settings.app_api_key
+        if configured_key:
+            path = request.url.path
+            is_api_path = path.startswith("/api/")
+            is_health = path == "/api/v1/health"
+            if is_api_path and not is_health:
+                incoming_key = request.headers.get("X-API-Key", "")
+                if not secrets.compare_digest(incoming_key, configured_key):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid or missing API key"},
+                    )
+        return await call_next(request)
 
     @app.middleware("http")
     async def rate_limit_analyze(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]

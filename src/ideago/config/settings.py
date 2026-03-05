@@ -172,6 +172,13 @@ class Settings(BaseSettings):
         default="*",
         description="Comma-separated CORS allow origins, use * for all",
     )
+    app_api_key: str = Field(
+        default="",
+        description=(
+            "Optional API key to restrict backend access. "
+            "Clients must send X-API-Key header. Empty = auth disabled."
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
