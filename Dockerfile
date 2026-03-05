@@ -12,7 +12,7 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock LICENSE ./
 RUN uv sync --no-dev --frozen
 
 COPY src/ src/
