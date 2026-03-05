@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-03-05
+
+### Added
+- API key authentication middleware (`APP_API_KEY`) to restrict backend access via `X-API-Key` request header
+- Runtime config injection via `docker-entrypoint.sh`: writes `env-config.js` at container startup so the frontend can read the API key without baking it into the image at build time
+- Dev server middleware in `vite.config.ts` to serve empty `env-config.js` locally, eliminating 404 noise during development
+
 ### Changed
+- Replaced `EventSource` with `fetch + ReadableStream` in `useSSE.ts` to support custom request headers for SSE streams
+- Docker image is now fully stateless (no secrets baked in); CI builds a generic image and the API key is injected at runtime via environment variable
+
+### Changed (Breaking)
 - **Breaking:** refactored module layout by moving `setting/context/protocols/logger_util` out of `utils` into `config/settings`, `core/context`, `contracts/protocols`, and `observability/log_config`; removed legacy import paths.
 - Simplified default app configuration: removed `APP_NAME`/`APP_VERSION` and kept only `ENVIRONMENT` (dropped `DEBUG`) from baseline runtime mode env vars.
 - Unified retry implementation by reusing `decorator_utils` retry internals from `common_utils`.
@@ -59,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/Tendo33/ideago/compare/v0.2.2...v0.2.3
 [0.2.0]: https://github.com/Tendo33/ideago/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Tendo33/ideago/releases/tag/v0.1.0
