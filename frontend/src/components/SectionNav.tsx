@@ -70,11 +70,7 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
             <button
               key={s.id}
               onClick={() => handleClick(s.id)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap cursor-pointer transition-all duration-200 ${
-                resolvedActiveId === s.id
-                  ? 'bg-cta/15 text-cta shadow-md'
-                  : 'text-text-dim hover:text-text hover:bg-muted/55'
-              }`}
+              className={`filter-chip rounded-lg px-3 py-1.5 font-medium whitespace-nowrap ${resolvedActiveId === s.id ? 'filter-chip-active' : ''}`}
             >
               {s.label}
               {s.count !== undefined && (

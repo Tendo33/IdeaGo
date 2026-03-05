@@ -83,7 +83,7 @@ export function HomePage() {
                   key={prompt}
                   onClick={() => handleSubmit(prompt)}
                   disabled={isLoading}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border/80 bg-card/85 px-3 py-1.5 text-xs text-text-muted transition-all duration-300 hover:border-cta/30 hover:bg-muted/65 hover:text-cta hover:-translate-y-px hover:shadow-md backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-40"
+                  className="filter-chip disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Sparkles className="h-3 w-3" />
                   {prompt}
@@ -118,7 +118,7 @@ export function HomePage() {
                 <button
                   key={report.id}
                   onClick={() => navigate(`/reports/${report.id}`)}
-                  className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-card/85 px-4 py-3 text-left backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-cta/30 hover:bg-muted/55 hover:shadow-md focus:outline-none focus:ring-1 focus:ring-cta/40"
+                  className="group interactive-surface flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left hover:-translate-y-0.5 focus:outline-none focus:ring-1 focus:ring-cta/40"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">{report.query}</p>

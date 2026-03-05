@@ -134,7 +134,7 @@ function ThemeModeMenu({
       <button
         type="button"
         onClick={() => setOpen(previous => !previous)}
-        className="min-h-10 min-w-11 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-bg-card-hover px-3 text-xs font-semibold text-text-muted transition-colors duration-200 hover:text-primary cursor-pointer"
+        className="topbar-action"
         aria-label="Toggle theme mode"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -266,22 +266,25 @@ function NavBar({
     <nav className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl border border-border/80 bg-bg-card/85 px-4 py-3 shadow-xl backdrop-blur-md no-print sm:px-5">
       <Link
         to="/"
-        className="min-h-11 flex items-center text-lg font-bold text-text transition-colors duration-200 hover:text-primary cursor-pointer"
+        className="group min-h-11 inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-text transition-colors duration-200 hover:text-foreground cursor-pointer"
       >
-        {t('app.title')}<span className="text-primary">{t('app.titleHighlight')}</span>
+        <span className="text-text">{t('app.title')}</span>
+        <span className="inline-flex items-center rounded-md border border-primary/30 bg-primary px-2 py-0.5 text-[0.82em] leading-none text-primary-foreground shadow-sm transition-transform duration-200 group-hover:-translate-y-px">
+          {t('app.titleHighlight')}
+        </span>
       </Link>
       <div className="flex items-center gap-2 sm:gap-3">
         <ThemeModeMenu themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
         <button
           onClick={toggleLanguage}
-          className="min-h-10 rounded-lg border border-border bg-bg-card-hover px-3 text-xs font-semibold text-text-muted transition-colors duration-200 hover:text-primary cursor-pointer"
+          className="topbar-action"
           aria-label="Toggle language"
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
         <Link
           to="/reports"
-          className="min-h-10 min-w-11 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-bg-card-hover px-3 text-sm text-text-muted transition-colors duration-200 hover:border-primary/35 hover:text-primary cursor-pointer"
+          className="topbar-action text-sm"
           aria-label={t('app.history')}
         >
           <History className="w-5 h-5 sm:w-4 sm:h-4" />

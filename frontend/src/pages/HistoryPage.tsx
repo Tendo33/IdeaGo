@@ -105,7 +105,7 @@ export function HistoryPage() {
       <div className="app-shell max-w-5xl">
         <Link
           to="/"
-          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-dim transition-colors duration-300 hover:text-text-muted hover:bg-muted/55"
+          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-dim transition-colors duration-300 hover:text-text hover:bg-muted/55"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('history.back')}
@@ -168,7 +168,7 @@ export function HistoryPage() {
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px hover:shadow-md cursor-pointer"
+                className="group interactive-surface flex items-center justify-between px-5 py-4 hover:-translate-y-px cursor-pointer"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
@@ -219,7 +219,7 @@ export function HistoryPage() {
             <button
               onClick={() => setPageIndex(previous => Math.max(0, previous - 1))}
               disabled={pageIndex === 0}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer enabled:hover:border-cta/30 enabled:hover:text-text-muted"
+              className="filter-chip rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('history.prevPage')}
             </button>
@@ -229,7 +229,7 @@ export function HistoryPage() {
             <button
               onClick={() => setPageIndex(previous => previous + 1)}
               disabled={!hasNextPage}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer enabled:hover:border-cta/30 enabled:hover:text-text-muted"
+              className="filter-chip rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('history.nextPage')}
             </button>

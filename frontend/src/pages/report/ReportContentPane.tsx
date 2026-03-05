@@ -269,17 +269,17 @@ export function ReportContentPane({
                 {t('report.competitors.title', { count: filteredCompetitors.length, total: report.competitors.length })}
               </h2>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center rounded-lg border border-border overflow-hidden mr-1">
+                <div className="interactive-surface flex items-center overflow-hidden mr-1">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 cursor-pointer transition-colors ${viewMode === 'grid' ? 'bg-cta/15 text-cta' : 'text-text-dim hover:text-text-muted'}`}
+                    className={`rounded-md p-1.5 cursor-pointer transition-colors ${viewMode === 'grid' ? 'filter-chip-active' : 'text-text-dim hover:text-text'}`}
                     aria-label={t('report.competitors.gridView')}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'bg-cta/15 text-cta' : 'text-text-dim hover:text-text-muted'}`}
+                    className={`rounded-md p-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'filter-chip-active' : 'text-text-dim hover:text-text'}`}
                     aria-label={t('report.competitors.listView')}
                   >
                     <List className="w-3.5 h-3.5" />
@@ -290,18 +290,18 @@ export function ReportContentPane({
                   <button
                     key={platform}
                     onClick={() => togglePlatform(platform)}
-                    className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-colors duration-150 ${platformFilter.has(platform) ? 'border-cta/50 bg-cta/10 text-cta' : 'border-border text-text-dim hover:border-cta/30'}`}
+                    className={`filter-chip px-2.5 py-1 ${platformFilter.has(platform) ? 'filter-chip-active' : ''}`}
                   >
                     {platform}
                   </button>
                 ))}
 
-                <div className="flex items-center gap-1 ml-1">
+                <div className="interactive-surface flex items-center gap-1 ml-1 rounded-full px-2 py-1">
                   <ArrowUpDown className="w-3.5 h-3.5 text-text-dim" />
                   <select
                     value={sortBy}
                     onChange={event => setSortBy(event.target.value as SortKey)}
-                    className="text-xs bg-transparent text-text-muted border-none outline-none cursor-pointer"
+                    className="text-xs bg-transparent text-text-muted border-none outline-none cursor-pointer pr-1"
                   >
                     {SORT_OPTIONS.map(option => (
                       <option key={option.value} value={option.value}>

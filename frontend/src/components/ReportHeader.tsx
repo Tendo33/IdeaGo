@@ -45,7 +45,7 @@ function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: R
       <button
         ref={triggerRef}
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-card/85 border border-border/80 backdrop-blur-md text-text font-medium cursor-pointer transition-all duration-300 hover:bg-muted/55 hover:border-ring/35 focus:outline-none focus:ring-1 focus:ring-cta/50"
+        className="topbar-action text-sm font-medium focus:outline-none focus:ring-1 focus:ring-cta/50"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -72,7 +72,7 @@ function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: R
 }
 
 function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Download; label: string; onClick?: () => void; href?: string }) {
-  const cls = "flex items-center gap-2 w-full px-3 py-2 text-sm text-text-muted hover:bg-muted/65 hover:text-text transition-colors cursor-pointer"
+  const cls = "flex items-center gap-2 w-full rounded-md px-3 py-2 text-sm text-text-muted hover:bg-muted/65 hover:text-text transition-colors cursor-pointer"
 
   if (href) {
     return (

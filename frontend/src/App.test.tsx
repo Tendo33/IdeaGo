@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -85,5 +85,23 @@ describe('App theme mode', () => {
     render(<App />)
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
     expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+})
+
+describe('App nav branding', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('renders logo highlight as high-contrast badge', async () => {
+    mockMatchMedia(false)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+
+    const logoLink = screen.getByRole('link', { name: 'IdeaGo' })
+    const logoHighlight = within(logoLink).getByText('Go')
+    expect(logoHighlight).toHaveClass('bg-primary')
+    expect(logoHighlight).toHaveClass('text-primary-foreground')
   })
 })
