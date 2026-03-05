@@ -74,7 +74,7 @@ MOCK_APPSTORE_RESPONSE = {
             "trackId": 1001,
             "trackName": "Focus Notes",
             "description": "Capture quick notes",
-            "trackViewUrl": "https://apps.apple.com/us/app/focus-notes/id1001",
+            "trackViewUrl": "https://apps.apple.com/us/app/focus-notes/id1001?uo=4",
             "bundleId": "com.example.focusnotes",
             "sellerName": "Example Inc",
             "primaryGenreName": "Productivity",
@@ -421,6 +421,29 @@ async def test_appstore_search_returns_raw_results() -> None:
     assert results[0].platform == Platform.APPSTORE
     assert "apps.apple.com" in results[0].url
     assert results[0].raw_data["track_id"] == 1001
+    assert results[0].description == "Capture quick notes"
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_populates_structured_meta_fields() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(200, json=MOCK_APPSTORE_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["focus notes"], limit=10)
+
+    assert len(results) == 2
+    first = results[0]
+    assert (
+        first.raw_data["canonical_track_url"]
+        == "https://apps.apple.com/us/app/focus-notes/id1001"
+    )
+    assert first.raw_data["rating"] == pytest.approx(4.8)
+    assert first.raw_data["rating_count"] == 9021
+    assert first.raw_data["price_numeric"] == pytest.approx(0.0)
+    assert first.raw_data["price_label"] == "Free"
+    assert first.raw_data["release_date_iso"] == "2025-12-01"
 
 
 @pytest.mark.asyncio

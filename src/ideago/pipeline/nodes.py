@@ -36,6 +36,7 @@ from ideago.pipeline.intent_parser import IntentParser
 from ideago.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
+_EXTRACTION_DEGRADED_MSG = "Extraction unavailable; showing raw results."
 
 
 async def _emit(
@@ -288,7 +289,7 @@ class PipelineNodes:
                 for source_result in source_results:
                     if source_result.platform.value == platform_name:
                         source_result.status = SourceStatus.DEGRADED
-                        source_result.error_msg = f"LLM extraction failed: {exc}"
+                        source_result.error_msg = _EXTRACTION_DEGRADED_MSG
                 return (
                     platform_name,
                     degraded,

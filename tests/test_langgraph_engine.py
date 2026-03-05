@@ -218,6 +218,8 @@ async def test_langgraph_engine_extraction_failure_degrades(tmp_path) -> None:
     assert len(report.competitors) >= 1
     degraded = [sr for sr in report.source_results if sr.status.value == "degraded"]
     assert len(degraded) == 1
+    assert degraded[0].error_msg == "Extraction unavailable; showing raw results."
+    assert "LLM extraction failed:" not in (degraded[0].error_msg or "")
 
 
 @pytest.mark.asyncio

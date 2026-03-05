@@ -35,6 +35,17 @@ def test_load_prompt_extractor() -> None:
     assert "{platform}" not in prompt
 
 
+def test_load_prompt_extractor_appstore() -> None:
+    prompt = load_prompt(
+        "extractor_appstore",
+        platform="appstore",
+        raw_results_json="[]",
+        query_context="test",
+    )
+    assert "App Store products" in prompt
+    assert "{platform}" not in prompt
+
+
 def test_load_prompt_aggregator() -> None:
     prompt = load_prompt(
         "aggregator",
@@ -416,6 +427,74 @@ async def test_extractor_empty_input_returns_empty() -> None:
     result = await extractor.extract([], "test")
     assert result == []
     llm.invoke_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(return_value=({"competitors": []}, {}))
+    llm.invoke_json = AsyncMock(return_value={"competitors": []})
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="Focus Notes",
+            description="Capture quick notes and tasks with AI assistance.",
+            url="https://apps.apple.com/us/app/focus-notes/id1001?uo=4",
+            platform=Platform.APPSTORE,
+            raw_data={
+                "track_id": 1001,
+                "bundle_id": "com.example.focusnotes",
+                "seller_name": "Example Inc",
+                "primary_genre_name": "Productivity",
+                "rating": 4.8,
+                "rating_count": 9021,
+                "price_numeric": 0.0,
+                "price_label": "Free",
+                "currency": "USD",
+                "version": "2.3.1",
+                "release_date_iso": "2025-12-01",
+                "canonical_track_url": "https://apps.apple.com/us/app/focus-notes/id1001",
+            },
+        )
+    ]
+    await extractor.extract(raw, "focus notes app")
+
+    call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
+    prompt = call_kwargs["prompt"]
+    assert "focused on App Store products" in prompt
+    assert "appstore_meta" in prompt
+    assert "Capture quick notes and tasks with AI assistance." in prompt
+    assert '"price_label": "Free"' in prompt
+    assert (
+        '"canonical_track_url": "https://apps.apple.com/us/app/focus-notes/id1001"'
+        in prompt
+    )
+
+
+@pytest.mark.asyncio
+async def test_extractor_non_appstore_payload_unchanged() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(return_value=({"competitors": []}, {}))
+    llm.invoke_json = AsyncMock(return_value={"competitors": []})
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="markdown-clipper",
+            description="Clip web pages as Markdown",
+            url="https://github.com/user/markdown-clipper",
+            platform=Platform.GITHUB,
+            raw_data={"stargazers_count": 1200},
+        )
+    ]
+    await extractor.extract(raw, "markdown notes extension")
+
+    call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
+    prompt = call_kwargs["prompt"]
+    assert "These results come from: github" in prompt
+    assert "appstore_meta" not in prompt
+    assert "stargazers_count" not in prompt
 
 
 # ---------- Aggregator ----------

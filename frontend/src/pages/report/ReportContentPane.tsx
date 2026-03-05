@@ -18,6 +18,7 @@ import { SectionNav } from '../../components/SectionNav'
 import { VirtualizedCompetitorList } from '../../components/VirtualizedCompetitorList'
 import { getCompetitorDomIdFromId, getCompetitorId } from '../../competitor'
 import type { Platform, ResearchReport } from '../../types/research'
+import { normalizeSourceErrorMessage } from '../../utils/sourceErrorMessage'
 import type { SortKey, ViewMode } from './useCompetitorFilters'
 import { PLATFORM_OPTIONS, SORT_OPTIONS } from './useCompetitorFilters'
 import { broadenQuery } from './query'
@@ -120,7 +121,9 @@ function AllFailedState({
         {sources.map(source => (
           <div key={source.platform} className="flex items-center justify-between text-xs">
             <span className="text-text-muted capitalize">{source.platform}</span>
-            <span className="text-danger">{source.error_msg ?? source.status}</span>
+            <span className="text-danger">
+              {normalizeSourceErrorMessage(source.status, source.error_msg) ?? source.status}
+            </span>
           </div>
         ))}
       </div>

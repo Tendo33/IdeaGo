@@ -4,6 +4,7 @@ import { Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, Users, Target, 
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { ResearchReport, RecommendationType, SourceResult } from '../types/research'
+import { normalizeSourceErrorMessage } from '../utils/sourceErrorMessage'
 
 interface HeroPanelProps {
   report: ResearchReport
@@ -63,7 +64,9 @@ function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
               </span>
             )}
             {sr.status !== 'ok' && sr.error_msg && (
-              <span className="text-text-dim truncate max-w-24">{sr.error_msg}</span>
+              <span className="text-text-dim truncate max-w-24">
+                {normalizeSourceErrorMessage(sr.status, sr.error_msg)}
+              </span>
             )}
           </span>
         )

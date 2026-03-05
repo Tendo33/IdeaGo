@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -90,6 +92,15 @@ class AppStoreSource:
                             "currency": item.get("currency"),
                             "version": item.get("version"),
                             "release_date": item.get("releaseDate"),
+                            "canonical_track_url": _canonicalize_track_url(track_url),
+                            "rating": _to_float(item.get("averageUserRating")),
+                            "rating_count": _to_int(item.get("userRatingCount")),
+                            "price_numeric": _to_float(item.get("price")),
+                            "price_label": _to_price_label(
+                                item.get("formattedPrice"),
+                                item.get("price"),
+                            ),
+                            "release_date_iso": _to_iso_date(item.get("releaseDate")),
                         },
                     )
                 )
@@ -142,3 +153,63 @@ def _extract_error_message(resp: httpx.Response) -> str:
         if isinstance(error_message, str) and error_message.strip():
             return error_message
     return "App Store API non-200 response"
+
+
+def _canonicalize_track_url(url: str) -> str:
+    if not isinstance(url, str) or not url.strip():
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+    except ValueError:
+        return ""
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
+
+def _to_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _to_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _to_price_label(formatted_price: object, price: object) -> str | None:
+    if isinstance(formatted_price, str) and formatted_price.strip():
+        return formatted_price
+    numeric_price = _to_float(price)
+    if numeric_price is None:
+        return None
+    return str(numeric_price)
+
+
+def _to_iso_date(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.date().isoformat()

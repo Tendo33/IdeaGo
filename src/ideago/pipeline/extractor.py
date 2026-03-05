@@ -12,7 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
-from ideago.models.research import Competitor, RawResult
+from ideago.models.research import Competitor, Platform, RawResult
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import ExtractionError
 
@@ -50,13 +50,16 @@ class Extractor:
             }
             raw_json = json.dumps(
                 [
-                    r.model_dump(mode="json", exclude={"raw_data", "fetched_at"})
-                    for r in raw_results
+                    _serialize_raw_for_extraction(raw_result)
+                    for raw_result in raw_results
                 ],
                 ensure_ascii=False,
             )
+            prompt_name = (
+                "extractor_appstore" if platform == Platform.APPSTORE else "extractor"
+            )
             prompt = load_prompt(
-                "extractor",
+                prompt_name,
                 platform=platform.value,
                 raw_results_json=raw_json,
                 query_context=query_context,
@@ -148,6 +151,33 @@ def _normalize_url(url: str) -> str:
             "",
         )
     )
+
+
+def _serialize_raw_for_extraction(raw: RawResult) -> dict[str, Any]:
+    if raw.platform != Platform.APPSTORE:
+        return raw.model_dump(mode="json", exclude={"raw_data", "fetched_at"})
+
+    appstore_meta = {
+        "track_id": raw.raw_data.get("track_id"),
+        "bundle_id": raw.raw_data.get("bundle_id"),
+        "seller_name": raw.raw_data.get("seller_name"),
+        "primary_genre_name": raw.raw_data.get("primary_genre_name"),
+        "rating": raw.raw_data.get("rating"),
+        "rating_count": raw.raw_data.get("rating_count"),
+        "price_numeric": raw.raw_data.get("price_numeric"),
+        "price_label": raw.raw_data.get("price_label"),
+        "currency": raw.raw_data.get("currency"),
+        "version": raw.raw_data.get("version"),
+        "release_date_iso": raw.raw_data.get("release_date_iso"),
+        "canonical_track_url": raw.raw_data.get("canonical_track_url"),
+    }
+    return {
+        "title": raw.title,
+        "description": raw.description,
+        "url": raw.url,
+        "platform": raw.platform.value,
+        "appstore_meta": appstore_meta,
+    }
 
 
 async def _invoke_json_with_optional_meta(
