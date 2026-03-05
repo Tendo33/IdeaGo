@@ -8,7 +8,7 @@ vi.mock('../client', () => ({
 }))
 
 class MockResponseReader {
-  private resolvers: ((value: any) => void)[] = []
+  private resolvers: ((value: { done: boolean; value?: Uint8Array }) => void)[] = []
   private chunks: string[] = []
   private closed = false
 
@@ -25,7 +25,7 @@ class MockResponseReader {
     })
   }
 
-  emit(eventType: string, payload: any) {
+  emit(eventType: string, payload: unknown) {
     const data = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`
     if (this.resolvers.length > 0) {
       const resolve = this.resolvers.shift()!
