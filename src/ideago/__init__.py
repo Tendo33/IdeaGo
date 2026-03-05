@@ -5,5 +5,5 @@ including logging, file operations, JSON handling, date/time manipulation,
 and more.
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.4"
 __all__ = ["__version__"]
