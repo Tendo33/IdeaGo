@@ -46,6 +46,11 @@ class MockResponseReader {
 
 let mockReaders: MockResponseReader[] = []
 
+async function flushMicrotasks() {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('useSSE', () => {
   beforeEach(() => {
     mockReaders = []
@@ -92,9 +97,10 @@ describe('useSSE', () => {
     vi.useFakeTimers()
     const { result } = renderHook(() => useSSE('r1'))
 
-    await waitFor(() => {
-      expect(mockReaders).toHaveLength(1)
+    await act(async () => {
+      await flushMicrotasks()
     })
+    expect(mockReaders).toHaveLength(1)
     const first = mockReaders[0]
     const duplicatedEvent = {
         type: 'source_completed',
@@ -110,31 +116,32 @@ describe('useSSE', () => {
     })
 
     await act(async () => {
-      vi.runAllTimers()
-      await Promise.resolve()
+      await flushMicrotasks()
+      vi.advanceTimersByTime(1000)
+      await flushMicrotasks()
     })
 
-    await waitFor(() => {
-      expect(mockReaders.length).toBeGreaterThanOrEqual(2)
-    })
+    expect(mockReaders.length).toBeGreaterThanOrEqual(2)
     const second = mockReaders[1]
     
     act(() => {
       second.emit('source_completed', duplicatedEvent)
     })
 
-    await waitFor(() => {
-      expect(result.current.events).toHaveLength(1)
+    await act(async () => {
+      await flushMicrotasks()
     })
+    expect(result.current.events).toHaveLength(1)
   })
 
   it('ignores stale source listeners after reconnect', async () => {
     vi.useFakeTimers()
     const { result } = renderHook(() => useSSE('r1'))
 
-    await waitFor(() => {
-      expect(mockReaders).toHaveLength(1)
+    await act(async () => {
+      await flushMicrotasks()
     })
+    expect(mockReaders).toHaveLength(1)
     const first = mockReaders[0]
 
     act(() => {
@@ -142,13 +149,12 @@ describe('useSSE', () => {
     })
 
     await act(async () => {
-      vi.runAllTimers()
-      await Promise.resolve()
+      await flushMicrotasks()
+      vi.advanceTimersByTime(1000)
+      await flushMicrotasks()
     })
 
-    await waitFor(() => {
-      expect(mockReaders.length).toBeGreaterThanOrEqual(2)
-    })
+    expect(mockReaders.length).toBeGreaterThanOrEqual(2)
     const second = mockReaders[1]
 
     act(() => {
@@ -168,9 +174,10 @@ describe('useSSE', () => {
       })
     })
 
-    await waitFor(() => {
-      expect(result.current.events).toHaveLength(1)
+    await act(async () => {
+      await flushMicrotasks()
     })
+    expect(result.current.events).toHaveLength(1)
     expect(result.current.events[0]?.stage).toBe('tavily_search')
   })
 })
