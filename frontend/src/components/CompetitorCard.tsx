@@ -6,10 +6,10 @@ import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
 const platformColors: Record<string, string> = {
-  github: 'bg-purple-500/20 text-purple-300',
-  tavily: 'bg-blue-500/20 text-blue-300',
-  hackernews: 'bg-orange-500/20 text-orange-300',
-  appstore: 'bg-emerald-500/20 text-emerald-300',
+  github: 'bg-chart-2/15 text-chart-2',
+  tavily: 'bg-chart-3/15 text-chart-3',
+  hackernews: 'bg-chart-5/15 text-chart-5',
+  appstore: 'bg-chart-1/15 text-chart-1',
 }
 
 interface CompetitorCardProps {
@@ -69,7 +69,7 @@ export function CompetitorCard({
       id={elementId}
       className={`card select-none ${
         isFeatured
-          ? 'border-l-4! border-l-cta! border-t-white/10! border-r-white/10! border-b-white/10! col-span-full'
+          ? 'border-l-4! border-l-cta! border-t-border/80! border-r-border/80! border-b-border/80! col-span-full'
           : 'card-clickable p-5!'
       }`}
     >
@@ -169,7 +169,7 @@ export function CompetitorCard({
               className={`text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-all duration-300 ${
                 compareSelected
                   ? 'border-cta/50 bg-cta/10 text-cta'
-                  : 'border-white/10 text-text-dim hover:border-cta/30 hover:text-text-muted hover:bg-white/5'
+                  : 'border-border/80 text-text-dim hover:border-cta/30 hover:text-text-muted hover:bg-muted/55'
               }`}
             >
               {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}

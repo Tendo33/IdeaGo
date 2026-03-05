@@ -19,9 +19,9 @@ interface DataPoint {
 }
 
 const ZONE_COLORS = {
-  high: '#22C55E',
-  medium: '#F59E0B',
-  low: '#64748B',
+  high: 'var(--chart-3)',
+  medium: 'var(--warning)',
+  low: 'var(--chart-4)',
 }
 
 function getColor(relevance: number): string {
@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-xl bg-black/80 backdrop-blur-2xl border border-white/10 p-3 shadow-2xl max-w-xs">
+    <div className="rounded-xl bg-popover/95 backdrop-blur-2xl border border-border/80 p-3 shadow-xl max-w-xs">
       <p className="text-sm font-semibold text-text mb-0.5">{d.name}</p>
       <p className="text-xs text-text-muted mb-1.5 line-clamp-2">{d.oneLiner}</p>
       <div className="flex gap-3 text-xs text-text-dim">
@@ -105,7 +105,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl p-5 hover:border-white/20 transition-colors duration-300">
+    <div className="rounded-xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-xl p-5 hover:border-ring/35 transition-colors duration-300">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold font-heading text-text">
           {t('report.chart.title')}
@@ -119,25 +119,25 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
 
       <ResponsiveContainer width="100%" height={280}>
         <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.65} />
           <XAxis
             dataKey="features"
             type="number"
             name="Features"
             domain={[0, maxFeatures + 1]}
-            tick={{ fontSize: 10, fill: '#64748B' }}
-            label={{ value: t('report.chart.featureCount'), position: 'insideBottom', offset: -10, fontSize: 10, fill: '#64748B' }}
+            tick={{ fontSize: 10, fill: 'var(--chart-4)' }}
+            label={{ value: t('report.chart.featureCount'), position: 'insideBottom', offset: -10, fontSize: 10, fill: 'var(--chart-4)' }}
           />
           <YAxis
             dataKey="relevance"
             type="number"
             name="Relevance"
             domain={[0, 100]}
-            tick={{ fontSize: 10, fill: '#64748B' }}
-            label={{ value: t('report.chart.relevance'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: '#64748B' }}
+            tick={{ fontSize: 10, fill: 'var(--chart-4)' }}
+            label={{ value: t('report.chart.relevance'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: 'var(--chart-4)' }}
           />
-          <ReferenceLine y={70} stroke="#22C55E" strokeDasharray="4 4" opacity={0.4} />
-          <ReferenceLine y={40} stroke="#F59E0B" strokeDasharray="4 4" opacity={0.4} />
+          <ReferenceLine y={70} stroke="var(--chart-3)" strokeDasharray="4 4" opacity={0.45} />
+          <ReferenceLine y={40} stroke="var(--warning)" strokeDasharray="4 4" opacity={0.45} />
           <Tooltip content={<CustomTooltip t={t} />} cursor={false} />
           <Scatter
             data={data}

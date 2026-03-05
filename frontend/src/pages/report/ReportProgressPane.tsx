@@ -55,7 +55,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
-          className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-lg p-5"
+          className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-lg p-5"
         >
           <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.ideaProfile')}</p>
           <div className="flex flex-wrap gap-2">
@@ -81,7 +81,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-lg p-5 mt-4"
+          className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-lg p-5 mt-4"
         >
           <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.searchResults')}</p>
           <div className="space-y-1.5">

@@ -5,10 +5,10 @@ import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
 const platformDots: Record<string, string> = {
-  github: 'bg-purple-400',
-  tavily: 'bg-blue-400',
-  hackernews: 'bg-orange-400',
-  appstore: 'bg-emerald-400',
+  github: 'bg-chart-2',
+  tavily: 'bg-chart-3',
+  hackernews: 'bg-chart-5',
+  appstore: 'bg-chart-1',
 }
 
 interface CompetitorRowProps {
@@ -27,7 +27,7 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
   return (
     <div
       id={elementId}
-      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-bg-card/40 backdrop-blur-md transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px group"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-bg-card/85 backdrop-blur-md transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px group"
     >
       <span className="text-xs font-mono text-text-dim w-6 text-right shrink-0">#{rank}</span>
       <RelevanceRing score={competitor.relevance_score} size={28} />

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -22,6 +22,7 @@ vi.mock('./pages/HistoryPage', async () => {
 
 describe('App route loading', () => {
   beforeEach(() => {
+    localStorage.clear()
     window.history.pushState({}, '', '/reports/r-1')
   })
 
@@ -30,5 +31,59 @@ describe('App route loading', () => {
 
     expect(screen.getByTestId('route-loading')).toBeInTheDocument()
     expect(await screen.findByText('REPORT PAGE')).toBeInTheDocument()
+  })
+})
+
+function mockMatchMedia(matches: boolean) {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>()
+  const mediaQueryList = {
+    matches,
+    media: '(prefers-color-scheme: dark)',
+    onchange: null,
+    addEventListener: (_: 'change', listener: (event: MediaQueryListEvent) => void) => {
+      listeners.add(listener)
+    },
+    removeEventListener: (_: 'change', listener: (event: MediaQueryListEvent) => void) => {
+      listeners.delete(listener)
+    },
+    dispatchEvent: () => true,
+  } as unknown as MediaQueryList
+
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => mediaQueryList))
+}
+
+describe('App theme mode', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    window.history.pushState({}, '', '/')
+  })
+
+  it('follows system preference in system mode', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('selects theme mode from dropdown and persists choice', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+
+    const themeButton = screen.getByLabelText('Toggle theme mode')
+    fireEvent.click(themeButton)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Light' }))
+
+    expect(localStorage.getItem('ideago-theme-mode')).toBe('light')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('restores manual theme from localStorage', async () => {
+    localStorage.setItem('ideago-theme-mode', 'dark')
+    mockMatchMedia(false)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 })

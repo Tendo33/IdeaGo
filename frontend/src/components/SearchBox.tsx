@@ -41,13 +41,13 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
           placeholder={t('search.placeholder')}
           maxLength={MAX_QUERY_LENGTH}
           disabled={isLoading}
-          className="w-full rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-5 py-4 pr-14 text-lg text-text placeholder-text-dim shadow-2xl transition-all duration-300 outline-none focus:border-cta focus:ring-1 focus:ring-cta/30 focus:bg-black/80 disabled:opacity-50 hover:border-white/20"
+          className="w-full rounded-2xl border border-border/80 bg-card/85 backdrop-blur-md px-5 py-4 pr-14 text-lg text-text placeholder-text-dim shadow-xl transition-all duration-300 outline-none focus:border-cta focus:ring-1 focus:ring-cta/30 focus:bg-card disabled:opacity-50 hover:border-ring/35"
           aria-label={t('search.placeholder')}
         />
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-bg outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_18px_rgba(196,245,103,0.5)] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-primary-foreground outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-lg hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
           aria-label={t('search.button')}
         >
           {isLoading ? (

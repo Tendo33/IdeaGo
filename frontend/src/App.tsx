@@ -1,7 +1,7 @@
-import { Component, Suspense, lazy, type ReactNode, type ErrorInfo } from 'react'
+import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode, type ErrorInfo } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
-import { History, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Check, ChevronDown, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
 import { HomePage } from './pages/HomePage'
 
 const ReportPage = lazy(async () => {
@@ -21,6 +21,165 @@ interface ErrorBoundaryState {
 
 interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode
+}
+
+type ThemeMode = 'system' | 'light' | 'dark'
+
+const THEME_MODE_STORAGE_KEY = 'ideago-theme-mode'
+const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === 'system' || value === 'light' || value === 'dark'
+}
+
+function getSystemPrefersDark() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+  return window.matchMedia(THEME_MEDIA_QUERY).matches
+}
+
+function readStoredThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'system'
+  }
+  const stored = window.localStorage.getItem(THEME_MODE_STORAGE_KEY)
+  return isThemeMode(stored) ? stored : 'system'
+}
+
+function applyTheme(mode: ThemeMode, systemPrefersDark: boolean) {
+  const root = document.documentElement
+  const shouldUseDark = mode === 'dark' || (mode === 'system' && systemPrefersDark)
+  root.classList.toggle('dark', shouldUseDark)
+  root.style.colorScheme = shouldUseDark ? 'dark' : 'light'
+}
+
+function useThemeMode() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredThemeMode())
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => getSystemPrefersDark())
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+
+    const mediaQueryList = window.matchMedia(THEME_MEDIA_QUERY)
+    const listener = (event: MediaQueryListEvent) => setSystemPrefersDark(event.matches)
+
+    if (typeof mediaQueryList.addEventListener === 'function') {
+      mediaQueryList.addEventListener('change', listener)
+      return () => mediaQueryList.removeEventListener('change', listener)
+    }
+
+    mediaQueryList.addListener(listener)
+    return () => mediaQueryList.removeListener(listener)
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
+    applyTheme(themeMode, systemPrefersDark)
+  }, [themeMode, systemPrefersDark])
+
+  return {
+    themeMode,
+    selectThemeMode: (mode: ThemeMode) => setThemeMode(mode),
+  }
+}
+
+const THEME_OPTIONS: Array<{
+  mode: ThemeMode
+  label: string
+  shortLabel: string
+  Icon: typeof Monitor
+}> = [
+  { mode: 'system', label: 'System', shortLabel: 'SYS', Icon: Monitor },
+  { mode: 'dark', label: 'Dark', shortLabel: 'DARK', Icon: Moon },
+  { mode: 'light', label: 'Light', shortLabel: 'LIGHT', Icon: Sun },
+]
+
+function ThemeModeMenu({
+  themeMode,
+  onSelectThemeMode,
+}: {
+  themeMode: ThemeMode
+  onSelectThemeMode: (mode: ThemeMode) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const activeTheme = THEME_OPTIONS.find(option => option.mode === themeMode) ?? THEME_OPTIONS[0]
+  const ActiveIcon = activeTheme.Icon
+
+  useEffect(() => {
+    if (!open) return
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(previous => !previous)}
+        className="min-h-10 min-w-11 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-bg-card-hover px-3 text-xs font-semibold text-text-muted transition-colors duration-200 hover:text-primary cursor-pointer"
+        aria-label="Toggle theme mode"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <ActiveIcon className="h-4 w-4" />
+        <span className="hidden sm:inline">{activeTheme.shortLabel}</span>
+        <ChevronDown className={`hidden h-3.5 w-3.5 transition-transform duration-200 sm:block ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="Theme mode options"
+          className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-border/80 bg-popover/95 p-1 backdrop-blur-2xl shadow-xl z-50"
+        >
+          {THEME_OPTIONS.map(option => {
+            const OptionIcon = option.Icon
+            const selected = option.mode === themeMode
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  onSelectThemeMode(option.mode)
+                  setOpen(false)
+                }}
+                className={`w-full inline-flex items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors cursor-pointer ${
+                  selected
+                    ? 'bg-cta/12 text-cta'
+                    : 'text-text-muted hover:bg-muted/65 hover:text-text'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <OptionIcon className="h-3.5 w-3.5" />
+                  {option.label}
+                </span>
+                {selected && <Check className="h-3.5 w-3.5" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -52,7 +211,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 this.setState({ hasError: false, error: null })
                 window.location.href = '/'
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cta text-white hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cta text-primary-foreground hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               {t('error.backToHome')}
@@ -77,7 +236,7 @@ function NotFound() {
         <p className="mb-6 text-lg text-text-muted">{t('error.notFoundMessage')}</p>
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2 rounded-xl bg-cta px-4 py-2 text-white transition-colors duration-200 hover:bg-cta-hover cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-xl bg-cta px-4 py-2 text-primary-foreground transition-colors duration-200 hover:bg-cta-hover cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('error.backToHome')}
@@ -87,7 +246,13 @@ function NotFound() {
   )
 }
 
-function NavBar() {
+function NavBar({
+  themeMode,
+  onSelectThemeMode,
+}: {
+  themeMode: ThemeMode
+  onSelectThemeMode: (mode: ThemeMode) => void
+}) {
   const { t, i18n } = useTranslation()
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
@@ -98,7 +263,7 @@ function NavBar() {
   }
 
   return (
-    <nav className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl border border-border/80 bg-bg-card/85 px-4 py-3 shadow-[0_18px_50px_-34px_rgba(16,24,40,0.6)] backdrop-blur-md no-print sm:px-5">
+    <nav className="fixed left-1/2 top-4 z-50 flex w-[calc(100%-1.5rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl border border-border/80 bg-bg-card/85 px-4 py-3 shadow-xl backdrop-blur-md no-print sm:px-5">
       <Link
         to="/"
         className="min-h-11 flex items-center text-lg font-bold text-text transition-colors duration-200 hover:text-primary cursor-pointer"
@@ -106,6 +271,7 @@ function NavBar() {
         {t('app.title')}<span className="text-primary">{t('app.titleHighlight')}</span>
       </Link>
       <div className="flex items-center gap-2 sm:gap-3">
+        <ThemeModeMenu themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
         <button
           onClick={toggleLanguage}
           className="min-h-10 rounded-lg border border-border bg-bg-card-hover px-3 text-xs font-semibold text-text-muted transition-colors duration-200 hover:text-primary cursor-pointer"
@@ -138,10 +304,12 @@ function RouteLoading() {
 }
 
 export default function App() {
+  const { themeMode, selectThemeMode } = useThemeMode()
+
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <NavBar />
+        <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
         <main className="pb-10 pt-24">
           <Suspense fallback={<RouteLoading />}>
             <Routes>

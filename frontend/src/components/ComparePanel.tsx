@@ -74,7 +74,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-labelledby={headingId}
@@ -88,11 +88,11 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
     >
       <div
         ref={panelRef}
-        className="w-full max-w-5xl max-h-[85vh] bg-black/80 backdrop-blur-2xl border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col"
+        className="w-full max-w-5xl max-h-[85vh] bg-popover/95 backdrop-blur-2xl border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         onMouseDown={event => event.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0 bg-white/5">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/80 shrink-0 bg-muted/45">
           <h3 id={headingId} className="text-lg font-semibold font-heading text-text">
             {t('report.compare.title', { count: competitors.length })}
           </h3>
@@ -111,7 +111,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-border">
-                <th className="sticky left-0 bg-black/90 z-10 text-left px-5 py-4 text-xs font-medium text-text-dim w-36 min-w-36 backdrop-blur-xl" />
+                <th className="sticky left-0 bg-popover/95 z-10 text-left px-5 py-4 text-xs font-medium text-text-dim w-36 min-w-36 backdrop-blur-xl" />
                 {competitors.map(competitor => {
                   const competitorId = getCompetitorId(competitor)
                   return (
@@ -135,7 +135,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
             <tbody>
               {/* Relevance */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.relevance')}</td>
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.relevance')}</td>
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-relevance`} className="px-4 py-2.5">
                     <RelevanceRing score={competitor.relevance_score} size={32} />
@@ -145,7 +145,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* One-liner */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.description')}</td>
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.description')}</td>
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-description`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.one_liner}</td>
                 ))}
@@ -153,7 +153,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Pricing */}
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.pricing')}</td>
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.pricing')}</td>
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.pricing ?? '—'}</td>
                 ))}
@@ -162,14 +162,14 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               {/* Features */}
               {allFeatures.length > 0 && (
                 <tr className="border-b border-border">
-                  <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-white/10">
+                  <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-muted/65">
                     {t('report.compare.features')}
                   </td>
                 </tr>
               )}
               {allFeatures.map(feature => (
                 <tr key={feature} className="border-b border-border/30">
-                  <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-muted backdrop-blur-xl">{feature}</td>
+                  <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted backdrop-blur-xl">{feature}</td>
                   {competitors.map(competitor => (
                     <td key={`${getCompetitorId(competitor)}-${feature}`} className="px-4 py-2 text-center">
                       {competitor.features.includes(feature) ? (
@@ -184,12 +184,12 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Strengths */}
               <tr className="border-b border-border">
-                <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-white/10">
+                <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-muted/65">
                   {t('report.compare.strengths')}
                 </td>
               </tr>
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-dim font-medium backdrop-blur-xl" />
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-dim font-medium backdrop-blur-xl" />
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-strengths`} className="px-4 py-2.5 align-top">
                     <ul className="space-y-0.5">
@@ -203,12 +203,12 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Weaknesses */}
               <tr className="border-b border-border">
-                <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-white/10">
+                <td colSpan={competitors.length + 1} className="px-5 py-3 text-xs font-semibold text-text uppercase tracking-wider bg-muted/65">
                   {t('report.compare.weaknesses')}
                 </td>
               </tr>
               <tr className="border-b border-border/50">
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-dim font-medium backdrop-blur-xl" />
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-dim font-medium backdrop-blur-xl" />
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-weaknesses`} className="px-4 py-2.5 align-top">
                     <ul className="space-y-0.5">
@@ -222,7 +222,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
               {/* Sources */}
               <tr>
-                <td className="sticky left-0 bg-black/90 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.sources')}</td>
+                <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.sources')}</td>
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-sources`} className="px-4 py-2.5">
                     <div className="flex gap-1.5 flex-wrap">
@@ -253,14 +253,14 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
   if (count < 2) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-2xl bg-black/80 backdrop-blur-xl border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] animate-fade-in no-print">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-2xl bg-popover/95 backdrop-blur-xl border border-border shadow-xl animate-fade-in no-print">
       <span className="text-sm text-text">
         <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
       <button
         type="button"
         onClick={onCompare}
-        className="px-5 py-2 text-sm font-semibold rounded-xl bg-cta text-bg cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[0_0_18px_-3px_rgba(196,245,103,0.5)] hover:-translate-y-px"
+        className="px-5 py-2 text-sm font-semibold rounded-xl bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-lg hover:-translate-y-px"
       >
         {t('report.compare.compareBtn')}
       </button>

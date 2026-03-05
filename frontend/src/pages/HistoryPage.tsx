@@ -105,13 +105,13 @@ export function HistoryPage() {
       <div className="app-shell max-w-5xl">
         <Link
           to="/"
-          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-dim transition-colors duration-300 hover:text-text-muted hover:bg-white/5"
+          className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-dim transition-colors duration-300 hover:text-text-muted hover:bg-muted/55"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('history.back')}
         </Link>
 
-        <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl mb-6 px-5 py-5 sm:px-6">
+        <div className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-xl mb-6 px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-bold text-text sm:text-3xl">
               {t('history.title')}
@@ -124,7 +124,7 @@ export function HistoryPage() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder={t('history.filterPlaceholder')}
-                  className="input w-full bg-black/40 pl-9 pr-3 py-2 text-sm text-text placeholder-text-dim sm:w-64 border-white/10 focus:border-cta"
+                  className="input w-full bg-card/85 pl-9 pr-3 py-2 text-sm text-text placeholder-text-dim sm:w-64 border-border/80 focus:border-cta"
                 />
               </div>
             )}
@@ -150,12 +150,12 @@ export function HistoryPage() {
         )}
 
         {!loading && !error && reports.length === 0 && (
-          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-12 text-center shadow-2xl">
+          <div className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl p-12 text-center shadow-xl">
             <FileText className="mx-auto mb-3 h-10 w-10 text-text-dim" />
             <p className="mb-4 text-sm text-text-muted">{t('history.emptyState')}</p>
             <Link
               to="/"
-              className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-cta px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-cta-hover"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-cta px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-200 hover:bg-cta-hover"
             >
               {t('history.startFirst')}
             </Link>
@@ -168,7 +168,7 @@ export function HistoryPage() {
               <div
                 key={report.id}
                 onClick={() => navigate(`/reports/${report.id}`)}
-                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-white/5 hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(196,245,103,0.08)] cursor-pointer"
+                className="group flex items-center justify-between px-5 py-4 rounded-xl border border-border bg-bg-card transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px hover:shadow-md cursor-pointer"
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {

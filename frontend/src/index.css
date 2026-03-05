@@ -1,54 +1,220 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #1C1917;
-  --color-secondary: #44403C;
-  --color-cta: #c4f567;
-  --color-cta-hover: #a8e04a;
-  --color-bg: #0A0A0A;
-  --color-bg-card: #171717;
-  --color-bg-card-hover: #262626;
-  --color-text: #F8FAFC;
-  --color-text-muted: #94A3B8;
-  --color-text-dim: #64748B;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-danger: #EF4444;
-  --color-warning: #F59E0B;
-  --color-success: #10B981;
+@custom-variant dark (&:is(.dark *));
 
-  --font-heading: 'SF Pro Display', 'Segoe UI Variable Display', 'Avenir Next',
-    'Avenir', 'Helvetica Neue', 'Noto Sans', sans-serif;
-  --font-body: 'SF Pro Text', 'Segoe UI Variable Text', -apple-system, BlinkMacSystemFont,
-    'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
+:root {
+  --background: #fbfcf8;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #aff33e;
+  --primary-foreground: #000000;
+  --secondary: #334155;
+  --secondary-foreground: #f8fafc;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f0fdf4;
+  --accent-foreground: #166534;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #aff33e;
+  --chart-1: #aff33e;
+  --chart-2: #334155;
+  --chart-3: #22c55e;
+  --chart-4: #64748b;
+  --chart-5: #94a3b8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #aff33e;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #f8fafc;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #f1f5f9;
+  --sidebar-ring: #aff33e;
+  --warning: #f59e0b;
+  --success: #22c55e;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 1rem;
+  --shadow-x: 0px;
+  --shadow-y: 8px;
+  --shadow-blur: 20px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.05;
+  --shadow-color: #000000;
+  --shadow-2xs: 0px 8px 20px 0px hsl(0 0% 0% / 0.03);
+  --shadow-xs: 0px 8px 20px 0px hsl(0 0% 0% / 0.03);
+  --shadow-sm: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+  --shadow: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+  --shadow-md: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 2px 4px -1px hsl(0 0% 0% / 0.05);
+  --shadow-lg: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
+  --shadow-xl: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 8px 10px -1px hsl(0 0% 0% / 0.05);
+  --shadow-2xl: 0px 8px 20px 0px hsl(0 0% 0% / 0.13);
+  --tracking-normal: -0.01em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #aff33e;
+  --primary-foreground: #000000;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #14532d;
+  --accent-foreground: #aff33e;
+  --destructive: #991b1b;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #aff33e;
+  --chart-1: #aff33e;
+  --chart-2: #3b82f6;
+  --chart-3: #22c55e;
+  --chart-4: #a855f7;
+  --chart-5: #f59e0b;
+  --sidebar: #020617;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #aff33e;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #aff33e;
+  --warning: #f59e0b;
+  --success: #22c55e;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 1rem;
+  --shadow-x: 0px;
+  --shadow-y: 10px;
+  --shadow-blur: 25px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.4;
+  --shadow-color: #000000;
+  --shadow-2xs: 0px 10px 25px 0px hsl(0 0% 0% / 0.2);
+  --shadow-xs: 0px 10px 25px 0px hsl(0 0% 0% / 0.2);
+  --shadow-sm: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 1px 2px -1px hsl(0 0% 0% / 0.4);
+  --shadow: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 1px 2px -1px hsl(0 0% 0% / 0.4);
+  --shadow-md: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 2px 4px -1px hsl(0 0% 0% / 0.4);
+  --shadow-lg: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 4px 6px -1px hsl(0 0% 0% / 0.4);
+  --shadow-xl: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 8px 10px -1px hsl(0 0% 0% / 0.4);
+  --shadow-2xl: 0px 10px 25px 0px hsl(0 0% 0% / 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-bg: var(--background);
+  --color-bg-card: var(--card);
+  --color-bg-card-hover: var(--muted);
+  --color-text: var(--foreground);
+  --color-text-muted: var(--muted-foreground);
+  --color-text-dim: var(--chart-4);
+  --color-cta: var(--primary);
+  --color-cta-hover: color-mix(in oklab, var(--primary) 86%, black);
+  --color-danger: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-cta text-bg px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border border-cta/50 shadow-[0_0_15px_-3px_rgba(196,245,103,0.4)];
+    @apply bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border border-primary/50 shadow-md;
   }
   .btn-primary:hover {
-    @apply bg-cta-hover shadow-[0_0_20px_-3px_rgba(168,224,74,0.6)] -translate-y-[1px];
+    @apply bg-cta-hover shadow-lg -translate-y-[1px];
   }
 
   .btn-secondary {
-    @apply bg-transparent text-text border border-border px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer backdrop-blur-md hover:bg-white/5;
+    @apply bg-card/80 text-foreground border border-border px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer backdrop-blur-md hover:bg-muted/55;
   }
   .btn-secondary:hover {
-    @apply border-white/20;
+    @apply border-ring/35;
   }
 
   .card {
-    @apply bg-bg-card/80 backdrop-blur-xl rounded-2xl p-6 border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300;
+    @apply bg-card/85 text-card-foreground backdrop-blur-xl rounded-2xl p-6 border border-border shadow-lg transition-all duration-300;
   }
   .card-clickable {
-    @apply cursor-pointer hover:shadow-[0_8px_30px_rgba(196,245,103,0.08)] hover:-translate-y-[2px] hover:bg-bg-card-hover/90 hover:border-white/20;
+    @apply cursor-pointer hover:shadow-xl hover:-translate-y-[2px] hover:bg-muted/65 hover:border-ring/35;
   }
 
   .input {
-    @apply px-4 py-3 border border-border rounded-xl text-base bg-black/50 text-text transition-all duration-300 outline-none backdrop-blur-md;
+    @apply px-4 py-3 border border-input rounded-xl text-base bg-background/90 text-foreground transition-all duration-300 outline-none backdrop-blur-md;
   }
   .input:focus {
-    @apply border-cta ring-1 ring-cta/30 bg-black/80;
+    @apply border-ring ring-1 ring-ring/30 bg-background;
   }
 
   .app-shell {
@@ -56,26 +222,31 @@
   }
 
   .surface-card {
-    @apply rounded-2xl border border-border bg-bg-card/80 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)];
+    @apply rounded-2xl border border-border bg-card/85 text-card-foreground backdrop-blur-xl shadow-lg;
   }
 
   .panel-soft {
-    @apply rounded-3xl border border-white/5 bg-gradient-to-br from-white/5 via-transparent to-black/20 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+    @apply rounded-3xl border border-border/70 bg-gradient-to-br from-accent/65 via-card/75 to-muted/75 backdrop-blur-2xl shadow-xl;
   }
 }
 
-body {
-  margin: 0;
-  font-family: var(--font-body);
-  background-color: var(--color-bg);
-  background-image:
-    radial-gradient(circle at 15% 50%, rgba(196, 245, 103, 0.05), transparent 28%),
-    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.025), transparent 25%),
-    radial-gradient(circle at 60% 80%, rgba(168, 224, 74, 0.03), transparent 20%);
-  background-attachment: fixed;
-  color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    margin: 0;
+    @apply bg-background text-foreground font-sans;
+    letter-spacing: var(--tracking-normal);
+    background-image:
+      radial-gradient(circle at 15% 50%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 28%),
+      radial-gradient(circle at 85% 30%, color-mix(in oklab, var(--foreground) 4%, transparent), transparent 25%),
+      radial-gradient(circle at 60% 80%, color-mix(in oklab, var(--chart-3) 8%, transparent), transparent 20%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 * {
@@ -98,17 +269,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(196, 245, 103, 0.12);
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
   border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(196, 245, 103, 0.25);
+  background: color-mix(in oklab, var(--primary) 32%, transparent);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(196, 245, 103, 0.12) transparent;
+  scrollbar-color: color-mix(in oklab, var(--primary) 20%, transparent) transparent;
 }
 
 @keyframes verdict-pulse {
@@ -117,8 +288,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes hero-glow {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 15px rgba(196, 245, 103, 0.3)); }
-  50% { opacity: 0.85; filter: drop-shadow(0 0 5px rgba(196, 245, 103, 0.1)); }
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 15px color-mix(in oklab, var(--primary) 32%, transparent)); }
+  50% { opacity: 0.85; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--primary) 15%, transparent)); }
 }
 
 .animate-verdict-pulse {
@@ -166,10 +337,10 @@ h1, h2, h3, h4, h5, h6 {
 .text-shimmer {
   background: linear-gradient(
     90deg,
-    #c4f567 0%,
-    #e8ffb0 40%,
-    #c4f567 60%,
-    #a8e04a 100%
+    var(--primary) 0%,
+    color-mix(in oklab, var(--primary) 72%, white) 40%,
+    var(--primary) 60%,
+    color-mix(in oklab, var(--primary) 72%, black) 100%
   );
   background-size: 200% auto;
   background-clip: text;

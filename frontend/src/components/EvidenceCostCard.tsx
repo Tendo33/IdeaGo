@@ -53,7 +53,7 @@ export function EvidenceCostCard({
 
       <div className="space-y-2 mb-4">
         {topEvidence.length > 0 ? topEvidence.slice(0, 3).map((item, index) => (
-          <div key={index} className="text-xs text-text-muted rounded-md bg-white/5 border border-white/10 px-2.5 py-2">
+          <div key={index} className="text-xs text-text-muted rounded-md bg-muted/55 border border-border/80 px-2.5 py-2">
             {item}
           </div>
         )) : (
@@ -64,7 +64,7 @@ export function EvidenceCostCard({
       {expanded && (
         <div className="space-y-2 mb-4">
           {evidenceItems.slice(0, 6).map((item, index) => (
-            <div key={`${item.title}-${index}`} className="rounded-md border border-white/10 bg-white/5 px-3 py-2">
+            <div key={`${item.title}-${index}`} className="rounded-md border border-border/80 bg-muted/55 px-3 py-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-text truncate">{item.title || t('report.transparency.evidence.unknown')}</p>
@@ -116,7 +116,7 @@ export function EvidenceCostCard({
 
 function CostMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 px-2.5 py-2">
+    <div className="rounded-md border border-border/80 bg-muted/55 px-2.5 py-2">
       <p className="text-[11px] text-text-dim">{label}</p>
       <p className="text-xs font-semibold text-text mt-0.5">{value}</p>
     </div>

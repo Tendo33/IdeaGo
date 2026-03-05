@@ -60,7 +60,7 @@ export function HomePage() {
     <div className="min-h-screen px-4 pb-12 pt-10 sm:pt-14">
       <div className="app-shell grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)] lg:gap-8">
         <section className="panel-soft px-6 py-8 text-center sm:px-10 sm:py-10 lg:text-left animate-fade-in">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cta/30 bg-cta/8 px-3 py-1 text-xs font-semibold text-cta shadow-[0_0_12px_rgba(196,245,103,0.18)]">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cta/30 bg-cta/8 px-3 py-1 text-xs font-semibold text-cta shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             {t('app.title')}
             {t('app.titleHighlight')}
@@ -83,7 +83,7 @@ export function HomePage() {
                   key={prompt}
                   onClick={() => handleSubmit(prompt)}
                   disabled={isLoading}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-text-muted transition-all duration-300 hover:border-cta/30 hover:bg-white/10 hover:text-cta hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(196,245,103,0.12)] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border/80 bg-card/85 px-3 py-1.5 text-xs text-text-muted transition-all duration-300 hover:border-cta/30 hover:bg-muted/65 hover:text-cta hover:-translate-y-px hover:shadow-md backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Sparkles className="h-3 w-3" />
                   {prompt}
@@ -118,7 +118,7 @@ export function HomePage() {
                 <button
                   key={report.id}
                   onClick={() => navigate(`/reports/${report.id}`)}
-                  className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-left backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-cta/30 hover:bg-white/5 hover:shadow-[0_8px_20px_rgba(196,245,103,0.06)] focus:outline-none focus:ring-1 focus:ring-cta/40"
+                  className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-card/85 px-4 py-3 text-left backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-cta/30 hover:bg-muted/55 hover:shadow-md focus:outline-none focus:ring-1 focus:ring-cta/40"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">{report.query}</p>
