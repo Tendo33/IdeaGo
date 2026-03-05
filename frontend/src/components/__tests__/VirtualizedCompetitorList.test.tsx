@@ -123,4 +123,21 @@ describe('VirtualizedCompetitorList', () => {
 
     expect(scroller.scrollTop).toBe(0)
   })
+
+  it('uses a single-column grid class when virtual columns collapse to one', () => {
+    const competitors = createCompetitors(8)
+    const { container } = render(
+      <VirtualizedCompetitorList
+        competitors={competitors}
+        viewMode="grid"
+        compareSet={new Set()}
+        onToggleCompare={vi.fn()}
+      />,
+    )
+
+    const rowGrid = container.querySelector('div.grid')
+    expect(rowGrid).not.toBeNull()
+    expect(rowGrid?.className).toContain('grid-cols-1')
+    expect(rowGrid?.className).not.toContain('lg:grid-cols-2')
+  })
 })

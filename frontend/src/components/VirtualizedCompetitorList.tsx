@@ -73,6 +73,7 @@ export function VirtualizedCompetitorList({
   const estimatedRowHeight =
     viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT : ESTIMATED_LIST_ROW_HEIGHT
   const rowCount = Math.ceil(competitors.length / columns)
+  const gridClassName = columns === 2 ? 'grid gap-4 grid-cols-2' : 'grid gap-4 grid-cols-1'
   const competitorSignature = useMemo(
     () => createCompetitorSignature(competitors),
     [competitors],
@@ -190,7 +191,7 @@ export function VirtualizedCompetitorList({
               }}
             >
               {viewMode === 'grid' ? (
-                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                <div className={gridClassName}>
                   {rowItems.map((competitor, itemIndex) => {
                     const rank = rowStart + itemIndex + 1
                     const competitorId = getCompetitorId(competitor)
