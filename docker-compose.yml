@@ -1,6 +1,7 @@
 services:
   ideago:
-    build: .
+    image: simonsun3/ideago:latest
+    pull_policy: always
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
     env_file: .env
