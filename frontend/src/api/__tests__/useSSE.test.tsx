@@ -35,6 +35,16 @@ class MockResponseReader {
     }
   }
 
+  emitWithCRLF(eventType: string, payload: unknown) {
+    const data = `event: ${eventType}\r\ndata: ${JSON.stringify(payload)}\r\n\r\n`
+    if (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift()!
+      resolve({ done: false, value: new TextEncoder().encode(data) })
+    } else {
+      this.chunks.push(data)
+    }
+  }
+
   close() {
     this.closed = true
     while (this.resolvers.length > 0) {
@@ -123,7 +133,7 @@ describe('useSSE', () => {
 
     expect(mockReaders.length).toBeGreaterThanOrEqual(2)
     const second = mockReaders[1]
-    
+
     act(() => {
       second.emit('source_completed', duplicatedEvent)
     })
@@ -132,6 +142,30 @@ describe('useSSE', () => {
       await flushMicrotasks()
     })
     expect(result.current.events).toHaveLength(1)
+  })
+
+  it('parses SSE chunks with CRLF newlines', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emitWithCRLF('source_completed', {
+        type: 'source_completed',
+        stage: 'github_search',
+        message: 'Found 3 results from github',
+        data: { platform: 'github', count: 3 },
+        timestamp: '2026-02-24T14:00:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.events).toHaveLength(1)
+      expect(result.current.events[0]?.stage).toBe('github_search')
+    })
   })
 
   it('ignores stale source listeners after reconnect', async () => {
@@ -179,5 +213,65 @@ describe('useSSE', () => {
     })
     expect(result.current.events).toHaveLength(1)
     expect(result.current.events[0]?.stage).toBe('tavily_search')
+  })
+
+  it('keeps reconnecting after repeated transient failures', async () => {
+    vi.useFakeTimers()
+    const failingFetch = vi.fn().mockRejectedValue(new Error('network down'))
+    vi.stubGlobal('fetch', failingFetch)
+
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 8; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    expect(failingFetch).toHaveBeenCalledTimes(9)
+    expect(result.current.error).toBeNull()
+    expect(result.current.isComplete).toBe(false)
+    expect(result.current.isReconnecting).toBe(true)
+  })
+
+  it('treats ping events as recovered connection state', async () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+    expect(mockReaders).toHaveLength(1)
+    const first = mockReaders[0]
+
+    act(() => {
+      first.close()
+    })
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+    expect(result.current.isReconnecting).toBe(true)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+      await flushMicrotasks()
+    })
+    expect(mockReaders.length).toBeGreaterThanOrEqual(2)
+    const second = mockReaders[1]
+
+    act(() => {
+      second.emit('ping', {})
+    })
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+    expect(result.current.isReconnecting).toBe(false)
   })
 })

@@ -39,6 +39,7 @@ _STATUS_ONLY_MAX_WAIT_SECONDS = 180
 _STATUS_ONLY_MAX_PINGS = (
     _STATUS_ONLY_MAX_WAIT_SECONDS // _STATUS_ONLY_PING_INTERVAL_SECONDS
 )
+_ACTIVE_STREAM_PING_INTERVAL_SECONDS = 15
 
 
 async def _mark_cancelled(report_id: str) -> None:
@@ -224,7 +225,7 @@ async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
         while True:
             try:
                 queued_event: PipelineEvent = await asyncio.wait_for(
-                    queue.get(), timeout=120
+                    queue.get(), timeout=_ACTIVE_STREAM_PING_INTERVAL_SECONDS
                 )
                 yield {"event": queued_event.type.value, "data": queued_event.to_sse()}
                 if queued_event.type in _TERMINAL_EVENTS:
