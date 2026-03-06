@@ -326,6 +326,7 @@ export function ReportContentPane({
               shouldUseVirtualization ? (
                 <VirtualizedCompetitorList
                   competitors={filteredCompetitors}
+                  allCompetitors={report.competitors}
                   viewMode="grid"
                   compareSet={compareSet}
                   onToggleCompare={toggleCompare}
@@ -335,15 +336,16 @@ export function ReportContentPane({
                   {filteredCompetitors.map((competitor, index) => {
                     const competitorId = getCompetitorId(competitor)
                     const domId = getCompetitorDomIdFromId(competitorId)
+                    const originalIndex = report.competitors.findIndex(c => getCompetitorId(c) === competitorId)
                     return renderCardWrapper(
                         competitorId,
                         index,
                         '-30px',
                         <CompetitorCard
                           competitor={competitor}
-                          rank={index + 1}
+                          rank={originalIndex >= 0 ? originalIndex + 1 : index + 1}
                           domId={domId}
-                          variant={index === 0 ? 'featured' : 'standard'}
+                          variant={originalIndex === 0 ? 'featured' : 'standard'}
                           compareSelected={compareSet.has(competitorId)}
                           onToggleCompare={() => toggleCompare(competitorId)}
                         />,
@@ -357,6 +359,7 @@ export function ReportContentPane({
               shouldUseVirtualization ? (
                 <VirtualizedCompetitorList
                   competitors={filteredCompetitors}
+                  allCompetitors={report.competitors}
                   viewMode="list"
                   compareSet={compareSet}
                   onToggleCompare={toggleCompare}
@@ -366,13 +369,14 @@ export function ReportContentPane({
                   {filteredCompetitors.map((competitor, index) => {
                     const competitorId = getCompetitorId(competitor)
                     const domId = getCompetitorDomIdFromId(competitorId)
+                    const originalIndex = report.competitors.findIndex(c => getCompetitorId(c) === competitorId)
                     return renderCardWrapper(
                         competitorId,
                         index,
                         '-20px',
                         <CompetitorRow
                           competitor={competitor}
-                          rank={index + 1}
+                          rank={originalIndex >= 0 ? originalIndex + 1 : index + 1}
                           domId={domId}
                           compareSelected={compareSet.has(competitorId)}
                           onToggleCompare={() => toggleCompare(competitorId)}

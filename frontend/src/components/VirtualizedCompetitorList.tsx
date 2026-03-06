@@ -13,6 +13,7 @@ type ViewMode = 'grid' | 'list'
 
 interface VirtualizedCompetitorListProps {
   competitors: Competitor[]
+  allCompetitors?: Competitor[]
   viewMode: ViewMode
   compareSet: Set<string>
   onToggleCompare: (competitorId: string) => void
@@ -61,6 +62,7 @@ function createCompetitorSignature(competitors: Competitor[]): string {
 
 export function VirtualizedCompetitorList({
   competitors,
+  allCompetitors,
   viewMode,
   compareSet,
   onToggleCompare,
@@ -193,15 +195,20 @@ export function VirtualizedCompetitorList({
               {viewMode === 'grid' ? (
                 <div className={gridClassName}>
                   {rowItems.map((competitor, itemIndex) => {
-                    const rank = rowStart + itemIndex + 1
                     const competitorId = getCompetitorId(competitor)
+                    let originalIndex = -1
+                    if (allCompetitors) {
+                      originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
+                    }
+                    const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
+                    
                     return (
                       <CompetitorCard
                         key={competitorId}
                         competitor={competitor}
                         rank={rank}
                         domId={getCompetitorDomIdFromId(competitorId)}
-                        variant={rank === 1 ? 'featured' : 'standard'}
+                        variant={originalIndex === 0 ? 'featured' : (originalIndex === -1 && rank === 1 ? 'featured' : 'standard')}
                         compareSelected={compareSet.has(competitorId)}
                         onToggleCompare={() => onToggleCompare(competitorId)}
                       />
@@ -211,8 +218,13 @@ export function VirtualizedCompetitorList({
               ) : (
                 <div className="pb-4">
                   {rowItems.map((competitor, itemIndex) => {
-                    const rank = rowStart + itemIndex + 1
                     const competitorId = getCompetitorId(competitor)
+                    let originalIndex = -1
+                    if (allCompetitors) {
+                      originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
+                    }
+                    const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
+                    
                     return (
                       <CompetitorRow
                         key={competitorId}

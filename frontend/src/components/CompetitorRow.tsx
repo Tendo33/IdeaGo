@@ -4,11 +4,11 @@ import { getCompetitorDomId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
 
-const platformDots: Record<string, string> = {
-  github: 'bg-chart-2',
-  tavily: 'bg-chart-3',
-  hackernews: 'bg-chart-5',
-  appstore: 'bg-chart-1',
+const platformColors: Record<string, string> = {
+  github: 'bg-chart-2/15 text-chart-2',
+  tavily: 'bg-chart-3/15 text-chart-3',
+  hackernews: 'bg-chart-5/15 text-chart-5',
+  appstore: 'bg-chart-1/15 text-chart-1',
 }
 
 interface CompetitorRowProps {
@@ -39,9 +39,11 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
         <p className="text-xs text-text-dim truncate">{competitor.one_liner}</p>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex flex-wrap gap-1.5 shrink-0 max-w-30 justify-end">
         {competitor.source_platforms.map(p => (
-          <span key={p} className={`w-2 h-2 rounded-full ${platformDots[p] ?? 'bg-text-dim'}`} title={p} />
+          <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
+            {p}
+          </span>
         ))}
       </div>
 

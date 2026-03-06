@@ -145,7 +145,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             {report.query}
           </h1>
           <p className="text-xs text-text-dim">
-            {report.intent.app_type} &middot; {report.intent.keywords_en.join(', ')} &middot; {new Date(report.created_at).toLocaleString()}
+            {report.intent.app_type} &middot; {report.intent.keywords_en.join(', ')} &middot; <span className="whitespace-nowrap">{new Date(report.created_at).toLocaleString()}</span>
           </p>
         </div>
 
