@@ -409,6 +409,39 @@ async def test_hn_search_returns_raw_results() -> None:
 
 
 @pytest.mark.asyncio
+async def test_hn_search_sanitizes_story_text_html_and_entities() -> None:
+    src = HackerNewsSource()
+    mock_response = httpx.Response(
+        200,
+        json={
+            "hits": [
+                {
+                    "title": "Show HN: API monitor",
+                    "url": "https://apitally.io",
+                    "objectID": "abc123",
+                    "points": 88,
+                    "num_comments": 12,
+                    "story_text": (
+                        "Hi HN, I&#x27;m Simon. <p>I built "
+                        '<a href="https://apitally.io">Apitally</a></p>'
+                    ),
+                    "author": "simon",
+                }
+            ]
+        },
+    )
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["api monitor"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].description == "Hi HN, I'm Simon. I built Apitally"
+    assert "<" not in results[0].description
+    assert "&#x27;" not in results[0].description
+
+
+@pytest.mark.asyncio
 async def test_hn_search_handles_api_error() -> None:
     src = HackerNewsSource()
     mock_response = httpx.Response(500, json={})

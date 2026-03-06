@@ -12,6 +12,7 @@ import httpx
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
 from ideago.sources.errors import SourceSearchError
+from ideago.utils.text_utils import decode_entities_and_strip_html
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,9 @@ class HackerNewsSource:
                 result.append(
                     RawResult(
                         title=hit.get("title", ""),
-                        description=hit.get("story_text") or "",
+                        description=decode_entities_and_strip_html(
+                            hit.get("story_text") or ""
+                        ),
                         url=url,
                         platform=Platform.HACKERNEWS,
                         raw_data={

@@ -34,6 +34,7 @@ from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.sources.registry import SourceRegistry
+from ideago.utils.text_utils import decode_entities_and_strip_html
 
 logger = get_logger(__name__)
 _EXTRACTION_DEGRADED_MSG = "Extraction unavailable; showing raw results."
@@ -459,12 +460,13 @@ def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor
     result: list[Competitor] = []
     for raw in raw_results:
         if raw.url:
+            normalized_description = decode_entities_and_strip_html(raw.description)
             result.append(
                 Competitor(
                     name=raw.title or "Unknown",
                     links=[raw.url],
-                    one_liner=raw.description[:200]
-                    if raw.description
+                    one_liner=normalized_description[:200]
+                    if normalized_description
                     else "No description available",
                     source_platforms=[raw.platform],
                     source_urls=[raw.url],

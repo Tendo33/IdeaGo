@@ -75,6 +75,28 @@ class MockSource:
         return MOCK_RAW_RESULTS
 
 
+class HtmlSource:
+    @property
+    def platform(self) -> Platform:
+        return Platform.HACKERNEWS
+
+    def is_available(self) -> bool:
+        return True
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        return [
+            RawResult(
+                title="Show HN: API monitor",
+                description=(
+                    "Hi HN, I&#x27;m Simon. <p>I built "
+                    '<a href="https://apitally.io">Apitally</a></p>'
+                ),
+                url="https://news.ycombinator.com/item?id=123",
+                platform=Platform.HACKERNEWS,
+            )
+        ]
+
+
 class FailingSource:
     @property
     def platform(self) -> Platform:
@@ -221,6 +243,26 @@ async def test_langgraph_engine_extraction_failure_degrades(tmp_path) -> None:
     assert len(degraded) == 1
     assert degraded[0].error_msg == "Extraction unavailable; showing raw results."
     assert "LLM extraction failed:" not in (degraded[0].error_msg or "")
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_degraded_competitor_sanitizes_html_one_liner(
+    tmp_path,
+) -> None:
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[HtmlSource()],
+        extraction_fails=True,
+    )
+    report = await engine.run("test idea")
+
+    degraded = [sr for sr in report.source_results if sr.status.value == "degraded"]
+    assert len(degraded) == 1
+    assert degraded[0].competitors
+    one_liner = degraded[0].competitors[0].one_liner
+    assert one_liner == "Hi HN, I'm Simon. I built Apitally"
+    assert "<" not in one_liner
+    assert "&#x27;" not in one_liner
 
 
 @pytest.mark.asyncio
