@@ -67,7 +67,7 @@ export function HomePage() {
           </div>
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-text sm:text-5xl">
             {t('app.title')}
-            <span className="text-shimmer ml-2">{t('app.titleHighlight')}</span>
+            <span className="text-breathing ml-2">{t('app.titleHighlight')}</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-base leading-relaxed text-text-muted sm:text-lg lg:mx-0">
             {t('home.description')}

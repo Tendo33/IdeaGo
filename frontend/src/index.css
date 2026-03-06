@@ -3,44 +3,44 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #fdfdfd;
-  --foreground: #000000;
-  --card: #fdfdfd;
-  --card-foreground: #000000;
-  --popover: #fcfcfc;
-  --popover-foreground: #000000;
-  --primary: #51f0a8;
-  --primary-foreground: #000000;
-  --secondary: #fcfdfd;
-  --secondary-foreground: #080808;
-  --muted: #f5f5f5;
-  --muted-foreground: #525252;
-  --accent: #f9fffc;
-  --accent-foreground: #0d9f5d;
-  --destructive: #f54a88;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #16a34a;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #f4f6f8;
-  --input: #ebebeb;
-  --ring: #51f0a8;
-  --chart-1: #51f0a8;
-  --chart-2: #7efe8f;
-  --chart-3: #ff4838;
-  --chart-4: #2ebdf6;
-  --chart-5: #ffb188;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #16a34a;
+  --chart-1: #16a34a;
+  --chart-2: #22c55e;
+  --chart-3: #ef4444;
+  --chart-4: #0ea5e9;
+  --chart-5: #f97316;
   --sidebar: #ffffff;
-  --sidebar-foreground: #000000;
-  --sidebar-primary: #000000;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e4fef3;
-  --sidebar-accent-foreground: #000000;
-  --sidebar-border: #ebebeb;
-  --sidebar-ring: #000000;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0f172a;
   --warning: #f59e0b;
   --success: #22c55e;
   --font-sans: Plus Jakarta Sans, sans-serif;
   --font-serif: Lora, serif;
   --font-mono: IBM Plex Mono, monospace;
-  --radius: 1.4rem;
+  --radius: 1.2rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
@@ -60,44 +60,44 @@
 }
 
 .dark {
-  --background: #000000;
-  --foreground: #f0f0f0;
-  --card: #0a0a0a;
-  --card-foreground: #f0f0f0;
-  --popover: #1a1b1b;
-  --popover-foreground: #f0f0f0;
-  --primary: #51f0a8;
-  --primary-foreground: #000000;
-  --secondary: #216a49;
-  --secondary-foreground: #f0f0f0;
-  --muted: #252527;
-  --muted-foreground: #969696;
-  --accent: #093723;
-  --accent-foreground: #fefefe;
-  --destructive: #ff78a5;
-  --destructive-foreground: #000000;
-  --border: #19191a;
-  --input: #3b3b3b;
-  --ring: #51f0a8;
-  --chart-1: #51f0a8;
-  --chart-2: #9effa1;
-  --chart-3: #ffb7cf;
-  --chart-4: #5fd0ff;
-  --chart-5: #ffb188;
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #f0f0f0;
-  --sidebar-primary: #51f0a8;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #00331b;
-  --sidebar-accent-foreground: #51f0a8;
-  --sidebar-border: #353a3e;
-  --sidebar-ring: #51f0a8;
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #22c55e;
+  --primary-foreground: #020617;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #22c55e;
+  --chart-1: #22c55e;
+  --chart-2: #86efac;
+  --chart-3: #fca5a5;
+  --chart-4: #38bdf8;
+  --chart-5: #fdba74;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #020617;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #22c55e;
   --warning: #f59e0b;
   --success: #22c55e;
   --font-sans: Plus Jakarta Sans, sans-serif;
   --font-serif: Lora, serif;
   --font-mono: IBM Plex Mono, monospace;
-  --radius: 1.4rem;
+  --radius: 1.2rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
@@ -357,20 +357,28 @@ h1, h2, h3, h4, h5, h6 {
   animation: slide-up 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Shimmer gradient text utility */
-.text-shimmer {
+/* Breathing light text utility */
+@keyframes text-breathing {
+  0%, 100% {
+    filter: drop-shadow(0 0 14px color-mix(in oklab, var(--primary) 70%, transparent));
+    opacity: 1;
+  }
+  50% {
+    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--primary) 20%, transparent));
+    opacity: 0.85;
+  }
+}
+
+.text-breathing {
   background: linear-gradient(
-    90deg,
+    135deg,
     var(--primary) 0%,
-    color-mix(in oklab, var(--primary) 72%, white) 40%,
-    var(--primary) 60%,
-    color-mix(in oklab, var(--primary) 72%, black) 100%
+    color-mix(in oklab, var(--primary) 80%, white) 100%
   );
-  background-size: 200% auto;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 3s linear infinite;
+  animation: text-breathing 3s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

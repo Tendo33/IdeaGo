@@ -269,7 +269,7 @@ function NavBar({
         className="group min-h-11 inline-flex items-center gap-1.5 text-lg font-bold tracking-tight text-text transition-colors duration-200 hover:text-foreground cursor-pointer"
       >
         <span className="text-text">{t('app.title')}</span>
-        <span className="inline-flex items-center rounded-md border border-primary/30 bg-primary px-2 py-0.5 text-[0.82em] leading-none text-primary-foreground shadow-sm transition-transform duration-200 group-hover:-translate-y-px animate-breathing">
+        <span className="inline-flex items-center rounded-md border border-primary/30 bg-primary px-2 py-0.5 text-[0.82em] leading-none text-primary-foreground shadow-sm transition-transform duration-200 group-hover:-translate-y-px">
           {t('app.titleHighlight')}
         </span>
       </Link>
