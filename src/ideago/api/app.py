@@ -12,7 +12,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -106,7 +106,9 @@ def create_app() -> FastAPI:
     app.include_router(reports.router, prefix="/api/v1")
 
     if _FRONTEND_DIST.is_dir():
-        app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")))
+        assets_dir = _FRONTEND_DIST / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)))
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa_fallback(full_path: str) -> FileResponse:
@@ -121,6 +123,10 @@ def create_app() -> FastAPI:
             dist_root = _FRONTEND_DIST.resolve()
             if requested_path.is_file() and requested_path.is_relative_to(dist_root):
                 return FileResponse(path=requested_path)
+            if full_path.startswith("api/"):
+                raise HTTPException(status_code=404, detail="Not Found")
+            if Path(full_path).suffix:
+                raise HTTPException(status_code=404, detail="Not Found")
             return FileResponse(path=_FRONTEND_INDEX)
 
     return app

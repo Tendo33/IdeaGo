@@ -666,11 +666,10 @@ def test_spa_fallback_serves_index_for_frontend_routes(tmp_path) -> None:
         patch.object(app_module, "_FRONTEND_INDEX", index_path),
     ):
         app = create_app()
-    client = TestClient(app)
-
-    response = client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
-    assert response.status_code == 200
-    assert "SPA" in response.text
+        client = TestClient(app)
+        response = client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
+        assert response.status_code == 200
+        assert "SPA" in response.text
 
 
 def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
@@ -687,8 +686,7 @@ def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
         patch.object(app_module, "_FRONTEND_INDEX", index_path),
     ):
         app = create_app()
-    client = TestClient(app)
-
-    response = client.get("/robots.txt")
-    assert response.status_code == 200
-    assert "User-agent: *" in response.text
+        client = TestClient(app)
+        response = client.get("/robots.txt")
+        assert response.status_code == 200
+        assert "User-agent: *" in response.text
