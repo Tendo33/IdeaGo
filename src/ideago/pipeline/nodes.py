@@ -249,6 +249,7 @@ class PipelineNodes:
         query = state["query"]
         source_results = state.get("source_results", [])
         all_competitors: list[Competitor] = []
+        extracted_count_by_source: dict[str, int] = {}
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
 
         async def _extract_for_source(
@@ -267,6 +268,11 @@ class PipelineNodes:
                         self._extractor.extract(raw_results, query),
                         timeout=self._extraction_timeout,
                     )
+                logger.info(
+                    "Extracted {} structured competitors from {}",
+                    len(competitors),
+                    platform_name,
+                )
                 await _emit(
                     self._callback,
                     EventType.EXTRACTION_COMPLETED,
@@ -290,6 +296,11 @@ class PipelineNodes:
                     if source_result.platform.value == platform_name:
                         source_result.status = SourceStatus.DEGRADED
                         source_result.error_msg = _EXTRACTION_DEGRADED_MSG
+                logger.info(
+                    "Falling back to {} degraded competitors from {}",
+                    len(degraded),
+                    platform_name,
+                )
                 return (
                     platform_name,
                     degraded,
@@ -309,12 +320,18 @@ class PipelineNodes:
             if isinstance(extraction_result, tuple):
                 platform_name, competitors, extractor_metrics = extraction_result
                 all_competitors.extend(competitors)
+                extracted_count_by_source[platform_name] = len(competitors)
                 for source_result in source_results:
                     if source_result.platform.value == platform_name:
                         source_result.competitors = competitors
                 llm_usage = _merge_llm_usage(llm_usage, extractor_metrics)
             elif isinstance(extraction_result, Exception):
                 logger.error("Unexpected extraction error: {}", extraction_result)
+        if extracted_count_by_source:
+            logger.info(
+                "Per-source extracted content counts: {}",
+                extracted_count_by_source,
+            )
 
         return {
             "all_competitors": all_competitors,

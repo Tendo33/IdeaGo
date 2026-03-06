@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,6 +15,7 @@ from ideago.models.research import (
     ResearchReport,
     SearchQuery,
 )
+from ideago.pipeline import nodes as pipeline_nodes
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import AggregationError, ExtractionError
@@ -239,6 +240,34 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
         "",
         "unknown_error",
     }
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_logs_extraction_counts_by_channel(tmp_path) -> None:
+    sources = [MockSource(Platform.GITHUB), MockSource(Platform.HACKERNEWS)]
+    engine, _, _, _ = _build_engine(tmp_path, sources=sources)
+
+    with patch.object(pipeline_nodes.logger, "info") as info_log:
+        await engine.run("test idea")
+
+    per_channel_calls = [
+        call.args
+        for call in info_log.call_args_list
+        if call.args and call.args[0] == "Extracted {} structured competitors from {}"
+    ]
+    assert per_channel_calls
+
+    observed_channels = {args[2] for args in per_channel_calls}
+    assert observed_channels == {"github", "hackernews"}
+
+    summary_calls = [
+        call.args
+        for call in info_log.call_args_list
+        if call.args and call.args[0] == "Per-source extracted content counts: {}"
+    ]
+    assert summary_calls
+    latest_summary = summary_calls[-1][1]
+    assert latest_summary == {"github": 1, "hackernews": 1}
 
 
 @pytest.mark.asyncio
