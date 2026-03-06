@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getCompetitorDomId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
@@ -7,8 +7,17 @@ import type { Competitor } from '../types/research'
 const platformColors: Record<string, string> = {
   github: 'bg-chart-2/15 text-chart-2',
   tavily: 'bg-chart-3/15 text-chart-3',
+  producthunt: 'bg-chart-4/15 text-chart-4',
   hackernews: 'bg-chart-5/15 text-chart-5',
   appstore: 'bg-chart-1/15 text-chart-1',
+}
+
+const PlatformIcon: Record<string, React.ElementType> = {
+  github: Github,
+  tavily: Globe,
+  producthunt: Flame,
+  hackernews: Terminal,
+  appstore: Smartphone,
 }
 
 interface CompetitorRowProps {
@@ -39,12 +48,16 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
         <p className="text-xs text-text-dim truncate">{competitor.one_liner}</p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 shrink-0 max-w-30 justify-end">
-        {competitor.source_platforms.map(p => (
-          <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
-            {p}
-          </span>
-        ))}
+      <div className="flex flex-wrap gap-1.5 shrink-0 max-w-40 justify-end">
+        {competitor.source_platforms.map(p => {
+          const Icon = PlatformIcon[p] || Globe
+          return (
+            <span key={p} className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-1.5 py-0.5 rounded-full whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
+              <Icon className="w-3 h-3" />
+              {p}
+            </span>
+          )
+        })}
       </div>
 
       <div className="flex items-center gap-2 shrink-0">

@@ -1,9 +1,25 @@
 import { useEffect, useId, useRef } from 'react'
-import { X, Check, Minus } from 'lucide-react'
+import { X, Check, Minus, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { RelevanceRing } from './RelevanceRing'
 import { getCompetitorId } from '../competitor'
 import type { Competitor } from '../types/research'
+
+const platformColors: Record<string, string> = {
+  github: 'bg-chart-2/15 text-chart-2',
+  tavily: 'bg-chart-3/15 text-chart-3',
+  producthunt: 'bg-chart-4/15 text-chart-4',
+  hackernews: 'bg-chart-5/15 text-chart-5',
+  appstore: 'bg-chart-1/15 text-chart-1',
+}
+
+const PlatformIcon: Record<string, React.ElementType> = {
+  github: Github,
+  tavily: Globe,
+  producthunt: Flame,
+  hackernews: Terminal,
+  appstore: Smartphone,
+}
 
 interface ComparePanelProps {
   competitors: Competitor[]
@@ -226,9 +242,15 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                 {competitors.map(competitor => (
                   <td key={`${getCompetitorId(competitor)}-sources`} className="px-4 py-2.5">
                     <div className="flex gap-1.5 flex-wrap">
-                      {competitor.source_platforms.map(p => (
-                        <span key={p} className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/50 text-text-dim">{p}</span>
-                      ))}
+                      {competitor.source_platforms.map(p => {
+                        const Icon = PlatformIcon[p] || Globe
+                        return (
+                          <span key={p} className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-1.5 py-0.5 rounded-full whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
+                            <Icon className="w-3 h-3" />
+                            {p}
+                          </span>
+                        )
+                      })}
                     </div>
                   </td>
                 ))}
