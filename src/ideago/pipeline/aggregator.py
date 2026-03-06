@@ -155,7 +155,10 @@ def fuse_competitors(competitors: list[Competitor]) -> list[Competitor]:
 
 
 def _competitor_merge_key(competitor: Competitor) -> str:
-    urls = [*_normalize_urls(competitor.links), *_normalize_urls(competitor.source_urls)]
+    urls = [
+        *_normalize_urls(competitor.links),
+        *_normalize_urls(competitor.source_urls),
+    ]
     for url in urls:
         if url:
             return f"url::{url}"
@@ -190,7 +193,9 @@ def _unique_strs(values: list[str]) -> list[str]:
 
 def _merge_competitor(base: Competitor, incoming: Competitor) -> Competitor:
     merged = deepcopy(base)
-    merged.name = merged.name if len(merged.name) >= len(incoming.name) else incoming.name
+    merged.name = (
+        merged.name if len(merged.name) >= len(incoming.name) else incoming.name
+    )
     merged.one_liner = (
         merged.one_liner
         if len(merged.one_liner) >= len(incoming.one_liner)

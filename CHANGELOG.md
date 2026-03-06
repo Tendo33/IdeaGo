@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.6] - 2026-03-06
+
+### Added
+- Platform icons and sourcing information in `ComparePanel`, `CompetitorCard`, and `CompetitorRow` for better visual identification of source platforms.
+- Support for 'Product Hunt' as a competitor source and filtering option.
+- Breathing animation to the app title highlight for improved aesthetics.
+- Intent parser enhancements for better keyword extraction and query generation.
+- Competitor fusion logic to merge duplicates across different sources.
+
+### Changed
+- Refactored `EvidenceCostCard` to improve evidence item rendering and expansion logic.
+- Improved competitor ranking logic to maintain consistent ordering across grid and list views.
+- Updated UI color scheme and shadows for a more polished look.
+- Normalized GitHub search queries to improve results.
 
 ## [0.2.3] - 2026-03-05
 
@@ -70,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/Tendo33/ideago/compare/v0.2.3...v0.2.6
 [0.2.3]: https://github.com/Tendo33/ideago/compare/v0.2.2...v0.2.3
 [0.2.0]: https://github.com/Tendo33/ideago/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Tendo33/ideago/releases/tag/v0.1.0

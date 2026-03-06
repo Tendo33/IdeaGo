@@ -201,7 +201,7 @@ export function VirtualizedCompetitorList({
                       originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
                     }
                     const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
-                    
+
                     return (
                       <CompetitorCard
                         key={competitorId}
@@ -224,7 +224,7 @@ export function VirtualizedCompetitorList({
                       originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
                     }
                     const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
-                    
+
                     return (
                       <CompetitorRow
                         key={competitorId}

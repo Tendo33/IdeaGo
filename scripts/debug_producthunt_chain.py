@@ -115,7 +115,9 @@ async def run_probe(args: argparse.Namespace) -> int:
                 "producthunt_registered": producthunt_registered,
                 "source_availability": availability,
                 "settings": {
-                    "producthunt_dev_token": _mask_token(settings.producthunt_dev_token),
+                    "producthunt_dev_token": _mask_token(
+                        settings.producthunt_dev_token
+                    ),
                     "producthunt_posted_after_days": settings.producthunt_posted_after_days,
                     "source_timeout_seconds": settings.source_timeout_seconds,
                     "source_query_concurrency": settings.source_query_concurrency,
