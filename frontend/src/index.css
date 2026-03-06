@@ -3,115 +3,115 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #fbfcf8;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #aff33e;
+  --background: #fdfdfd;
+  --foreground: #000000;
+  --card: #fdfdfd;
+  --card-foreground: #000000;
+  --popover: #fcfcfc;
+  --popover-foreground: #000000;
+  --primary: #51f0a8;
   --primary-foreground: #000000;
-  --secondary: #334155;
-  --secondary-foreground: #f8fafc;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f0fdf4;
-  --accent-foreground: #166534;
-  --destructive: #ef4444;
+  --secondary: #fcfdfd;
+  --secondary-foreground: #080808;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;
+  --accent: #f9fffc;
+  --accent-foreground: #0d9f5d;
+  --destructive: #f54a88;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #aff33e;
-  --chart-1: #aff33e;
-  --chart-2: #334155;
-  --chart-3: #22c55e;
-  --chart-4: #64748b;
-  --chart-5: #94a3b8;
+  --border: #f4f6f8;
+  --input: #ebebeb;
+  --ring: #51f0a8;
+  --chart-1: #51f0a8;
+  --chart-2: #7efe8f;
+  --chart-3: #ff4838;
+  --chart-4: #2ebdf6;
+  --chart-5: #ffb188;
   --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #aff33e;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #f8fafc;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #f1f5f9;
-  --sidebar-ring: #aff33e;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4fef3;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #000000;
   --warning: #f59e0b;
   --success: #22c55e;
-  --font-sans: Inter, system-ui, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --radius: 1rem;
-  --shadow-x: 0px;
-  --shadow-y: 8px;
-  --shadow-blur: 20px;
+  --font-sans: Plus Jakarta Sans, sans-serif;
+  --font-serif: Lora, serif;
+  --font-mono: IBM Plex Mono, monospace;
+  --radius: 1.4rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
   --shadow-spread: 0px;
-  --shadow-opacity: 0.05;
-  --shadow-color: #000000;
-  --shadow-2xs: 0px 8px 20px 0px hsl(0 0% 0% / 0.03);
-  --shadow-xs: 0px 8px 20px 0px hsl(0 0% 0% / 0.03);
-  --shadow-sm: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
-  --shadow: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
-  --shadow-md: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 2px 4px -1px hsl(0 0% 0% / 0.05);
-  --shadow-lg: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
-  --shadow-xl: 0px 8px 20px 0px hsl(0 0% 0% / 0.05), 0px 8px 10px -1px hsl(0 0% 0% / 0.05);
-  --shadow-2xl: 0px 8px 20px 0px hsl(0 0% 0% / 0.13);
-  --tracking-normal: -0.01em;
-  --spacing: 0.25rem;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.27rem;
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #aff33e;
+  --background: #000000;
+  --foreground: #f0f0f0;
+  --card: #0a0a0a;
+  --card-foreground: #f0f0f0;
+  --popover: #1a1b1b;
+  --popover-foreground: #f0f0f0;
+  --primary: #51f0a8;
   --primary-foreground: #000000;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #14532d;
-  --accent-foreground: #aff33e;
-  --destructive: #991b1b;
-  --destructive-foreground: #ffffff;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #aff33e;
-  --chart-1: #aff33e;
-  --chart-2: #3b82f6;
-  --chart-3: #22c55e;
-  --chart-4: #a855f7;
-  --chart-5: #f59e0b;
-  --sidebar: #020617;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #aff33e;
+  --secondary: #216a49;
+  --secondary-foreground: #f0f0f0;
+  --muted: #252527;
+  --muted-foreground: #969696;
+  --accent: #093723;
+  --accent-foreground: #fefefe;
+  --destructive: #ff78a5;
+  --destructive-foreground: #000000;
+  --border: #19191a;
+  --input: #3b3b3b;
+  --ring: #51f0a8;
+  --chart-1: #51f0a8;
+  --chart-2: #9effa1;
+  --chart-3: #ffb7cf;
+  --chart-4: #5fd0ff;
+  --chart-5: #ffb188;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #f0f0f0;
+  --sidebar-primary: #51f0a8;
   --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #aff33e;
+  --sidebar-accent: #00331b;
+  --sidebar-accent-foreground: #51f0a8;
+  --sidebar-border: #353a3e;
+  --sidebar-ring: #51f0a8;
   --warning: #f59e0b;
   --success: #22c55e;
-  --font-sans: Inter, system-ui, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --radius: 1rem;
-  --shadow-x: 0px;
-  --shadow-y: 10px;
-  --shadow-blur: 25px;
+  --font-sans: Plus Jakarta Sans, sans-serif;
+  --font-serif: Lora, serif;
+  --font-mono: IBM Plex Mono, monospace;
+  --radius: 1.4rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
   --shadow-spread: 0px;
-  --shadow-opacity: 0.4;
-  --shadow-color: #000000;
-  --shadow-2xs: 0px 10px 25px 0px hsl(0 0% 0% / 0.2);
-  --shadow-xs: 0px 10px 25px 0px hsl(0 0% 0% / 0.2);
-  --shadow-sm: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 1px 2px -1px hsl(0 0% 0% / 0.4);
-  --shadow: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 1px 2px -1px hsl(0 0% 0% / 0.4);
-  --shadow-md: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 2px 4px -1px hsl(0 0% 0% / 0.4);
-  --shadow-lg: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 4px 6px -1px hsl(0 0% 0% / 0.4);
-  --shadow-xl: 0px 10px 25px 0px hsl(0 0% 0% / 0.4), 0px 8px 10px -1px hsl(0 0% 0% / 0.4);
-  --shadow-2xl: 0px 10px 25px 0px hsl(0 0% 0% / 1);
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 }
 
 @theme inline {
@@ -153,7 +153,7 @@
   --color-bg-card-hover: var(--muted);
   --color-text: var(--foreground);
   --color-text-muted: var(--muted-foreground);
-  --color-text-dim: var(--chart-4);
+  --color-text-dim: color-mix(in oklab, var(--foreground) 40%, transparent);
   --color-cta: var(--primary);
   --color-cta-hover: color-mix(in oklab, var(--primary) 86%, black);
   --color-danger: var(--destructive);
@@ -306,9 +306,9 @@ h1, h2, h3, h4, h5, h6 {
   scrollbar-color: color-mix(in oklab, var(--primary) 20%, transparent) transparent;
 }
 
-@keyframes verdict-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
-  50% { box-shadow: 0 0 0 8px transparent; opacity: 0.8; }
+@keyframes breathing {
+  0%, 100% { box-shadow: 0 0 12px 2px color-mix(in oklab, var(--primary) 50%, transparent); opacity: 1; }
+  50% { box-shadow: 0 0 0 0 transparent; opacity: 0.5; }
 }
 
 @keyframes hero-glow {
@@ -316,8 +316,8 @@ h1, h2, h3, h4, h5, h6 {
   50% { opacity: 0.85; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--primary) 15%, transparent)); }
 }
 
-.animate-verdict-pulse {
-  animation: verdict-pulse 2.5s ease-in-out infinite;
+.animate-breathing {
+  animation: breathing 2.5s ease-in-out infinite;
 }
 
 .animate-hero-glow {

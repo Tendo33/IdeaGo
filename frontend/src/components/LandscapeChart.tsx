@@ -19,9 +19,9 @@ interface DataPoint {
 }
 
 const ZONE_COLORS = {
-  high: 'var(--chart-3)',
+  high: 'var(--primary)',
   medium: 'var(--warning)',
-  low: 'var(--chart-4)',
+  low: 'var(--color-text-dim)',
 }
 
 function getColor(relevance: number): string {
@@ -111,7 +111,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
           {t('report.chart.title')}
         </h3>
         <div className="flex items-center gap-3 text-[10px] text-text-dim">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cta" /> {t('report.chart.high')}</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" /> {t('report.chart.high')}</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> {t('report.chart.medium')}</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-text-dim" /> {t('report.chart.low')}</span>
         </div>
@@ -125,18 +125,18 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
             type="number"
             name="Features"
             domain={[0, maxFeatures + 1]}
-            tick={{ fontSize: 10, fill: 'var(--chart-4)' }}
-            label={{ value: t('report.chart.featureCount'), position: 'insideBottom', offset: -10, fontSize: 10, fill: 'var(--chart-4)' }}
+            tick={{ fontSize: 10, fill: 'var(--color-text-dim)' }}
+            label={{ value: t('report.chart.featureCount'), position: 'insideBottom', offset: -10, fontSize: 10, fill: 'var(--color-text-dim)' }}
           />
           <YAxis
             dataKey="relevance"
             type="number"
             name="Relevance"
             domain={[0, 100]}
-            tick={{ fontSize: 10, fill: 'var(--chart-4)' }}
-            label={{ value: t('report.chart.relevance'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: 'var(--chart-4)' }}
+            tick={{ fontSize: 10, fill: 'var(--color-text-dim)' }}
+            label={{ value: t('report.chart.relevance'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 10, fill: 'var(--color-text-dim)' }}
           />
-          <ReferenceLine y={70} stroke="var(--chart-3)" strokeDasharray="4 4" opacity={0.45} />
+          <ReferenceLine y={70} stroke="var(--primary)" strokeDasharray="4 4" opacity={0.45} />
           <ReferenceLine y={40} stroke="var(--warning)" strokeDasharray="4 4" opacity={0.45} />
           <Tooltip content={<CustomTooltip t={t} />} cursor={false} />
           <Scatter

@@ -1,4 +1,4 @@
-import { Check, X, Loader2, WifiOff, Clock } from 'lucide-react'
+import { Check, X, WifiOff, Clock } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -95,8 +95,8 @@ function StepDot({ status, detail }: { status: Step['status']; detail?: string }
       )
     case 'active':
       return (
-        <div className={`${base} bg-cta/10 animate-verdict-pulse`}>
-          <Loader2 className="w-3.5 h-3.5 text-cta animate-spin" />
+        <div className={`${base} bg-cta/20 animate-breathing`}>
+          <div className="w-2.5 h-2.5 rounded-full bg-cta" />
         </div>
       )
     case 'failed':

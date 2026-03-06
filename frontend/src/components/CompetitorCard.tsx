@@ -69,7 +69,7 @@ export function CompetitorCard({
       id={elementId}
       className={`card select-none ${
         isFeatured
-          ? 'border-l-4! border-l-cta! border-t-border/80! border-r-border/80! border-b-border/80! col-span-full'
+          ? 'border-l-4! border-l-cta! border-t-border/80! border-r-border/80! border-b-border/80!'
           : 'card-clickable p-5!'
       }`}
     >

@@ -109,9 +109,9 @@ export function HeroPanel({ report }: HeroPanelProps) {
   return (
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       {/* Verdict Card — left 3/5 */}
-      <div className={`lg:col-span-3 rounded-xl border border-border/80 ${verdict.bg} p-6 ${verdict.glow} animate-hero-glow`}>
+      <div className={`lg:col-span-3 rounded-xl border border-border/80 ${verdict.bg} p-6 ${verdict.glow}`}>
         <div className="flex items-start gap-4 mb-4">
-          <div className={`w-14 h-14 rounded-full ${verdict.bg} ring-2 ${verdict.ring} flex items-center justify-center shrink-0 animate-verdict-pulse`}>
+          <div className={`w-14 h-14 rounded-full ${verdict.bg} ring-2 ${verdict.ring} flex items-center justify-center shrink-0`}>
             <span className={`text-lg font-bold font-heading ${verdict.text}`}>
               {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
             </span>
