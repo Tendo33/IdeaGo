@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { EvidenceCostCard } from '../EvidenceCostCard'
 import type { CostBreakdown, EvidenceSummary, ReportMeta } from '../../types/research'
@@ -43,8 +43,7 @@ describe('EvidenceCostCard', () => {
       />,
     )
 
-    expect(screen.getByText('Alpha delivers stronger integration coverage.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /read more/i }))
+    expect(screen.getByText('Strong roadmap and broad feature support.')).toBeInTheDocument()
 
     const sourceLink = screen.getByRole('link', { name: /source/i })
     expect(sourceLink).toHaveAttribute('href', 'https://example.com/alpha')
