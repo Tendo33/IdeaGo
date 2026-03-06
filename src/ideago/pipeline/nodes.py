@@ -16,6 +16,7 @@ from ideago.models.research import (
     EvidenceItem,
     EvidenceSummary,
     LlmFaultToleranceMeta,
+    Platform,
     RawResult,
     ReportMeta,
     ResearchReport,
@@ -23,7 +24,7 @@ from ideago.models.research import (
     SourceStatus,
 )
 from ideago.observability.log_config import get_logger
-from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.aggregator import AggregationResult, Aggregator, fuse_competitors
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import (
     AggregationError,
@@ -38,6 +39,7 @@ from ideago.utils.text_utils import decode_entities_and_strip_html
 
 logger = get_logger(__name__)
 _EXTRACTION_DEGRADED_MSG = "Extraction unavailable; showing raw results."
+_QUERY_FALLBACK_PLATFORMS = {Platform.GITHUB, Platform.PRODUCT_HUNT}
 
 
 async def _emit(
@@ -170,13 +172,16 @@ class PipelineNodes:
                 f"Searching {platform_name}...",
             )
             start = time.monotonic()
-            queries = []
+            source_queries: list[str] = []
             for sq in intent.search_queries:
                 if sq.platform == source.platform:
-                    queries = sq.queries
+                    source_queries = sq.queries
                     break
-            if not queries:
-                queries = intent.keywords_en
+            queries = _resolve_queries_for_source(
+                platform=source.platform,
+                source_queries=source_queries,
+                fallback_keywords=intent.keywords_en,
+            )
 
             try:
                 results = await asyncio.wait_for(
@@ -365,8 +370,9 @@ class PipelineNodes:
             )
         except (AggregationError, asyncio.TimeoutError) as exc:
             logger.warning("Aggregation failed: {}, using raw competitors", exc)
+            fused_fallback = fuse_competitors(all_competitors)
             agg_result = AggregationResult(
-                competitors=all_competitors,
+                competitors=fused_fallback,
                 market_summary="Aggregation failed — showing unprocessed results.",
                 go_no_go="Unable to determine — aggregation error.",
             )
@@ -683,3 +689,28 @@ def _truncate_text(value: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return f"{text[: limit - 3].rstrip()}..."
+
+
+def _resolve_queries_for_source(
+    *,
+    platform: Platform,
+    source_queries: list[str],
+    fallback_keywords: list[str],
+) -> list[str]:
+    primary = _normalize_queries(source_queries)
+    fallback = _normalize_queries(fallback_keywords)
+    if platform in _QUERY_FALLBACK_PLATFORMS:
+        merged = [*primary, *fallback]
+        deduped = list(dict.fromkeys(merged))
+        if deduped:
+            return deduped
+    if primary:
+        return primary
+    if fallback:
+        return fallback
+    return []
+
+
+def _normalize_queries(queries: list[str]) -> list[str]:
+    normalized = [query.strip() for query in queries if query.strip()]
+    return list(dict.fromkeys(normalized))

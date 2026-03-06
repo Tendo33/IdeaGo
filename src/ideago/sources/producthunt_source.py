@@ -14,6 +14,12 @@ from ideago.observability.log_config import get_logger
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
+_TOPIC_FALLBACK_SLUGS = [
+    "developer-tools",
+    "productivity",
+    "artificial-intelligence",
+    "saas",
+]
 
 _TOPICS_QUERY = """
 query Topics($q: String!, $first: Int!) {
@@ -199,7 +205,7 @@ class ProductHuntSource:
                 unique_slugs.append(slug)
 
         if not unique_slugs:
-            return []
+            unique_slugs = _fallback_topic_slugs()
 
         posted_after = (
             datetime.now(timezone.utc) - timedelta(days=self._posted_after_days)
@@ -221,8 +227,9 @@ class ProductHuntSource:
             *(fetch_slug(slug) for slug in unique_slugs)
         )
         query_tokens = _extract_query_tokens(normalized_queries)
-        if not query_tokens:
-            query_tokens = set(normalized_queries)
+        enforce_token_match = any(
+            re.search(r"[a-z0-9]", token) is not None for token in query_tokens
+        )
 
         candidates: dict[str, tuple[RawResult, int, int, str]] = {}
         for posts in grouped_posts:
@@ -235,7 +242,7 @@ class ProductHuntSource:
                 tagline = _safe_str(post.get("tagline"))
                 text_blob = f"{name} {tagline}".lower()
                 score = sum(1 for token in query_tokens if token in text_blob)
-                if score < 1:
+                if enforce_token_match and score < 1:
                     continue
 
                 votes_count = _safe_int(post.get("votesCount"))
@@ -277,9 +284,31 @@ class ProductHuntSource:
 def _extract_query_tokens(queries: list[str]) -> set[str]:
     tokens: set[str] = set()
     for query in queries:
-        for token in re.findall(r"[A-Za-z0-9_+-]{2,}", query.lower()):
-            tokens.add(token)
+        normalized_query = _strip_search_qualifiers(query.lower())
+        query_tokens: set[str] = set()
+        for token in re.findall(r"[a-z0-9_+-]{2,}", normalized_query):
+            if token in {"stars", "forks", "language", "topic", "created", "updated"}:
+                continue
+            query_tokens.add(token)
+        for token in re.findall(r"[\u4e00-\u9fff]{2,}", normalized_query):
+            query_tokens.add(token)
+        if not query_tokens and normalized_query.strip():
+            query_tokens.add(normalized_query.strip())
+        tokens.update(query_tokens)
     return tokens
+
+
+def _fallback_topic_slugs() -> list[str]:
+    return list(_TOPIC_FALLBACK_SLUGS)
+
+
+def _strip_search_qualifiers(query: str) -> str:
+    return re.sub(
+        r"\b(?:stars|forks|size|language|topic|created|pushed|updated|sort|order):\S+",
+        " ",
+        query,
+        flags=re.IGNORECASE,
+    )
 
 
 def _safe_int(value: Any) -> int:

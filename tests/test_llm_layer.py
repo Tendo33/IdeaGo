@@ -10,7 +10,7 @@ import pytest
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, Platform, RawResult
-from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.aggregator import AggregationResult, Aggregator, fuse_competitors
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 
@@ -22,6 +22,9 @@ def test_load_prompt_intent_parser() -> None:
     assert "markdown clipper" in prompt
     assert "appstore" in prompt
     assert "producthunt" in prompt
+    assert "Query Quality Rules (Critical)" in prompt
+    assert "Generate 2-3 queries per platform." in prompt
+    assert "Do not invent product or company names" in prompt
     assert "{query}" not in prompt
 
 
@@ -572,3 +575,37 @@ async def test_aggregator_empty_competitors() -> None:
         or "unexplored" in result.go_no_go.lower()
     )
     llm.invoke_json.assert_not_called()
+
+
+def test_fuse_competitors_merges_cross_source_duplicates() -> None:
+    fused = fuse_competitors(
+        [
+            Competitor(
+                name="Markdownify",
+                links=["https://markdownify.app"],
+                one_liner="Web markdown clipper",
+                source_platforms=[Platform.TAVILY],
+                source_urls=["https://markdownify.app"],
+                features=["templates"],
+                strengths=["fast"],
+                relevance_score=0.7,
+            ),
+            Competitor(
+                name="markdownify",
+                links=["https://www.markdownify.app/"],
+                one_liner="Clip pages to markdown quickly",
+                source_platforms=[Platform.GITHUB],
+                source_urls=["https://github.com/user/markdownify"],
+                features=["sync"],
+                weaknesses=["limited mobile"],
+                relevance_score=0.85,
+            ),
+        ]
+    )
+
+    assert len(fused) == 1
+    merged = fused[0]
+    assert merged.relevance_score == 0.85
+    assert set(merged.source_platforms) == {Platform.TAVILY, Platform.GITHUB}
+    assert "templates" in merged.features
+    assert "sync" in merged.features

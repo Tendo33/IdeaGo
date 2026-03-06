@@ -75,6 +75,16 @@ class MockSource:
         return MOCK_RAW_RESULTS
 
 
+class CapturingSource(MockSource):
+    def __init__(self, platform: Platform):
+        super().__init__(platform)
+        self.last_queries: list[str] = []
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        self.last_queries = list(queries)
+        return MOCK_RAW_RESULTS
+
+
 class HtmlSource:
     @property
     def platform(self) -> Platform:
@@ -123,9 +133,10 @@ def _build_engine(
     cache_hit: ResearchReport | None = None,
     extraction_fails: bool = False,
     aggregation_side_effect: object | None = None,
+    intent_override: Intent | None = None,
 ) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
-    intent_parser.parse = AsyncMock(return_value=MOCK_INTENT)
+    intent_parser.parse = AsyncMock(return_value=intent_override or MOCK_INTENT)
 
     extractor = MagicMock(spec=Extractor)
     if extraction_fails:
@@ -310,6 +321,48 @@ async def test_langgraph_engine_logs_extraction_counts_by_channel(tmp_path) -> N
     assert summary_calls
     latest_summary = summary_calls[-1][1]
     assert latest_summary == {"github": 1, "hackernews": 1}
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_merges_keyword_fallback_for_github_and_producthunt(
+    tmp_path,
+) -> None:
+    github_source = CapturingSource(Platform.GITHUB)
+    producthunt_source = CapturingSource(Platform.PRODUCT_HUNT)
+    intent_override = Intent(
+        keywords_en=["api monitoring", "alerting dashboard"],
+        app_type="web",
+        target_scenario="Track API latency and alert on incidents",
+        search_queries=[
+            SearchQuery(
+                platform=Platform.GITHUB,
+                queries=["graphql ai generated query only"],
+            ),
+            SearchQuery(
+                platform=Platform.PRODUCT_HUNT,
+                queries=["product hunt ai generated query only"],
+            ),
+        ],
+        cache_key="custom-intent",
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[github_source, producthunt_source],
+        intent_override=intent_override,
+    )
+
+    await engine.run("test idea")
+
+    assert github_source.last_queries == [
+        "graphql ai generated query only",
+        "api monitoring",
+        "alerting dashboard",
+    ]
+    assert producthunt_source.last_queries == [
+        "product hunt ai generated query only",
+        "api monitoring",
+        "alerting dashboard",
+    ]
 
 
 @pytest.mark.asyncio

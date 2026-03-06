@@ -263,6 +263,18 @@ async def test_github_search_deduplicates_across_queries() -> None:
 
 
 @pytest.mark.asyncio
+async def test_github_search_uses_keyword_query_without_qualifiers() -> None:
+    src = GitHubSource(token="")
+    mock_response = httpx.Response(200, json={"items": []})
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_response
+        await src.search(["real-time api monitoring stars:>50 language:python"], limit=5)
+
+    called_params = mock_get.await_args.kwargs["params"]
+    assert called_params["q"] == "real-time api monitoring"
+
+
+@pytest.mark.asyncio
 async def test_github_search_respects_query_concurrency_limit() -> None:
     src = GitHubSource(token="", max_concurrent_queries=2)
     in_flight = 0
@@ -692,3 +704,34 @@ async def test_producthunt_search_deduplicates_posts_across_topics() -> None:
 
     assert len(results) == 1
     assert results[0].raw_data["post_id"] == "post-1"
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_handles_chinese_queries_without_zeroing() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+        ]
+        results = await src.search(["实时接口监控告警看板"], limit=10)
+
+    assert len(results) >= 1
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_falls_back_when_topics_empty() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    empty_topics = {"data": {"topics": {"nodes": []}}}
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=empty_topics),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+        ]
+        results = await src.search(["markdown"], limit=10)
+
+    assert len(results) >= 1

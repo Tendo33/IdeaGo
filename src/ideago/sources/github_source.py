@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import httpx
 
@@ -45,10 +46,11 @@ class GitHubSource:
         return True
 
     async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+        normalized_query = _normalize_github_query(query)
         try:
             resp = await self._client.get(
                 "/search/repositories",
-                params={"q": query, "sort": "stars", "per_page": limit},
+                params={"q": normalized_query, "sort": "stars", "per_page": limit},
             )
             if resp.status_code != 200:
                 logger.warning(
@@ -110,3 +112,21 @@ class GitHubSource:
 
     async def close(self) -> None:
         await self._client.aclose()
+
+
+_QUALIFIER_PATTERN = re.compile(
+    r"\b(?:stars|forks|size|language|topic|created|pushed|updated|sort|order):\S+",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_github_query(query: str) -> str:
+    """Keep GitHub queries keyword-driven and avoid over-constrained search DSL."""
+    stripped = query.strip()
+    if not stripped:
+        return ""
+    without_qualifiers = _QUALIFIER_PATTERN.sub(" ", stripped)
+    tokens = [token for token in re.split(r"\s+", without_qualifiers) if token]
+    if not tokens:
+        return stripped
+    return " ".join(tokens[:6])
