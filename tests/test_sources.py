@@ -13,6 +13,7 @@ from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
+from ideago.sources.producthunt_source import ProductHuntSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
@@ -103,6 +104,55 @@ MOCK_APPSTORE_RESPONSE = {
             "releaseDate": "2025-10-15T00:00:00Z",
         },
     ],
+}
+
+MOCK_PRODUCTHUNT_TOPICS_RESPONSE = {
+    "data": {
+        "topics": {
+            "nodes": [
+                {
+                    "name": "Developer Tools",
+                    "slug": "developer-tools",
+                    "postsCount": 100,
+                    "url": "https://www.producthunt.com/topics/developer-tools",
+                },
+                {
+                    "name": "Productivity",
+                    "slug": "productivity",
+                    "postsCount": 100,
+                    "url": "https://www.producthunt.com/topics/productivity",
+                },
+            ]
+        }
+    }
+}
+
+MOCK_PRODUCTHUNT_POSTS_RESPONSE = {
+    "data": {
+        "posts": {
+            "nodes": [
+                {
+                    "id": "post-1",
+                    "name": "Markdown Rocket",
+                    "tagline": "Convert html to markdown in seconds",
+                    "votesCount": 320,
+                    "createdAt": "2026-01-10T00:00:00Z",
+                    "url": "https://www.producthunt.com/posts/markdown-rocket",
+                    "website": "https://markdown-rocket.example.com",
+                },
+                {
+                    "id": "post-2",
+                    "name": "Writer Helper",
+                    "tagline": "AI writing helper for docs",
+                    "votesCount": 120,
+                    "createdAt": "2025-10-10T00:00:00Z",
+                    "url": "https://www.producthunt.com/posts/writer-helper",
+                    "website": "https://writer-helper.example.com",
+                },
+            ],
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+        }
+    }
 }
 
 
@@ -493,3 +543,119 @@ async def test_appstore_search_respects_query_concurrency_limit() -> None:
         await src.search(["q1", "q2", "q3", "q4"], limit=5)
 
     assert max_in_flight == 2
+
+
+# ---------- ProductHuntSource ----------
+
+
+def test_producthunt_source_platform() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    assert src.platform == Platform.PRODUCT_HUNT
+
+
+def test_producthunt_not_available_without_token() -> None:
+    src = ProductHuntSource(dev_token="")
+    assert src.is_available() is False
+
+
+def test_producthunt_available_with_token() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    assert src.is_available() is True
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_returns_raw_results() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+        ]
+        results = await src.search(["html to markdown"], limit=10)
+
+    assert len(results) == 1
+    first = results[0]
+    assert first.title == "Markdown Rocket"
+    assert first.description == "Convert html to markdown in seconds"
+    assert first.url == "https://www.producthunt.com/posts/markdown-rocket"
+    assert first.platform == Platform.PRODUCT_HUNT
+    assert first.raw_data["post_id"] == "post-1"
+    assert first.raw_data["votes_count"] == 320
+    assert first.raw_data["created_at"] == "2026-01-10T00:00:00Z"
+    assert first.raw_data["website"] == "https://markdown-rocket.example.com"
+    assert first.raw_data["topic_slug"] in {"developer-tools", "productivity"}
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_without_token_returns_empty() -> None:
+    src = ProductHuntSource(dev_token="")
+    results = await src.search(["markdown"], limit=10)
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_handles_non_200() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    with (
+        patch.object(
+            src._client,
+            "post",
+            new_callable=AsyncMock,
+            return_value=httpx.Response(503, json={}),
+        ),
+        pytest.raises(SourceSearchError),
+    ):
+        await src.search(["markdown"], limit=10)
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_handles_graphql_errors() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    graphql_error_payload = {
+        "errors": [{"message": "topic query denied"}],
+        "data": {"topics": {"nodes": []}},
+    }
+    with (
+        patch.object(
+            src._client,
+            "post",
+            new_callable=AsyncMock,
+            return_value=httpx.Response(200, json=graphql_error_payload),
+        ),
+        pytest.raises(SourceSearchError),
+    ):
+        await src.search(["markdown"], limit=10)
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_deduplicates_posts_across_topics() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    posts_payload = {
+        "data": {
+            "posts": {
+                "nodes": [
+                    {
+                        "id": "post-1",
+                        "name": "Markdown Rocket",
+                        "tagline": "html markdown converter",
+                        "votesCount": 200,
+                        "createdAt": "2026-01-09T00:00:00Z",
+                        "url": "https://www.producthunt.com/posts/markdown-rocket",
+                        "website": "https://markdown-rocket.example.com",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+            httpx.Response(200, json=posts_payload),
+            httpx.Response(200, json=posts_payload),
+        ]
+        results = await src.search(["markdown"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].raw_data["post_id"] == "post-1"

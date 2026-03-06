@@ -21,6 +21,7 @@ def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
     assert "appstore" in prompt
+    assert "producthunt" in prompt
     assert "{query}" not in prompt
 
 
@@ -310,6 +311,10 @@ MOCK_INTENT_LLM_RESPONSE = {
             "platform": "appstore",
             "queries": ["ios markdown notes app competitor"],
         },
+        {
+            "platform": "producthunt",
+            "queries": ["product hunt markdown notes new launch"],
+        },
     ],
 }
 
@@ -324,7 +329,7 @@ async def test_intent_parser_returns_intent() -> None:
 
     assert "markdown" in intent.keywords_en
     assert intent.app_type == "browser-extension"
-    assert len(intent.search_queries) == 4
+    assert len(intent.search_queries) == 5
     assert len(intent.cache_key) == 16
 
 

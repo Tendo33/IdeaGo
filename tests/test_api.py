@@ -58,6 +58,7 @@ def test_health_endpoint(client) -> None:
     data = response.json()
     assert data["status"] == "ok"
     assert "sources" in data
+    assert "producthunt" in data["sources"]
     assert data["sources"]["hackernews"] is True
     assert data["sources"]["appstore"] is True
 

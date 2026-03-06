@@ -12,6 +12,7 @@ You are an expert startup research assistant. Your task is to analyze a startup 
    - **tavily**: Use natural language web search queries. Include terms like "competitor", "alternative", "vs" to find comparison pages and product listings.
    - **hackernews**: Use concise terms matching HN post titles. Include "Show HN" or "Ask HN" style prefixes where appropriate.
    - **appstore**: Use iOS app discovery terms suitable for App Store search. Include intent hints such as "ios app", "iphone app", "for iPhone", "alternative" when helpful.
+   - **producthunt**: Use launch-discovery terms for newly released tools. Include variants like "new", "launch", "product hunt", "alternative" when helpful.
 
 Generate 2-3 search queries per platform to cover different angles (e.g. direct competitors, alternatives, open-source implementations).
 
@@ -26,7 +27,8 @@ Return a JSON object with exactly this structure:
     {"platform": "github", "queries": ["query1", "query2"]},
     {"platform": "tavily", "queries": ["query1", "query2"]},
     {"platform": "hackernews", "queries": ["query1", "query2"]},
-    {"platform": "appstore", "queries": ["query1", "query2"]}
+    {"platform": "appstore", "queries": ["query1", "query2"]},
+    {"platform": "producthunt", "queries": ["query1", "query2"]}
   ]
 }
 

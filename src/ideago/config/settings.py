@@ -102,6 +102,12 @@ class Settings(BaseSettings):
         default="us",
         description="iTunes Search country code / iTunes 搜索国家代码",
     )
+    producthunt_dev_token: str = Field(
+        default="",
+        description=(
+            "Product Hunt developer token for GraphQL source / Product Hunt 开发者令牌"
+        ),
+    )
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(
@@ -121,6 +127,13 @@ class Settings(BaseSettings):
         ge=1,
         le=8,
         description="Max concurrent requests per source / 每个数据源内部最大并发请求数",
+    )
+    producthunt_posted_after_days: int = Field(
+        default=730,
+        ge=1,
+        le=3650,
+        description="Product Hunt post freshness window in days / "
+        "Product Hunt 抓取时间窗口（天）",
     )
     extraction_timeout_seconds: int = Field(
         default=60,

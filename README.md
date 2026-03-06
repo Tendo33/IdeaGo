@@ -48,7 +48,7 @@ It is designed for fast founder validation: start with one sentence, get an audi
 ## Key Features
 
 - **End-to-end pipeline**: intent parsing → source search → extraction → aggregation → report generation
-- **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store
+- **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store, Product Hunt
 - **Resilient LLM layer**: retry, JSON parse recovery, endpoint failover
 - **Strict link grounding**: extracted links are filtered against fetched source URLs
 - **Graceful degradation**: extraction/aggregation failures still return usable output
@@ -242,7 +242,9 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 | `LANGGRAPH_JSON_PARSE_MAX_RETRIES` | No | `1` | JSON recovery retries |
 | `TAVILY_API_KEY` | Recommended | `""` | Enable Tavily source |
 | `GITHUB_TOKEN` | No | `""` | Higher GitHub rate limit |
+| `PRODUCTHUNT_DEV_TOKEN` | No | `""` | Enable Product Hunt source |
 | `APPSTORE_COUNTRY` | No | `us` | App Store country code |
+| `PRODUCTHUNT_POSTED_AFTER_DAYS` | No | `730` | Product Hunt freshness window (days) |
 | `MAX_RESULTS_PER_SOURCE` | No | `10` | Raw results per source |
 | `SOURCE_TIMEOUT_SECONDS` | No | `30` | Source timeout |
 | `SOURCE_QUERY_CONCURRENCY` | No | `2` | Per-source concurrency |
@@ -264,7 +266,7 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 │   ├── api/             # FastAPI app, routes, schemas, dependencies
 │   ├── pipeline/        # LangGraph engine, nodes, events, state
 │   ├── llm/             # Chat model client + prompt templates
-│   ├── sources/         # Source plugins (GitHub/Tavily/HN/AppStore)
+│   ├── sources/         # Source plugins (GitHub/Tavily/HN/AppStore/Product Hunt)
 │   ├── cache/           # File-based report/status cache
 │   ├── models/          # Pydantic domain models
 │   ├── config/          # Runtime settings

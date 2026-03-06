@@ -108,3 +108,47 @@ PROJECT_ROOT = CURRENT_DIR.parent
 # 这样无论你在哪里运行命令，都能准确找到文件
 data_path = PROJECT_ROOT / "data" / "test.json"
 ```
+
+## 4. Product Hunt 数据源使用（Product Hunt Source）
+
+如果你希望在分析流程中启用 Product Hunt，只需要配置环境变量，无需新增 API 路由。
+
+### 4.1 配置环境变量
+
+```bash
+# Product Hunt Developer Token
+export PRODUCTHUNT_DEV_TOKEN="phc_xxx_your_token"
+
+# 可选：仅检索最近 N 天发布内容（默认 730）
+export PRODUCTHUNT_POSTED_AFTER_DAYS=730
+```
+
+### 4.2 验证是否生效
+
+启动后端后调用健康检查：
+
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
+返回中 `sources.producthunt`：
+- `true`：已启用 Product Hunt 数据源。
+- `false`：未配置 Token 或当前不可用。
+
+### 4.3 在 SDK 代码中直接调用（可选）
+
+```python
+import asyncio
+from ideago.sources.producthunt_source import ProductHuntSource
+
+async def main() -> None:
+    source = ProductHuntSource(dev_token="phc_xxx_your_token")
+    results = await source.search(["markdown editor", "docs tool"], limit=5)
+    for item in results:
+        print(item.title, item.url)
+    await source.close()
+
+asyncio.run(main())
+```
+
+> 安全提示：不要把 `PRODUCTHUNT_DEV_TOKEN` 写死在代码或提交到仓库。
