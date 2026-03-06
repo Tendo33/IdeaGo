@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2026-03-06
+
+### Changed
+- Completed and normalized historical changelog entries for versions `0.2.1` through `0.2.5`.
+- Corrected version compare links for `0.2.1` to `0.2.6`.
+
 ## [0.2.6] - 2026-03-06
 
 ### Added
@@ -19,6 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved competitor ranking logic to maintain consistent ordering across grid and list views.
 - Updated UI color scheme and shadows for a more polished look.
 - Normalized GitHub search queries to improve results.
+- Enhanced pipeline node logging to track per-source competitor extraction counts, with related test coverage.
+
+### Fixed
+- Decoded Hacker News HTML content before downstream processing.
+- Added SPA deep-link fallback in FastAPI to prevent 404s on direct route refresh.
+
+## [0.2.5] - 2026-03-06
+
+### Added
+- Product Hunt channel setup documentation.
+
+## [0.2.4] - 2026-03-05
+
+### Added
+- SSE CRLF parsing test coverage.
+
+### Changed
+- Ensured competitor grid uses a single-column layout.
+- Refreshed website palette and visual styles.
+- Improved App Store extraction quality.
 
 ## [0.2.3] - 2026-03-05
 
@@ -38,6 +64,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `Settings/get_settings/reload_settings` re-exports from `common_utils` to reduce cross-module coupling.
 - Unified JSON write contracts so `write_json` and `async_write_json` both return `bool`.
 - Unified current date/time defaults to UTC in `date_utils` (`get_current_date`/`get_current_time`), with `use_utc=False` for local time.
+
+## [0.2.2] - 2026-03-04
+
+### Fixed
+- Resolved Hatchling editable build failure.
+
+## [0.2.1] - 2026-03-04
+
+### Added
+- Initial frontend core UI components and pages (search input, section navigation, comparison panel, and global styles).
+- Docker build workflow on tag push.
+
+### Changed
+- Modernized bilingual README files.
 
 ## [0.2.0] - 2026-02-20
 
@@ -83,8 +123,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.6...HEAD
-[0.2.6]: https://github.com/Tendo33/ideago/compare/v0.2.3...v0.2.6
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/Tendo33/ideago/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/Tendo33/ideago/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/Tendo33/ideago/compare/v0.2.4...v0.2.5
+[0.2.4]: https://github.com/Tendo33/ideago/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Tendo33/ideago/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/Tendo33/ideago/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/Tendo33/ideago/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Tendo33/ideago/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Tendo33/ideago/releases/tag/v0.1.0
