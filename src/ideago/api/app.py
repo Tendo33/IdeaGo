@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ideago.api.routes import analyze, health, reports
@@ -27,6 +27,7 @@ logger = get_logger(__name__)
 _FRONTEND_DIST = (
     Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
 )
+_FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 _RATE_LIMIT_MAX = 10
@@ -105,8 +106,21 @@ def create_app() -> FastAPI:
     app.include_router(reports.router, prefix="/api/v1")
 
     if _FRONTEND_DIST.is_dir():
-        app.mount(
-            "/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend"
-        )
+        app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")))
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str) -> FileResponse:
+            """
+            SPA fallback for direct URL access.
+
+            - API routes are handled by routers above.
+            - Existing files in dist are served directly.
+            - Other frontend routes fall back to index.html.
+            """
+            requested_path = (_FRONTEND_DIST / full_path).resolve()
+            dist_root = _FRONTEND_DIST.resolve()
+            if requested_path.is_file() and requested_path.is_relative_to(dist_root):
+                return FileResponse(path=requested_path)
+            return FileResponse(path=_FRONTEND_INDEX)
 
     return app

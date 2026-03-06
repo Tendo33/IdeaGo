@@ -652,3 +652,43 @@ def test_health_endpoint_bypasses_api_key_auth() -> None:
     client = _make_client_with_key("secret-test-key")
     response = client.get("/api/v1/health")
     assert response.status_code == 200
+
+
+def test_spa_fallback_serves_index_for_frontend_routes(tmp_path) -> None:
+    """Direct deep links like /reports/:id should return index.html."""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    index_path = dist_dir / "index.html"
+    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+
+    with (
+        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
+        patch.object(app_module, "_FRONTEND_INDEX", index_path),
+    ):
+        app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
+    assert response.status_code == 200
+    assert "SPA" in response.text
+
+
+def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
+    """Files that exist in dist should be served directly."""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    index_path = dist_dir / "index.html"
+    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+    robots_path = dist_dir / "robots.txt"
+    robots_path.write_text("User-agent: *\nDisallow:", encoding="utf-8")
+
+    with (
+        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
+        patch.object(app_module, "_FRONTEND_INDEX", index_path),
+    ):
+        app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/robots.txt")
+    assert response.status_code == 200
+    assert "User-agent: *" in response.text
