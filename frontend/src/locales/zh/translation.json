@@ -19,7 +19,7 @@
     "errorStartAnalysis": "启动分析失败。请重试。"
   },
   "search": {
-    "placeholder": "描述您的创业想法...",
+    "placeholder": "描述您的想法...",
     "example": "例如：“一个将网页转换为 Markdown 笔记的浏览器插件”",
     "button": "分析想法",
     "analyzing": "分析中...",

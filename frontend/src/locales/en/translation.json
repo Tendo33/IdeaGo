@@ -19,7 +19,7 @@
     "errorStartAnalysis": "Failed to start analysis. Please try again."
   },
   "search": {
-    "placeholder": "Describe your startup idea...",
+    "placeholder": "Describe your idea...",
     "example": "e.g. \"A browser extension that converts web pages to Markdown notes\"",
     "button": "Analyze Idea",
     "analyzing": "Analyzing...",
