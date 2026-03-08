@@ -144,7 +144,7 @@ class LangGraphEngine:
         builder.add_edge("assemble_report", "persist_report")
         builder.add_edge("persist_report", END)
         builder.add_edge("terminal_error", END)
-        return builder.compile(checkpointer=saver)
+        return builder.compile(checkpointer=saver, name="ideago_pipeline")
 
     @staticmethod
     def _route_after_cache(state: GraphState) -> str:
