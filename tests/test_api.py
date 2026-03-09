@@ -63,6 +63,31 @@ async def test_shutdown_runtime_state_cancels_tasks_and_clears_maps() -> None:
     assert task.cancelled() or task.done()
 
 
+def test_shutdown_runtime_state_handles_tasks_from_different_event_loop() -> None:
+    async def never_finishes() -> None:
+        await asyncio.sleep(10)
+
+    foreign_loop = asyncio.new_event_loop()
+    task = foreign_loop.create_task(never_finishes())
+    foreign_loop.run_until_complete(asyncio.sleep(0))
+    deps.set_pipeline_task("foreign-loop-report", task)
+
+    try:
+        asyncio.run(deps.shutdown_runtime_state())
+    finally:
+        deps._pipeline_tasks.clear()
+        deps.get_processing_reports().clear()
+        deps._report_runs.clear()
+        if not task.done():
+            task.cancel()
+            foreign_loop.run_until_complete(
+                asyncio.gather(task, return_exceptions=True)
+            )
+        foreign_loop.close()
+
+    assert "foreign-loop-report" not in deps._pipeline_tasks
+
+
 def test_health_endpoint(client) -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200

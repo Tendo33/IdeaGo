@@ -6,6 +6,7 @@ FastAPI 依赖注入：从配置构建单例服务实例。
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import threading
 import time
 
@@ -226,11 +227,24 @@ async def shutdown_runtime_state() -> None:
     with _runtime_state_lock:
         tasks = list(_pipeline_tasks.values())
 
-    for task in tasks:
-        task.cancel()
+    current_loop = asyncio.get_running_loop()
+    local_tasks: list[asyncio.Task[None]] = []
 
-    if tasks:
-        await asyncio.gather(*tasks, return_exceptions=True)
+    for task in tasks:
+        if task.done():
+            continue
+        task_loop = task.get_loop()
+        if task_loop is current_loop:
+            task.cancel()
+            local_tasks.append(task)
+            continue
+        if task_loop.is_closed():
+            continue
+        with contextlib.suppress(RuntimeError):
+            task_loop.call_soon_threadsafe(task.cancel)
+
+    if local_tasks:
+        await asyncio.gather(*local_tasks, return_exceptions=True)
 
     with _runtime_state_lock:
         _pipeline_tasks.clear()
