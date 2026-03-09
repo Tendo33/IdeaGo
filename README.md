@@ -20,12 +20,14 @@ AI-powered competitor research engine for startup ideas.
 - [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
+- [Security Model](#security-model-after-app_api_key-removal)
 - [Quick Start](#quick-start)
 - [API Overview](#api-overview)
 - [Report Model](#report-model)
 - [Configuration](#configuration)
 - [Project Structure](#project-structure)
 - [Development & Quality](#development--quality)
+- [Container & CI Notes](#container--ci-notes-after-app_api_key-removal)
 - [Roadmap & Docs](#roadmap--docs)
 - [Contributing](#contributing)
 - [License](#license)
@@ -84,6 +86,26 @@ flowchart TD
 - Frontend subscribes to SSE to render stage-by-stage progress.
 - In-flight duplicate requests for the same normalized query are deduplicated.
 - Built-in in-memory rate limiter for analyze endpoint: `10` requests / `60s` (per IP/session key).
+
+---
+
+## Security Model (After `APP_API_KEY` Removal)
+
+`APP_API_KEY` / `X-API-Key` has been fully removed from backend, frontend, and runtime injection.
+
+Current built-in controls:
+
+- **Request throttling**: in-memory rate limit for `POST /api/v1/analyze` (`10` requests / `60s` per IP/session key).
+- **CORS boundary**: `CORS_ALLOW_ORIGINS` controls allowed browser origins (avoid `*` on public deployments).
+- **Input validation**: FastAPI + Pydantic schema validation for request payloads.
+- **Safe error surface**: pipeline failures return sanitized client messages without exposing internal secrets.
+
+Recommended deployment controls (especially if publicly reachable):
+
+- Put IdeaGo behind a reverse proxy/API gateway (Nginx, Caddy, Cloudflare, Traefik).
+- Add network-layer protection: IP allowlist, VPN, Zero Trust tunnel, or Basic Auth at gateway level.
+- Terminate TLS at the gateway and keep backend service private within Docker network/VPC.
+- Keep secrets only in runtime env (`OPENAI_API_KEY`, `TAVILY_API_KEY`, etc.); never bake into image layers.
 
 ---
 
@@ -170,6 +192,17 @@ Open: [http://localhost:8000](http://localhost:8000)
 ```bash
 cp .env.example .env
 docker compose up --build -d
+```
+
+Notes:
+
+- Do **not** set `APP_API_KEY` (it is no longer supported).
+- Keep only real provider secrets in `.env` (e.g. `OPENAI_API_KEY`, `TAVILY_API_KEY`).
+- `docker-compose.yml` uses a prebuilt image by default. For local image build, use:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
 ```
 
 Open: [http://localhost:8000](http://localhost:8000)
@@ -294,6 +327,38 @@ npm --prefix frontend run typecheck
 npm --prefix frontend run test
 npm --prefix frontend run build
 ```
+
+---
+
+## Container & CI Notes (After `APP_API_KEY` Removal)
+
+### Dockerfile
+
+- No `APP_API_KEY` build arg or env is required.
+- Keep Dockerfile secret-free; pass secrets only at runtime.
+- Current image entrypoint/runtime flow is already compatible with the removal.
+
+### docker-compose
+
+- No `APP_API_KEY` in `.env`, service `environment`, or `env_file`.
+- If you deploy with prebuilt image, keep:
+  - `image: <registry>/ideago:<tag>`
+  - `env_file: .env`
+- If you prefer local build, switch to:
+
+```yaml
+services:
+  ideago:
+    build:
+      context: .
+      dockerfile: Dockerfile
+```
+
+### CI image build/push
+
+- Existing release workflow can stay unchanged for image build/push.
+- Remove obsolete CI secrets/vars related to `APP_API_KEY` if present in repository settings.
+- Keep only required runtime/provider secrets (for example `OPENAI_API_KEY` is needed by release-notes generation, not by Docker image build itself).
 
 ---
 

@@ -94,6 +94,14 @@ export function VirtualizedCompetitorList({
     () => (measuredHeights.key === resetKey ? measuredHeights.values : {}),
     [measuredHeights, resetKey],
   )
+  const competitorRankById = useMemo(() => {
+    const source = allCompetitors ?? competitors
+    const map = new Map<string, number>()
+    for (let index = 0; index < source.length; index += 1) {
+      map.set(getCompetitorId(source[index]), index + 1)
+    }
+    return map
+  }, [allCompetitors, competitors])
 
   useEffect(() => {
     const node = scrollRef.current
@@ -196,11 +204,8 @@ export function VirtualizedCompetitorList({
                 <div className={gridClassName}>
                   {rowItems.map((competitor, itemIndex) => {
                     const competitorId = getCompetitorId(competitor)
-                    let originalIndex = -1
-                    if (allCompetitors) {
-                      originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
-                    }
-                    const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
+                    const rank = competitorRankById.get(competitorId) ?? (rowStart + itemIndex + 1)
+                    const originalIndex = rank - 1
 
                     return (
                       <CompetitorCard
@@ -208,7 +213,7 @@ export function VirtualizedCompetitorList({
                         competitor={competitor}
                         rank={rank}
                         domId={getCompetitorDomIdFromId(competitorId)}
-                        variant={originalIndex === 0 ? 'featured' : (originalIndex === -1 && rank === 1 ? 'featured' : 'standard')}
+                        variant={originalIndex === 0 ? 'featured' : 'standard'}
                         compareSelected={compareSet.has(competitorId)}
                         onToggleCompare={() => onToggleCompare(competitorId)}
                       />
@@ -219,11 +224,7 @@ export function VirtualizedCompetitorList({
                 <div className="pb-4">
                   {rowItems.map((competitor, itemIndex) => {
                     const competitorId = getCompetitorId(competitor)
-                    let originalIndex = -1
-                    if (allCompetitors) {
-                      originalIndex = allCompetitors.findIndex(c => getCompetitorId(c) === competitorId)
-                    }
-                    const rank = originalIndex >= 0 ? originalIndex + 1 : rowStart + itemIndex + 1
+                    const rank = competitorRankById.get(competitorId) ?? (rowStart + itemIndex + 1)
 
                     return (
                       <CompetitorRow

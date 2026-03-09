@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useCallback } from 'react'
 import i18n from '../i18n'
 import type { PipelineEvent } from '../types/research'
-import { getApiHeaders, getStreamUrl } from "./client";
+import { getStreamUrl } from "./client";
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
@@ -166,7 +166,7 @@ export function useSSE(reportId: string | null): UseSSEResult {
 			(async () => {
 				try {
 					const res = await fetch(url, {
-						headers: { ...getApiHeaders(), Accept: "text/event-stream" },
+						headers: { Accept: "text/event-stream" },
 						signal: controller.signal,
 					});
 

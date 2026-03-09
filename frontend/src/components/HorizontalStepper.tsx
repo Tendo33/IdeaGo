@@ -12,66 +12,118 @@ interface Step {
   detail?: string
 }
 
+const DEFAULT_SOURCE_ORDER = ['github', 'tavily', 'hackernews', 'appstore', 'producthunt'] as const
+
+function getSourcePlatformFromEvent(event: PipelineEvent): string | null {
+  const dataPlatform = event.data?.platform
+  if (typeof dataPlatform === 'string' && dataPlatform.trim()) {
+    return dataPlatform.trim().toLowerCase()
+  }
+
+  const stage = event.stage.trim().toLowerCase()
+  if (!stage) return null
+  if (stage.endsWith('_search')) {
+    return stage.slice(0, -'_search'.length)
+  }
+  const knownPlatform = DEFAULT_SOURCE_ORDER.find(platform => stage.includes(platform))
+  return knownPlatform ?? null
+}
+
+function getDefaultSourceShortLabel(platform: string): string {
+  switch (platform) {
+    case 'hackernews':
+      return 'HN'
+    case 'producthunt':
+      return 'PH'
+    default:
+      return platform
+  }
+}
+
 function deriveSteps(events: PipelineEvent[], t: TFunction): Step[] {
+  const eventSourcePlatforms = events
+    .map(getSourcePlatformFromEvent)
+    .filter((platform): platform is string => platform !== null)
+  const extraPlatforms = Array.from(
+    new Set(eventSourcePlatforms.filter(platform => !DEFAULT_SOURCE_ORDER.includes(platform as (typeof DEFAULT_SOURCE_ORDER)[number]))),
+  ).sort()
+  const orderedPlatforms = [...DEFAULT_SOURCE_ORDER, ...extraPlatforms]
+
   const steps: Step[] = [
     { id: 'intent', label: t('report.stepper.steps.intent.label'), shortLabel: t('report.stepper.steps.intent.short'), status: 'pending' },
-    { id: 'github', label: t('report.stepper.steps.github.label'), shortLabel: t('report.stepper.steps.github.short'), status: 'pending' },
-    { id: 'tavily', label: t('report.stepper.steps.tavily.label'), shortLabel: t('report.stepper.steps.tavily.short'), status: 'pending' },
-    { id: 'hackernews', label: t('report.stepper.steps.hackernews.label'), shortLabel: t('report.stepper.steps.hackernews.short'), status: 'pending' },
-    { id: 'appstore', label: t('report.stepper.steps.appstore.label'), shortLabel: t('report.stepper.steps.appstore.short'), status: 'pending' },
+    ...orderedPlatforms.map(platform => ({
+      id: platform,
+      label: t(`report.stepper.steps.${platform}.label`, { defaultValue: platform }),
+      shortLabel: t(`report.stepper.steps.${platform}.short`, { defaultValue: getDefaultSourceShortLabel(platform) }),
+      status: 'pending' as const,
+    })),
     { id: 'extraction', label: t('report.stepper.steps.extraction.label'), shortLabel: t('report.stepper.steps.extraction.short'), status: 'pending' },
     { id: 'aggregation', label: t('report.stepper.steps.aggregation.label'), shortLabel: t('report.stepper.steps.aggregation.short'), status: 'pending' },
     { id: 'complete', label: t('report.stepper.steps.complete.label'), shortLabel: t('report.stepper.steps.complete.short'), status: 'pending' },
   ]
 
+  const indexByStepId = new Map(steps.map((step, index) => [step.id, index]))
+  const updateStep = (
+    stepId: string,
+    status: Step['status'],
+    detail?: string,
+  ) => {
+    const index = indexByStepId.get(stepId)
+    if (index === undefined) return
+    steps[index].status = status
+    if (detail !== undefined) {
+      steps[index].detail = detail
+    }
+  }
+
   for (const event of events) {
     switch (event.type) {
       case 'intent_started':
-        steps[0].status = 'active'
+        updateStep('intent', 'active')
         break
       case 'intent_parsed':
-        steps[0].status = 'done'
+        updateStep('intent', 'done')
         break
       case 'source_started':
-        if (event.stage.includes('github')) steps[1].status = 'active'
-        else if (event.stage.includes('tavily')) steps[2].status = 'active'
-        else if (event.stage.includes('hackernews')) steps[3].status = 'active'
-        else if (event.stage.includes('appstore')) steps[4].status = 'active'
+        {
+          const platform = getSourcePlatformFromEvent(event)
+          if (platform) updateStep(platform, 'active')
+        }
         break
       case 'source_completed': {
         const count = event.data?.count as number | undefined
-        if (event.stage.includes('github')) { steps[1].status = 'done'; steps[1].detail = count !== undefined ? `${count}` : undefined }
-        else if (event.stage.includes('tavily')) { steps[2].status = 'done'; steps[2].detail = count !== undefined ? `${count}` : undefined }
-        else if (event.stage.includes('hackernews')) { steps[3].status = 'done'; steps[3].detail = count !== undefined ? `${count}` : undefined }
-        else if (event.stage.includes('appstore')) { steps[4].status = 'done'; steps[4].detail = count !== undefined ? `${count}` : undefined }
+        const platform = getSourcePlatformFromEvent(event)
+        if (platform) {
+          updateStep(platform, 'done', count !== undefined ? `${count}` : undefined)
+        }
         break
       }
       case 'source_failed':
-        if (event.stage.includes('github')) steps[1].status = 'failed'
-        else if (event.stage.includes('tavily')) steps[2].status = 'failed'
-        else if (event.stage.includes('hackernews')) steps[3].status = 'failed'
-        else if (event.stage.includes('appstore')) steps[4].status = 'failed'
+        {
+          const platform = getSourcePlatformFromEvent(event)
+          if (platform) updateStep(platform, 'failed')
+        }
         break
       case 'extraction_started':
-        steps[5].status = 'active'
+        updateStep('extraction', 'active')
         break
       case 'extraction_completed':
-        steps[5].status = 'done'
+        updateStep('extraction', 'done')
         break
       case 'aggregation_started':
-        steps[6].status = 'active'
+        updateStep('aggregation', 'active')
         break
       case 'aggregation_completed':
-        steps[6].status = 'done'
+        updateStep('aggregation', 'done')
         break
       case 'report_ready':
-        steps[7].status = 'done'
+        updateStep('complete', 'done')
         break
       case 'error':
-        steps[7].status = 'failed'
+        updateStep('complete', 'failed')
         break
       case 'cancelled':
-        steps[7].status = 'cancelled'
+        updateStep('complete', 'cancelled')
         break
     }
   }

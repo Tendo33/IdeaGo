@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2026-03-09
+
+### Changed
+- Removed the temporary `APP_API_KEY` / `X-API-Key` authentication path across backend, frontend, runtime injection, and deployment docs.
+- Simplified runtime/container wiring by removing `env-config.js` injection and related dev/prod shims.
+- Updated report stepper to a data-driven model with dynamic source stages, including Product Hunt.
+- Updated i18n text entries and aligned zh/en stepper keys.
+
+### Fixed
+- Fixed SQLite checkpoint lifecycle leak on task cancellation by making saver enter/exit cancellation-safe.
+- Hardened API test lifecycle cleanup and TestClient shutdown handling to avoid unclosed resource warnings.
+- Optimized report rendering hotspots by replacing repeated rank lookups with precomputed index maps.
+
 ## [0.2.7] - 2026-03-06
 
 ### Changed
@@ -49,13 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.3] - 2026-03-05
 
 ### Added
-- API key authentication middleware (`APP_API_KEY`) to restrict backend access via `X-API-Key` request header
-- Runtime config injection via `docker-entrypoint.sh`: writes `env-config.js` at container startup so the frontend can read the API key without baking it into the image at build time
-- Dev server middleware in `vite.config.ts` to serve empty `env-config.js` locally, eliminating 404 noise during development
+- Temporary API access guard middleware.
+- Temporary frontend runtime config injection at container startup.
+- Temporary dev-server runtime config shim to avoid local 404 noise.
 
 ### Changed
 - Replaced `EventSource` with `fetch + ReadableStream` in `useSSE.ts` to support custom request headers for SSE streams
-- Docker image is now fully stateless (no secrets baked in); CI builds a generic image and the API key is injected at runtime via environment variable
+- Docker image is now fully stateless (no secrets baked in); CI builds a generic image and injects runtime config via environment variables
 
 ### Changed (Breaking)
 - **Breaking:** refactored module layout by moving `setting/context/protocols/logger_util` out of `utils` into `config/settings`, `core/context`, `contracts/protocols`, and `observability/log_config`; removed legacy import paths.
@@ -123,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/Tendo33/ideago/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/Tendo33/ideago/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Tendo33/ideago/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/Tendo33/ideago/compare/v0.2.4...v0.2.5

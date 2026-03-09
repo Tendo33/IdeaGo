@@ -121,7 +121,7 @@ class PipelineNodes:
             self._callback,
             EventType.INTENT_PARSED,
             "intent_parsing",
-            f"Identified: {intent.app_type} — {', '.join(intent.keywords_en)}",
+            f"Identified: {intent.app_type} - {', '.join(intent.keywords_en)}",
             {
                 "keywords": intent.keywords_en,
                 "app_type": intent.app_type,
@@ -373,8 +373,8 @@ class PipelineNodes:
             fused_fallback = fuse_competitors(all_competitors)
             agg_result = AggregationResult(
                 competitors=fused_fallback,
-                market_summary="Aggregation failed — showing unprocessed results.",
-                go_no_go="Unable to determine — aggregation error.",
+                market_summary="Aggregation failed - showing unprocessed results.",
+                go_no_go="Unable to determine - aggregation error.",
             )
             llm_usage = _merge_llm_usage(
                 llm_usage,

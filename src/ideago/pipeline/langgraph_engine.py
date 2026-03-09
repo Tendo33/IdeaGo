@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -81,8 +83,7 @@ class LangGraphEngine:
         )
         thread_id = report_id or str(uuid4())
         config = {"configurable": {"thread_id": thread_id}}
-        saver_cm = AsyncSqliteSaver.from_conn_string(self._checkpoint_db_path)
-        saver = await saver_cm.__aenter__()
+        saver_cm, saver = await self._open_checkpoint_saver()
         exc_type = None
         exc = None
         tb = None
@@ -109,6 +110,19 @@ class LangGraphEngine:
         if not isinstance(report, ResearchReport):
             raise RuntimeError("Pipeline finished without report")
         return report
+
+    async def _open_checkpoint_saver(self) -> tuple[Any, AsyncSqliteSaver]:
+        """Open sqlite saver with cancellation-safe enter to avoid leaked connections."""
+        saver_cm = AsyncSqliteSaver.from_conn_string(self._checkpoint_db_path)
+        enter_task = asyncio.create_task(saver_cm.__aenter__())
+        try:
+            saver = await asyncio.shield(enter_task)
+        except asyncio.CancelledError:
+            with contextlib.suppress(Exception):
+                await enter_task
+                await asyncio.shield(saver_cm.__aexit__(None, None, None))
+            raise
+        return saver_cm, saver
 
     def _build_graph(self, nodes: PipelineNodes, saver: AsyncSqliteSaver):
         builder = StateGraph(GraphState)

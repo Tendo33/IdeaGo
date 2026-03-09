@@ -32,24 +32,35 @@ from ideago.pipeline.events import EventType, PipelineEvent
 @pytest.fixture(autouse=True)
 def reset_runtime_state() -> None:
     app_module._rate_limit_store.clear()
-    deps.get_processing_reports().clear()
-    deps._report_runs.clear()
-    for task in list(deps._pipeline_tasks.values()):
-        task.cancel()
-    deps._pipeline_tasks.clear()
+    asyncio.run(deps.shutdown_runtime_state())
     yield
     app_module._rate_limit_store.clear()
-    deps.get_processing_reports().clear()
-    deps._report_runs.clear()
-    for task in list(deps._pipeline_tasks.values()):
-        task.cancel()
-    deps._pipeline_tasks.clear()
+    asyncio.run(deps.shutdown_runtime_state())
 
 
 @pytest.fixture
 def client():
     app = create_app()
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.mark.asyncio
+async def test_shutdown_runtime_state_cancels_tasks_and_clears_maps() -> None:
+    async def never_finishes() -> None:
+        await asyncio.sleep(10)
+
+    task = asyncio.create_task(never_finishes())
+    deps.set_pipeline_task("shutdown-report", task)
+    deps.get_processing_reports()["shutdown-query"] = "shutdown-report"
+    deps.get_or_create_report_run("shutdown-report")
+
+    await deps.shutdown_runtime_state()
+
+    assert "shutdown-report" not in deps._pipeline_tasks
+    assert "shutdown-query" not in deps.get_processing_reports()
+    assert deps.get_report_run("shutdown-report") is None
+    assert task.cancelled() or task.done()
 
 
 def test_health_endpoint(client) -> None:
@@ -590,70 +601,6 @@ async def test_run_pipeline_redacts_internal_error_details(tmp_path) -> None:
     assert error_events[-1].data["error_code"] == "PIPELINE_FAILURE"
 
 
-# ============================================================
-# API Key auth middleware tests
-# ============================================================
-
-
-def _make_client_with_key(api_key: str) -> TestClient:
-    """Create a TestClient with the given APP_API_KEY injected into settings."""
-    from ideago.config.settings import Settings, reload_settings
-
-    settings_with_key = Settings(app_api_key=api_key)
-    with patch("ideago.api.app.get_settings", return_value=settings_with_key):
-        app = create_app()
-    reload_settings()
-    return TestClient(app)
-
-
-def test_api_key_auth_disabled_when_empty() -> None:
-    """When APP_API_KEY is empty, all requests pass without authentication."""
-    app = create_app()
-    client = TestClient(app)
-    response = client.get("/api/v1/health")
-    assert response.status_code == 200
-
-
-def test_api_key_auth_rejects_missing_key() -> None:
-    """When APP_API_KEY is set, requests without X-API-Key header return 401."""
-    client = _make_client_with_key("secret-test-key")
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "I want to build a markdown notes extension"},
-    )
-    assert response.status_code == 401
-    assert "API key" in response.json()["detail"]
-
-
-def test_api_key_auth_rejects_wrong_key() -> None:
-    """When APP_API_KEY is set, requests with wrong key return 401."""
-    client = _make_client_with_key("secret-test-key")
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "I want to build a markdown notes extension"},
-        headers={"X-API-Key": "wrong-key"},
-    )
-    assert response.status_code == 401
-
-
-def test_api_key_auth_passes_with_correct_key() -> None:
-    """When APP_API_KEY is set, requests with correct key pass through."""
-    client = _make_client_with_key("secret-test-key")
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "I want to build a markdown notes extension"},
-        headers={"X-API-Key": "secret-test-key"},
-    )
-    assert response.status_code == 200
-
-
-def test_health_endpoint_bypasses_api_key_auth() -> None:
-    """GET /api/v1/health is exempt from API key auth even when key is configured."""
-    client = _make_client_with_key("secret-test-key")
-    response = client.get("/api/v1/health")
-    assert response.status_code == 200
-
-
 def test_spa_fallback_serves_index_for_frontend_routes(tmp_path) -> None:
     """Direct deep links like /reports/:id should return index.html."""
     dist_dir = tmp_path / "dist"
@@ -666,10 +613,10 @@ def test_spa_fallback_serves_index_for_frontend_routes(tmp_path) -> None:
         patch.object(app_module, "_FRONTEND_INDEX", index_path),
     ):
         app = create_app()
-        client = TestClient(app)
-        response = client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
-        assert response.status_code == 200
-        assert "SPA" in response.text
+        with TestClient(app) as local_client:
+            response = local_client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
+            assert response.status_code == 200
+            assert "SPA" in response.text
 
 
 def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
@@ -686,7 +633,7 @@ def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
         patch.object(app_module, "_FRONTEND_INDEX", index_path),
     ):
         app = create_app()
-        client = TestClient(app)
-        response = client.get("/robots.txt")
-        assert response.status_code == 200
-        assert "User-agent: *" in response.text
+        with TestClient(app) as local_client:
+            response = local_client.get("/robots.txt")
+            assert response.status_code == 200
+            assert "User-agent: *" in response.text

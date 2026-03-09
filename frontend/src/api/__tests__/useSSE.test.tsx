@@ -4,7 +4,6 @@ import { useSSE } from '../useSSE'
 
 vi.mock('../client', () => ({
   getStreamUrl: (id: string) => `/api/v1/reports/${id}/stream`,
-  getApiHeaders: () => ({ Authorization: 'Bearer test' })
 }))
 
 class MockResponseReader {

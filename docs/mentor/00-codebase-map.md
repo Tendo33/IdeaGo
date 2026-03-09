@@ -18,8 +18,7 @@
 
 - `src/ideago/api/app.py`
   - `create_app()`：FastAPI 应用工厂，挂中间件、路由、前端静态资源
-  - `api_key_auth`：可选 API Key 鉴权（`X-API-Key`）
-  - `rate_limit_analyze`：`/analyze` 内存限流
+- `rate_limit_analyze`：`/analyze` 内存限流
 - `src/ideago/api/routes/analyze.py`
   - `start_analysis()`：启动任务，返回 `report_id`
   - `_run_pipeline()`：后台协程跑完整管道

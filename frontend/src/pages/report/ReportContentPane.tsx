@@ -187,6 +187,14 @@ export function ReportContentPane({
   const shouldAnimateCards = !reduceMotion && filteredCompetitors.length <= 20
   const shouldUseVirtualization =
     filteredCompetitors.length >= VIRTUALIZATION_THRESHOLD
+  const competitorRankById = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let index = 0; index < report.competitors.length; index += 1) {
+      const competitor = report.competitors[index]
+      map.set(getCompetitorId(competitor), index + 1)
+    }
+    return map
+  }, [report.competitors])
   const sectionNavItems = useMemo(
     () => SECTION_NAV_ITEMS(report.competitors.length, t),
     [report.competitors.length, t],
@@ -336,14 +344,15 @@ export function ReportContentPane({
                   {filteredCompetitors.map((competitor, index) => {
                     const competitorId = getCompetitorId(competitor)
                     const domId = getCompetitorDomIdFromId(competitorId)
-                    const originalIndex = report.competitors.findIndex(c => getCompetitorId(c) === competitorId)
+                    const rank = competitorRankById.get(competitorId) ?? (index + 1)
+                    const originalIndex = rank - 1
                     return renderCardWrapper(
                         competitorId,
                         index,
                         '-30px',
                         <CompetitorCard
                           competitor={competitor}
-                          rank={originalIndex >= 0 ? originalIndex + 1 : index + 1}
+                          rank={rank}
                           domId={domId}
                           variant={originalIndex === 0 ? 'featured' : 'standard'}
                           compareSelected={compareSet.has(competitorId)}
@@ -369,14 +378,14 @@ export function ReportContentPane({
                   {filteredCompetitors.map((competitor, index) => {
                     const competitorId = getCompetitorId(competitor)
                     const domId = getCompetitorDomIdFromId(competitorId)
-                    const originalIndex = report.competitors.findIndex(c => getCompetitorId(c) === competitorId)
+                    const rank = competitorRankById.get(competitorId) ?? (index + 1)
                     return renderCardWrapper(
                         competitorId,
                         index,
                         '-20px',
                         <CompetitorRow
                           competitor={competitor}
-                          rank={originalIndex >= 0 ? originalIndex + 1 : index + 1}
+                          rank={rank}
                           domId={domId}
                           compareSelected={compareSet.has(competitorId)}
                           onToggleCompare={() => toggleCompare(competitorId)}

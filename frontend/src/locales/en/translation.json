@@ -86,8 +86,8 @@
       "weaknesses": "Weaknesses",
       "compare": "Compare",
       "comparing": "Comparing",
-      "compareSelected": "✓ Compare",
-      "compareUnselected": "⇔ Compare",
+      "compareSelected": "Selected",
+      "compareUnselected": "Compare",
       "details": "Details",
       "less": "Less",
       "more": "more",
@@ -174,13 +174,14 @@
     "stepper": {
       "reconnecting": "Reconnecting to server...",
       "elapsed": "{{elapsed}}s elapsed",
-      "usually": "Usually 20–30 seconds",
+      "usually": "Usually 20-30 seconds",
       "steps": {
         "intent": { "label": "Analyzing idea", "short": "Idea" },
         "github": { "label": "Searching GitHub", "short": "GitHub" },
         "tavily": { "label": "Searching web", "short": "Web" },
         "hackernews": { "label": "Searching HN", "short": "HN" },
         "appstore": { "label": "Searching App Store", "short": "Store" },
+        "producthunt": { "label": "Searching Product Hunt", "short": "PH" },
         "extraction": { "label": "Extracting insights", "short": "Extract" },
         "aggregation": { "label": "Analyzing data", "short": "Analyze" },
         "complete": { "label": "Report ready", "short": "Done" }

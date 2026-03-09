@@ -181,6 +181,7 @@
         "tavily": { "label": "搜索网页", "short": "网页" },
         "hackernews": { "label": "搜索 Hacker News", "short": "HN" },
         "appstore": { "label": "搜索 App Store", "short": "商店" },
+        "producthunt": { "label": "搜索 Product Hunt", "short": "PH" },
         "extraction": { "label": "提取洞察", "short": "提取" },
         "aggregation": { "label": "分析数据", "short": "数据" },
         "complete": { "label": "报告就绪", "short": "完成" }

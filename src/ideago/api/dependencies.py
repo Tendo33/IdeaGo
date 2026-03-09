@@ -221,6 +221,23 @@ def set_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
         _pipeline_tasks[report_id] = task
 
 
+async def shutdown_runtime_state() -> None:
+    """Cancel running pipeline tasks and clear in-memory runtime state."""
+    with _runtime_state_lock:
+        tasks = list(_pipeline_tasks.values())
+
+    for task in tasks:
+        task.cancel()
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    with _runtime_state_lock:
+        _pipeline_tasks.clear()
+        _processing_reports.clear()
+        _report_runs.clear()
+
+
 def get_processing_reports() -> dict[str, str]:
     """Map of query hash → report_id for deduplication."""
     return _processing_reports

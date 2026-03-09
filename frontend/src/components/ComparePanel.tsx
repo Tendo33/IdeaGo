@@ -171,7 +171,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               <tr className="border-b border-border/50">
                 <td className="sticky left-0 bg-popover/95 z-10 px-5 py-3 text-xs text-text-muted font-medium backdrop-blur-xl">{t('report.compare.pricing')}</td>
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.pricing ?? '—'}</td>
+                  <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-2.5 text-xs text-text-muted">{competitor.pricing ?? '-'}</td>
                 ))}
               </tr>
 

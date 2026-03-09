@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -383,3 +384,38 @@ async def test_langgraph_engine_resume_from_checkpoint(tmp_path) -> None:
     assert report.query == "test idea"
     assert intent_parser.parse.call_count == 1
     assert aggregator.aggregate.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_closes_saver_when_cancelled_during_enter(
+    tmp_path,
+) -> None:
+    engine, _, _, _ = _build_engine(tmp_path)
+    enter_gate = asyncio.Event()
+    close_called = False
+
+    class FakeSaver:
+        async def setup(self) -> None:
+            return None
+
+    class FakeSaverContextManager:
+        async def __aenter__(self) -> FakeSaver:
+            await enter_gate.wait()
+            return FakeSaver()
+
+        async def __aexit__(self, _exc_type, _exc, _tb) -> None:
+            nonlocal close_called
+            close_called = True
+
+    with patch(
+        "ideago.pipeline.langgraph_engine.AsyncSqliteSaver.from_conn_string",
+        return_value=FakeSaverContextManager(),
+    ):
+        run_task = asyncio.create_task(engine.run("cancel-safe-enter"))
+        await asyncio.sleep(0)
+        run_task.cancel()
+        enter_gate.set()
+        with pytest.raises(asyncio.CancelledError):
+            await run_task
+
+    assert close_called is True

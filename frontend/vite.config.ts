@@ -6,16 +6,6 @@ export default defineConfig({
 	plugins: [
 		react(),
 		tailwindcss(),
-		// Serve empty runtime config in dev so /env-config.js never 404s
-		{
-			name: "dev-env-config",
-			configureServer(server) {
-				server.middlewares.use("/env-config.js", (_req, res) => {
-					res.setHeader("Content-Type", "application/javascript");
-					res.end('window.__APP_CONFIG__ = { apiKey: "" };');
-				});
-			},
-		},
 	],
 	build: {
 		rollupOptions: {
