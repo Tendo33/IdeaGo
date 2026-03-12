@@ -105,6 +105,7 @@ def get_orchestrator() -> LangGraphEngine:
         registry.register(
             TavilySource(
                 api_key=settings.tavily_api_key,
+                base_url=settings.tavily_base_url,
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
             )

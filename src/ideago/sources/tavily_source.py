@@ -22,14 +22,19 @@ class TavilySource:
     def __init__(
         self,
         api_key: str = "",
+        base_url: str = "",
         timeout: int = 30,
         max_concurrent_queries: int = 2,
     ) -> None:
         self._api_key = api_key
+        self._base_url = base_url
         self._timeout = timeout
         self._max_concurrent_queries = max(1, max_concurrent_queries)
         if api_key:
-            self._client = AsyncTavilyClient(api_key=api_key)
+            if base_url:
+                self._client = AsyncTavilyClient(api_key=api_key, api_base_url=base_url)
+            else:
+                self._client = AsyncTavilyClient(api_key=api_key)
         else:
             self._client = None
 

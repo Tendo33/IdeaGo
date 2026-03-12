@@ -94,6 +94,10 @@ class Settings(BaseSettings):
         default="",
         description="Tavily search API key / Tavily 搜索密钥",
     )
+    tavily_base_url: str = Field(
+        default="",
+        description="Tavily API base URL (optional) / Tavily API Base URL（可选）",
+    )
     github_token: str = Field(
         default="",
         description="GitHub PAT, optional, improves rate limit / GitHub 令牌（可选）",
