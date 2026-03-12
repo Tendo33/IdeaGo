@@ -20,7 +20,7 @@ value to `AsyncTavilyClient` only when provided, otherwise SDK defaults apply.
 
 ## Data Flow
 `TAVILY_BASE_URL` -> `Settings.tavily_base_url` -> `dependencies.TavilySource`
--> `AsyncTavilyClient(base_url=...)` (only if non-empty).
+-> `AsyncTavilyClient(api_base_url=...)` (only if non-empty).
 
 ## Error Handling
 No new error types. Existing timeout and `SourceSearchError` behavior remains
