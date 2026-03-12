@@ -136,7 +136,7 @@ class Settings(BaseSettings):
         "Product Hunt 抓取时间窗口（天）",
     )
     extraction_timeout_seconds: int = Field(
-        default=60,
+        default=180,
         ge=10,
         le=180,
         description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",

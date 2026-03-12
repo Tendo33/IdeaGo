@@ -358,6 +358,7 @@ class PipelineNodes:
             "Analyzing and deduplicating...",
         )
 
+        agg_started_at = time.monotonic()
         try:
             async with self._llm_semaphore:
                 agg_result = await asyncio.wait_for(
@@ -369,7 +370,13 @@ class PipelineNodes:
                 _safe_pop_task_llm_metrics(self._aggregator),
             )
         except (AggregationError, asyncio.TimeoutError) as exc:
-            logger.warning("Aggregation failed: {}, using raw competitors", exc)
+            elapsed = time.monotonic() - agg_started_at
+            logger.warning(
+                "Aggregation failed: {} (type={}, elapsed={}s), using raw competitors",
+                exc,
+                type(exc).__name__,
+                round(elapsed, 2),
+            )
             fused_fallback = fuse_competitors(all_competitors)
             agg_result = AggregationResult(
                 competitors=fused_fallback,
