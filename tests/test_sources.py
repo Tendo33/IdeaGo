@@ -318,6 +318,20 @@ def test_tavily_platform() -> None:
     assert src.platform == Platform.TAVILY
 
 
+def test_tavily_client_receives_base_url() -> None:
+    with patch("ideago.sources.tavily_source.AsyncTavilyClient") as mock_client:
+        TavilySource(api_key="tvly-test", base_url="https://tavily.local")
+    mock_client.assert_called_once_with(
+        api_key="tvly-test", api_base_url="https://tavily.local"
+    )
+
+
+def test_tavily_client_uses_default_when_base_url_empty() -> None:
+    with patch("ideago.sources.tavily_source.AsyncTavilyClient") as mock_client:
+        TavilySource(api_key="tvly-test", base_url="")
+    mock_client.assert_called_once_with(api_key="tvly-test")
+
+
 @pytest.mark.asyncio
 async def test_tavily_search_without_key_returns_empty() -> None:
     src = TavilySource(api_key="")
