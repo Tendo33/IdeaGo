@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="IdeaGo",
-        version="0.2.8",
+        version="0.2.9",
         description="AI-powered competitor research engine for startup ideas",
         lifespan=_lifespan,
     )

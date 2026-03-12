@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9] - 2026-03-12
+
+### Added
+- Added optional Tavily API base URL support and aligned related configuration inputs.
+
+### Changed
+- Increased OpenAI API timeout and extraction timeout defaults for improved reliability, plus enhanced aggregation-failure logging.
+- Updated Tavily base URL documentation and design notes.
+- Ignored worktree directory to reduce repo noise.
+- Optimized images.
+
+### Fixed
+- Fixed asyncio event loop shutdown during test teardown.
+
 ## [0.2.8] - 2026-03-09
 
 ### Changed
