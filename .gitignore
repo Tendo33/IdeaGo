@@ -212,3 +212,5 @@ project_document/
 temp/
 temporary/
 scratch/
+
+.worktrees/
