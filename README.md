@@ -1,4 +1,4 @@
-# IdeaGo
+﻿# IdeaGo
 
 ![IdeaGo Banner](docs/assets/banner.png)
 
@@ -10,7 +10,7 @@ AI-powered competitor research engine for startup ideas.
 [![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A)](https://www.langchain.com/langgraph)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[简体中文](README.zh.md) · English
+[简体中文](README_CN.md) | English
 
 ---
 
@@ -19,15 +19,29 @@ AI-powered competitor research engine for startup ideas.
 - [What IdeaGo Does](#what-ideago-does)
 - [Key Features](#key-features)
 - [Architecture](#architecture)
+  - [Runtime notes](#runtime-notes)
+- [Security Model (After `APP_API_KEY` Removal)](#security-model-after-app_api_key-removal)
 - [Tech Stack](#tech-stack)
-- [Security Model](#security-model-after-app_api_key-removal)
+  - [Backend](#backend)
+  - [Frontend](#frontend)
 - [Quick Start](#quick-start)
+  - [1) Prerequisites](#1-prerequisites)
+  - [2) Install dependencies](#2-install-dependencies)
+  - [3) Configure environment](#3-configure-environment)
+  - [4) Development mode (hot reload)](#4-development-mode-hot-reload)
+  - [5) Single-process local run (serve built frontend from backend)](#5-single-process-local-run-serve-built-frontend-from-backend)
+  - [6) Docker](#6-docker)
 - [API Overview](#api-overview)
+  - [SSE event types](#sse-event-types)
+  - [Example](#example)
 - [Report Model](#report-model)
 - [Configuration](#configuration)
 - [Project Structure](#project-structure)
 - [Development & Quality](#development--quality)
-- [Container & CI Notes](#container--ci-notes-after-app_api_key-removal)
+- [Container & CI Notes (After `APP_API_KEY` Removal)](#container--ci-notes-after-app_api_key-removal)
+  - [Dockerfile](#dockerfile)
+  - [docker-compose](#docker-compose)
+  - [CI image build/push](#ci-image-buildpush)
 - [Roadmap & Docs](#roadmap--docs)
 - [Contributing](#contributing)
 - [License](#license)
@@ -49,7 +63,7 @@ It is designed for fast founder validation: start with one sentence, get an audi
 
 ## Key Features
 
-- **End-to-end pipeline**: intent parsing → source search → extraction → aggregation → report generation
+- **End-to-end pipeline**: intent parsing -> source search -> extraction -> aggregation -> report generation
 - **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store, Product Hunt
 - **Resilient LLM layer**: retry, JSON parse recovery, endpoint failover
 - **Strict link grounding**: extracted links are filtered against fetched source URLs
@@ -295,20 +309,20 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 
 ```text
 .
-├── src/ideago
-│   ├── api/             # FastAPI app, routes, schemas, dependencies
-│   ├── pipeline/        # LangGraph engine, nodes, events, state
-│   ├── llm/             # Chat model client + prompt templates
-│   ├── sources/         # Source plugins (GitHub/Tavily/HN/AppStore/Product Hunt)
-│   ├── cache/           # File-based report/status cache
-│   ├── models/          # Pydantic domain models
-│   ├── config/          # Runtime settings
-│   └── observability/   # Logging config
-├── frontend/            # React + TypeScript UI
-├── tests/               # Pytest suite
-├── scripts/             # Release/dev automation scripts
-├── doc/                 # Engineering docs
-└── docs/                # Plans and design assets
+|-- src/ideago
+|   |-- api/             # FastAPI app, routes, schemas, dependencies
+|   |-- pipeline/        # LangGraph engine, nodes, events, state
+|   |-- llm/             # Chat model client + prompt templates
+|   |-- sources/         # Source plugins (GitHub/Tavily/HN/AppStore/Product Hunt)
+|   |-- cache/           # File-based report/status cache
+|   |-- models/          # Pydantic domain models
+|   |-- config/          # Runtime settings
+|   `-- observability/   # Logging config
+|-- frontend/            # React + TypeScript UI
+|-- tests/               # Pytest suite
+|-- scripts/             # Release/dev automation scripts
+|-- doc/                 # Engineering docs
+`-- docs/                # Plans and design assets
 ```
 
 ---
