@@ -141,10 +141,10 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             <ArrowLeft className="w-4 h-4" />
             {t('report.header.newSearch')}
           </Link>
-          <h1 className="text-2xl font-bold font-heading text-text mb-1">
+          <h1 className="text-2xl font-bold font-heading text-text mb-1 break-words">
             {report.query}
           </h1>
-          <p className="text-xs text-text-dim">
+          <p className="text-xs text-text-dim break-words">
             {report.intent.app_type} &middot; {report.intent.keywords_en.join(', ')} &middot; <span className="whitespace-nowrap">{new Date(report.created_at).toLocaleString()}</span>
           </p>
         </div>

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Globe, Search, Tag, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { HorizontalStepper } from '../../components/HorizontalStepper'
@@ -43,6 +43,7 @@ function derivePreview(events: PipelineEvent[]): PreviewData {
 
 function ProgressPreview({ events }: { events: PipelineEvent[] }) {
   const { t } = useTranslation()
+  const reduceMotion = useReducedMotion()
   const preview = derivePreview(events)
   const hasContent = preview.appType || preview.sourcePreviews.length > 0
 
@@ -52,9 +53,9 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
     <div className="max-w-xl mx-auto space-y-3 mt-4">
       {preview.appType && (
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
+          initial={reduceMotion ? false : { opacity: 0, x: 20 }}
+          animate={reduceMotion ? false : { opacity: 1, x: 0 }}
+          transition={reduceMotion ? undefined : { duration: 0.4 }}
           className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-lg p-5"
         >
           <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.ideaProfile')}</p>
@@ -78,9 +79,9 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
 
       {preview.sourcePreviews.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          initial={reduceMotion ? false : { opacity: 0, x: 20 }}
+          animate={reduceMotion ? false : { opacity: 1, x: 0 }}
+          transition={reduceMotion ? undefined : { duration: 0.4, delay: 0.1 }}
           className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-lg p-5 mt-4"
         >
           <p className="text-xs font-medium text-text-dim mb-2">{t('report.progress.searchResults')}</p>

@@ -68,6 +68,8 @@ export function VirtualizedCompetitorList({
   onToggleCompare,
 }: VirtualizedCompetitorListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollRafRef = useRef<number | null>(null)
+  const lastScrollTopRef = useRef(0)
   const [containerHeight, setContainerHeight] = useState(DEFAULT_VIEWPORT_HEIGHT)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -129,6 +131,15 @@ export function VirtualizedCompetitorList({
     }
   }, [resetKey])
 
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = null
+      }
+    }
+  }, [])
+
   const offsets = useMemo(() => {
     const values = new Array(rowCount + 1).fill(0)
     for (let index = 0; index < rowCount; index += 1) {
@@ -178,10 +189,15 @@ export function VirtualizedCompetitorList({
       ref={scrollRef}
       className="max-h-[68vh] min-h-[380px] overflow-auto pr-1"
       onScroll={event => {
-        const nextScrollTop = event.currentTarget.scrollTop
-        setScrollState(previous => {
-          if (previous.key === resetKey && previous.value === nextScrollTop) return previous
-          return { key: resetKey, value: nextScrollTop }
+        lastScrollTopRef.current = event.currentTarget.scrollTop
+        if (scrollRafRef.current !== null) return
+        scrollRafRef.current = requestAnimationFrame(() => {
+          const nextScrollTop = lastScrollTopRef.current
+          setScrollState(previous => {
+            if (previous.key === resetKey && previous.value === nextScrollTop) return previous
+            return { key: resetKey, value: nextScrollTop }
+          })
+          scrollRafRef.current = null
         })
       }}
     >

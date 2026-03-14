@@ -132,8 +132,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                   const competitorId = getCompetitorId(competitor)
                   return (
                     <th key={competitorId} className="px-4 py-3 text-left min-w-44">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-text truncate">{competitor.name}</span>
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <span className="text-sm font-semibold text-text truncate min-w-0" title={competitor.name}>
+                          {competitor.name}
+                        </span>
                         <button
                           type="button"
                           onClick={() => onRemove(competitorId)}

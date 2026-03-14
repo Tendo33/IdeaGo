@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, Users, Target, TrendingUp, Lightbulb } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -75,7 +75,37 @@ function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
   )
 }
 
-function StatCard({ value, label, icon: Icon, index }: { value: string | number; label: string; icon: typeof Users; index: number }) {
+function StatCard({
+  value,
+  label,
+  icon: Icon,
+  index,
+  reduceMotion = false,
+}: {
+  value: string | number
+  label: string
+  icon: typeof Users
+  index: number
+  reduceMotion?: boolean
+}) {
+  const content = (
+    <>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon className="w-4 h-4 text-text-dim" />
+        <span className="text-xs text-text-dim">{label}</span>
+      </div>
+      <p className="text-3xl font-bold font-heading text-text">{value}</p>
+    </>
+  )
+
+  if (reduceMotion) {
+    return (
+      <div className="rounded-xl bg-card/85 backdrop-blur-xl border border-border/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-ring/35 hover:bg-muted/55">
+        {content}
+      </div>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -83,11 +113,7 @@ function StatCard({ value, label, icon: Icon, index }: { value: string | number;
       transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: 'easeOut' }}
       className="rounded-xl bg-card/85 backdrop-blur-xl border border-border/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-ring/35 hover:bg-muted/55"
     >
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon className="w-4 h-4 text-text-dim" />
-        <span className="text-xs text-text-dim">{label}</span>
-      </div>
-      <p className="text-3xl font-bold font-heading text-text">{value}</p>
+      {content}
     </motion.div>
   )
 }
@@ -95,6 +121,7 @@ function StatCard({ value, label, icon: Icon, index }: { value: string | number;
 export function HeroPanel({ report }: HeroPanelProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const reduceMotion = Boolean(useReducedMotion())
   const verdict = getVerdictConfig(report.recommendation_type, t)
 
   const competitorCount = report.competitors.length
@@ -148,10 +175,10 @@ export function HeroPanel({ report }: HeroPanelProps) {
 
       {/* Stats Grid — right 2/5 */}
       <div className="lg:col-span-2 grid grid-cols-2 gap-3">
-        <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} />
-        <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} />
-        <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} />
-        <StatCard value={angleCount} label={t('report.hero.stats.opportunities')} icon={Lightbulb} index={3} />
+        <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} reduceMotion={reduceMotion} />
+        <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} reduceMotion={reduceMotion} />
+        <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} reduceMotion={reduceMotion} />
+        <StatCard value={angleCount} label={t('report.hero.stats.opportunities')} icon={Lightbulb} index={3} reduceMotion={reduceMotion} />
       </div>
     </section>
   )

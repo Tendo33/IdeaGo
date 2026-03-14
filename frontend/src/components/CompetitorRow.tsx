@@ -42,10 +42,12 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
       <RelevanceRing score={competitor.relevance_score} size={28} />
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-text truncate group-hover:text-cta transition-colors">
+        <p className="text-sm font-medium text-text truncate group-hover:text-cta transition-colors" title={competitor.name}>
           {competitor.name}
         </p>
-        <p className="text-xs text-text-dim truncate">{competitor.one_liner}</p>
+        <p className="text-xs text-text-dim truncate" title={competitor.one_liner}>
+          {competitor.one_liner}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-1.5 shrink-0 max-w-40 justify-end">
@@ -70,6 +72,7 @@ export function CompetitorRow({ competitor, rank, domId, compareSelected, onTogg
                 : 'border-border text-text-dim hover:border-cta/30'
             }`}
             aria-label={compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
+            aria-pressed={Boolean(compareSelected)}
           >
             {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
           </button>

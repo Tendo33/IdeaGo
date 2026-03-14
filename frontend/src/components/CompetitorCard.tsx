@@ -93,11 +93,16 @@ export function CompetitorCard({
                 {t('report.competitors.top')}
               </span>
             )}
-            <h3 className={`font-semibold font-heading text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}>
+            <h3
+              className={`font-semibold font-heading text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}
+              title={competitor.name}
+            >
               {competitor.name}
             </h3>
           </div>
-          <p className="text-sm text-text-muted leading-relaxed">{competitor.one_liner}</p>
+          <p className="text-sm text-text-muted leading-relaxed" title={competitor.one_liner}>
+            {competitor.one_liner}
+          </p>
         </div>
         <RelevanceRing score={competitor.relevance_score} size={isFeatured ? 44 : 36} />
       </div>
@@ -184,6 +189,7 @@ export function CompetitorCard({
                   ? 'border-cta/50 bg-cta/10 text-cta'
                   : 'border-border/80 text-text-dim hover:border-cta/30 hover:text-text-muted hover:bg-muted/55'
               }`}
+              aria-pressed={Boolean(compareSelected)}
             >
               {compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
             </button>

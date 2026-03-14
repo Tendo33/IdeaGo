@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useId, useMemo, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ArrowUpDown, Info, LayoutGrid, List, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -51,6 +51,7 @@ function BlueOceanState({ query }: { query: string }) {
   const { t } = useTranslation()
   const [broadenError, setBroadenError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const handleBroaden = async () => {
     if (isSubmitting) return
@@ -68,8 +69,8 @@ function BlueOceanState({ query }: { query: string }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
+      animate={reduceMotion ? false : { opacity: 1, scale: 1 }}
       className="p-10 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/80 text-center shadow-xl"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
@@ -109,10 +110,11 @@ function AllFailedState({
   onRetry: () => void
 }) {
   const { t } = useTranslation()
+  const reduceMotion = useReducedMotion()
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={reduceMotion ? false : { opacity: 1 }}
       className="p-8 rounded-2xl bg-card/85 backdrop-blur-xl border border-warning/30 text-center shadow-xl"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
@@ -187,6 +189,8 @@ export function ReportContentPane({
   const shouldAnimateCards = !reduceMotion && filteredCompetitors.length <= 20
   const shouldUseVirtualization =
     filteredCompetitors.length >= VIRTUALIZATION_THRESHOLD
+  const sortSelectId = useId()
+  const sortLabel = t('report.sort.label', { defaultValue: 'Sort by' })
   const competitorRankById = useMemo(() => {
     const map = new Map<string, number>()
     for (let index = 0; index < report.competitors.length; index += 1) {
@@ -285,6 +289,7 @@ export function ReportContentPane({
                     onClick={() => setViewMode('grid')}
                     className={`rounded-md p-1.5 cursor-pointer transition-colors ${viewMode === 'grid' ? 'filter-chip-active' : 'text-text-dim hover:text-text'}`}
                     aria-label={t('report.competitors.gridView')}
+                    aria-pressed={viewMode === 'grid'}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
@@ -292,6 +297,7 @@ export function ReportContentPane({
                     onClick={() => setViewMode('list')}
                     className={`rounded-md p-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'filter-chip-active' : 'text-text-dim hover:text-text'}`}
                     aria-label={t('report.competitors.listView')}
+                    aria-pressed={viewMode === 'list'}
                   >
                     <List className="w-3.5 h-3.5" />
                   </button>
@@ -302,6 +308,7 @@ export function ReportContentPane({
                     key={platform}
                     onClick={() => togglePlatform(platform)}
                     className={`filter-chip px-2.5 py-1 ${platformFilter.has(platform) ? 'filter-chip-active' : ''}`}
+                    aria-pressed={platformFilter.has(platform)}
                   >
                     {platform}
                   </button>
@@ -309,7 +316,11 @@ export function ReportContentPane({
 
                 <div className="interactive-surface flex items-center gap-1 ml-1 rounded-full px-2 py-1">
                   <ArrowUpDown className="w-3.5 h-3.5 text-text-dim" />
+                  <label htmlFor={sortSelectId} className="sr-only">
+                    {sortLabel}
+                  </label>
                   <select
+                    id={sortSelectId}
                     value={sortBy}
                     onChange={event => setSortBy(event.target.value as SortKey)}
                     className="text-xs bg-transparent text-text-muted border-none outline-none cursor-pointer pr-1"
