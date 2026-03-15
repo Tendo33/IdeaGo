@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.11] - 2026-03-15
+
+### Changed
+- Bumped version for release.
+
 ## [0.2.10] - 2026-03-13
 
 ### Changed
@@ -155,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.10...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/Tendo33/ideago/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/Tendo33/ideago/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/Tendo33/ideago/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/Tendo33/ideago/compare/v0.2.7...v0.2.8
