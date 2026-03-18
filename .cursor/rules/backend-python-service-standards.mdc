@@ -2,7 +2,7 @@
 description: Backend service/API standards for Python projects using typed models, clear layering, and reliable verification.
 globs: src/**/*.py, tests/**/*.py
 ---
-- For backend API/service work, follow `doc/BACKEND_STANDARDS.md`.
+- For backend API/service work, follow `ai_docs/BACKEND_STANDARDS.md`. See `ai_docs/AI_TOOLING_STANDARDS.md` for full docs index.
 - Use layered boundaries: API -> service -> repository -> domain.
 - Keep route handlers thin; place business logic in service layer.
 - Use Pydantic v2 models for request/response and validation.

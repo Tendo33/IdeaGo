@@ -2,12 +2,11 @@
 trigger: always_on
 ---
 
-Follow `doc/AI_TOOLING_STANDARDS.md` as the default engineering contract.
+**Read `ai_docs/` for project standards.** `ai_docs/AI_TOOLING_STANDARDS.md` has the full docs index.
 
 - Plan before implementation and keep edits minimal.
-- Prefer Python + uv + ruff + pytest for backend tasks.
-- For backend API/service design, follow `doc/BACKEND_STANDARDS.md`.
+- Backend rules: `ai_docs/BACKEND_STANDARDS.md`.
+- Frontend rules: `ai_docs/FRONTEND_STANDARDS.md`.
+- Scripts (rename/version): `ai_docs/SCRIPTS_GUIDE.md`.
 - Use explicit typing and predictable error handling.
 - Do not claim completion without relevant verification commands.
-- For frontend by default use React + TypeScript + Vite + Tailwind.
-- For UI/UX tasks, run `ui-ux-pro-max` with `--design-system` before coding.

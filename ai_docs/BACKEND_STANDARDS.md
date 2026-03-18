@@ -12,6 +12,9 @@ This document defines default backend practices for this repository and all conn
 - Package/runtime tooling: uv
 - Quality tooling: ruff + pytest
 
+> Note: This stack is a default architecture baseline for backend/API tasks when they are introduced.
+> The current template repository does not pre-scaffold a full FastAPI + SQLAlchemy + Alembic app by default.
+
 ## Architecture
 
 Use a layered design to keep boundaries clear:

@@ -11,21 +11,34 @@ Use this file as the default project contract for Claude Code.
 
 ## Engineering Rules
 
-- Follow `doc/AI_TOOLING_STANDARDS.md`.
-- Follow `doc/BACKEND_STANDARDS.md` for backend API/service tasks.
-- Backend baseline: Python, uv, ruff, pytest.
+- **Read `ai_docs/` for project standards before starting work.**
+- Core contract: `ai_docs/AI_TOOLING_STANDARDS.md` (contains full index of all docs).
+- Backend rules: `ai_docs/BACKEND_STANDARDS.md`.
+- Frontend rules: `ai_docs/FRONTEND_STANDARDS.md`.
+- Scripts (rename/version): `ai_docs/SCRIPTS_GUIDE.md`.
 - Keep code typed, readable, and modular.
 - Preserve existing project conventions unless asked to change them.
 
-## Frontend Default
+## Tech Stack
 
-Unless explicitly overridden, use React + TypeScript + Vite + Tailwind.
+### Backend
 
-For UI/UX tasks, start with:
+- Python 3.10+ / uv / ruff / pytest
+- FastAPI + Pydantic v2 (when API is needed)
+- SQLAlchemy + Alembic (when persistence is needed)
 
-```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system -p "<project-name>"
-```
+### Frontend
+
+- **pnpm** (package manager)
+- React + TypeScript + Vite
+- Tailwind CSS + **shadcn/ui** (component library)
+
+Layout convention:
+
+- `frontend/src/app` — app shell and routing
+- `frontend/src/features/*` — domain modules
+- `frontend/src/components/ui` — shadcn/ui primitives and shared components
+- `frontend/src/lib` — utilities and API wrappers
 
 For backend-focused work, use:
 
@@ -38,12 +51,15 @@ cat .claude/skills/backend-engineering-playbook/SKILL.md
 Run relevant checks before completion:
 
 ```bash
+# Backend
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
-npm --prefix frontend run lint
-npm --prefix frontend run typecheck
-npm --prefix frontend run test
-npm --prefix frontend run build
+
+# Frontend
+pnpm --prefix frontend lint
+pnpm --prefix frontend typecheck
+pnpm --prefix frontend test
+pnpm --prefix frontend build
 ```

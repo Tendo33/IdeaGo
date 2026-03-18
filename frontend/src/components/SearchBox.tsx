@@ -32,7 +32,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
       <label htmlFor={inputId} className="sr-only">
         {t('search.placeholder')}
       </label>
-      <div className="relative">
+      <div className="relative group">
         <input
           id={inputId}
           type="text"
@@ -41,32 +41,35 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
           placeholder={t('search.placeholder')}
           maxLength={MAX_QUERY_LENGTH}
           disabled={isLoading}
-          className="w-full rounded-2xl border border-border/80 bg-card/85 backdrop-blur-md px-5 py-4 pr-14 text-lg text-text placeholder-text-dim shadow-xl transition-all duration-300 outline-none focus:border-cta focus:ring-1 focus:ring-cta/30 focus:bg-card disabled:opacity-50 hover:border-ring/35"
+          aria-disabled={isLoading}
+          className="w-full rounded-none border-b-2 border-border bg-transparent px-2 py-4 pr-14 text-xl font-medium text-foreground placeholder:text-muted-foreground/60 transition-colors duration-300 outline-none focus:border-primary disabled:opacity-50"
           aria-label={t('search.placeholder')}
         />
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-cta p-2.5 text-primary-foreground outline-none transition-all duration-300 hover:bg-cta-hover hover:shadow-lg hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer focus:ring-1 focus:ring-cta/50"
+          aria-live="polite"
+          className="absolute right-0 top-1/2 -translate-y-1/2 p-3 text-muted-foreground outline-none transition-all duration-300 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
           aria-label={t('search.button')}
         >
           {isLoading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
           ) : (
-            <Search className="w-5 h-5" />
+            <Search className="w-6 h-6" />
           )}
         </button>
       </div>
-      <p className="mt-2 text-sm text-text-dim text-center">
+      <p className="mt-3 text-xs text-text-dim text-left px-2 font-mono" aria-live="polite">
         {isLoading
           ? t('search.submittingHint')
           : isQueryTooLong
             ? t('search.tooLong', { max: MAX_QUERY_LENGTH })
-            : isQueryTooShort
+            : isQueryTooShort && trimmedLength > 0
               ? t('search.tooShort', { min: MIN_QUERY_LENGTH, current: trimmedLength })
-              : t('search.lengthCount', { current: trimmedLength, max: MAX_QUERY_LENGTH })}
+              : trimmedLength > 0
+                ? t('search.lengthCount', { current: trimmedLength, max: MAX_QUERY_LENGTH })
+                : t('search.example')}
       </p>
-      <p className="mt-1 text-sm text-text-dim text-center">{t('search.example')}</p>
     </form>
   )
 }

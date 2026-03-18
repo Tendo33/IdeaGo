@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from '../components/SearchBox'
 import { isRequestAbortError, listReports, startAnalysis } from '../api/client'
-import { Clock, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ReportListItem } from '../types/research'
 
@@ -58,24 +58,22 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen px-4 pb-12 pt-10 sm:pt-14">
-      <div className="app-shell grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)] lg:gap-8">
-        <section className="panel-soft px-6 py-8 text-center sm:px-10 sm:py-10 lg:text-left animate-fade-in">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cta/30 bg-cta/8 px-3 py-1 text-xs font-semibold text-cta shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            {t('app.title')}
-            {t('app.titleHighlight')}
+      <div className="app-shell grid items-start gap-12 lg:grid-cols-[1fr_340px]">
+        <section className="py-12 lg:py-20 text-left animate-fade-in pr-0 lg:pr-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full border border-primary text-xs font-bold text-primary tracking-widest uppercase">
+            {t('app.title')} {t('app.titleHighlight')}
           </div>
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-text sm:text-5xl">
+          <h1 className="mb-6 text-5xl font-black tracking-tighter text-foreground sm:text-7xl leading-[1.1]">
             {t('app.title')}
-            <span className="text-breathing ml-2">{t('app.titleHighlight')}</span>
+            <span className="block text-primary">{t('app.titleHighlight')}</span>
           </h1>
-          <p className="mx-auto mb-8 max-w-2xl text-base leading-relaxed text-text-muted sm:text-lg lg:mx-0">
+          <p className="mb-12 max-w-xl text-lg font-medium leading-relaxed text-muted-foreground sm:text-xl">
             {t('home.description')}
           </p>
 
           <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
 
-          <div className="mt-6 flex flex-wrap justify-center gap-2 lg:justify-start">
+          <div className="mt-8 flex flex-wrap gap-3">
             {[0, 1, 2, 3].map(index => {
               const prompt = t(`home.prompt${index}`)
               return (
@@ -83,9 +81,8 @@ export function HomePage() {
                   key={prompt}
                   onClick={() => handleSubmit(prompt)}
                   disabled={isLoading}
-                  className="filter-chip disabled:cursor-not-allowed disabled:opacity-40"
+                  className="px-4 py-2 text-sm font-medium rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-primary transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Sparkles className="h-3 w-3" />
                   {prompt}
                 </button>
               )
@@ -100,11 +97,10 @@ export function HomePage() {
           )}
         </section>
 
-        <aside className="surface-card p-4 sm:p-6 animate-fade-in [animation-delay:120ms]">
-          <h2 className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-text-dim">
+        <aside className="surface-card p-6 sm:p-8 animate-fade-in [animation-delay:120ms] border-t-4 border-t-primary rounded-none sm:rounded-xl">
+          <h2 className="mb-6 text-sm font-black uppercase tracking-[0.2em] text-foreground border-b border-border pb-4">
             {t('home.recentResearch')}
           </h2>
-          <p className="mb-4 text-sm text-text-muted">{t('search.example')}</p>
 
           {recentReportsError && (
             <p className="mb-3 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-warning">
@@ -118,30 +114,30 @@ export function HomePage() {
                 <button
                   key={report.id}
                   onClick={() => navigate(`/reports/${report.id}`)}
-                  className="group interactive-surface flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left hover:-translate-y-0.5 focus:outline-none focus:ring-1 focus:ring-cta/40"
+                  className="group flex w-full cursor-pointer items-start justify-between py-4 text-left hover:bg-muted/30 transition-colors border-b border-border/50 last:border-0"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-text">{report.query}</p>
-                    <div className="mt-1 flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-text-dim">
-                        <Clock className="h-3 w-3" />
+                  <div className="min-w-0 flex-1 pr-4">
+                    <p className="text-base font-bold text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-2">{report.query}</p>
+                    <div className="mt-2 flex items-center gap-4">
+                      <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                         {new Date(report.created_at).toLocaleDateString()}
                       </span>
-                      <span className="text-xs font-medium text-cta">
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
                         {report.competitor_count} {t('home.competitors')}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-text-dim transition-colors duration-300 group-hover:text-cta" />
                 </button>
               ))}
             </div>
           )}
 
           {!recentReportsError && recentReports.length === 0 && (
-            <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-text-dim">
-              {t('history.emptyState')}
-            </p>
+            <div className="py-8 text-left">
+              <p className="text-sm font-medium text-muted-foreground">
+                {t('history.emptyState')}
+              </p>
+            </div>
           )}
         </aside>
       </div>

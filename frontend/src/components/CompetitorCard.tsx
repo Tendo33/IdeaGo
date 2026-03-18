@@ -1,17 +1,9 @@
 import { useState } from 'react'
-import { ExternalLink, ThumbsUp, ThumbsDown, Tag, DollarSign, ChevronDown, ChevronUp, Award, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
+import { ExternalLink, ThumbsUp, ThumbsDown, DollarSign, ChevronDown, ChevronUp, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getCompetitorDomId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import type { Competitor } from '../types/research'
-
-const platformColors: Record<string, string> = {
-  github: 'bg-chart-2/15 text-chart-2',
-  tavily: 'bg-chart-3/15 text-chart-3',
-  producthunt: 'bg-chart-4/15 text-chart-4',
-  hackernews: 'bg-chart-5/15 text-chart-5',
-  appstore: 'bg-chart-1/15 text-chart-1',
-}
 
 const PlatformIcon: Record<string, React.ElementType> = {
   github: Github,
@@ -43,7 +35,7 @@ function LinkWithHost({ link, name }: { link: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer"
+      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-md"
       aria-label={`Open ${name} on ${hostname}`}
     >
       <ExternalLink className="w-3 h-3" />
@@ -76,54 +68,61 @@ export function CompetitorCard({
   return (
     <div
       id={elementId}
-      className={`card select-none ${
+      className={`relative bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
-          ? 'border-l-4! border-l-cta! border-t-border/80! border-r-border/80! border-b-border/80!'
-          : 'card-clickable p-5!'
+          ? 'border-border shadow-lg p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
+          : 'border-border/50 hover:border-border hover:shadow-md p-5 card-clickable'
       }`}
     >
+      {/* Featured Accent Line */}
+      {isFeatured && (
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
+      )}
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
+      <div className="flex items-start justify-between gap-4 mb-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-xs font-mono text-text-dim">#{rank}</span>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="text-sm font-mono text-muted-foreground font-bold">{String(rank).padStart(2, '0')}</span>
             {isFeatured && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-cta/15 text-cta">
-                <Award className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-foreground text-background">
                 {t('report.competitors.top')}
               </span>
             )}
             <h3
-              className={`font-semibold font-heading text-text truncate ${isFeatured ? 'text-xl' : 'text-lg'}`}
+              className={`font-black font-heading text-foreground truncate ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
               title={competitor.name}
             >
               {competitor.name}
             </h3>
           </div>
-          <p className="text-sm text-text-muted leading-relaxed" title={competitor.one_liner}>
+          <p className="text-sm text-muted-foreground leading-relaxed" title={competitor.one_liner}>
             {competitor.one_liner}
           </p>
         </div>
-        <RelevanceRing score={competitor.relevance_score} size={isFeatured ? 44 : 36} />
+        <RelevanceRing score={competitor.relevance_score} size={isFeatured ? 48 : 40} />
       </div>
 
       {/* Feature Tags */}
       {competitor.features.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-2 mb-4">
           {competitor.features.slice(0, featuresLimit).map((f, i) => (
-            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md bg-secondary/50 text-text-muted">
-              <Tag className="w-3 h-3" />{f}
+            <span key={i} className="inline-flex items-center text-xs text-muted-foreground">
+              {f}
+              {i < featuresLimit - 1 && <span className="text-border mx-1.5">&bull;</span>}
             </span>
           ))}
           {!isExpanded && competitor.features.length > 4 && (
-            <span className="text-xs text-text-dim self-center">+{competitor.features.length - 4} {t('report.competitors.more')}</span>
+            <span className="text-xs text-text-dim inline-flex items-center">
+              <span className="text-border mx-1.5">&bull;</span>
+              +{competitor.features.length - 4} {t('report.competitors.more')}
+            </span>
           )}
         </div>
       )}
 
       {/* Pricing */}
       {competitor.pricing && (
-        <div className="flex items-center gap-1.5 text-xs text-text-muted mb-3">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-4">
           <DollarSign className="w-3.5 h-3.5" />
           <span>{competitor.pricing}</span>
         </div>
@@ -131,27 +130,31 @@ export function CompetitorCard({
 
       {/* Strengths / Weaknesses */}
       {(isExpanded || isFeatured) && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 pt-4 border-t border-border/40">
           {competitor.strengths.length > 0 && (
             <div>
-              <div className="flex items-center gap-1 text-xs text-cta mb-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-2">
                 <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1.5">
                 {competitor.strengths.slice(0, prosLimit).map((s, i) => (
-                  <li key={i} className="text-xs text-text-muted">&bull; {s}</li>
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-success mt-0.5">&bull;</span> <span>{s}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           )}
           {competitor.weaknesses.length > 0 && (
             <div>
-              <div className="flex items-center gap-1 text-xs text-danger mb-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-2">
                 <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1.5">
                 {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
-                  <li key={i} className="text-xs text-text-muted">&bull; {w}</li>
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-danger mt-0.5">&bull;</span> <span>{w}</span>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -160,31 +163,31 @@ export function CompetitorCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex flex-wrap gap-1.5 shrink-0">
+      <div className="flex items-center justify-between pt-4 border-t border-border/80 gap-3 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             {competitor.source_platforms.map(p => {
               const Icon = PlatformIcon[p] || Globe
               return (
-                <span key={p} className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-1.5 py-0.5 rounded-full whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-text-dim'}`}>
-                  <Icon className="w-3 h-3" />
-                  {p}
+                <span key={p} className="inline-flex items-center text-text-dim" title={p}>
+                  <Icon className="w-4 h-4" />
+                  <span className="sr-only">{p}</span>
                 </span>
               )
             })}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
               <LinkWithHost key={i} link={link} name={competitor.name} />
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-between sm:justify-end">
           {onToggleCompare && (
             <button
               onClick={e => { e.stopPropagation(); onToggleCompare() }}
-              className={`text-xs px-2.5 py-1 rounded-md border cursor-pointer transition-all duration-300 ${
+              className={`text-xs px-3 min-h-[44px] rounded-md border cursor-pointer transition-all duration-300 ${
                 compareSelected
                   ? 'border-cta/50 bg-cta/10 text-cta'
                   : 'border-border/80 text-text-dim hover:border-cta/30 hover:text-text-muted hover:bg-muted/55'
@@ -197,7 +200,7 @@ export function CompetitorCard({
           {!isFeatured && hasMore && (
             <button
               onClick={() => setIsExpanded(prev => !prev)}
-              className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-md"
             >
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}

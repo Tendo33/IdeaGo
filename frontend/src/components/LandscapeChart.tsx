@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-xl bg-popover/95 backdrop-blur-2xl border border-border/80 p-3 shadow-xl max-w-xs">
+    <div className="rounded-xl bg-popover border border-border/80 p-3 shadow-xl max-w-xs">
       <p className="text-sm font-semibold text-text mb-0.5">{d.name}</p>
       <p className="text-xs text-text-muted mb-1.5 line-clamp-2">{d.oneLiner}</p>
       <div className="flex gap-3 text-xs text-text-dim">

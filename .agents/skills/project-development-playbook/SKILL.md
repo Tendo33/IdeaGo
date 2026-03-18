@@ -8,6 +8,8 @@ description: Use when implementing project tasks that need consistent coding sta
 
 Apply one consistent delivery workflow across backend and frontend tasks.
 
+**Reference:** Read `ai_docs/AI_TOOLING_STANDARDS.md` for the full docs index before starting.
+
 ## Workflow
 
 1. Confirm scope and assumptions.
@@ -27,13 +29,11 @@ For deeper backend architecture rules, use `backend-engineering-playbook`.
 
 ## Frontend Defaults
 
-Unless user specifies otherwise, use React + TypeScript + Vite + Tailwind.
+Fixed stack: pnpm + React + TypeScript + Vite + Tailwind CSS + shadcn/ui.
 
-For UI/UX work, start with:
-
-```bash
-python3 .agent/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system -p "<project-name>"
-```
+- Use shadcn/ui as the component library; customise via Tailwind and CSS variables.
+- UI primitives go in `frontend/src/components/ui`.
+- Domain modules go in `frontend/src/features/*`.
 
 ## Verification Checklist
 
@@ -43,8 +43,8 @@ Run what applies:
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
-npm --prefix frontend run lint
-npm --prefix frontend run typecheck
-npm --prefix frontend run test
-npm --prefix frontend run build
+pnpm --prefix frontend lint
+pnpm --prefix frontend typecheck
+pnpm --prefix frontend test
+pnpm --prefix frontend build
 ```

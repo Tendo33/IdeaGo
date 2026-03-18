@@ -200,10 +200,10 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
         <div className="min-h-screen px-4 py-10 bg-bg">
           <div className="surface-card mx-auto mt-16 max-w-md px-6 py-10 text-center">
             <AlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
-            <h1 className="text-2xl font-bold font-heading text-text mb-2">
+            <h1 className="text-2xl font-bold font-heading text-foreground mb-2">
               {t('error.title')}
             </h1>
-            <p className="text-sm text-text-muted mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               {this.state.error?.message ?? t('error.fallbackMessage')}
             </p>
             <button
@@ -211,7 +211,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 this.setState({ hasError: false, error: null })
                 window.location.href = '/'
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cta text-primary-foreground hover:bg-cta-hover transition-colors duration-200 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200 cursor-pointer font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
               {t('error.backToHome')}
