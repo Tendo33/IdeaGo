@@ -23,13 +23,13 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
   return (
     <div
       id={elementId}
-      className="flex items-center gap-3 px-4 py-3 rounded-none border border-2 border-border bg-card  transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px group"
+      className="flex items-center gap-4 px-5 py-4 rounded-none border border-2 border-border bg-card  transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px group"
     >
-      <span className="text-xs font-mono text-muted-foreground w-6 text-right shrink-0">#{rank}</span>
-      <RelevanceRing score={competitor.relevance_score} size={28} />
+      <span className="text-sm font-mono text-muted-foreground w-6 text-right shrink-0">#{rank}</span>
+      <RelevanceRing score={competitor.relevance_score} size={32} />
 
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground truncate group-hover:text-cta transition-colors" title={competitor.name}>
+      <div className="min-w-0 flex-1 ml-2">
+        <p className="text-base font-medium text-foreground truncate group-hover:text-cta transition-colors" title={competitor.name}>
           {competitor.name}
         </p>
         <p className="text-xs text-muted-foreground truncate" title={competitor.one_liner}>

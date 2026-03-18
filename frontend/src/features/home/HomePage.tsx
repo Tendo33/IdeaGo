@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, memo, useCallback } from 'react'
+import { useEffect, useState, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from './components/SearchBox'
-import { isRequestAbortError, listReports, startAnalysis } from '../../lib/api/client'
+import { isRequestAbortError, listReports } from '../../lib/api/client'
 import { useTranslation } from 'react-i18next'
 import { Alert } from '../../components/ui/Alert'
 import { Badge } from '../../components/ui/Badge'
@@ -47,11 +47,8 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
 export function HomePage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
-  const isSubmittingRef = useRef(false)
 
   const handleNavigate = useCallback((id: string) => {
     navigate(`/reports/${id}`)
@@ -72,29 +69,16 @@ export function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleSubmit = async (query: string) => {
+  const handleSubmit = useCallback((query: string) => {
     const normalizedQuery = query.trim()
     if (
-      isSubmittingRef.current ||
       normalizedQuery.length < MIN_QUERY_LENGTH ||
       normalizedQuery.length > MAX_QUERY_LENGTH
     ) {
       return
     }
-
-    isSubmittingRef.current = true
-    setIsLoading(true)
-    setError(null)
-    try {
-      const { report_id } = await startAnalysis(normalizedQuery)
-      navigate(`/reports/${report_id}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
-    } finally {
-      isSubmittingRef.current = false
-      setIsLoading(false)
-    }
-  }
+    navigate('/reports/new', { state: { query: normalizedQuery } })
+  }, [navigate])
 
   return (
     <div className="min-h-screen px-4 pb-16 pt-12 sm:pt-20 bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
@@ -102,10 +86,6 @@ export function HomePage() {
 
         {/* Main Content Section */}
         <section className="py-12 lg:py-16 text-left animate-fade-in">
-          <div className="inline-block px-4 py-2 mb-8 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)]">
-            {t('app.title')} {t('app.titleHighlight')}
-          </div>
-
           <h1 className="mb-8 font-heading uppercase tracking-tighter leading-[0.9] text-6xl sm:text-8xl md:text-[7rem] break-words">
             {t('app.title')}
             <br />
@@ -117,7 +97,7 @@ export function HomePage() {
           </p>
 
           <div className="bg-card border-2 border-border shadow-[6px_6px_0px_0px_var(--border)] p-6 md:p-8">
-            <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
+            <SearchBox onSubmit={handleSubmit} />
 
             <div className="mt-8">
               <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">{t('home.quickPrompts', { defaultValue: 'Quick Prompts' })}</h3>
@@ -129,7 +109,6 @@ export function HomePage() {
                       key={prompt}
                       variant="secondary"
                       onClick={() => handleSubmit(prompt)}
-                      disabled={isLoading}
                       className="flex-1 min-w-[200px] text-left justify-start"
                       title={prompt}
                     >
@@ -140,11 +119,6 @@ export function HomePage() {
               </div>
             </div>
 
-            {error && (
-              <Alert variant="destructive" className="mt-6">
-                <span className="font-bold">{error}</span>
-              </Alert>
-            )}
           </div>
         </section>
 

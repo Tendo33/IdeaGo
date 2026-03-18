@@ -90,17 +90,17 @@ function StatCard({
 }) {
   const content = (
     <>
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon className="w-4 h-4 text-text-dim" />
-        <span className="text-xs text-text-dim">{label}</span>
+      <div className="flex items-center gap-2.5 mb-2.5">
+        <Icon className="w-5 h-5 text-text-dim" />
+        <span className="text-sm text-text-dim font-medium">{label}</span>
       </div>
-      <p className="text-3xl font-bold font-heading text-text">{value}</p>
+      <p className="text-4xl font-bold font-heading text-text">{value}</p>
     </>
   )
 
   if (reduceMotion) {
     return (
-      <div className="rounded-none bg-card border-2 border-border p-4 shadow-[4px_4px_0px_0px_var(--border)]">
+      <div className="rounded-none bg-card border-2 border-border p-6 shadow-[4px_4px_0px_0px_var(--border)]">
         {content}
       </div>
     )
@@ -111,7 +111,7 @@ function StatCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: 'easeOut' }}
-      className="rounded-none bg-card border-2 border-border p-4 transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] hover:bg-muted"
+      className="rounded-none bg-card border-2 border-border p-6 transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] hover:bg-muted"
     >
       {content}
     </motion.div>
@@ -134,22 +134,22 @@ export function HeroPanel({ report }: HeroPanelProps) {
   const angleCount = report.differentiation_angles.length
 
   return (
-    <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+    <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-5">
       {/* Verdict Card — left 3/5 */}
-      <div className={`lg:col-span-3 rounded-none border-2 border-border ${verdict.bg} p-6 sm:p-8 ${verdict.glow}`}>
-        <div className="flex items-start gap-4 mb-4">
-          <div className={`w-14 h-14 rounded-none ${verdict.bg} border-2 ${verdict.ring} flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_currentColor] ${verdict.text}`}>
-            <span className="text-2xl font-black font-heading">
+      <div className={`lg:col-span-3 rounded-none border-2 border-border ${verdict.bg} p-8 sm:p-10 ${verdict.glow}`}>
+        <div className="flex items-start gap-5 mb-5">
+          <div className={`w-16 h-16 rounded-none ${verdict.bg} border-2 ${verdict.ring} flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_currentColor] ${verdict.text}`}>
+            <span className="text-3xl font-black font-heading">
               {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className={`text-xl font-bold font-heading ${verdict.text} mb-1`}>
+            <h2 className={`text-2xl font-bold font-heading ${verdict.text} mb-2`}>
               {verdict.label}
             </h2>
             {report.go_no_go && (
               <div className="relative">
-                <p className={`text-sm text-text leading-relaxed break-words ${!expanded ? 'line-clamp-3' : ''}`}>
+                <p className={`text-base text-text leading-relaxed break-words ${!expanded ? 'line-clamp-3' : ''}`}>
                   {report.go_no_go}
                 </p>
                 {report.go_no_go.length > 200 && (

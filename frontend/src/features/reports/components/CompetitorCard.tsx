@@ -73,9 +73,9 @@ export const CompetitorCard = memo(function CompetitorCard({
         <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
       )}
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <div className="flex items-center gap-2.5 mb-2 flex-wrap">
             <span className="text-sm font-mono text-muted-foreground font-bold">{String(rank).padStart(2, '0')}</span>
             {isFeatured && (
               <Badge variant="outline" className="px-2.5 py-0.5 text-[10px] bg-foreground text-background">
@@ -98,7 +98,7 @@ export const CompetitorCard = memo(function CompetitorCard({
 
       {/* Feature Tags */}
       {competitor.features.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-5">
           {competitor.features.slice(0, featuresLimit).map((f, i) => (
             <span key={i} className="inline-flex items-center text-xs text-muted-foreground">
               {f}
@@ -116,7 +116,7 @@ export const CompetitorCard = memo(function CompetitorCard({
 
       {/* Pricing */}
       {competitor.pricing && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-4">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-5">
           <DollarSign className="w-3.5 h-3.5" />
           <span>{competitor.pricing}</span>
         </div>
@@ -124,13 +124,13 @@ export const CompetitorCard = memo(function CompetitorCard({
 
       {/* Strengths / Weaknesses */}
       {(isExpanded || isFeatured) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 pt-4 border-t border-2 border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t border-2 border-border">
           {competitor.strengths.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
                 <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {competitor.strengths.slice(0, prosLimit).map((s, i) => (
                   <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
                     <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
@@ -141,10 +141,10 @@ export const CompetitorCard = memo(function CompetitorCard({
           )}
           {competitor.weaknesses.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-3">
                 <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
                   <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
                     <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
@@ -157,7 +157,7 @@ export const CompetitorCard = memo(function CompetitorCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-2 border-border gap-3 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center justify-between pt-5 border-t border-2 border-border gap-4 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex flex-wrap gap-2 shrink-0 max-w-[200px]">
             {competitor.source_platforms.map(p => {

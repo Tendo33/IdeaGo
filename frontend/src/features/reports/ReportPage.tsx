@@ -1,7 +1,8 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
+import { isRequestAbortError, startAnalysis } from '@/lib/api/client'
 import { ReportContentPane } from '@/features/reports/components/ReportContentPane'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
@@ -10,13 +11,37 @@ import { useReportLifecycle } from '@/features/reports/components/useReportLifec
 
 export function ReportPage() {
   const { t } = useTranslation()
-  const { id } = useParams<{ id: string }>()
+  const { id: paramId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const isNewAnalysis = paramId === 'new'
+  const effectiveId = isNewAnalysis ? undefined : paramId
+
+  useEffect(() => {
+    if (!isNewAnalysis) return
+    const query = (location.state as { query?: string } | null)?.query
+    if (!query) {
+      navigate('/', { replace: true })
+      return
+    }
+    const controller = new AbortController()
+    startAnalysis(query, { signal: controller.signal })
+      .then(({ report_id }) => {
+        navigate(`/reports/${report_id}`, { replace: true })
+      })
+      .catch(e => {
+        if (isRequestAbortError(e)) return
+        setCreateError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
+      })
+    return () => controller.abort()
+  }, [isNewAnalysis, location.state, navigate, t])
 
   const {
     loadPhase,
     report,
-    loadError,
+    loadError: lifecycleError,
     loadErrorKind,
     runtimeStatus,
     showReport,
@@ -28,7 +53,9 @@ export function ReportPage() {
     retryCurrentQuery,
     retryErrorState,
     cancelCurrentAnalysis,
-  } = useReportLifecycle(id, navigate)
+  } = useReportLifecycle(effectiveId, navigate)
+
+  const loadError = (isNewAnalysis ? createError : null) || lifecycleError
 
   const {
     sortBy,
@@ -75,7 +102,7 @@ export function ReportPage() {
           isReconnecting={isReconnecting}
           loadPhase={loadPhase}
           isComplete={isComplete}
-          reportId={id}
+          reportId={effectiveId}
           onCancel={cancelCurrentAnalysis}
         />
 

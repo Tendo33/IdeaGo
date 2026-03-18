@@ -272,12 +272,9 @@ function NavBar({
     <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print">
       <Link
         to="/"
-        className="group inline-flex items-center gap-3 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
+        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all"
       >
-        <span className="text-2xl font-black uppercase tracking-tighter text-foreground">{t('app.title')}</span>
-        <span className="inline-flex items-center border-2 border-border bg-primary px-2 py-0.5 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-[2px_2px_0px_0px_var(--border)] transition-transform duration-150 group-hover:-translate-y-px">
-          {t('app.titleHighlight')}
-        </span>
+        {t('app.title')} {t('app.titleHighlight')}
       </Link>
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4 shrink-0">
         <ThemeModeMenu themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />

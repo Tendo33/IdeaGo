@@ -72,7 +72,7 @@ function BlueOceanState({ query }: { query: string }) {
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
       animate={reduceMotion ? false : { opacity: 1, scale: 1 }}
-      className="p-10 rounded-none bg-card border-2 border-border text-center shadow-[4px_4px_0px_0px_var(--border)]"
+      className="p-12 rounded-none bg-card border-2 border-border text-center shadow-[4px_4px_0px_0px_var(--border)]"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
       <h3 className="text-xl font-bold font-heading text-foreground mb-2 break-words">{t('report.blueOcean.title')}</h3>
@@ -116,7 +116,7 @@ function AllFailedState({
     <motion.div
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={reduceMotion ? false : { opacity: 1 }}
-      className="p-8 rounded-none bg-card border-2 border-warning text-center shadow-[4px_4px_0px_0px_var(--border)]"
+      className="p-10 rounded-none bg-card border-2 border-warning text-center shadow-[4px_4px_0px_0px_var(--border)]"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
       <h3 className="text-lg font-bold font-heading text-foreground mb-3 break-words">{t('report.failed.title')}</h3>
@@ -250,7 +250,7 @@ export function ReportContentPane({
         </div>
       )}
 
-      <div className={`space-y-10 transition-all duration-500 ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className={`space-y-12 sm:space-y-16 transition-all duration-500 ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {allFailed && (
           <AllFailedState sources={report.source_results} onRetry={onRetryAnalysis} />
         )}

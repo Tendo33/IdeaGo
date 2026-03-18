@@ -187,7 +187,7 @@ export function VirtualizedCompetitorList({
   return (
     <div
       ref={scrollRef}
-      className="max-h-[68vh] min-h-[380px] overflow-auto pr-1"
+      className="max-h-[68vh] min-h-[380px] overflow-auto px-2 py-2"
       onScroll={event => {
         lastScrollTopRef.current = event.currentTarget.scrollTop
         if (scrollRafRef.current !== null) return
