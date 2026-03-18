@@ -76,13 +76,27 @@ export function VirtualizedCompetitorList({
   const columns = viewMode === 'grid' && containerWidth >= 640 ? 2 : 1
   const estimatedRowHeight =
     viewMode === 'grid' ? ESTIMATED_GRID_ROW_HEIGHT + 24 : ESTIMATED_LIST_ROW_HEIGHT + 16
-  const rowCount = Math.ceil(competitors.length / columns)
   const gridClassName = columns === 2 ? 'grid gap-6 grid-cols-2 pb-6' : 'grid gap-6 grid-cols-1 pb-6'
+
+  // Detect if the first competitor in the current list is the globally-ranked #1 (featured)
+  const hasFeaturedFirst = useMemo(() => {
+    if (viewMode !== 'grid' || competitors.length === 0) return false
+    const source = allCompetitors ?? competitors
+    if (source.length === 0) return false
+    return getCompetitorId(competitors[0]) === getCompetitorId(source[0])
+  }, [viewMode, competitors, allCompetitors])
+
+  // When featured card is first, row 0 holds it alone; remaining competitors fill 2-col rows
+  const rowCount = useMemo(() => {
+    if (hasFeaturedFirst) return 1 + Math.ceil((competitors.length - 1) / columns)
+    return Math.ceil(competitors.length / columns)
+  }, [hasFeaturedFirst, competitors.length, columns])
+
   const competitorSignature = useMemo(
     () => createCompetitorSignature(competitors),
     [competitors],
   )
-  const resetKey = `${viewMode}:${columns}:${competitorSignature}`
+  const resetKey = `${viewMode}:${columns}:${competitorSignature}:${hasFeaturedFirst ? 'f' : 'n'}`
   const [scrollState, setScrollState] = useState<ScrollState>(() => ({ key: resetKey, value: 0 }))
   const [measuredHeights, setMeasuredHeights] = useState<MeasuredHeightsState>(() => ({
     key: resetKey,
@@ -203,8 +217,28 @@ export function VirtualizedCompetitorList({
     >
       <div style={{ height: totalHeight, position: 'relative' }}>
         {visibleRows.map(rowIndex => {
-          const rowStart = rowIndex * columns
-          const rowItems = competitors.slice(rowStart, rowStart + columns)
+          // Resolve which competitors belong to this row
+          let rowItems: typeof competitors
+          if (hasFeaturedFirst) {
+            if (rowIndex === 0) {
+              rowItems = [competitors[0]]
+            } else {
+              const offset = 1 + (rowIndex - 1) * columns
+              rowItems = competitors.slice(offset, offset + columns)
+            }
+          } else {
+            const rowStart = rowIndex * columns
+            rowItems = competitors.slice(rowStart, rowStart + columns)
+          }
+
+          // Row 0 of a featured-first layout always uses a single-column grid
+          const rowGridClass =
+            hasFeaturedFirst && rowIndex === 0
+              ? 'grid gap-6 grid-cols-1 pb-6'
+              : columns === 2 && rowItems.length === 1
+                ? 'grid gap-6 grid-cols-1 pb-6'
+                : gridClassName
+
           return (
             <div
               key={`row-${rowIndex}`}
@@ -217,10 +251,10 @@ export function VirtualizedCompetitorList({
               }}
             >
               {viewMode === 'grid' ? (
-                <div className={gridClassName}>
+                <div className={rowGridClass}>
                   {rowItems.map((competitor, itemIndex) => {
                     const competitorId = getCompetitorId(competitor)
-                    const rank = competitorRankById.get(competitorId) ?? (rowStart + itemIndex + 1)
+                    const rank = competitorRankById.get(competitorId) ?? (itemIndex + 1)
                     const originalIndex = rank - 1
 
                     return (
@@ -240,7 +274,7 @@ export function VirtualizedCompetitorList({
                 <div className="pb-4">
                   {rowItems.map((competitor, itemIndex) => {
                     const competitorId = getCompetitorId(competitor)
-                    const rank = competitorRankById.get(competitorId) ?? (rowStart + itemIndex + 1)
+                    const rank = competitorRankById.get(competitorId) ?? (itemIndex + 1)
 
                     return (
                       <CompetitorRow

@@ -65,7 +65,7 @@ export const CompetitorCard = memo(function CompetitorCard({
       className={`relative bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
           ? 'border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
-          : 'border-2 border-border hover:border-2 border-border hover:shadow-[4px_4px_0px_0px_var(--border)] p-5 card-clickable'
+          : 'border-2 border-border hover:shadow-[4px_4px_0px_0px_var(--border)] p-5 card-clickable'
       }`}
     >
       {/* Featured Accent Line */}
@@ -124,7 +124,7 @@ export const CompetitorCard = memo(function CompetitorCard({
 
       {/* Strengths / Weaknesses */}
       {(isExpanded || isFeatured) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t border-2 border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border">
           {competitor.strengths.length > 0 && (
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
@@ -157,7 +157,7 @@ export const CompetitorCard = memo(function CompetitorCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-5 border-t border-2 border-border gap-4 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center justify-between pt-5 border-t-2 border-border gap-4 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex flex-wrap gap-2 shrink-0 max-w-[200px]">
             {competitor.source_platforms.map(p => {

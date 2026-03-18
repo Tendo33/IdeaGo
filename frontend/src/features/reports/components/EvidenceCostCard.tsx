@@ -55,7 +55,7 @@ export function EvidenceCostCard({
       <div className="space-y-3">
         {visibleItems.length > 0 ? (
           visibleItems.map((item, index) => (
-            <div key={`${item.title}-${index}`} className="rounded-none border border-2 border-border bg-muted/55 p-4">
+            <div key={`${item.title}-${index}`} className="rounded-none border-2 border-border bg-muted/55 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-foreground truncate" title={item.title || t('report.transparency.evidence.unknown')}>
@@ -83,7 +83,7 @@ export function EvidenceCostCard({
         )}
       </div>
 
-      <div className="pt-5 border-t border-2 border-border">
+      <div className="pt-5 border-t-2 border-border">
         <h4 className="text-sm font-bold text-foreground mb-4 inline-flex items-center gap-2">
           <Gauge className="w-4 h-4 text-cta" />
           {t('report.transparency.cost.title')}
@@ -111,7 +111,7 @@ export function EvidenceCostCard({
 
 function CostMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between min-w-0">
+    <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between min-w-0">
       <p className="text-xs text-muted-foreground break-words leading-tight">{label}</p>
       <p className="text-base font-bold text-foreground mt-2 truncate" title={String(value)}>{value}</p>
     </div>

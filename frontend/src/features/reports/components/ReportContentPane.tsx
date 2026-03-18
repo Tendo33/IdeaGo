@@ -236,7 +236,7 @@ export function ReportContentPane({
       )}
 
       {cancelledMessage && (
-        <div className="flex items-center justify-between gap-3 p-4 rounded-none bg-card  border border-2 border-border mb-6">
+        <div className="flex items-center justify-between gap-3 p-4 rounded-none bg-card border-2 border-border mb-6">
           <div className="flex items-center gap-3 min-w-0">
             <Info className="w-5 h-5 text-muted-foreground shrink-0" />
             <p className="text-sm text-muted-foreground">{cancelledMessage}</p>
@@ -271,7 +271,7 @@ export function ReportContentPane({
           <section id="section-landscape" className="space-y-6">
             <MarketOverview summary={report.market_summary} />
             {report.competitors.length > 0 && (
-              <Suspense fallback={<div data-testid="chart-loading" className="h-64 rounded-none border border-2 border-border bg-card animate-pulse" />}>
+              <Suspense fallback={<div data-testid="chart-loading" className="h-64 rounded-none border-2 border-border bg-card animate-pulse" />}>
                 <LandscapeChart competitors={report.competitors} />
               </Suspense>
             )}
@@ -351,29 +351,53 @@ export function ReportContentPane({
                   compareSet={compareSet}
                   onToggleCompare={toggleCompare}
                 />
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
-                  {filteredCompetitors.map((competitor, index) => {
-                    const competitorId = getCompetitorId(competitor)
-                    const domId = getCompetitorDomIdFromId(competitorId)
-                    const rank = competitorRankById.get(competitorId) ?? (index + 1)
-                    const originalIndex = rank - 1
-                    return renderCardWrapper(
+              ) : (() => {
+                const firstId = filteredCompetitors.length > 0 ? getCompetitorId(filteredCompetitors[0]) : null
+                const firstRank = firstId != null ? (competitorRankById.get(firstId) ?? 1) : 1
+                const isFeaturedFirst = firstRank === 1
+                const featuredCompetitor = isFeaturedFirst ? filteredCompetitors[0] : null
+                const restCompetitors = isFeaturedFirst ? filteredCompetitors.slice(1) : filteredCompetitors
+                return (
+                  <>
+                    {featuredCompetitor && (() => {
+                      const competitorId = getCompetitorId(featuredCompetitor)
+                      return renderCardWrapper(
                         competitorId,
-                        index,
+                        0,
                         '-30px',
                         <CompetitorCard
-                          competitor={competitor}
-                          rank={rank}
-                          domId={domId}
-                          variant={originalIndex === 0 ? 'featured' : 'standard'}
+                          competitor={featuredCompetitor}
+                          rank={1}
+                          domId={getCompetitorDomIdFromId(competitorId)}
+                          variant="featured"
                           compareSelected={compareSet.has(competitorId)}
                           onToggleCompare={toggleCompare}
                         />,
-                    )
-                  })}
-                </div>
-              )
+                      )
+                    })()}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {restCompetitors.map((competitor, index) => {
+                        const competitorId = getCompetitorId(competitor)
+                        const domId = getCompetitorDomIdFromId(competitorId)
+                        const rank = competitorRankById.get(competitorId) ?? (index + 2)
+                        return renderCardWrapper(
+                          competitorId,
+                          isFeaturedFirst ? index + 1 : index,
+                          '-30px',
+                          <CompetitorCard
+                            competitor={competitor}
+                            rank={rank}
+                            domId={domId}
+                            variant="standard"
+                            compareSelected={compareSet.has(competitorId)}
+                            onToggleCompare={toggleCompare}
+                          />,
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+              })()
             )}
 
             {viewMode === 'list' && (

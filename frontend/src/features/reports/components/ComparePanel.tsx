@@ -87,7 +87,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
         className="w-full bg-card border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] overflow-hidden flex flex-col my-8"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-2 border-border shrink-0 bg-muted/45">
+        <div className="flex items-center justify-between px-6 py-5 border-b-2 border-border shrink-0 bg-muted/45">
           <h3 id={headingId} className="text-lg font-semibold font-heading text-foreground">
             {t('report.compare.title', { count: competitors.length })}
           </h3>
@@ -109,7 +109,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
             {competitors.map(competitor => {
               const competitorId = getCompetitorId(competitor)
               return (
-                <div key={competitorId} className="rounded-none border border-2 border-border bg-card p-4 shadow-[4px_4px_0px_0px_var(--border)] relative">
+                <div key={competitorId} className="rounded-none border-2 border-border bg-card p-4 shadow-[4px_4px_0px_0px_var(--border)] relative">
                   <button
                     type="button"
                     onClick={() => onRemove(competitorId)}
@@ -156,7 +156,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                   )}
 
                   {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
-                    <div className="space-y-3 pt-3 border-t border-2 border-border">
+                    <div className="space-y-3 pt-3 border-t-2 border-border">
                       {competitor.strengths.length > 0 && (
                         <div>
                           <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('report.compare.strengths')}</span>
@@ -344,7 +344,7 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
   if (count < 2) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-none bg-popover/95  border border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] animate-fade-in no-print">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-none bg-popover/95 border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] animate-fade-in no-print">
       <span className="text-sm text-foreground">
         <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
