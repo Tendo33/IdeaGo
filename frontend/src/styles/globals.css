@@ -7,7 +7,7 @@
   --background: oklch(0.99 0.01 100);
   --foreground: oklch(0.15 0 0); /* Near black */
 
-  --card: oklch(1 0 0); /* Pure white */
+  --card: oklch(0.995 0.005 260); /* Tinted white */
   --card-foreground: oklch(0.15 0 0);
 
   --popover: oklch(1 0 0);
@@ -45,7 +45,7 @@
   --warning: oklch(0.8 0.2 80);
   --success: oklch(0.6 0.2 150);
 
-  --font-sans: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
   --font-serif: 'Playfair Display', serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -137,7 +137,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-  --font-heading: var(--font-sans);
+  --font-heading: 'Archivo Black', 'Space Grotesk', var(--font-sans);
 
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
@@ -153,24 +153,30 @@
 
 @layer components {
   /* Brutalist components */
-  .btn-primary {
-    @apply bg-primary text-primary-foreground px-6 py-3 rounded-none font-bold uppercase tracking-wider transition-all duration-150 border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer;
+  .filter-chip {
+    @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-bold uppercase tracking-wider border-2 border-border bg-background text-muted-foreground transition-all duration-150 cursor-pointer hover:text-foreground hover:bg-muted shadow-[2px_2px_0px_0px_var(--border)];
   }
-  .btn-primary:hover {
-    @apply translate-x-[2px] translate-y-[2px] shadow-[2px_2px_0px_0px_var(--border)];
+  .filter-chip-active {
+    @apply bg-primary text-primary-foreground border-border hover:bg-primary/90 hover:text-primary-foreground;
   }
-  .btn-primary:active {
-    @apply translate-x-[4px] translate-y-[4px] shadow-none;
+  .interactive-surface {
+    @apply bg-background border-2 border-border shadow-[2px_2px_0px_0px_var(--border)];
+  }
+  .animate-breathing {
+    animation: breathing 2s infinite ease-in-out;
+  }
+  @keyframes breathing {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+  .skip-to-content {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:font-bold focus:border-2 focus:border-border focus:shadow-[4px_4px_0px_0px_var(--border)];
   }
 
-  .btn-secondary {
-    @apply bg-background text-foreground border-2 border-border px-6 py-3 rounded-none font-bold uppercase tracking-wider transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer;
-  }
-  .btn-secondary:hover {
-    @apply bg-muted translate-x-[2px] translate-y-[2px] shadow-[2px_2px_0px_0px_var(--border)];
-  }
-  .btn-secondary:active {
-    @apply translate-x-[4px] translate-y-[4px] shadow-none;
+  @media print {
+    .no-print {
+      display: none !important;
+    }
   }
 
   .card {
@@ -208,7 +214,10 @@
 
 @layer base {
   * {
-    @apply border-border outline-none;
+    @apply border-border;
+  }
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
   body {
     margin: 0;

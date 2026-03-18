@@ -216,7 +216,7 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
           <div key={step.id} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center gap-1.5 min-w-0">
               <StepDot status={step.status} detail={step.detail} />
-              <span className={`text-[10px] text-center leading-tight truncate max-w-15 transition-colors duration-200 ${
+              <span className={`text-[10px] text-center leading-tight max-w-[80px] break-words whitespace-normal transition-colors duration-200 ${
                 step.status === 'active' ? 'text-cta font-medium' :
                 step.status === 'done' ? 'text-foreground' :
                 step.status === 'failed' ? 'text-danger' :

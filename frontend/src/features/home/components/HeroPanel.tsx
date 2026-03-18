@@ -12,9 +12,9 @@ interface HeroPanelProps {
 
 function getVerdictConfig(type: RecommendationType, t: TFunction) {
   const baseConfigs = {
-    go: { glow: 'shadow-lg', bg: 'bg-success/10 backdrop-blur-xl', text: 'text-success', ring: 'ring-success/30' },
-    caution: { glow: 'shadow-lg', bg: 'bg-warning/10 backdrop-blur-xl', text: 'text-warning', ring: 'ring-warning/30' },
-    no_go: { glow: 'shadow-lg', bg: 'bg-danger/10 backdrop-blur-xl', text: 'text-danger', ring: 'ring-danger/30' }
+    go: { glow: 'shadow-[6px_6px_0px_0px_var(--success)]', bg: 'bg-success/10', text: 'text-success', ring: 'border-success' },
+    caution: { glow: 'shadow-[6px_6px_0px_0px_var(--warning)]', bg: 'bg-warning/10', text: 'text-warning', ring: 'border-warning' },
+    no_go: { glow: 'shadow-[6px_6px_0px_0px_var(--destructive)]', bg: 'bg-destructive/10', text: 'text-destructive', ring: 'border-destructive' }
   }
 
   const config = baseConfigs[type] || baseConfigs.go
@@ -100,7 +100,7 @@ function StatCard({
 
   if (reduceMotion) {
     return (
-      <div className="rounded-xl bg-card/85 backdrop-blur-xl border border-border/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-ring/35 hover:bg-muted/55">
+      <div className="rounded-none bg-card border-2 border-border p-4 shadow-[4px_4px_0px_0px_var(--border)]">
         {content}
       </div>
     )
@@ -111,7 +111,7 @@ function StatCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: 'easeOut' }}
-      className="rounded-xl bg-card/85 backdrop-blur-xl border border-border/80 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-ring/35 hover:bg-muted/55"
+      className="rounded-none bg-card border-2 border-border p-4 transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] hover:bg-muted"
     >
       {content}
     </motion.div>
@@ -136,10 +136,10 @@ export function HeroPanel({ report }: HeroPanelProps) {
   return (
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       {/* Verdict Card — left 3/5 */}
-      <div className={`lg:col-span-3 rounded-xl border border-border/80 ${verdict.bg} p-6 ${verdict.glow}`}>
+      <div className={`lg:col-span-3 rounded-none border-2 border-border ${verdict.bg} p-6 sm:p-8 ${verdict.glow}`}>
         <div className="flex items-start gap-4 mb-4">
-          <div className={`w-14 h-14 rounded-full ${verdict.bg} ring-2 ${verdict.ring} flex items-center justify-center shrink-0`}>
-            <span className={`text-lg font-bold font-heading ${verdict.text}`}>
+          <div className={`w-14 h-14 rounded-none ${verdict.bg} border-2 ${verdict.ring} flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_currentColor] ${verdict.text}`}>
+            <span className="text-2xl font-black font-heading">
               {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
             </span>
           </div>
@@ -149,13 +149,13 @@ export function HeroPanel({ report }: HeroPanelProps) {
             </h2>
             {report.go_no_go && (
               <div className="relative">
-                <p className={`text-sm text-text leading-relaxed ${!expanded ? 'line-clamp-3' : ''}`}>
+                <p className={`text-sm text-text leading-relaxed break-words ${!expanded ? 'line-clamp-3' : ''}`}>
                   {report.go_no_go}
                 </p>
                 {report.go_no_go.length > 200 && (
                   <button
                     onClick={() => setExpanded(e => !e)}
-                    className="mt-1 inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer"
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
                   >
                     {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
@@ -167,7 +167,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
         </div>
 
         {report.source_results.length > 0 && (
-          <div className="pt-3 border-t border-border/80">
+          <div className="pt-4 border-t-2 border-border">
             <SourceStatusInline sources={report.source_results} />
           </div>
         )}

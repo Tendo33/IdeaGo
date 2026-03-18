@@ -60,8 +60,8 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
 
       <div className="mb-3">
         <div className="flex items-end justify-between gap-2 mb-2">
-          <p className="text-xs text-muted-foreground">{t('report.transparency.confidence.score')}</p>
-          <p className="text-lg font-bold text-foreground">{score}/100</p>
+          <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.score')}</p>
+          <p className="text-lg font-bold text-foreground shrink-0">{score}/100</p>
         </div>
         <div className="h-2 rounded-none bg-secondary overflow-hidden">
           <div className={`h-2 ${tone.progressClass}`} style={{ width: `${score}%` }} />
@@ -69,27 +69,27 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-2">
-          <p className="text-[11px] text-muted-foreground">{t('report.transparency.confidence.samples')}</p>
-          <p className="text-sm font-semibold text-foreground">{sampleSize}</p>
+        <div className="rounded-none border border-2 border-border bg-muted/55 p-2 flex flex-col justify-between">
+          <p className="text-[11px] text-muted-foreground break-words">{t('report.transparency.confidence.samples')}</p>
+          <p className="text-sm font-semibold text-foreground mt-1">{sampleSize}</p>
         </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-2">
-          <p className="text-[11px] text-muted-foreground">{t('report.transparency.confidence.coverage')}</p>
-          <p className="text-sm font-semibold text-foreground">{sourceCoverage}</p>
+        <div className="rounded-none border border-2 border-border bg-muted/55 p-2 flex flex-col justify-between">
+          <p className="text-[11px] text-muted-foreground break-words">{t('report.transparency.confidence.coverage')}</p>
+          <p className="text-sm font-semibold text-foreground mt-1">{sourceCoverage}</p>
         </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-2">
-          <p className="text-[11px] text-muted-foreground">{t('report.transparency.confidence.successRate')}</p>
-          <p className="text-sm font-semibold text-foreground">{successRate}%</p>
+        <div className="rounded-none border border-2 border-border bg-muted/55 p-2 flex flex-col justify-between">
+          <p className="text-[11px] text-muted-foreground break-words">{t('report.transparency.confidence.successRate')}</p>
+          <p className="text-sm font-semibold text-foreground mt-1">{successRate}%</p>
         </div>
       </div>
 
       <div className="rounded-none border border-2 border-border bg-muted/55 p-3">
-        <p className="text-xs text-muted-foreground">{freshnessHint}</p>
+        <p className="text-xs text-muted-foreground break-words">{freshnessHint}</p>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground inline-flex items-center gap-1.5">
-        <AlertTriangle className="w-3.5 h-3.5" />
-        {t(tone.suggestionKey)}
+      <p className="mt-3 text-xs text-muted-foreground flex items-start gap-1.5 break-words">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        <span>{t(tone.suggestionKey)}</span>
       </p>
       {!hasConfidence && (
         <p className="mt-2 text-xs text-warning">{t('report.transparency.unavailable')}</p>

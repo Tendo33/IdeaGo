@@ -44,7 +44,7 @@ export function EvidenceCostCard({
         {evidenceItems.length > 3 && (
           <button
             onClick={() => setExpanded(prev => !prev)}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
           >
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
@@ -58,18 +58,18 @@ export function EvidenceCostCard({
             <div key={`${item.title}-${index}`} className="rounded-none border border-2 border-border bg-muted/55 px-3 py-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">
+                  <p className="text-xs font-medium text-foreground truncate" title={item.title || t('report.transparency.evidence.unknown')}>
                     {item.title || t('report.transparency.evidence.unknown')}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{item.platform}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.snippet}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{item.platform}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-all">{item.snippet}</p>
                 </div>
                 {item.url ? (
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-cta hover:text-cta-hover shrink-0"
+                    className="inline-flex items-center gap-1 text-xs text-cta hover:text-cta-hover shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     {t('report.transparency.evidence.viewSource')}
@@ -111,9 +111,9 @@ export function EvidenceCostCard({
 
 function CostMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-none border border-2 border-border bg-muted/55 px-2.5 py-2">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-xs font-semibold text-foreground mt-0.5">{value}</p>
+    <div className="rounded-none border border-2 border-border bg-muted/55 px-2.5 py-2 flex flex-col justify-between min-w-0">
+      <p className="text-[11px] text-muted-foreground break-words leading-tight">{label}</p>
+      <p className="text-xs font-semibold text-foreground mt-1 truncate" title={String(value)}>{value}</p>
     </div>
   )
 }

@@ -45,7 +45,7 @@ function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: R
       <button
         ref={triggerRef}
         onClick={() => setOpen(o => !o)}
-        className="topbar-action text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+        className="topbar-action text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -57,12 +57,13 @@ function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: R
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 top-full mt-1.5 w-48 rounded-none border border-2 border-border bg-popover/95 backdrop-blur-2xl shadow-[4px_4px_0px_0px_var(--border)] py-1 z-50 overflow-hidden"
+          className="absolute right-0 top-full mt-1.5 w-48 rounded-none border border-2 border-border bg-popover/95 backdrop-blur-2xl shadow-[4px_4px_0px_0px_var(--border)] py-1 z-50 overflow-hidden outline-none"
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
               setOpen(false)
             }
           }}
+          tabIndex={-1}
         >
           {children}
         </div>
@@ -84,7 +85,13 @@ function DropdownItem({ icon: Icon, label, onClick, href }: { icon: typeof Downl
   }
 
   return (
-    <button type="button" onClick={onClick} className={cls} role="menuitem">
+    <button
+      type="button"
+      onClick={onClick}
+      className={cls}
+      role="menuitem"
+      tabIndex={0}
+    >
       <Icon className="w-4 h-4" />
       {label}
     </button>
@@ -132,11 +139,11 @@ export function ReportHeader({ report }: ReportHeaderProps) {
 
   return (
     <div className="flex flex-col gap-3 mb-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 w-full">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-cta transition-colors duration-200 mb-3 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-cta transition-colors duration-200 mb-3 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
           >
             <ArrowLeft className="w-4 h-4" />
             {t('report.header.newSearch')}
@@ -144,20 +151,20 @@ export function ReportHeader({ report }: ReportHeaderProps) {
           <h1 className="text-2xl font-bold font-heading text-foreground mb-1 break-words">
             {report.query}
           </h1>
-          <p className="text-xs text-muted-foreground break-words">
+          <p className="text-xs text-muted-foreground break-words leading-relaxed">
             {report.intent.app_type} &middot; {report.intent.keywords_en.join(', ')} &middot; <span className="whitespace-nowrap">{new Date(report.created_at).toLocaleString()}</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 no-print">
-          <Dropdown trigger={<><Share2 className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.share')}</span></>}>
+        <div className="flex items-center gap-2 shrink-0 no-print w-full md:w-auto mt-2 md:mt-0">
+          <Dropdown trigger={<div className="flex items-center gap-2"><Share2 className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.share')}</span></div>}>
             <DropdownItem
               icon={copied ? Check : Link2}
               label={copied ? t('report.header.copied') : t('report.header.copyLink')}
               onClick={handleCopyLink}
             />
           </Dropdown>
-          <Dropdown trigger={<><Download className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.export')}</span></>}>
+          <Dropdown trigger={<div className="flex items-center gap-2"><Download className="w-4 h-4" /><span className="hidden sm:inline"> {t('report.header.export')}</span></div>}>
             <DropdownItem
               icon={Download}
               label={t('report.header.markdown')}

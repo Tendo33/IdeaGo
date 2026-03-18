@@ -1,13 +1,48 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from './components/SearchBox'
 import { isRequestAbortError, listReports, startAnalysis } from '../../lib/api/client'
-import { AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Alert } from '../../components/ui/Alert'
+import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import type { ReportListItem } from '../../lib/types/research'
 
 const MIN_QUERY_LENGTH = 5
 const MAX_QUERY_LENGTH = 1000
+
+interface RecentReportItemProps {
+  report: ReportListItem;
+  idx: number;
+  onNavigate: (id: string) => void;
+  t: (key: string) => string;
+}
+
+const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigate, t }: RecentReportItemProps) {
+  return (
+    <button
+      onClick={() => onNavigate(report.id)}
+      className="group block w-full text-left bg-background border-2 border-border p-4 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] focus-visible:translate-x-[2px] focus-visible:translate-y-[2px] focus-visible:shadow-[2px_2px_0px_0px_var(--border)] transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+    >
+      <div className="flex gap-4 items-start">
+        <span className="text-3xl font-black text-muted-foreground/30 leading-none">0{idx + 1}</span>
+        <div>
+          <p className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-2 wrap" title={report.query}>
+            {report.query}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">
+              {new Date(report.created_at).toLocaleDateString()}
+            </Badge>
+            <Badge variant="primary" className="text-[10px] sm:text-xs">
+              {report.competitor_count} {t('home.competitors')}
+            </Badge>
+          </div>
+        </div>
+      </div>
+    </button>
+  )
+})
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -17,6 +52,10 @@ export function HomePage() {
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
   const isSubmittingRef = useRef(false)
+
+  const handleNavigate = useCallback((id: string) => {
+    navigate(`/reports/${id}`)
+  }, [navigate])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -30,7 +69,8 @@ export function HomePage() {
         setRecentReportsError(t('home.errorLoadRecent'))
       })
     return () => controller.abort()
-  }, [t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSubmit = async (query: string) => {
     const normalizedQuery = query.trim()
@@ -80,29 +120,30 @@ export function HomePage() {
             <SearchBox onSubmit={handleSubmit} isLoading={isLoading} />
 
             <div className="mt-8">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Quick Prompts</h3>
-              <div className="flex flex-wrap gap-3">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">{t('home.quickPrompts', { defaultValue: 'Quick Prompts' })}</h3>
+              <div className="flex flex-wrap gap-2">
                 {[0, 1, 2, 3].map(index => {
                   const prompt = t(`home.prompt${index}`)
                   return (
-                    <button
+                    <Button
                       key={prompt}
+                      variant="secondary"
                       onClick={() => handleSubmit(prompt)}
                       disabled={isLoading}
-                      className="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-border bg-background hover:bg-primary hover:text-primary-foreground hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_var(--border)]"
+                      className="flex-1 min-w-[200px] text-left justify-start"
+                      title={prompt}
                     >
-                      {prompt}
-                    </button>
+                      <span className="truncate">{prompt}</span>
+                    </Button>
                   )
                 })}
               </div>
             </div>
 
             {error && (
-              <div className="mt-6 flex items-start gap-3 border-2 border-destructive bg-destructive/10 p-4 shadow-[4px_4px_0px_0px_var(--destructive)]">
-                <AlertCircle className="h-6 w-6 shrink-0 text-destructive mt-0.5" />
-                <p className="text-sm font-bold text-destructive">{error}</p>
-              </div>
+              <Alert variant="destructive" className="mt-6">
+                <span className="font-bold">{error}</span>
+              </Alert>
             )}
           </div>
         </section>
@@ -114,36 +155,21 @@ export function HomePage() {
           </h2>
 
           {recentReportsError && (
-            <div className="mb-6 border-2 border-warning bg-warning/20 p-3 shadow-[4px_4px_0px_0px_var(--warning)]">
-              <p className="text-sm font-bold text-warning">{recentReportsError}</p>
-            </div>
+            <Alert variant="warning" className="mb-6">
+              <span className="font-bold">{recentReportsError}</span>
+            </Alert>
           )}
 
           {recentReports.length > 0 && (
             <div className="space-y-6">
               {recentReports.map((report, idx) => (
-                <button
+                <RecentReportItem
                   key={report.id}
-                  onClick={() => navigate(`/reports/${report.id}`)}
-                  className="group block w-full text-left bg-background border-2 border-border p-4 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all duration-150 cursor-pointer"
-                >
-                  <div className="flex gap-4 items-start">
-                    <span className="text-3xl font-black text-muted-foreground/30 leading-none">0{idx + 1}</span>
-                    <div>
-                      <p className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                        {report.query}
-                      </p>
-                      <div className="mt-3 flex items-center gap-3">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest border border-border px-2 py-1">
-                          {new Date(report.created_at).toLocaleDateString()}
-                        </span>
-                        <span className="text-xs font-black text-primary-foreground bg-primary border-2 border-border px-2 py-1 shadow-[2px_2px_0px_0px_var(--border)]">
-                          {report.competitor_count} {t('home.competitors')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
+                  report={report}
+                  idx={idx}
+                  onNavigate={handleNavigate}
+                  t={t}
+                />
               ))}
             </div>
           )}

@@ -1,17 +1,11 @@
-import { useState } from 'react'
-import { ExternalLink, ThumbsUp, ThumbsDown, DollarSign, ChevronDown, ChevronUp, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
+import { useState, memo } from 'react'
+import { ExternalLink, ThumbsUp, ThumbsDown, DollarSign, ChevronDown, ChevronUp, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { getCompetitorDomId } from '../competitor'
+import { Badge } from '@/components/ui/Badge'
+import { getCompetitorDomId, getCompetitorId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
+import { PlatformIcon } from './PlatformIcons'
 import type { Competitor } from '@/lib/types/research'
-
-const PlatformIcon: Record<string, React.ElementType> = {
-  github: Github,
-  tavily: Globe,
-  producthunt: Flame,
-  hackernews: Terminal,
-  appstore: Smartphone,
-}
 
 interface CompetitorCardProps {
   competitor: Competitor
@@ -19,7 +13,7 @@ interface CompetitorCardProps {
   domId?: string
   variant?: 'featured' | 'standard'
   compareSelected?: boolean
-  onToggleCompare?: () => void
+  onToggleCompare?: (id: string) => void
 }
 
 function LinkWithHost({ link, name }: { link: string; name: string }) {
@@ -35,7 +29,7 @@ function LinkWithHost({ link, name }: { link: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-none"
+      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
       aria-label={`Open ${name} on ${hostname}`}
     >
       <ExternalLink className="w-3 h-3" />
@@ -44,7 +38,7 @@ function LinkWithHost({ link, name }: { link: string; name: string }) {
   )
 }
 
-export function CompetitorCard({
+export const CompetitorCard = memo(function CompetitorCard({
   competitor,
   rank,
   domId,
@@ -84,9 +78,9 @@ export function CompetitorCard({
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="text-sm font-mono text-muted-foreground font-bold">{String(rank).padStart(2, '0')}</span>
             {isFeatured && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-foreground text-background">
+              <Badge variant="outline" className="px-2.5 py-0.5 text-[10px] bg-foreground text-background">
                 {t('report.competitors.top')}
-              </span>
+              </Badge>
             )}
             <h3
               className={`font-black font-heading text-foreground truncate ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
@@ -136,10 +130,10 @@ export function CompetitorCard({
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-2">
                 <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
               </div>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {competitor.strengths.slice(0, prosLimit).map((s, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-success mt-0.5">&bull;</span> <span>{s}</span>
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                    <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
                   </li>
                 ))}
               </ul>
@@ -150,10 +144,10 @@ export function CompetitorCard({
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-2">
                 <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
               </div>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-danger mt-0.5">&bull;</span> <span>{w}</span>
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                    <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
                   </li>
                 ))}
               </ul>
@@ -165,7 +159,7 @@ export function CompetitorCard({
       {/* Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-2 border-border gap-3 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex flex-wrap gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0 max-w-[200px]">
             {competitor.source_platforms.map(p => {
               const Icon = PlatformIcon[p] || Globe
               return (
@@ -186,8 +180,8 @@ export function CompetitorCard({
         <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-between sm:justify-end">
           {onToggleCompare && (
             <button
-              onClick={e => { e.stopPropagation(); onToggleCompare() }}
-              className={`text-xs px-3 min-h-[44px] rounded-none border cursor-pointer transition-all duration-300 ${
+              onClick={e => { e.stopPropagation(); onToggleCompare(getCompetitorId(competitor)) }}
+              className={`text-xs px-3 min-h-[44px] rounded-none border cursor-pointer transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
                 compareSelected
                   ? 'border-cta/50 bg-cta/10 text-cta'
                   : 'border-2 border-border text-muted-foreground hover:border-cta/30 hover:text-muted-foreground hover:bg-muted/55'
@@ -200,7 +194,7 @@ export function CompetitorCard({
           {!isFeatured && hasMore && (
             <button
               onClick={() => setIsExpanded(prev => !prev)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}
@@ -210,4 +204,4 @@ export function CompetitorCard({
       </div>
     </div>
   )
-}
+})

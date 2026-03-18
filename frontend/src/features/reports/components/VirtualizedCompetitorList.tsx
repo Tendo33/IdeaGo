@@ -231,7 +231,7 @@ export function VirtualizedCompetitorList({
                         domId={getCompetitorDomIdFromId(competitorId)}
                         variant={originalIndex === 0 ? 'featured' : 'standard'}
                         compareSelected={compareSet.has(competitorId)}
-                        onToggleCompare={() => onToggleCompare(competitorId)}
+                        onToggleCompare={onToggleCompare}
                       />
                     )
                   })}
@@ -249,7 +249,7 @@ export function VirtualizedCompetitorList({
                         rank={rank}
                         domId={getCompetitorDomIdFromId(competitorId)}
                         compareSelected={compareSet.has(competitorId)}
-                        onToggleCompare={() => onToggleCompare(competitorId)}
+                        onToggleCompare={onToggleCompare}
                       />
                     )
                   })}

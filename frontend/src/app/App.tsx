@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/Button'
 import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode, type ErrorInfo } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
@@ -134,7 +135,7 @@ function ThemeModeMenu({
       <button
         type="button"
         onClick={() => setOpen(previous => !previous)}
-        className="topbar-action"
+        className="topbar-action focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         aria-label="Toggle theme mode"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -199,22 +200,23 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
         <div className="min-h-screen px-4 py-10 bg-background text-foreground flex items-center justify-center">
           <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--destructive)] text-center">
             <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" />
-            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive">
+            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
             </h1>
-            <p className="text-lg font-bold text-destructive/80 mb-8 border-l-4 border-destructive pl-4 text-left">
+            <p className="text-lg font-bold text-destructive/80 mb-8 border-l-4 border-destructive pl-4 text-left break-words whitespace-pre-wrap">
               {this.state.error?.message ?? t('error.fallbackMessage')}
             </p>
-            <button
+            <Button
+              variant="destructive"
+              size="lg"
               onClick={() => {
                 this.setState({ hasError: false, error: null })
                 window.location.href = '/'
               }}
-              className="inline-flex items-center gap-3 bg-destructive text-destructive-foreground px-6 py-3 font-black uppercase tracking-widest text-lg border-2 border-destructive shadow-[4px_4px_0px_0px_var(--destructive)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--destructive)] transition-all cursor-pointer"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 mr-3" />
               {t('error.backToHome')}
-            </button>
+            </Button>
           </div>
         </div>
       )
@@ -234,13 +236,13 @@ function NotFound() {
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
         <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground">{t('error.notFoundTitle')}</h2>
         <p className="mb-10 text-lg font-bold text-muted-foreground">{t('error.notFoundMessage')}</p>
-        <button
+        <Button
+          size="lg"
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-3 bg-primary text-primary-foreground px-6 py-3 font-black uppercase tracking-widest text-lg border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all cursor-pointer"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5 mr-3" />
           {t('error.backToHome')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -257,6 +259,10 @@ function NavBar({
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
 
+  useEffect(() => {
+    document.documentElement.lang = currentLanguage
+  }, [currentLanguage])
+
   const toggleLanguage = () => {
     const newLang = isChinese ? 'en' : 'zh'
     i18n.changeLanguage(newLang)
@@ -266,28 +272,28 @@ function NavBar({
     <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print">
       <Link
         to="/"
-        className="group inline-flex items-center gap-3 cursor-pointer"
+        className="group inline-flex items-center gap-3 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
       >
         <span className="text-2xl font-black uppercase tracking-tighter text-foreground">{t('app.title')}</span>
         <span className="inline-flex items-center border-2 border-border bg-primary px-2 py-0.5 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-[2px_2px_0px_0px_var(--border)] transition-transform duration-150 group-hover:-translate-y-px">
           {t('app.titleHighlight')}
         </span>
       </Link>
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-4 shrink-0">
         <ThemeModeMenu themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
         <button
           onClick={toggleLanguage}
-          className="topbar-action"
-          aria-label="Toggle language"
+          className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          aria-label={isChinese ? 'Switch to English' : '切换到中文'}
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
         <Link
           to="/reports"
-          className="topbar-action bg-secondary text-secondary-foreground"
+          className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           aria-label={t('app.history')}
         >
-          <History className="w-5 h-5" />
+          <History className="w-5 h-5 shrink-0" />
           <span className="hidden sm:inline">{t('app.history')}</span>
         </Link>
       </div>
@@ -313,8 +319,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
         <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
-        <main className="pb-16 pt-32 min-h-screen bg-background text-foreground">
+        <main id="main-content" className="pb-16 pt-24 sm:pt-32 min-h-screen bg-background text-foreground overflow-x-hidden">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<HomePage />} />

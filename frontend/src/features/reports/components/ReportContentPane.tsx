@@ -22,6 +22,7 @@ import { normalizeSourceErrorMessage } from '@/lib/utils/sourceErrorMessage'
 import type { SortKey, ViewMode } from './useCompetitorFilters'
 import { PLATFORM_OPTIONS, SORT_OPTIONS } from './useCompetitorFilters'
 import { broadenQuery } from './query'
+import { buttonVariants } from '@/components/ui/Button'
 
 const LandscapeChart = lazy(async () => {
   const chartModule = await import('@/features/reports/components/LandscapeChart')
@@ -71,18 +72,18 @@ function BlueOceanState({ query }: { query: string }) {
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
       animate={reduceMotion ? false : { opacity: 1, scale: 1 }}
-      className="p-10 rounded-none bg-card  border border-2 border-border text-center shadow-[4px_4px_0px_0px_var(--border)]"
+      className="p-10 rounded-none bg-card border-2 border-border text-center shadow-[4px_4px_0px_0px_var(--border)]"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
-      <h3 className="text-xl font-bold font-heading text-foreground mb-2">{t('report.blueOcean.title')}</h3>
-      <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+      <h3 className="text-xl font-bold font-heading text-foreground mb-2 break-words">{t('report.blueOcean.title')}</h3>
+      <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto break-words">
         {t('report.blueOcean.description')}
       </p>
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           onClick={handleBroaden}
           disabled={isSubmitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-none bg-cta text-primary-foreground text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_var(--border)] disabled:cursor-not-allowed disabled:opacity-70"
+          className={buttonVariants({ variant: 'primary', size: 'md' })}
           aria-busy={isSubmitting}
         >
           <RefreshCw className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
@@ -115,25 +116,25 @@ function AllFailedState({
     <motion.div
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={reduceMotion ? false : { opacity: 1 }}
-      className="p-8 rounded-none bg-card  border border-warning/30 text-center shadow-[4px_4px_0px_0px_var(--border)]"
+      className="p-8 rounded-none bg-card border-2 border-warning text-center shadow-[4px_4px_0px_0px_var(--border)]"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
-      <h3 className="text-lg font-bold font-heading text-foreground mb-3">{t('report.failed.title')}</h3>
+      <h3 className="text-lg font-bold font-heading text-foreground mb-3 break-words">{t('report.failed.title')}</h3>
       <div className="space-y-1.5 mb-5 max-w-sm mx-auto">
         {sources.map(source => (
-          <div key={source.platform} className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground capitalize">{source.platform}</span>
-            <span className="text-danger">
+          <div key={source.platform} className="flex items-center justify-between gap-4 text-xs">
+            <span className="text-muted-foreground capitalize shrink-0">{source.platform}</span>
+            <span className="text-danger text-right break-words min-w-0">
               {normalizeSourceErrorMessage(source.status, source.error_msg) ?? source.status}
             </span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground mb-4">{t('report.failed.description')}</p>
-      <button
-        onClick={onRetry}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-none bg-transparent border border-warning text-warning text-sm font-semibold cursor-pointer transition-all duration-300 hover:bg-warning/10 hover:-translate-y-0.5"
-      >
+      <p className="text-xs text-muted-foreground mb-4 break-words">{t('report.failed.description')}</p>
+        <button
+          onClick={onRetry}
+          className={buttonVariants({ variant: 'warning', size: 'md' })}
+        >
         <RefreshCw className="w-4 h-4" />
         {t('report.failed.retry')}
       </button>
@@ -242,7 +243,7 @@ export function ReportContentPane({
           </div>
           <button
             onClick={onRetryAnalysis}
-            className="shrink-0 px-3 py-1.5 text-xs font-medium text-primary-foreground rounded-none bg-cta hover:bg-cta-hover cursor-pointer transition-colors duration-200"
+            className={buttonVariants({ variant: 'primary', size: 'sm' })}
           >
             {t('report.failed.startAgain')}
           </button>
@@ -287,7 +288,7 @@ export function ReportContentPane({
                 <div className="interactive-surface flex items-center overflow-hidden mr-1">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`rounded-none p-1.5 cursor-pointer transition-colors ${viewMode === 'grid' ? 'filter-chip-active' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`rounded-none min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${viewMode === 'grid' ? 'filter-chip-active' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label={t('report.competitors.gridView')}
                     aria-pressed={viewMode === 'grid'}
                   >
@@ -295,7 +296,7 @@ export function ReportContentPane({
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`rounded-none p-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'filter-chip-active' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`rounded-none min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${viewMode === 'list' ? 'filter-chip-active' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-label={t('report.competitors.listView')}
                     aria-pressed={viewMode === 'list'}
                   >
@@ -307,7 +308,7 @@ export function ReportContentPane({
                   <button
                     key={platform}
                     onClick={() => togglePlatform(platform)}
-                    className={`filter-chip px-2.5 py-1 ${platformFilter.has(platform) ? 'filter-chip-active' : ''}`}
+                    className={`filter-chip px-2.5 py-1 ${platformFilter.has(platform) ? 'filter-chip-active' : ''} focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
                     aria-pressed={platformFilter.has(platform)}
                   >
                     {platform}
@@ -323,7 +324,7 @@ export function ReportContentPane({
                     id={sortSelectId}
                     value={sortBy}
                     onChange={event => setSortBy(event.target.value as SortKey)}
-                    className="text-xs bg-transparent text-muted-foreground border-none outline-none cursor-pointer pr-1"
+                    className="text-xs bg-transparent text-muted-foreground border-none outline-none cursor-pointer pr-1 focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {SORT_OPTIONS.map(option => (
                       <option key={option.value} value={option.value}>
@@ -367,7 +368,7 @@ export function ReportContentPane({
                           domId={domId}
                           variant={originalIndex === 0 ? 'featured' : 'standard'}
                           compareSelected={compareSet.has(competitorId)}
-                          onToggleCompare={() => toggleCompare(competitorId)}
+                          onToggleCompare={toggleCompare}
                         />,
                     )
                   })}
@@ -399,7 +400,7 @@ export function ReportContentPane({
                           rank={rank}
                           domId={domId}
                           compareSelected={compareSet.has(competitorId)}
-                          onToggleCompare={() => toggleCompare(competitorId)}
+                          onToggleCompare={toggleCompare}
                         />,
                     )
                   })}

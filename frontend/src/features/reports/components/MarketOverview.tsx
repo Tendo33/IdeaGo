@@ -19,7 +19,7 @@ export function MarketOverview({ summary }: MarketOverviewProps) {
         {t('report.market.title')}
       </h2>
       <div className="relative">
-        <p className={`text-sm text-muted-foreground leading-relaxed whitespace-pre-line ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+        <p className={`text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
           {summary}
         </p>
         {!expanded && isLong && (
@@ -29,7 +29,7 @@ export function MarketOverview({ summary }: MarketOverviewProps) {
       {isLong && (
         <button
           onClick={() => setExpanded(e => !e)}
-          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer"
+          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
         >
           {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}

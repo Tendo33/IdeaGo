@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { Globe, Search, Tag, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/Badge'
 import { HorizontalStepper } from '@/features/reports/components/HorizontalStepper'
 import type { PipelineEvent } from '@/lib/types/research'
 import type { LoadPhase } from './useReportLifecycle'
@@ -60,19 +61,19 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
         >
           <p className="text-xs font-medium text-muted-foreground mb-2">{t('report.progress.ideaProfile')}</p>
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-none bg-cta/10 text-cta">
-              <Globe className="w-3 h-3" />
-              {preview.appType}
-            </span>
+            <Badge variant="accent" className="max-w-full py-0.5">
+              <Globe className="w-3 h-3 shrink-0" />
+              <span className="truncate">{preview.appType}</span>
+            </Badge>
             {preview.keywords?.map((keyword, index) => (
-              <span key={index} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-none bg-secondary/50 text-muted-foreground">
-                <Tag className="w-3 h-3" />
-                {keyword}
-              </span>
+              <Badge key={index} variant="default" className="max-w-full py-0.5">
+                <Tag className="w-3 h-3 shrink-0" />
+                <span className="truncate">{keyword}</span>
+              </Badge>
             ))}
           </div>
           {preview.targetScenario && (
-            <p className="text-xs text-muted-foreground mt-2">{preview.targetScenario}</p>
+            <p className="text-xs text-muted-foreground mt-2 break-words">{preview.targetScenario}</p>
           )}
         </motion.div>
       )}

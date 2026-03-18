@@ -1,25 +1,11 @@
 import { useEffect, useId, useRef, useMemo } from 'react'
-import { X, Check, Minus, Github, Globe, Terminal, Smartphone, Flame } from 'lucide-react'
+import { X, Check, Minus, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/Badge'
 import { RelevanceRing } from './RelevanceRing'
 import { getCompetitorId } from '../competitor'
+import { PlatformIcon, platformColors } from './PlatformIcons'
 import type { Competitor } from '@/lib/types/research'
-
-const platformColors: Record<string, string> = {
-  github: 'bg-chart-2/15 text-chart-2',
-  tavily: 'bg-chart-3/15 text-chart-3',
-  producthunt: 'bg-chart-4/15 text-chart-4',
-  hackernews: 'bg-chart-5/15 text-chart-5',
-  appstore: 'bg-chart-1/15 text-chart-1',
-}
-
-const PlatformIcon: Record<string, React.ElementType> = {
-  github: Github,
-  tavily: Globe,
-  producthunt: Flame,
-  hackernews: Terminal,
-  appstore: Smartphone,
-}
 
 interface ComparePanelProps {
   competitors: Competitor[]
@@ -90,22 +76,15 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 "
-      role="dialog"
-      aria-modal="true"
+      id="compare-panel"
+      className="relative z-10 w-full animate-fade-in"
+      role="region"
       aria-labelledby={headingId}
-      tabIndex={-1}
       ref={dialogRef}
-      onMouseDown={event => {
-        if (event.target === event.currentTarget) {
-          onClose()
-        }
-      }}
     >
       <div
         ref={panelRef}
-        className="w-full max-w-5xl h-[90vh] sm:h-auto sm:max-h-[85vh] bg-popover border border-2 border-border rounded-t-3xl sm:rounded-none shadow-2xl overflow-hidden flex flex-col"
-        onMouseDown={event => event.stopPropagation()}
+        className="w-full bg-card border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] overflow-hidden flex flex-col my-8"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-2 border-border shrink-0 bg-muted/45">
@@ -115,7 +94,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
           <button
             type="button"
             onClick={onClose}
-            className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+            className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={t('report.compare.closePanel')}
           >
             <X className="w-5 h-5" />
@@ -134,7 +113,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                   <button
                     type="button"
                     onClick={() => onRemove(competitorId)}
-                    className="absolute top-3 right-3 p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger bg-muted/50 transition-colors cursor-pointer"
+                    className="absolute top-3 right-3 p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger bg-muted/50 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label={`Remove ${competitor.name}`}
                   >
                     <X className="w-4 h-4" />
@@ -153,26 +132,26 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('report.compare.description')}</span>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{competitor.one_liner}</p>
-                  </div>
+                <div className="mb-6">
+                  <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('report.compare.description')}</span>
+                  <p className="text-sm text-foreground leading-relaxed">{competitor.one_liner}</p>
+                </div>
 
                   {allFeatures.length > 0 && (
                     <div className="mb-4">
-                      <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('report.compare.features')}</span>
-                      <div className="flex flex-wrap gap-2">
+                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('report.compare.features')}</span>
+                    <div className="flex flex-wrap gap-2">
                         {allFeatures.map(feature => {
                           const hasFeature = competitor.features.includes(feature)
                           if (!hasFeature) return null
                           return (
-                            <span key={feature} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-cta/10 text-cta text-xs font-medium border border-cta/20">
-                              <Check className="w-3 h-3" />
+                            <Badge key={feature} variant="accent" className="px-2.5 py-1 text-xs font-medium border-cta/20 leading-tight">
+                              <Check className="w-3 h-3 shrink-0" />
                               {feature}
-                            </span>
+                            </Badge>
                           )
                         })}
-                      </div>
+                    </div>
                     </div>
                   )}
 
@@ -181,10 +160,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                       {competitor.strengths.length > 0 && (
                         <div>
                           <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('report.compare.strengths')}</span>
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {competitor.strengths.map((s, i) => (
-                              <li key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                                <span className="text-cta mt-0.5">•</span> <span>{s}</span>
+                              <li key={i} className="text-sm text-foreground flex items-start gap-1.5 leading-snug">
+                                <span className="text-success mt-0.5 shrink-0">•</span> <span>{s}</span>
                               </li>
                             ))}
                           </ul>
@@ -193,10 +172,10 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                       {competitor.weaknesses.length > 0 && (
                         <div>
                           <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('report.compare.weaknesses')}</span>
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {competitor.weaknesses.map((w, i) => (
-                              <li key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                                <span className="text-danger mt-0.5">•</span> <span>{w}</span>
+                              <li key={i} className="text-sm text-foreground flex items-start gap-1.5 leading-snug">
+                                <span className="text-danger mt-0.5 shrink-0">•</span> <span>{w}</span>
                               </li>
                             ))}
                           </ul>
@@ -226,7 +205,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                         <button
                           type="button"
                           onClick={() => onRemove(competitorId)}
-                          className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger hover:bg-muted/50 transition-colors cursor-pointer shrink-0"
+                          className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger hover:bg-muted/50 transition-colors cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
                           aria-label={`Remove ${competitor.name}`}
                         >
                           <X className="w-4 h-4" />
@@ -242,25 +221,25 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               <tr className="border-b border-2 border-border">
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium">{t('report.compare.relevance')}</td>
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-relevance`} className="px-4 py-2.5 border-l border-2 border-border">
+                  <td key={`${getCompetitorId(competitor)}-relevance`} className="px-4 py-3 border-l border-2 border-border">
                     <RelevanceRing score={competitor.relevance_score} size={32} />
                   </td>
                 ))}
               </tr>
 
               {/* One-liner */}
-              <tr className="border-b border-2 border-border">
+              <tr className="border-b border-2 border-border/30">
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium">{t('report.compare.description')}</td>
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-description`} className="px-4 py-2.5 text-xs text-muted-foreground border-l border-2 border-border">{competitor.one_liner}</td>
+                  <td key={`${getCompetitorId(competitor)}-description`} className="px-4 py-3 text-xs text-foreground leading-relaxed border-l border-2 border-border break-words min-w-[200px] whitespace-normal">{competitor.one_liner}</td>
                 ))}
               </tr>
 
               {/* Pricing */}
-              <tr className="border-b border-2 border-border">
+              <tr className="border-b border-2 border-border/30">
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium">{t('report.compare.pricing')}</td>
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-2.5 text-xs text-muted-foreground border-l border-2 border-border">{competitor.pricing ?? '-'}</td>
+                  <td key={`${getCompetitorId(competitor)}-pricing`} className="px-4 py-3 text-xs text-foreground font-medium border-l border-2 border-border">{competitor.pricing ?? '-'}</td>
                 ))}
               </tr>
 
@@ -274,7 +253,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               )}
               {allFeatures.map(feature => (
                 <tr key={feature} className="border-b border-2 border-border/30">
-                  <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground">{feature}</td>
+                  <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground break-words max-w-[150px] whitespace-normal">{feature}</td>
                   {competitors.map(competitor => (
                     <td key={`${getCompetitorId(competitor)}-${feature}`} className="px-4 py-2 text-center border-l border-2 border-border">
                       {competitor.features.includes(feature) ? (
@@ -293,13 +272,13 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                   {t('report.compare.strengths')}
                 </td>
               </tr>
-              <tr className="border-b border-2 border-border">
+              <tr className="border-b border-2 border-border/30">
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium" />
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-strengths`} className="px-4 py-2.5 align-top border-l border-2 border-border">
-                    <ul className="space-y-0.5">
+                  <td key={`${getCompetitorId(competitor)}-strengths`} className="px-4 py-4 align-top border-l border-2 border-border min-w-[200px] break-words whitespace-normal">
+                    <ul className="space-y-2">
                       {competitor.strengths.map((s, i) => (
-                        <li key={i} className="text-xs text-cta">&bull; {s}</li>
+                        <li key={i} className="text-xs text-foreground flex items-start gap-1.5 leading-snug"><span className="text-success shrink-0">&bull;</span> <span>{s}</span></li>
                       ))}
                     </ul>
                   </td>
@@ -312,13 +291,13 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
                   {t('report.compare.weaknesses')}
                 </td>
               </tr>
-              <tr className="border-b border-2 border-border">
+              <tr className="border-b border-2 border-border/30">
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium" />
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-weaknesses`} className="px-4 py-2.5 align-top border-l border-2 border-border">
-                    <ul className="space-y-0.5">
+                  <td key={`${getCompetitorId(competitor)}-weaknesses`} className="px-4 py-4 align-top border-l border-2 border-border min-w-[200px] break-words whitespace-normal">
+                    <ul className="space-y-2">
                       {competitor.weaknesses.map((w, i) => (
-                        <li key={i} className="text-xs text-danger">&bull; {w}</li>
+                        <li key={i} className="text-xs text-foreground flex items-start gap-1.5 leading-snug"><span className="text-danger shrink-0">&bull;</span> <span>{w}</span></li>
                       ))}
                     </ul>
                   </td>
@@ -329,15 +308,15 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
               <tr>
                 <td className="sticky left-0 bg-popover z-10 px-5 py-3 text-xs text-muted-foreground font-medium">{t('report.compare.sources')}</td>
                 {competitors.map(competitor => (
-                  <td key={`${getCompetitorId(competitor)}-sources`} className="px-4 py-2.5 border-l border-2 border-border">
-                    <div className="flex gap-1.5 flex-wrap">
+                  <td key={`${getCompetitorId(competitor)}-sources`} className="px-4 py-3 border-l border-2 border-border">
+                    <div className="flex gap-2 flex-wrap shrink-0 max-w-[150px]">
                       {competitor.source_platforms.map(p => {
                         const Icon = PlatformIcon[p] || Globe
                         return (
-                          <span key={p} className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-1.5 py-0.5 rounded-none whitespace-nowrap ${platformColors[p] || 'bg-secondary/50 text-muted-foreground'}`}>
+                          <Badge key={p} variant="default" className={`text-[10px] pl-1 pr-1.5 py-0.5 whitespace-nowrap ${platformColors[p] || ''}`}>
                             <Icon className="w-3 h-3" />
                             {p}
-                          </span>
+                          </Badge>
                         )
                       })}
                     </div>
@@ -371,15 +350,20 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
       </span>
       <button
         type="button"
-        onClick={onCompare}
-        className="px-5 py-2 text-sm font-semibold rounded-none bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[4px_4px_0px_0px_var(--border)] hover:-translate-y-px"
+        onClick={() => {
+          onCompare()
+          setTimeout(() => {
+            document.getElementById('compare-panel')?.scrollIntoView({ behavior: 'smooth' })
+          }, 50)
+        }}
+        className="px-5 py-2 text-sm font-semibold rounded-none bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[4px_4px_0px_0px_var(--border)] hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         {t('report.compare.compareBtn')}
       </button>
       <button
         type="button"
         onClick={onClear}
-        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-none px-1"
       >
         {t('report.compare.clear')}
       </button>

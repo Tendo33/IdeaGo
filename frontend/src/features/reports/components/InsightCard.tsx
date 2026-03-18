@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Lightbulb } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +9,28 @@ interface InsightCardProps {
 
 export function InsightCard({ angle, index }: InsightCardProps) {
   const { t } = useTranslation()
+  const reduceMotion = Boolean(useReducedMotion())
+
+  const content = (
+    <div className="flex items-start gap-3">
+      <div className="w-8 h-8 rounded-none bg-cta/15 flex items-center justify-center shrink-0 mt-0.5">
+        <Lightbulb className="w-4 h-4 text-cta" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-muted-foreground mb-1 break-words">{t('report.insight.opportunity')}{index + 1}</p>
+        <p className="text-sm text-foreground leading-relaxed break-words">{angle}</p>
+      </div>
+    </div>
+  )
+
+  if (reduceMotion) {
+    return (
+      <div className="rounded-none border border-cta/20 bg-cta/5 p-4 transition-all duration-200 hover:border-cta/40 hover:bg-cta/8">
+        {content}
+      </div>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -17,15 +39,7 @@ export function InsightCard({ angle, index }: InsightCardProps) {
       transition={{ delay: index * 0.1, duration: 0.4, ease: 'easeOut' }}
       className="rounded-none border border-cta/20 bg-cta/5 p-4 transition-all duration-200 hover:border-cta/40 hover:bg-cta/8"
     >
-      <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-none bg-cta/15 flex items-center justify-center shrink-0 mt-0.5">
-          <Lightbulb className="w-4 h-4 text-cta" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground mb-1">{t('report.insight.opportunity')}{index + 1}</p>
-          <p className="text-sm text-foreground leading-relaxed">{angle}</p>
-        </div>
-      </div>
+      {content}
     </motion.div>
   )
 }
