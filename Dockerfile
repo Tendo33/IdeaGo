@@ -1,9 +1,9 @@
 FROM node:20-slim AS frontend-build
 WORKDIR /build
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
 COPY frontend/ .
-RUN npm run build
+RUN pnpm build
 
 FROM python:3.13-slim
 WORKDIR /app

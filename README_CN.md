@@ -159,7 +159,7 @@ flowchart TD
 uv sync --all-extras
 
 # 前端
-npm --prefix frontend install
+pnpm --prefix frontend install
 ```
 
 ### 3) 配置环境
@@ -184,7 +184,7 @@ uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
 终端 2：
 
 ```bash
-npm --prefix frontend run dev
+pnpm --prefix frontend dev
 ```
 
 访问：
@@ -195,7 +195,7 @@ npm --prefix frontend run dev
 ### 5) 单进程本地运行（后端托管构建后的前端）
 
 ```bash
-npm --prefix frontend run build
+pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
@@ -336,10 +336,10 @@ uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
-npm --prefix frontend run lint
-npm --prefix frontend run typecheck
-npm --prefix frontend run test
-npm --prefix frontend run build
+pnpm --prefix frontend lint
+pnpm --prefix frontend typecheck
+pnpm --prefix frontend test
+pnpm --prefix frontend build
 ```
 
 ---

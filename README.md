@@ -159,7 +159,7 @@ Recommended deployment controls (especially if publicly reachable):
 uv sync --all-extras
 
 # Frontend
-npm --prefix frontend install
+pnpm --prefix frontend install
 ```
 
 ### 3) Configure environment
@@ -184,7 +184,7 @@ uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
 Terminal 2:
 
 ```bash
-npm --prefix frontend run dev
+pnpm --prefix frontend dev
 ```
 
 Open:
@@ -195,7 +195,7 @@ Open:
 ### 5) Single-process local run (serve built frontend from backend)
 
 ```bash
-npm --prefix frontend run build
+pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
@@ -336,10 +336,10 @@ uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
-npm --prefix frontend run lint
-npm --prefix frontend run typecheck
-npm --prefix frontend run test
-npm --prefix frontend run build
+pnpm --prefix frontend lint
+pnpm --prefix frontend typecheck
+pnpm --prefix frontend test
+pnpm --prefix frontend build
 ```
 
 ---
