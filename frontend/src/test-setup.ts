@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 
-import i18n from "./i18n";
+import i18n from '@/lib/i18n/i18n';
 
 class MockIntersectionObserver implements IntersectionObserver {
 	readonly root: Element | Document | null = null;
