@@ -14,17 +14,17 @@ const baseConfidence: ConfidenceMetrics = {
 describe('ConfidenceCard', () => {
   it('shows high, medium, low confidence bands', () => {
     const { rerender } = render(<ConfidenceCard confidence={baseConfidence} />)
-    expect(screen.getByText('High Confidence')).toBeInTheDocument()
+    expect(screen.getByText('High Reliability')).toBeInTheDocument()
 
     rerender(<ConfidenceCard confidence={{ ...baseConfidence, score: 60 }} />)
-    expect(screen.getByText('Moderate Confidence')).toBeInTheDocument()
+    expect(screen.getByText('Moderate Reliability')).toBeInTheDocument()
 
     rerender(<ConfidenceCard confidence={{ ...baseConfidence, score: 20 }} />)
-    expect(screen.getByText('Low Confidence')).toBeInTheDocument()
+    expect(screen.getByText('Low Reliability')).toBeInTheDocument()
   })
 
   it('shows fallback message when confidence payload is missing', () => {
     render(<ConfidenceCard confidence={undefined} />)
-    expect(screen.getByText('Transparency data is temporarily unavailable.')).toBeInTheDocument()
+    expect(screen.getByText('Data quality metrics are currently unavailable.')).toBeInTheDocument()
   })
 })

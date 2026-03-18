@@ -49,10 +49,14 @@ describe('HistoryPage', () => {
     const deleteButton = screen.getByRole('button', { name: /delete report/i })
     fireEvent.click(deleteButton)
 
-    expect(deleteReport).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: /deleting/i })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
 
-    fireEvent.click(screen.getByRole('button', { name: /deleting/i }))
+    await waitFor(() => {
+      expect(deleteReport).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.getByRole('button', { name: /deleting report/i })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /deleting report/i }))
     expect(deleteReport).toHaveBeenCalledTimes(1)
 
     await act(async () => {

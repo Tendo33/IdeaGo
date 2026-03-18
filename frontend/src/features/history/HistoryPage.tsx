@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, memo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
-import { deleteReport, isRequestAbortError, listReports } from '../../lib/api/client'
+import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
 import { useTranslation } from 'react-i18next'
-import { Alert } from '../../components/ui/Alert'
-import { Badge } from '../../components/ui/Badge'
-import { Button, buttonVariants } from '../../components/ui/Button'
-import type { ReportListItem } from '../../lib/types/research'
+import { Alert } from '@/components/ui/Alert'
+import { Badge } from '@/components/ui/Badge'
+import { Button, buttonVariants } from '@/components/ui/Button'
+import type { ReportListItem } from '@/lib/types/research'
 
 const PAGE_SIZE = 20
 const PAGE_FETCH_LIMIT = PAGE_SIZE + 1

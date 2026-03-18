@@ -100,8 +100,8 @@ describe('App nav branding', () => {
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
 
     const logoLink = screen.getByRole('link', { name: /idea\s*go/i })
-    const logoHighlight = within(logoLink).getByText('Go')
-    expect(logoHighlight).toHaveClass('bg-primary')
-    expect(logoHighlight).toHaveClass('text-primary-foreground')
+    expect(within(logoLink).getByText(/idea\s+go/i)).toBeInTheDocument()
+    expect(logoLink).toHaveClass('bg-primary')
+    expect(logoLink).toHaveClass('text-primary-foreground')
   })
 })

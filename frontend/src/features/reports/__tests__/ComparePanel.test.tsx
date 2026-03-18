@@ -44,7 +44,7 @@ describe('ComparePanel', () => {
     )
 
     expect(
-      screen.getByRole('dialog', { name: i18n.t('report.compare.title', { count: 2 }) }),
+      screen.getByRole('region', { name: i18n.t('report.compare.title', { count: 2 }) }),
     ).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)

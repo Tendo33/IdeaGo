@@ -45,7 +45,7 @@ describe('EvidenceCostCard', () => {
 
     expect(screen.getByText('Strong roadmap and broad feature support.')).toBeInTheDocument()
 
-    const sourceLink = screen.getByRole('link', { name: /source/i })
+    const sourceLink = screen.getByRole('link', { name: /visit source/i })
     expect(sourceLink).toHaveAttribute('href', 'https://example.com/alpha')
   })
 
@@ -67,6 +67,6 @@ describe('EvidenceCostCard', () => {
         reportMeta={undefined}
       />,
     )
-    expect(screen.getByText('Transparency data is temporarily unavailable.')).toBeInTheDocument()
+    expect(screen.getByText('Data quality metrics are currently unavailable.')).toBeInTheDocument()
   })
 })

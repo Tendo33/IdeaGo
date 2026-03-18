@@ -95,10 +95,10 @@ describe('ReportHeader dropdown accessibility', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /share/i }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /copy link/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /copy report link/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Unable to copy link. Please copy the URL manually.')).toBeInTheDocument()
+      expect(screen.getByText("We couldn't copy the link. Please copy it manually from your address bar.")).toBeInTheDocument()
     })
   })
 })
