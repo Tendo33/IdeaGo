@@ -1,5 +1,5 @@
 import { useState, memo } from 'react'
-import { ExternalLink, ThumbsUp, ThumbsDown, DollarSign, ChevronDown, ChevronUp, Globe } from 'lucide-react'
+import { ExternalLink, ThumbsUp, ThumbsDown, DollarSign, ChevronDown, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/Badge'
 import { getCompetitorDomId, getCompetitorId } from '../competitor'
@@ -56,8 +56,8 @@ export const CompetitorCard = memo(function CompetitorCard({
   const consLimit = isExpanded ? competitor.weaknesses.length : 3
   const hasMore =
     competitor.features.length > 4 ||
-    competitor.strengths.length > 3 ||
-    competitor.weaknesses.length > 3
+    competitor.strengths.length > 0 ||
+    competitor.weaknesses.length > 0
 
   return (
     <div
@@ -123,38 +123,45 @@ export const CompetitorCard = memo(function CompetitorCard({
       )}
 
       {/* Strengths / Weaknesses */}
-      {(isExpanded || isFeatured) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border">
-          {competitor.strengths.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
-                <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
-              </div>
-              <ul className="space-y-2.5">
-                {competitor.strengths.slice(0, prosLimit).map((s, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
-                    <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {competitor.weaknesses.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-3">
-                <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
-              </div>
-              <ul className="space-y-2.5">
-                {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
-                    <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
-                  </li>
-                ))}
-              </ul>
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: (isExpanded || isFeatured) ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border transition-all duration-300 ease-out ${(isExpanded || isFeatured) ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
+              {competitor.strengths.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
+                    <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
+                  </div>
+                  <ul className="space-y-2.5">
+                    {competitor.strengths.slice(0, prosLimit).map((s, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                        <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {competitor.weaknesses.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-3">
+                    <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
+                  </div>
+                  <ul className="space-y-2.5">
+                    {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                        <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-5 border-t-2 border-border gap-4 flex-wrap sm:flex-nowrap">
@@ -194,9 +201,9 @@ export const CompetitorCard = memo(function CompetitorCard({
           {!isFeatured && hasMore && (
             <button
               onClick={() => setIsExpanded(prev => !prev)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none group"
             >
-              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
               {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}
             </button>
           )}

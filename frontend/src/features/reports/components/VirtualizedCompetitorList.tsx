@@ -184,19 +184,45 @@ export function VirtualizedCompetitorList({
     )
   }, [visibleRange.endRow, visibleRange.startRow])
 
+  const rowObservers = useRef(new Map<number, ResizeObserver>())
+
   const createRowRef = useCallback(
     (rowIndex: number) => (node: HTMLDivElement | null) => {
+      const observers = rowObservers.current
+      if (observers.has(rowIndex)) {
+        observers.get(rowIndex)?.disconnect()
+        observers.delete(rowIndex)
+      }
+
       if (!node) return
-      const nextHeight = Math.ceil(node.getBoundingClientRect().height)
-      if (nextHeight <= 0) return
-      setMeasuredHeights(previous => {
-        const base = previous.key === resetKey ? previous.values : {}
-        if (base[rowIndex] === nextHeight && previous.key === resetKey) return previous
-        return { key: resetKey, values: { ...base, [rowIndex]: nextHeight } }
-      })
+
+      const updateHeight = () => {
+        const nextHeight = Math.ceil(node.getBoundingClientRect().height)
+        if (nextHeight <= 0) return
+        setMeasuredHeights(previous => {
+          const base = previous.key === resetKey ? previous.values : {}
+          if (base[rowIndex] === nextHeight && previous.key === resetKey) return previous
+          return { key: resetKey, values: { ...base, [rowIndex]: nextHeight } }
+        })
+      }
+
+      updateHeight()
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(updateHeight)
+        observer.observe(node)
+        observers.set(rowIndex, observer)
+      }
     },
     [resetKey],
   )
+
+  useEffect(() => {
+    return () => {
+      rowObservers.current.forEach(obs => obs.disconnect())
+      rowObservers.current.clear()
+    }
+  }, [])
 
   return (
     <div
