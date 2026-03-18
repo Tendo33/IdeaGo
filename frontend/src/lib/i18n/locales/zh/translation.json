@@ -1,0 +1,260 @@
+{
+  "app": {
+    "title": "Idea",
+    "titleHighlight": "Go",
+    "history": "历史记录"
+  },
+  "nav": {
+    "history": "历史记录"
+  },
+  "home": {
+    "description": "通过来自 GitHub、全网、Hacker News 和 App Store 的真实竞品数据，快速验证您的创业想法。",
+    "recentResearch": "最近的调研",
+    "competitors": "个竞品",
+    "prompt0": "一款能自动总结会议记录的 AI 工具",
+    "prompt1": "一个本地有机食品配送的电商平台",
+    "prompt2": "一款将网页一键转换为 Markdown 的浏览器插件",
+    "prompt3": "用于实时 API 监控与报警的开发者工具",
+    "errorLoadRecent": "我们无法加载您最近的报告，请刷新页面重试。",
+    "errorStartAnalysis": "分析启动失败，请稍后重试。"
+  },
+  "search": {
+    "placeholder": "详细描述您的产品想法...",
+    "example": "例如：“一款将网页转换为 Markdown 笔记的浏览器插件”",
+    "button": "开始分析",
+    "analyzing": "正在分析您的想法...",
+    "tooShort": "为了获得更准确的结果，请至少输入 {{min}} 个字符（当前已输入 {{current}} 个）。",
+    "tooLong": "描述过长，请控制在 {{max}} 个字符以内。",
+    "lengthCount": "{{current}} / {{max}} 字符",
+    "submittingHint": "正在提交您的想法进行分析..."
+  },
+  "history": {
+    "back": "返回搜索",
+    "title": "调研历史",
+    "filterPlaceholder": "搜索历史报告...",
+    "errorLoad": "我们无法加载您的历史报告，请刷新页面重试。",
+    "deleteConfirmTitle": "确认删除此报告？",
+    "deleteConfirm": "您确定要删除这份报告吗？此操作无法撤销。",
+    "delete": "确认删除",
+    "deleting": "正在删除...",
+    "errorDelete": "删除报告失败，请稍后重试。",
+    "emptyState": "您还没有生成过任何调研报告。",
+    "startFirst": "开始您的第一次分析",
+    "noMatch": "未找到包含“{{query}}”的报告，请尝试其他关键词。",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "pageLabel": "第 {{page}} 页"
+  },
+  "error": {
+    "title": "遇到了一些问题",
+    "fallbackMessage": "发生了一个意外错误，请尝试刷新页面。",
+    "backToHome": "返回首页",
+    "notFoundTitle": "未找到报告",
+    "notFoundMessage": "该报告不存在或已过期，请重新发起新的分析。"
+  },
+  "loading": {
+    "page": "正在加载页面内容..."
+  },
+  "report": {
+    "sections": {
+      "summary": "分析概览",
+      "landscape": "市场格局",
+      "competitors": "竞品详情",
+      "opportunities": "切入机会"
+    },
+    "blueOcean": {
+      "title": "未发现直接竞品",
+      "description": "我们在全网未找到与您想法完全一致的直接竞品，这可能意味着一个值得探索的蓝海市场空白。",
+      "tryBroader": "使用更宽泛的关键词重新搜索",
+      "tryingBroader": "正在启动扩展分析...",
+      "suggestedSteps": "建议的后续步骤：",
+      "step1": "通过深度用户访谈验证真实需求",
+      "step2": "寻找解决相同问题的间接替代方案",
+      "step3": "深入思考为什么之前没有人做这个方向"
+    },
+    "failed": {
+      "title": "无法连接到数据源",
+      "description": "这通常是暂时的网络波动，请稍等片刻后重试。",
+      "retry": "重试分析",
+      "retryShort": "重试",
+      "startAgain": "开启新分析"
+    },
+    "competitors": {
+      "title": "竞品列表 ({{count}}/{{total}})",
+      "empty": "没有找到符合当前筛选条件的竞品。",
+      "top": "最佳匹配",
+      "strengths": "主要优势",
+      "weaknesses": "潜在劣势",
+      "compare": "加入对比",
+      "comparing": "正在对比...",
+      "compareSelected": "已选入对比",
+      "compareUnselected": "选择以对比",
+      "details": "查看详情",
+      "less": "收起详情",
+      "more": "更多",
+      "gridView": "切换为网格视图",
+      "listView": "切换为列表视图",
+      "virtualizedHint": "为您展示大量结果，已启用滚动性能优化。"
+    },
+    "hero": {
+      "verdict": {
+        "go": "建议推进",
+        "caution": "需谨慎评估",
+        "noGo": "建议重新考虑"
+      },
+      "readMore": "阅读完整总结",
+      "showLess": "收起总结",
+      "stats": {
+        "competitors": "发现竞品数",
+        "avgRelevance": "平均匹配度",
+        "competition": "市场饱和度",
+        "opportunities": "差异化切入点"
+      }
+    },
+    "transparency": {
+      "unavailable": "当前无法获取数据可靠性指标。",
+      "confidence": {
+        "title": "数据可靠性评分",
+        "score": "可靠性评分",
+        "samples": "已分析来源数",
+        "coverage": "平台覆盖面",
+        "successRate": "数据提取成功率",
+        "defaultFreshness": "无法获取数据新鲜度信息。",
+        "high": "高可靠性",
+        "medium": "中等可靠性",
+        "low": "低可靠性",
+        "suggestionHigh": "我们找到了充足的数据支撑。您可以放心地将这些洞察用于商业决策。",
+        "suggestionMedium": "数据支撑有限。建议在做出重大决策前，人工复核报告中的关键假设。",
+        "suggestionLow": "数据支撑不足。建议您扩大搜索范围或调整关键词后重新分析。"
+      },
+      "evidence": {
+        "title": "数据来源与证据",
+        "empty": "这份报告暂无具体的证据片段。",
+        "unknown": "未知来源",
+        "viewSource": "访问来源"
+      },
+      "cost": {
+        "title": "分析引擎指标",
+        "llmCalls": "AI 模型调用",
+        "retries": "错误重试",
+        "failovers": "系统故障切换",
+        "latency": "总耗时",
+        "yes": "是",
+        "no": "否",
+        "meta": "已启用降级系统：{{fallbackUsed}} · 访问节点：{{endpoints}} · 最后遇到的错误：{{errorClass}}"
+      }
+    },
+    "insight": {
+      "title": "差异化竞争机会",
+      "opportunity": "机会点 #"
+    },
+    "market": {
+      "title": "市场宏观概览"
+    },
+    "progress": {
+      "ideaProfile": "正在拆解您的想法",
+      "searchResults": "正在搜寻潜在竞品",
+      "foundResults": "发现了 {{count}} 个潜在匹配项，来自",
+      "potentialCompetitors": "初步识别出 {{count}} 个高度相关的竞品准备深入分析",
+      "cancel": "取消当前分析"
+    },
+    "compare": {
+      "title": "正在对比 {{count}} 款竞品",
+      "relevance": "关联匹配度",
+      "description": "产品简介",
+      "pricing": "定价模式",
+      "features": "核心特性",
+      "strengths": "显著优势",
+      "weaknesses": "潜在局限",
+      "sources": "数据来源",
+      "selected": "个竞品已选择",
+      "clear": "清空对比项",
+      "compareBtn": "开始对比",
+      "closePanel": "关闭对比面板"
+    },
+    "stepper": {
+      "reconnecting": "与服务器断开连接，正在尝试重连...",
+      "elapsed": "已运行 {{elapsed}} 秒",
+      "usually": "该过程通常需要 200-300 秒",
+      "steps": {
+        "intent": {
+          "label": "拆解需求意图",
+          "short": "意图拆解"
+        },
+        "github": {
+          "label": "扫描 GitHub 仓库",
+          "short": "GitHub"
+        },
+        "tavily": {
+          "label": "检索全网信息",
+          "short": "全网搜索"
+        },
+        "hackernews": {
+          "label": "分析 Hacker News 讨论",
+          "short": "Hacker News"
+        },
+        "appstore": {
+          "label": "搜索 App Store",
+          "short": "App Store"
+        },
+        "producthunt": {
+          "label": "追踪 Product Hunt 发布",
+          "short": "Product Hunt"
+        },
+        "extraction": {
+          "label": "提取竞品核心特征",
+          "short": "特征提取"
+        },
+        "aggregation": {
+          "label": "汇总最终分析报告",
+          "short": "报告汇总"
+        },
+        "complete": {
+          "label": "分析已完成",
+          "short": "分析完成"
+        }
+      }
+    },
+    "chart": {
+      "title": "市场竞争格局地图",
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+      "featureCount": "功能密集度",
+      "relevance": "匹配关联度 %",
+      "clickHint": "点击图上的圆点即可查看对应竞品详情。圆点的大小代表该竞品数据来源的数量。"
+    },
+    "header": {
+      "newSearch": "发起新搜索",
+      "share": "分享报告",
+      "copied": "链接已复制到剪贴板！",
+      "copyFailed": "无法自动复制链接，请手动复制浏览器地址栏中的 URL。",
+      "copyLink": "复制报告链接",
+      "export": "导出报告",
+      "markdown": "下载 Markdown 格式",
+      "print": "打印 / 另存为 PDF"
+    },
+    "sort": {
+      "label": "排序方式",
+      "relevance": "最匹配",
+      "name": "按名称 (A-Z)",
+      "sources": "数据来源最多"
+    },
+    "error": {
+      "systemTitle": "系统故障",
+      "runtimeTitle": "分析状态",
+      "failedTitle": "分析失败",
+      "cancelledTitle": "分析已取消",
+      "notFoundTitle": "报告无法访问",
+      "notFoundStatus": "这份报告不存在或已超过有效期，请重新发起一次分析。",
+      "failedStatus": "我们在分析过程中遇到了错误，请尝试重新运行。",
+      "cancelledStatus": "您已取消本次分析任务。",
+      "unavailableStatus": "当前报告状态暂时无法获取。",
+      "connectionLost": "与服务器的连接已丢失，请点击重试尝试重新连接。",
+      "restart": "我们无法重新启动分析，请重试。",
+      "cancel": "无法取消当前分析任务。",
+      "broaden": "无法启动更宽泛的扩展分析。",
+      "unknown": "发生了一个未知的错误。"
+    }
+  }
+}

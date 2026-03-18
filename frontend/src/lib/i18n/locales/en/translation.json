@@ -1,0 +1,260 @@
+{
+  "app": {
+    "title": "Idea",
+    "titleHighlight": "Go",
+    "history": "History"
+  },
+  "nav": {
+    "history": "History"
+  },
+  "home": {
+    "description": "Validate your startup idea using real competitor data from GitHub, the web, Hacker News, and the App Store.",
+    "recentResearch": "Recent Research",
+    "competitors": "competitors",
+    "prompt0": "An AI tool that automatically summarizes meeting notes",
+    "prompt1": "A local organic food delivery marketplace",
+    "prompt2": "A browser extension that converts web pages into Markdown",
+    "prompt3": "A developer tool for real-time API monitoring",
+    "errorLoadRecent": "We couldn't load your recent reports. Please refresh the page.",
+    "errorStartAnalysis": "We couldn't start the analysis. Please try again."
+  },
+  "search": {
+    "placeholder": "Describe your startup idea...",
+    "example": "For example: \"A browser extension that converts web pages into Markdown notes\"",
+    "button": "Analyze Idea",
+    "analyzing": "Analyzing your idea...",
+    "tooShort": "Please enter at least {{min}} characters to give us enough context. (Currently {{current}})",
+    "tooLong": "Please keep your description under {{max}} characters.",
+    "lengthCount": "{{current}} / {{max}} characters",
+    "submittingHint": "Submitting your idea for analysis..."
+  },
+  "history": {
+    "back": "Back to search",
+    "title": "Research History",
+    "filterPlaceholder": "Search your past reports...",
+    "errorLoad": "We couldn't load your past reports. Please refresh the page.",
+    "deleteConfirmTitle": "Delete this report?",
+    "deleteConfirm": "Are you sure you want to delete this report? This action cannot be undone.",
+    "delete": "Delete report",
+    "deleting": "Deleting report...",
+    "errorDelete": "We couldn't delete this report. Please try again.",
+    "emptyState": "You haven't run any research reports yet.",
+    "startFirst": "Start your first analysis",
+    "noMatch": "We couldn't find any reports matching \"{{query}}\".",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "pageLabel": "Page {{page}}"
+  },
+  "error": {
+    "title": "We encountered a problem",
+    "fallbackMessage": "An unexpected error occurred. Please try reloading the page.",
+    "backToHome": "Return to Home",
+    "notFoundTitle": "Report Not Found",
+    "notFoundMessage": "This report doesn't exist or has expired. Please start a new analysis."
+  },
+  "loading": {
+    "page": "Loading page content..."
+  },
+  "report": {
+    "sections": {
+      "summary": "Overview",
+      "landscape": "Market Landscape",
+      "competitors": "Competitor Details",
+      "opportunities": "Opportunities"
+    },
+    "blueOcean": {
+      "title": "No Direct Competitors Found",
+      "description": "We didn't find any direct competitors for your idea. This could indicate a genuine market gap.",
+      "tryBroader": "Search with broader keywords",
+      "tryingBroader": "Starting a broader analysis...",
+      "suggestedSteps": "Recommended next steps:",
+      "step1": "Validate user demand through interviews",
+      "step2": "Look for indirect or alternative solutions",
+      "step3": "Investigate why this hasn't been built yet"
+    },
+    "failed": {
+      "title": "Unable to connect to data sources",
+      "description": "This is typically a temporary network issue. Please wait a moment and try again.",
+      "retry": "Retry Analysis",
+      "retryShort": "Retry",
+      "startAgain": "Start New Analysis"
+    },
+    "competitors": {
+      "title": "Analyzed Competitors ({{count}}/{{total}})",
+      "empty": "No competitors match your current filters.",
+      "top": "Top Match",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "compare": "Compare",
+      "comparing": "Comparing...",
+      "compareSelected": "Selected for comparison",
+      "compareUnselected": "Select to compare",
+      "details": "View details",
+      "less": "Show less",
+      "more": "more",
+      "gridView": "Switch to grid view",
+      "listView": "Switch to list view",
+      "virtualizedHint": "Showing a large number of results. Scrolling is optimized for performance."
+    },
+    "hero": {
+      "verdict": {
+        "go": "PROCEED",
+        "caution": "PROCEED WITH CAUTION",
+        "noGo": "RECONSIDER"
+      },
+      "readMore": "Read full summary",
+      "showLess": "Hide summary",
+      "stats": {
+        "competitors": "Competitors Found",
+        "avgRelevance": "Average Relevance",
+        "competition": "Market Saturation",
+        "opportunities": "Differentiation Angles"
+      }
+    },
+    "transparency": {
+      "unavailable": "Data quality metrics are currently unavailable.",
+      "confidence": {
+        "title": "Data Reliability Score",
+        "score": "Reliability Score",
+        "samples": "Sources Analyzed",
+        "coverage": "Platform Coverage",
+        "successRate": "Extraction Success",
+        "defaultFreshness": "Data freshness information is unavailable.",
+        "high": "High Reliability",
+        "medium": "Moderate Reliability",
+        "low": "Low Reliability",
+        "suggestionHigh": "We found strong data coverage. You can confidently use these insights for decision-making.",
+        "suggestionMedium": "Data is limited. We recommend reviewing key assumptions manually before making major decisions.",
+        "suggestionLow": "Data is insufficient. Consider running another analysis or expanding your keywords."
+      },
+      "evidence": {
+        "title": "Sources & Evidence",
+        "empty": "No specific evidence snippets are available for this report.",
+        "unknown": "Unknown source",
+        "viewSource": "Visit source"
+      },
+      "cost": {
+        "title": "Analysis Metrics",
+        "llmCalls": "AI Model Calls",
+        "retries": "Error Retries",
+        "failovers": "System Failovers",
+        "latency": "Total Time",
+        "yes": "Yes",
+        "no": "No",
+        "meta": "Fallback system used: {{fallbackUsed}} · Endpoints accessed: {{endpoints}} · Last encountered error: {{errorClass}}"
+      }
+    },
+    "insight": {
+      "title": "Differentiation Opportunities",
+      "opportunity": "Opportunity #"
+    },
+    "market": {
+      "title": "Market Overview"
+    },
+    "progress": {
+      "ideaProfile": "Analyzing Your Idea",
+      "searchResults": "Finding Competitors",
+      "foundResults": "Discovered {{count}} potential matches from",
+      "potentialCompetitors": "Identified {{count}} relevant competitors to analyze",
+      "cancel": "Cancel analysis"
+    },
+    "compare": {
+      "title": "Comparing {{count}} Competitors",
+      "relevance": "Relevance Score",
+      "description": "Overview",
+      "pricing": "Pricing Model",
+      "features": "Key Features",
+      "strengths": "Notable Strengths",
+      "weaknesses": "Potential Weaknesses",
+      "sources": "Data Sources",
+      "selected": "competitors selected",
+      "clear": "Clear selection",
+      "compareBtn": "Compare Selected",
+      "closePanel": "Close comparison"
+    },
+    "stepper": {
+      "reconnecting": "Connection lost. Reconnecting to server...",
+      "elapsed": "Running for {{elapsed}}s",
+      "usually": "This typically takes 200-300 seconds",
+      "steps": {
+        "intent": {
+          "label": "Understanding your idea",
+          "short": "Understand"
+        },
+        "github": {
+          "label": "Scanning GitHub repositories",
+          "short": "GitHub"
+        },
+        "tavily": {
+          "label": "Searching the web",
+          "short": "Web Search"
+        },
+        "hackernews": {
+          "label": "Checking Hacker News discussions",
+          "short": "Hacker News"
+        },
+        "appstore": {
+          "label": "Searching the App Store",
+          "short": "App Store"
+        },
+        "producthunt": {
+          "label": "Checking Product Hunt launches",
+          "short": "Product Hunt"
+        },
+        "extraction": {
+          "label": "Extracting competitor details",
+          "short": "Extract"
+        },
+        "aggregation": {
+          "label": "Compiling final report",
+          "short": "Compile"
+        },
+        "complete": {
+          "label": "Analysis complete",
+          "short": "Complete"
+        }
+      }
+    },
+    "chart": {
+      "title": "Competitive Landscape",
+      "high": "High",
+      "medium": "Moderate",
+      "low": "Low",
+      "featureCount": "Feature Density",
+      "relevance": "Relevance Match %",
+      "clickHint": "Click any dot to view that competitor. Larger dots indicate more available data sources."
+    },
+    "header": {
+      "newSearch": "Start new search",
+      "share": "Share Report",
+      "copied": "Link copied to clipboard!",
+      "copyFailed": "We couldn't copy the link. Please copy it manually from your address bar.",
+      "copyLink": "Copy report link",
+      "export": "Export Report",
+      "markdown": "Download as Markdown",
+      "print": "Print or save as PDF"
+    },
+    "sort": {
+      "label": "Sort competitors by",
+      "relevance": "Most Relevant",
+      "name": "Alphabetical (A-Z)",
+      "sources": "Most Data Sources"
+    },
+    "error": {
+      "systemTitle": "System Error",
+      "runtimeTitle": "Analysis Status",
+      "failedTitle": "Analysis Failed",
+      "cancelledTitle": "Analysis Cancelled",
+      "notFoundTitle": "Report Unavailable",
+      "notFoundStatus": "This report doesn't exist or has expired. Please run a new analysis.",
+      "failedStatus": "We encountered an error during analysis. Please try running it again.",
+      "cancelledStatus": "You cancelled the analysis.",
+      "unavailableStatus": "The status of this report is temporarily unavailable.",
+      "connectionLost": "We lost connection to the server. Click retry to reconnect.",
+      "restart": "We couldn't restart the analysis. Please try again.",
+      "cancel": "We couldn't cancel the analysis.",
+      "broaden": "We couldn't start the broadened analysis.",
+      "unknown": "An unknown error occurred."
+    }
+  }
+}
