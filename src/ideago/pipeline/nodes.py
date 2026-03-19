@@ -18,6 +18,7 @@ from ideago.models.research import (
     LlmFaultToleranceMeta,
     Platform,
     RawResult,
+    RecommendationType,
     ReportMeta,
     ResearchReport,
     SourceResult,
@@ -412,21 +413,28 @@ class PipelineNodes:
             source_results,
             generated_at=datetime.now(timezone.utc),
         )
+        recommendation_type, go_no_go, quality_warnings = (
+            _apply_recommendation_quality_guard(
+                recommendation_type=agg_result.recommendation_type,
+                go_no_go=agg_result.go_no_go,
+                confidence=confidence,
+            )
+        )
         evidence_summary = _build_evidence_summary(agg_result.competitors)
         cost_breakdown = _build_cost_breakdown(
             llm_usage=llm_usage,
             source_results=source_results,
             pipeline_latency_ms=pipeline_latency_ms,
         )
-        report_meta = _build_report_meta(llm_usage)
+        report_meta = _build_report_meta(llm_usage, quality_warnings=quality_warnings)
         report_kwargs: dict[str, Any] = {
             "query": state["query"],
             "intent": state["intent"],
             "source_results": source_results,
             "competitors": agg_result.competitors,
             "market_summary": agg_result.market_summary,
-            "go_no_go": agg_result.go_no_go,
-            "recommendation_type": agg_result.recommendation_type,
+            "go_no_go": go_no_go,
+            "recommendation_type": recommendation_type,
             "differentiation_angles": agg_result.differentiation_angles,
             "confidence": confidence,
             "evidence_summary": evidence_summary,
@@ -675,7 +683,9 @@ def _build_cost_breakdown(
     )
 
 
-def _build_report_meta(llm_usage: dict[str, Any]) -> ReportMeta:
+def _build_report_meta(
+    llm_usage: dict[str, Any], *, quality_warnings: list[str]
+) -> ReportMeta:
     endpoints = llm_usage.get("endpoints_tried", [])
     endpoint_names = (
         [str(item) for item in endpoints if str(item).strip()]
@@ -687,8 +697,51 @@ def _build_report_meta(llm_usage: dict[str, Any]) -> ReportMeta:
             fallback_used=bool(llm_usage.get("fallback_used", False)),
             endpoints_tried=endpoint_names,
             last_error_class=str(llm_usage.get("last_error_class", "") or ""),
-        )
+        ),
+        quality_warnings=quality_warnings,
     )
+
+
+def _apply_recommendation_quality_guard(
+    *,
+    recommendation_type: RecommendationType,
+    go_no_go: str,
+    confidence: ConfidenceMetrics,
+) -> tuple[RecommendationType, str, list[str]]:
+    warnings: list[str] = []
+    adjusted_type = recommendation_type
+    adjusted_text = go_no_go.strip() if go_no_go.strip() else "Recommendation pending."
+
+    low_evidence = (
+        confidence.sample_size == 0
+        or confidence.source_success_rate < 0.4
+        or confidence.score < 40
+    )
+    if low_evidence:
+        warnings.append(
+            "Low evidence confidence: recommendation is calibrated conservatively."
+        )
+
+    if low_evidence and recommendation_type == RecommendationType.GO:
+        adjusted_type = RecommendationType.CAUTION
+        warnings.append(
+            "Recommendation downgraded from GO to CAUTION due to insufficient evidence."
+        )
+    elif low_evidence and recommendation_type == RecommendationType.NO_GO:
+        adjusted_type = RecommendationType.CAUTION
+        warnings.append(
+            "Recommendation softened from NO_GO to CAUTION due to insufficient evidence."
+        )
+
+    if adjusted_type != recommendation_type:
+        guardrail_note = (
+            "This recommendation is adjusted due to insufficient evidence; "
+            "collect more validated competitors before making a final decision."
+        )
+        if guardrail_note not in adjusted_text:
+            adjusted_text = f"{adjusted_text} {guardrail_note}".strip()
+
+    return adjusted_type, adjusted_text, warnings
 
 
 def _truncate_text(value: str, limit: int) -> str:

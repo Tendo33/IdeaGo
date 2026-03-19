@@ -13,6 +13,7 @@ from ideago.models.research import (
     Intent,
     Platform,
     RawResult,
+    RecommendationType,
     ResearchReport,
     SearchQuery,
 )
@@ -118,6 +119,18 @@ class FailingSource:
 
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         raise ConnectionError("API down")
+
+
+class EmptySource:
+    @property
+    def platform(self) -> Platform:
+        return Platform.TAVILY
+
+    def is_available(self) -> bool:
+        return True
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        return []
 
 
 class EventCollector:
@@ -384,6 +397,53 @@ async def test_langgraph_engine_resume_from_checkpoint(tmp_path) -> None:
     assert report.query == "test idea"
     assert intent_parser.parse.call_count == 1
     assert aggregator.aggregate.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_downgrades_go_when_evidence_is_weak(tmp_path) -> None:
+    weak_go_result = AggregationResult(
+        competitors=[],
+        market_summary="Sparse evidence gathered.",
+        go_no_go="Go - looks promising.",
+        recommendation_type=RecommendationType.GO,
+        differentiation_angles=[],
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[EmptySource()],
+        aggregation_side_effect=[weak_go_result],
+    )
+
+    report = await engine.run("test idea")
+
+    assert report.recommendation_type == RecommendationType.CAUTION
+    assert "insufficient evidence" in report.go_no_go.lower()
+    assert report.report_meta.quality_warnings
+    assert any(
+        "low evidence confidence" in warning.lower()
+        for warning in report.report_meta.quality_warnings
+    )
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_keeps_go_when_evidence_is_strong(tmp_path) -> None:
+    strong_go_result = AggregationResult(
+        competitors=[MOCK_COMPETITOR],
+        market_summary="Evidence is sufficient.",
+        go_no_go="Go - evidence supports execution.",
+        recommendation_type=RecommendationType.GO,
+        differentiation_angles=["Niche focus"],
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[MockSource(Platform.GITHUB)],
+        aggregation_side_effect=[strong_go_result],
+    )
+
+    report = await engine.run("test idea")
+
+    assert report.recommendation_type == RecommendationType.GO
+    assert report.report_meta.quality_warnings == []
 
 
 @pytest.mark.asyncio

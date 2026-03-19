@@ -207,6 +207,10 @@ class ReportMeta(BaseModel):
     llm_fault_tolerance: LlmFaultToleranceMeta = Field(
         default_factory=LlmFaultToleranceMeta
     )
+    quality_warnings: list[str] = Field(
+        default_factory=list,
+        description="Quality guardrail notes for recommendation reliability.",
+    )
 
 
 class ResearchReport(TimestampMixin):
