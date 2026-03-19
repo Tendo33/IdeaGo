@@ -173,19 +173,19 @@ class GitHubSource:
         await self._client.aclose()
 
 
-_QUALIFIER_PATTERN = re.compile(
-    r"\b(?:stars|forks|size|language|topic|created|pushed|updated|sort|order):\S+",
+_STRIP_QUALIFIER_PATTERN = re.compile(
+    r"\b(?:stars|forks|size|language|created|pushed|updated|sort|order):\S+",
     flags=re.IGNORECASE,
 )
 
 
 def _normalize_github_query(query: str) -> str:
-    """Keep GitHub queries keyword-driven and avoid over-constrained search DSL."""
+    """Normalize GitHub queries: preserve topic: qualifiers, strip ranking qualifiers."""
     stripped = query.strip()
     if not stripped:
         return ""
-    without_qualifiers = _QUALIFIER_PATTERN.sub(" ", stripped)
-    tokens = [token for token in re.split(r"\s+", without_qualifiers) if token]
+    without_ranking = _STRIP_QUALIFIER_PATTERN.sub(" ", stripped)
+    tokens = [token for token in re.split(r"\s+", without_ranking) if token]
     if not tokens:
         return stripped
-    return " ".join(tokens[:6])
+    return " ".join(tokens[:8])

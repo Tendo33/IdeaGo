@@ -15,7 +15,6 @@ from ideago.models.research import (
     RawResult,
     RecommendationType,
     ResearchReport,
-    SearchQuery,
 )
 from ideago.pipeline import nodes as pipeline_nodes
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
@@ -30,10 +29,6 @@ MOCK_INTENT = Intent(
     keywords_en=["markdown", "notes"],
     app_type="browser-extension",
     target_scenario="Take markdown notes",
-    search_queries=[
-        SearchQuery(platform=Platform.GITHUB, queries=["markdown notes"]),
-        SearchQuery(platform=Platform.HACKERNEWS, queries=["markdown notes"]),
-    ],
     cache_key="abc123",
 )
 
@@ -395,7 +390,7 @@ async def test_langgraph_engine_logs_extraction_counts_by_channel(tmp_path) -> N
 
 
 @pytest.mark.asyncio
-async def test_langgraph_engine_merges_keyword_fallback_for_github_and_producthunt(
+async def test_langgraph_engine_uses_query_builder_for_github_and_producthunt(
     tmp_path,
 ) -> None:
     github_source = CapturingSource(Platform.GITHUB)
@@ -404,16 +399,6 @@ async def test_langgraph_engine_merges_keyword_fallback_for_github_and_producthu
         keywords_en=["api monitoring", "alerting dashboard"],
         app_type="web",
         target_scenario="Track API latency and alert on incidents",
-        search_queries=[
-            SearchQuery(
-                platform=Platform.GITHUB,
-                queries=["graphql ai generated query only"],
-            ),
-            SearchQuery(
-                platform=Platform.PRODUCT_HUNT,
-                queries=["product hunt ai generated query only"],
-            ),
-        ],
         cache_key="custom-intent",
     )
     engine, _, _, _ = _build_engine(
@@ -424,16 +409,15 @@ async def test_langgraph_engine_merges_keyword_fallback_for_github_and_producthu
 
     await engine.run("test idea")
 
-    assert github_source.last_queries == [
-        "graphql ai generated query only",
-        "api monitoring",
-        "alerting dashboard",
-    ]
-    assert producthunt_source.last_queries == [
-        "product hunt ai generated query only",
-        "api monitoring",
-        "alerting dashboard",
-    ]
+    assert len(github_source.last_queries) >= 2
+    assert any("api monitoring" in q for q in github_source.last_queries)
+    assert any("topic:" in q for q in github_source.last_queries)
+
+    assert len(producthunt_source.last_queries) >= 2
+    assert any(
+        topic in producthunt_source.last_queries
+        for topic in ["saas", "web-app", "productivity"]
+    )
 
 
 @pytest.mark.asyncio
@@ -565,12 +549,6 @@ async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> N
         keywords_en=["api", "monitoring", "alerts", "latency"],
         app_type="web",
         target_scenario="Track reliability incidents",
-        search_queries=[
-            SearchQuery(
-                platform=Platform.GITHUB,
-                queries=["q1", "q2", "q3", "q4"],
-            ),
-        ],
         cache_key="adaptive-intent",
     )
     engine, _, intent_parser, _ = _build_engine(
@@ -589,6 +567,10 @@ async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> N
 
     intent_parser.parse = AsyncMock(side_effect=parse_with_unique_cache)
 
+    from ideago.pipeline.query_builder import build_queries
+
+    full_query_count = len(build_queries(Platform.GITHUB, intent_override))
+
     source.set_should_fail(True)
     await engine.run("test idea 1", report_id="adaptive-1")
     await engine.run("test idea 2", report_id="adaptive-2")
@@ -601,7 +583,8 @@ async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> N
     await engine.run("test idea 4", report_id="adaptive-4")
     await engine.run("test idea 5", report_id="adaptive-5")
     await engine.run("test idea 6", report_id="adaptive-6")
+    await engine.run("test idea 7", report_id="adaptive-7")
 
-    assert degraded_query_count < 8
+    assert degraded_query_count < full_query_count
     assert degraded_runtime_concurrency is not None
-    assert source.last_queries_count == 4
+    assert source.last_queries_count == full_query_count

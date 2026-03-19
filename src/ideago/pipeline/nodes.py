@@ -18,7 +18,6 @@ from ideago.models.research import (
     EvidenceItem,
     EvidenceSummary,
     LlmFaultToleranceMeta,
-    Platform,
     RawResult,
     RecommendationType,
     ReportMeta,
@@ -37,12 +36,12 @@ from ideago.pipeline.exceptions import (
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
+from ideago.pipeline.query_builder import build_queries
 from ideago.sources.registry import SourceRegistry
 from ideago.utils.text_utils import decode_entities_and_strip_html
 
 logger = get_logger(__name__)
 _EXTRACTION_DEGRADED_MSG = "Extraction unavailable; showing raw results."
-_QUERY_FALLBACK_PLATFORMS = {Platform.GITHUB, Platform.PRODUCT_HUNT}
 _DEFAULT_ADAPTIVE_WINDOW_SIZE = 6
 _DEGRADE_CONSECUTIVE_FAILURES = 2
 _RECOVERY_SUCCESS_STREAK = 3
@@ -301,15 +300,9 @@ class PipelineNodes:
                 f"Searching {platform_name}...",
             )
             start = time.monotonic()
-            source_queries: list[str] = []
-            for sq in intent.search_queries:
-                if sq.platform == source.platform:
-                    source_queries = sq.queries
-                    break
-            base_queries = _resolve_queries_for_source(
+            base_queries = build_queries(
                 platform=source.platform,
-                source_queries=source_queries,
-                fallback_keywords=intent.keywords_en,
+                intent=intent,
             )
             default_query_concurrency = _safe_get_source_query_concurrency(source)
             queries, runtime_query_concurrency = self._adaptive.get_budget(
@@ -924,31 +917,6 @@ def _truncate_text(value: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return f"{text[: limit - 3].rstrip()}..."
-
-
-def _resolve_queries_for_source(
-    *,
-    platform: Platform,
-    source_queries: list[str],
-    fallback_keywords: list[str],
-) -> list[str]:
-    primary = _normalize_queries(source_queries)
-    fallback = _normalize_queries(fallback_keywords)
-    if platform in _QUERY_FALLBACK_PLATFORMS:
-        merged = [*primary, *fallback]
-        deduped = list(dict.fromkeys(merged))
-        if deduped:
-            return deduped
-    if primary:
-        return primary
-    if fallback:
-        return fallback
-    return []
-
-
-def _normalize_queries(queries: list[str]) -> list[str]:
-    normalized = [query.strip() for query in queries if query.strip()]
-    return list(dict.fromkeys(normalized))
 
 
 def _safe_get_source_query_concurrency(source: DataSource) -> int:

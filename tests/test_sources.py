@@ -263,7 +263,7 @@ async def test_github_search_deduplicates_across_queries() -> None:
 
 
 @pytest.mark.asyncio
-async def test_github_search_uses_keyword_query_without_qualifiers() -> None:
+async def test_github_search_strips_ranking_qualifiers_but_keeps_topic() -> None:
     src = GitHubSource(token="")
     mock_response = httpx.Response(200, json={"items": []})
     with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
@@ -274,6 +274,19 @@ async def test_github_search_uses_keyword_query_without_qualifiers() -> None:
 
     called_params = mock_get.await_args.kwargs["params"]
     assert called_params["q"] == "real-time api monitoring"
+
+
+@pytest.mark.asyncio
+async def test_github_search_preserves_topic_qualifier() -> None:
+    src = GitHubSource(token="")
+    mock_response = httpx.Response(200, json={"items": []})
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_response
+        await src.search(["topic:markdown topic:notes"], limit=5)
+
+    called_params = mock_get.await_args.kwargs["params"]
+    assert "topic:markdown" in called_params["q"]
+    assert "topic:notes" in called_params["q"]
 
 
 @pytest.mark.asyncio
