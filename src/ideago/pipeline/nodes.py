@@ -18,6 +18,7 @@ from ideago.models.research import (
     EvidenceItem,
     EvidenceSummary,
     LlmFaultToleranceMeta,
+    Platform,
     RawResult,
     RecommendationType,
     ReportMeta,
@@ -26,7 +27,7 @@ from ideago.models.research import (
     SourceStatus,
 )
 from ideago.observability.log_config import get_logger
-from ideago.pipeline.aggregator import AggregationResult, Aggregator, fuse_competitors
+from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import (
     AggregationError,
@@ -36,6 +37,8 @@ from ideago.pipeline.exceptions import (
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
+from ideago.pipeline.merger import merge_competitors
+from ideago.pipeline.pre_filter import filter_raw_results
 from ideago.pipeline.query_builder import build_queries
 from ideago.sources.registry import SourceRegistry
 from ideago.utils.text_utils import decode_entities_and_strip_html
@@ -418,10 +421,29 @@ class PipelineNodes:
             "raw_by_source": raw_by_source,
         }
 
+    async def pre_filter_node(self, state: GraphState) -> GraphState:
+        """Rank and truncate raw results per source using quality signals."""
+        raw_by_source = state.get("raw_by_source", {})
+        filtered = filter_raw_results(
+            raw_by_source,
+            max_per_source=self._max_results,
+        )
+        total_before = sum(len(v) for v in raw_by_source.values())
+        total_after = sum(len(v) for v in filtered.values())
+        logger.info(
+            "Pre-filter: {} → {} results across {} sources",
+            total_before,
+            total_after,
+            len(filtered),
+        )
+        return {"filtered_by_source": filtered}
+
     async def extract_map_node(self, state: GraphState) -> GraphState:
         """Extract competitors from raw source results concurrently."""
-        raw_by_source = state.get("raw_by_source", {})
-        query = state["query"]
+        raw_by_source = state.get("filtered_by_source") or state.get(
+            "raw_by_source", {}
+        )
+        intent = state["intent"]
         source_results = state.get("source_results", [])
         all_competitors: list[Competitor] = []
         extracted_count_by_source: dict[str, int] = {}
@@ -440,7 +462,7 @@ class PipelineNodes:
             try:
                 async with self._llm_semaphore:
                     competitors = await asyncio.wait_for(
-                        self._extractor.extract(raw_results, query),
+                        self._extractor.extract(raw_results, intent),
                         timeout=self._extraction_timeout,
                     )
                 logger.info(
@@ -514,9 +536,20 @@ class PipelineNodes:
             "llm_usage": llm_usage,
         }
 
-    async def aggregate_node(self, state: GraphState) -> GraphState:
-        """Aggregate/deduplicate competitor list and generate analysis."""
+    async def merge_node(self, state: GraphState) -> GraphState:
+        """Deterministic dedup + score adjustment (no LLM)."""
         all_competitors = state.get("all_competitors", [])
+        merged = merge_competitors(all_competitors)
+        logger.info(
+            "Merge: {} raw → {} unique competitors",
+            len(all_competitors),
+            len(merged),
+        )
+        return {"merged_competitors": merged}
+
+    async def analyze_node(self, state: GraphState) -> GraphState:
+        """LLM-only market analysis on pre-merged competitors."""
+        merged = state.get("merged_competitors", [])
         query = state["query"]
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
 
@@ -524,14 +557,14 @@ class PipelineNodes:
             self._callback,
             EventType.AGGREGATION_STARTED,
             "aggregation",
-            "Analyzing and deduplicating...",
+            "Analyzing market landscape...",
         )
 
         agg_started_at = time.monotonic()
         try:
             async with self._llm_semaphore:
                 agg_result = await asyncio.wait_for(
-                    self._aggregator.aggregate(all_competitors, query),
+                    self._aggregator.analyze(merged, query),
                     timeout=self._extraction_timeout,
                 )
             llm_usage = _merge_llm_usage(
@@ -541,16 +574,15 @@ class PipelineNodes:
         except (AggregationError, asyncio.TimeoutError) as exc:
             elapsed = time.monotonic() - agg_started_at
             logger.warning(
-                "Aggregation failed: {} (type={}, elapsed={}s), using raw competitors",
+                "Analysis failed: {} (type={}, elapsed={}s), using merged competitors without analysis",
                 exc,
                 type(exc).__name__,
                 round(elapsed, 2),
             )
-            fused_fallback = fuse_competitors(all_competitors)
             agg_result = AggregationResult(
-                competitors=fused_fallback,
-                market_summary="Aggregation failed - showing unprocessed results.",
-                go_no_go="Unable to determine - aggregation error.",
+                competitors=merged,
+                market_summary="Analysis failed - showing unprocessed results.",
+                go_no_go="Unable to determine - analysis error.",
             )
             llm_usage = _merge_llm_usage(
                 llm_usage,
@@ -565,6 +597,12 @@ class PipelineNodes:
             {"count": len(agg_result.competitors)},
         )
         return {"aggregation_result": agg_result, "llm_usage": llm_usage}
+
+    async def aggregate_node(self, state: GraphState) -> GraphState:
+        """Backward-compatible: merge + analyze in one step."""
+        merge_result = await self.merge_node(state)
+        combined_state: GraphState = {**state, **merge_result}  # type: ignore[typeddict-item]
+        return await self.analyze_node(combined_state)
 
     async def assemble_report_node(self, state: GraphState) -> GraphState:
         """Assemble final report object from graph state."""
@@ -645,23 +683,53 @@ class PipelineNodes:
 
 
 def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor]:
-    """Convert raw results to minimal Competitor objects when LLM fails."""
+    """Convert raw results to minimal Competitor objects when LLM fails.
+
+    Enriches degraded competitors with platform-specific metadata to produce
+    higher quality fallback data than a bare title + URL.
+    """
+    from ideago.pipeline.pre_filter import _quality_score, _safe_int
+
     result: list[Competitor] = []
     for raw in raw_results:
-        if raw.url:
-            normalized_description = decode_entities_and_strip_html(raw.description)
-            result.append(
-                Competitor(
-                    name=raw.title or "Unknown",
-                    links=[raw.url],
-                    one_liner=normalized_description[:200]
-                    if normalized_description
-                    else "No description available",
-                    source_platforms=[raw.platform],
-                    source_urls=[raw.url],
-                    relevance_score=0.3,
-                )
+        if not raw.url:
+            continue
+        normalized_description = decode_entities_and_strip_html(raw.description)
+        one_liner = (
+            normalized_description[:200]
+            if normalized_description
+            else "No description available"
+        )
+        relevance = max(0.1, round(_quality_score(raw) * 0.6, 2))
+
+        features: list[str] = []
+        rd = raw.raw_data
+        if raw.platform == Platform.GITHUB:
+            lang = rd.get("language")
+            if lang:
+                features.append(lang)
+            stars = _safe_int(rd.get("stargazers_count", 0))
+            if stars:
+                features.append(f"{stars} stars")
+        elif raw.platform == Platform.APPSTORE:
+            genre = rd.get("primary_genre_name")
+            if genre:
+                features.append(genre)
+            price = rd.get("price_label")
+            if price:
+                features.append(price)
+
+        result.append(
+            Competitor(
+                name=raw.title or "Unknown",
+                links=[raw.url],
+                one_liner=one_liner,
+                features=features,
+                source_platforms=[raw.platform],
+                source_urls=[raw.url],
+                relevance_score=relevance,
             )
+        )
     return result
 
 

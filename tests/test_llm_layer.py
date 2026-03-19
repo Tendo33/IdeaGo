@@ -9,10 +9,18 @@ import pytest
 
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.prompt_loader import load_prompt
-from ideago.models.research import Competitor, Platform, RawResult
-from ideago.pipeline.aggregator import AggregationResult, Aggregator, fuse_competitors
+from ideago.models.research import Competitor, Intent, Platform, RawResult
+from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
+from ideago.pipeline.merger import merge_competitors
+
+_TEST_INTENT = Intent(
+    keywords_en=["markdown", "notes"],
+    app_type="browser-extension",
+    target_scenario="Take markdown notes",
+    cache_key="test-key",
+)
 
 # ---------- prompt_loader ----------
 
@@ -20,10 +28,9 @@ from ideago.pipeline.intent_parser import IntentParser
 def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
-    assert "appstore" in prompt
-    assert "producthunt" in prompt
-    assert "Query Quality Rules (Critical)" in prompt
-    assert "Generate 2-3 queries per platform." in prompt
+    assert "keywords_en" in prompt
+    assert "app_type" in prompt
+    assert "target_scenario" in prompt
     assert "Do not invent product or company names" in prompt
     assert "{query}" not in prompt
 
@@ -33,9 +40,12 @@ def test_load_prompt_extractor() -> None:
         "extractor",
         platform="github",
         raw_results_json="[]",
-        query_context="test",
+        keywords="markdown, notes",
+        app_type="web",
+        target_scenario="Take notes",
     )
     assert "github" in prompt
+    assert "markdown, notes" in prompt
     assert "{platform}" not in prompt
 
 
@@ -376,7 +386,7 @@ async def test_extractor_extracts_valid_competitors() -> None:
             platform=Platform.GITHUB,
         )
     ]
-    result = await extractor.extract(raw, "markdown notes extension")
+    result = await extractor.extract(raw, _TEST_INTENT)
     # Only the valid one passes (the invalid one with empty links is filtered)
     assert len(result) == 1
     assert result[0].name == "markdown-clipper"
@@ -420,7 +430,7 @@ async def test_extractor_filters_unverifiable_links() -> None:
             platform=Platform.GITHUB,
         )
     ]
-    result = await extractor.extract(raw, "markdown notes extension")
+    result = await extractor.extract(raw, _TEST_INTENT)
 
     assert len(result) == 1
     assert result[0].name == "MixedLinks"
@@ -432,7 +442,7 @@ async def test_extractor_filters_unverifiable_links() -> None:
 async def test_extractor_empty_input_returns_empty() -> None:
     llm = MagicMock(spec=ChatModelClient)
     extractor = Extractor(llm)
-    result = await extractor.extract([], "test")
+    result = await extractor.extract([], _TEST_INTENT)
     assert result == []
     llm.invoke_json.assert_not_called()
 
@@ -466,7 +476,13 @@ async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
             },
         )
     ]
-    await extractor.extract(raw, "focus notes app")
+    focus_intent = Intent(
+        keywords_en=["focus", "notes"],
+        app_type="mobile",
+        target_scenario="Focus notes app",
+        cache_key="focus-key",
+    )
+    await extractor.extract(raw, focus_intent)
 
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
@@ -496,11 +512,11 @@ async def test_extractor_non_appstore_payload_unchanged() -> None:
             raw_data={"stargazers_count": 1200},
         )
     ]
-    await extractor.extract(raw, "markdown notes extension")
+    await extractor.extract(raw, _TEST_INTENT)
 
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
-    assert "These results come from: github" in prompt
+    assert "Source platform: github" in prompt
     assert "appstore_meta" not in prompt
     assert "stargazers_count" not in prompt
 
@@ -533,7 +549,7 @@ MOCK_AGGREGATOR_LLM_RESPONSE = {
 
 
 @pytest.mark.asyncio
-async def test_aggregator_deduplicates_and_summarizes() -> None:
+async def test_aggregator_analyzes_without_modifying_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
     llm.invoke_json = AsyncMock(return_value=MOCK_AGGREGATOR_LLM_RESPONSE)
 
@@ -554,9 +570,9 @@ async def test_aggregator_deduplicates_and_summarizes() -> None:
             source_urls=["https://github.com/user/markdownify"],
         ),
     ]
-    result = await agg.aggregate(competitors, "markdown notes extension")
+    result = await agg.analyze(competitors, "markdown notes extension")
     assert isinstance(result, AggregationResult)
-    assert len(result.competitors) == 1
+    assert len(result.competitors) == 2
     assert "crowded" in result.go_no_go.lower() or "caution" in result.go_no_go.lower()
     assert len(result.differentiation_angles) == 3
     from ideago.models.research import RecommendationType
@@ -578,7 +594,7 @@ async def test_aggregator_empty_competitors() -> None:
 
 
 def test_fuse_competitors_merges_cross_source_duplicates() -> None:
-    fused = fuse_competitors(
+    fused = merge_competitors(
         [
             Competitor(
                 name="Markdownify",
@@ -605,7 +621,7 @@ def test_fuse_competitors_merges_cross_source_duplicates() -> None:
 
     assert len(fused) == 1
     merged = fused[0]
-    assert merged.relevance_score == 0.85
+    assert merged.relevance_score == 0.9
     assert set(merged.source_platforms) == {Platform.TAVILY, Platform.GITHUB}
     assert "templates" in merged.features
     assert "sync" in merged.features

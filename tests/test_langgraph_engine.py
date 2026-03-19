@@ -211,8 +211,10 @@ def _build_engine(
 
     aggregator = MagicMock(spec=Aggregator)
     if aggregation_side_effect is not None:
+        aggregator.analyze = AsyncMock(side_effect=aggregation_side_effect)
         aggregator.aggregate = AsyncMock(side_effect=aggregation_side_effect)
     else:
+        aggregator.analyze = AsyncMock(return_value=MOCK_AGG_RESULT)
         aggregator.aggregate = AsyncMock(return_value=MOCK_AGG_RESULT)
 
     registry = SourceRegistry()
@@ -351,7 +353,7 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
     report = await engine.run("test idea")
 
     assert report.competitors
-    assert "Aggregation failed" in report.market_summary
+    assert "Analysis failed" in report.market_summary
     assert report.confidence.sample_size >= 1
     assert report.cost_breakdown.llm_calls >= 0
     assert report.evidence_summary.evidence_items
@@ -437,7 +439,7 @@ async def test_langgraph_engine_resume_from_checkpoint(tmp_path) -> None:
     report = await engine.run("test idea", report_id="resume-report-id")
     assert report.query == "test idea"
     assert intent_parser.parse.call_count == 1
-    assert aggregator.aggregate.call_count == 2
+    assert aggregator.analyze.call_count == 2
 
 
 @pytest.mark.asyncio

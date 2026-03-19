@@ -134,8 +134,10 @@ class LangGraphEngine:
         builder.add_node("parse_intent", nodes.parse_intent_node)
         builder.add_node("cache_lookup", nodes.cache_lookup_node)
         builder.add_node("fetch_sources", nodes.fetch_sources_node)
+        builder.add_node("pre_filter", nodes.pre_filter_node)
         builder.add_node("extract_map", nodes.extract_map_node)
-        builder.add_node("aggregate", nodes.aggregate_node)
+        builder.add_node("merge", nodes.merge_node)
+        builder.add_node("analyze", nodes.analyze_node)
         builder.add_node("assemble_report", nodes.assemble_report_node)
         builder.add_node("persist_report", nodes.persist_report_node)
         builder.add_node("terminal_error", nodes.terminal_error_node)
@@ -150,10 +152,12 @@ class LangGraphEngine:
                 "fetch": "fetch_sources",
             },
         )
-        builder.add_edge("fetch_sources", "extract_map")
-        builder.add_edge("extract_map", "aggregate")
+        builder.add_edge("fetch_sources", "pre_filter")
+        builder.add_edge("pre_filter", "extract_map")
+        builder.add_edge("extract_map", "merge")
+        builder.add_edge("merge", "analyze")
         builder.add_conditional_edges(
-            "aggregate",
+            "analyze",
             self._route_after_aggregate,
             {
                 "ok": "assemble_report",

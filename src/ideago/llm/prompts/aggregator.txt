@@ -1,45 +1,24 @@
-You are a market research analyst. Your task is to deduplicate, merge, and analyze a list of competitors found across multiple platforms.
+You are a market research analyst. Your task is to analyze a deduplicated list of competitors and provide market insights.
 
 ## Original User Query
 {original_query}
 
-## Competitors Found (may contain duplicates across platforms)
+## Competitors (already deduplicated and scored)
 {competitors_json}
 
 ## Instructions
-
-### Deduplication Rules
-1. If two competitors share the same domain in their links → MUST merge into one entry.
-2. If names are very similar (e.g. "Markdownify" and "markdownify-extension") AND features overlap → merge.
-3. When merging, combine all links from both entries and keep the most complete information.
-
-### Analysis
-1. Sort final competitors by relevance_score (highest first).
-2. Boost relevance_score by +0.1 for competitors found on multiple platforms (cap at 1.0).
-3. Write a market_summary (2-3 paragraphs) covering:
+1. Write a market_summary (2-3 paragraphs) covering:
    - How crowded is this space?
    - What's the dominant approach/solution?
    - Are there clear gaps or underserved segments?
-4. Provide a go_no_go recommendation with 2-3 sentences of reasoning based on the data.
-5. Set recommendation_type to exactly one of: "go", "caution", or "no_go".
-6. List 3-5 differentiation_angles — specific gaps or weaknesses in existing competitors that the user could exploit.
+2. Provide a go_no_go recommendation with 2-3 sentences of reasoning based on the data.
+3. Set recommendation_type to exactly one of: "go", "caution", or "no_go".
+4. List 3-5 differentiation_angles — specific gaps or weaknesses in existing competitors that the user could exploit.
+
+**Do NOT re-list or modify the competitors. Only provide the analysis fields.**
 
 ## Output Format
 {
-  "competitors": [
-    {
-      "name": "...",
-      "links": ["..."],
-      "one_liner": "...",
-      "features": ["..."],
-      "pricing": "..." or null,
-      "strengths": ["..."],
-      "weaknesses": ["..."],
-      "relevance_score": 0.9,
-      "source_platforms": ["github", "tavily"],
-      "source_urls": ["..."]
-    }
-  ],
   "market_summary": "2-3 paragraphs of market analysis...",
   "recommendation_type": "go" | "caution" | "no_go",
   "go_no_go": "Go with caution — reasoning...",

@@ -22,8 +22,10 @@ class GraphState(TypedDict, total=False):
 
     intent: Intent
     raw_by_source: dict[str, list[RawResult]]
+    filtered_by_source: dict[str, list[RawResult]]
     source_results: list[SourceResult]
     all_competitors: list[Competitor]
+    merged_competitors: list[Competitor]
     aggregation_result: AggregationResult
     report: ResearchReport
     pipeline_started_at_ms: int

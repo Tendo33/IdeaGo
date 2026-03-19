@@ -1,18 +1,18 @@
-"""Aggregator — deduplicates competitors and generates market summary.
+"""Aggregator — LLM-only market analysis on pre-merged competitors.
 
-全局聚合：竞品去重 + 市场分析 + Go/No-Go 建议。
+Dedup/scoring is now handled by ``merger.py``. This module focuses the LLM
+exclusively on market analysis, go/no-go recommendation, and differentiation.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
 
 from ideago.llm.chat_model import ChatModelClient
+from ideago.llm.invoke_helpers import invoke_json_with_optional_meta
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, RecommendationType
 from ideago.observability.log_config import get_logger
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class AggregationResult:
-    """Result of the aggregation phase."""
+    """Result of the analysis phase (no competitor modifications)."""
 
     competitors: list[Competitor] = field(default_factory=list)
     market_summary: str = ""
@@ -33,25 +33,25 @@ class AggregationResult:
 
 
 class Aggregator:
-    """Deduplicates competitors across platforms and generates market insights."""
+    """Market analysis using LLM on already-deduplicated competitors."""
 
     def __init__(self, llm: ChatModelClient) -> None:
         self._llm = llm
         self._llm_metrics_by_task: dict[int, dict[str, Any]] = {}
 
-    async def aggregate(
+    async def analyze(
         self,
         competitors: list[Competitor],
         original_query: str,
     ) -> AggregationResult:
-        """Deduplicate competitors and generate market analysis.
+        """Generate market analysis on pre-merged competitors.
 
         Args:
-            competitors: All competitors from all platforms (may contain duplicates).
+            competitors: Deduplicated competitor list (from merger.py).
             original_query: The user's original query text.
 
         Returns:
-            AggregationResult with deduplicated list and analysis.
+            AggregationResult with analysis fields populated.
         """
         if not competitors:
             return AggregationResult(
@@ -59,10 +59,9 @@ class Aggregator:
                 go_no_go="Go — This appears to be an unexplored space based on available data.",
             )
 
-        fused_input = fuse_competitors(competitors)
         try:
             competitors_json = json.dumps(
-                [c.model_dump(mode="json") for c in fused_input],
+                [c.model_dump(mode="json") for c in competitors],
                 ensure_ascii=False,
             )
             prompt = load_prompt(
@@ -70,28 +69,12 @@ class Aggregator:
                 competitors_json=competitors_json,
                 original_query=original_query,
             )
-            data, llm_metrics = await _invoke_json_with_optional_meta(
+            data, llm_metrics = await invoke_json_with_optional_meta(
                 llm=self._llm,
                 prompt=prompt,
                 system="You are a market research analyst. Return only valid JSON.",
             )
             self._store_metrics_for_current_task(llm_metrics)
-            logger.debug(
-                "Aggregator LLM response: {} competitors",
-                len(data.get("competitors", [])),
-            )
-
-            deduped: list[Competitor] = []
-            for entry in data.get("competitors", []):
-                try:
-                    comp = Competitor.model_validate(entry)
-                    deduped.append(comp)
-                except Exception:
-                    logger.warning(
-                        "Skipping invalid competitor in aggregation: {}", entry
-                    )
-
-            deduped.sort(key=lambda c: c.relevance_score, reverse=True)
 
             raw_rec_type = data.get("recommendation_type", "go")
             try:
@@ -100,7 +83,7 @@ class Aggregator:
                 rec_type = _infer_recommendation_type(data.get("go_no_go", ""))
 
             return AggregationResult(
-                competitors=deduped,
+                competitors=competitors,
                 market_summary=data.get("market_summary", ""),
                 go_no_go=data.get("go_no_go", ""),
                 recommendation_type=rec_type,
@@ -109,7 +92,15 @@ class Aggregator:
         except AggregationError:
             raise
         except Exception as exc:
-            raise AggregationError(f"Failed to aggregate: {exc}") from exc
+            raise AggregationError(f"Failed to analyze: {exc}") from exc
+
+    async def aggregate(
+        self,
+        competitors: list[Competitor],
+        original_query: str,
+    ) -> AggregationResult:
+        """Backward-compatible alias for ``analyze``."""
+        return await self.analyze(competitors, original_query)
 
     def pop_llm_metrics_for_current_task(self) -> dict[str, Any]:
         task = asyncio.current_task()
@@ -137,105 +128,3 @@ def _infer_recommendation_type(go_no_go: str) -> RecommendationType:
     if "caution" in lower or "careful" in lower or "risk" in lower:
         return RecommendationType.CAUTION
     return RecommendationType.GO
-
-
-def fuse_competitors(competitors: list[Competitor]) -> list[Competitor]:
-    """Deterministically fuse duplicated competitors from different source chains."""
-    fused: dict[str, Competitor] = {}
-    for competitor in competitors:
-        key = _competitor_merge_key(competitor)
-        existing = fused.get(key)
-        if existing is None:
-            fused[key] = competitor.model_copy(deep=True)
-            continue
-        fused[key] = _merge_competitor(existing, competitor)
-    result = list(fused.values())
-    result.sort(key=lambda item: item.relevance_score, reverse=True)
-    return result
-
-
-def _competitor_merge_key(competitor: Competitor) -> str:
-    urls = [
-        *_normalize_urls(competitor.links),
-        *_normalize_urls(competitor.source_urls),
-    ]
-    for url in urls:
-        if url:
-            return f"url::{url}"
-    return f"name::{competitor.name.strip().lower()}"
-
-
-def _normalize_urls(urls: list[str]) -> list[str]:
-    normalized: list[str] = []
-    for url in urls:
-        parsed = urlparse(url.strip().lower())
-        host = parsed.netloc.removeprefix("www.")
-        path = parsed.path.rstrip("/")
-        if host:
-            normalized.append(f"{host}{path}")
-    return normalized
-
-
-def _unique_strs(values: list[str]) -> list[str]:
-    unique: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        stripped = value.strip()
-        if not stripped:
-            continue
-        marker = stripped.lower()
-        if marker in seen:
-            continue
-        seen.add(marker)
-        unique.append(stripped)
-    return unique
-
-
-def _merge_competitor(base: Competitor, incoming: Competitor) -> Competitor:
-    merged = deepcopy(base)
-    merged.name = (
-        merged.name if len(merged.name) >= len(incoming.name) else incoming.name
-    )
-    merged.one_liner = (
-        merged.one_liner
-        if len(merged.one_liner) >= len(incoming.one_liner)
-        else incoming.one_liner
-    )
-    merged.links = _unique_strs([*merged.links, *incoming.links])
-    merged.source_urls = _unique_strs([*merged.source_urls, *incoming.source_urls])
-    merged.features = _unique_strs([*merged.features, *incoming.features])
-    merged.strengths = _unique_strs([*merged.strengths, *incoming.strengths])
-    merged.weaknesses = _unique_strs([*merged.weaknesses, *incoming.weaknesses])
-    merged.source_platforms = list(
-        dict.fromkeys([*merged.source_platforms, *incoming.source_platforms])
-    )
-    merged.relevance_score = max(merged.relevance_score, incoming.relevance_score)
-    if not merged.pricing and incoming.pricing:
-        merged.pricing = incoming.pricing
-    return merged
-
-
-async def _invoke_json_with_optional_meta(
-    *,
-    llm: ChatModelClient,
-    prompt: str,
-    system: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    invoke_with_meta = getattr(llm, "invoke_json_with_meta", None)
-    if callable(invoke_with_meta):
-        payload = await invoke_with_meta(prompt=prompt, system=system)
-        if (
-            isinstance(payload, tuple)
-            and len(payload) == 2
-            and isinstance(payload[0], dict)
-            and isinstance(payload[1], dict)
-        ):
-            return payload[0], payload[1]
-
-    data = await llm.invoke_json(prompt=prompt, system=system)
-    pop_meta = getattr(llm, "pop_last_call_metadata", None)
-    if callable(pop_meta):
-        payload = pop_meta()
-        if isinstance(payload, dict):
-            return data, payload
-    return data, {}

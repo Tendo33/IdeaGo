@@ -11,8 +11,9 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from ideago.llm.chat_model import ChatModelClient
+from ideago.llm.invoke_helpers import invoke_json_with_optional_meta
 from ideago.llm.prompt_loader import load_prompt
-from ideago.models.research import Competitor, Platform, RawResult
+from ideago.models.research import Competitor, Intent, Platform, RawResult
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import ExtractionError
 
@@ -29,13 +30,13 @@ class Extractor:
     async def extract(
         self,
         raw_results: list[RawResult],
-        query_context: str,
+        intent: Intent,
     ) -> list[Competitor]:
         """Extract competitors from raw results of a single platform.
 
         Args:
             raw_results: Raw search results from one data source.
-            query_context: The user's original query for context.
+            intent: Parsed user intent with keywords, app_type, and scenario.
 
         Returns:
             List of extracted Competitor objects. Invalid entries are skipped.
@@ -62,9 +63,11 @@ class Extractor:
                 prompt_name,
                 platform=platform.value,
                 raw_results_json=raw_json,
-                query_context=query_context,
+                keywords=", ".join(intent.keywords_en),
+                app_type=intent.app_type,
+                target_scenario=intent.target_scenario,
             )
-            data, llm_metrics = await _invoke_json_with_optional_meta(
+            data, llm_metrics = await invoke_json_with_optional_meta(
                 llm=self._llm,
                 prompt=prompt,
                 system="You are a competitor analysis expert. Return only valid JSON.",
@@ -178,29 +181,3 @@ def _serialize_raw_for_extraction(raw: RawResult) -> dict[str, Any]:
         "platform": raw.platform.value,
         "appstore_meta": appstore_meta,
     }
-
-
-async def _invoke_json_with_optional_meta(
-    *,
-    llm: ChatModelClient,
-    prompt: str,
-    system: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    invoke_with_meta = getattr(llm, "invoke_json_with_meta", None)
-    if callable(invoke_with_meta):
-        payload = await invoke_with_meta(prompt=prompt, system=system)
-        if (
-            isinstance(payload, tuple)
-            and len(payload) == 2
-            and isinstance(payload[0], dict)
-            and isinstance(payload[1], dict)
-        ):
-            return payload[0], payload[1]
-
-    data = await llm.invoke_json(prompt=prompt, system=system)
-    pop_meta = getattr(llm, "pop_last_call_metadata", None)
-    if callable(pop_meta):
-        payload = pop_meta()
-        if isinstance(payload, dict):
-            return data, payload
-    return data, {}
