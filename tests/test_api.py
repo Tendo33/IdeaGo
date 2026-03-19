@@ -18,7 +18,8 @@ from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
 from ideago.api.routes import analyze as analyze_route
-from ideago.cache.file_cache import FileCache, ReportIndex
+from ideago.cache.base import ReportIndex
+from ideago.cache.file_cache import FileCache
 from ideago.models.research import (
     Competitor,
     Intent,

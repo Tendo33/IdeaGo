@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from math import ceil
 from typing import Any
 
-from ideago.cache.file_cache import FileCache
+from ideago.cache.base import ReportRepository
 from ideago.contracts.protocols import DataSource, ProgressCallback
 from ideago.models.research import (
     Competitor,
@@ -194,7 +194,7 @@ class PipelineNodes:
         extractor: Extractor,
         aggregator: Aggregator,
         registry: SourceRegistry,
-        cache: FileCache,
+        cache: ReportRepository,
         callback: ProgressCallback | None,
         source_timeout: int,
         extraction_timeout: int,

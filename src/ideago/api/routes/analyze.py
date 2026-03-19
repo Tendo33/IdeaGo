@@ -87,6 +87,7 @@ async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
             "processing",
             query,
             message="Analysis is in progress",
+            user_id=user_id,
         )
         orchestrator = get_orchestrator()
         report = await orchestrator.run(query, callback=callback, report_id=report_id)
@@ -96,7 +97,13 @@ async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
         logger.info("Pipeline completed for report {}", report.id)
         if user_id:
             await cache.update_report_user_id(report_id, user_id)
-        await cache.put_status(report_id, "complete", query, message="Report ready")
+        await cache.put_status(
+            report_id,
+            "complete",
+            query,
+            message="Report ready",
+            user_id=user_id,
+        )
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _mark_cancelled(report_id)
@@ -108,6 +115,7 @@ async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
             query,
             error_code="PIPELINE_FAILURE",
             message="Pipeline failed. Please retry.",
+            user_id=user_id,
         )
         await run_state.publish(
             PipelineEvent(

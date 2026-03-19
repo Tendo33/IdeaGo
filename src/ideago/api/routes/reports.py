@@ -15,13 +15,15 @@ from ideago.api.dependencies import get_cache, get_processing_reports
 from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
-from ideago.cache.file_cache import FileCache
+from ideago.cache.base import ReportRepository
 from ideago.models.research import ResearchReport
 
 router = APIRouter(tags=["reports"])
 
 
-async def _assert_report_owner(cache: FileCache, report_id: str, user_id: str) -> None:
+async def _assert_report_owner(
+    cache: ReportRepository, report_id: str, user_id: str
+) -> None:
     """Raise 403 if the report exists but belongs to another user."""
     owner_id = await cache.get_report_user_id(report_id)
     if owner_id and owner_id != user_id:

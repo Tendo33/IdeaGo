@@ -5,6 +5,8 @@ FastAPI 应用工厂。
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import time
 from collections import defaultdict
 from collections.abc import AsyncGenerator
@@ -33,17 +35,43 @@ _RATE_LIMIT_MAX = 10
 _RATE_LIMIT_WINDOW = 60
 
 
+_cleanup_task: asyncio.Task[None] | None = None
+_CLEANUP_INTERVAL_SECONDS = 3600
+
+
+async def _periodic_cleanup() -> None:
+    """Background task: clean up expired reports every hour."""
+    from ideago.api.dependencies import get_cache
+
+    while True:
+        await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
+        try:
+            removed = await get_cache().cleanup_expired()
+            if removed > 0:
+                logger.info("Cleaned up {} expired reports", removed)
+        except Exception:
+            logger.opt(exception=True).warning("Cleanup task error")
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup / shutdown logic."""
+    global _cleanup_task
+    _cleanup_task = asyncio.create_task(_periodic_cleanup())
     yield
-    from ideago.api.dependencies import _orchestrator, shutdown_runtime_state
+    if _cleanup_task is not None:
+        _cleanup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _cleanup_task
+    from ideago.api.dependencies import _cache, _orchestrator, shutdown_runtime_state
     from ideago.auth.dependencies import close_auth_http_client
     from ideago.auth.supabase_admin import close_supabase_admin_client
 
     await shutdown_runtime_state()
     await close_auth_http_client()
     await close_supabase_admin_client()
+    if _cache is not None and hasattr(_cache, "close"):
+        await _cache.close()
     _rate_limit_store.clear()
 
     if _orchestrator is None:

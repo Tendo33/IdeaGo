@@ -11,7 +11,7 @@ from uuid import uuid4
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, StateGraph
 
-from ideago.cache.file_cache import FileCache
+from ideago.cache.base import ReportRepository
 from ideago.contracts.protocols import DataSource, ProgressCallback
 from ideago.models.research import ResearchReport
 from ideago.pipeline.aggregator import Aggregator
@@ -31,7 +31,7 @@ class LangGraphEngine:
         extractor: Extractor,
         aggregator: Aggregator,
         registry: SourceRegistry,
-        cache: FileCache,
+        cache: ReportRepository,
         checkpoint_db_path: str,
         source_timeout: int = 30,
         extraction_timeout: int = 60,

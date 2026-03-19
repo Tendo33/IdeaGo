@@ -10,7 +10,7 @@ import contextlib
 import threading
 import time
 
-from ideago.cache.file_cache import FileCache
+from ideago.cache.base import ReportRepository
 from ideago.config.settings import get_settings
 from ideago.llm.chat_model import ChatModelClient
 from ideago.pipeline.aggregator import Aggregator
@@ -26,7 +26,7 @@ from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
 _orchestrator: LangGraphEngine | None = None
-_cache: FileCache | None = None
+_cache: ReportRepository | None = None
 _report_runs: dict[str, ReportRunState] = {}
 _processing_reports: dict[str, str] = {}
 _pipeline_tasks: dict[str, asyncio.Task[None]] = {}
@@ -73,11 +73,18 @@ class ReportRunState:
         return list(self.history)
 
 
-def get_cache() -> FileCache:
+def get_cache() -> ReportRepository:
     global _cache
     if _cache is None:
         settings = get_settings()
-        _cache = FileCache(settings.cache_dir, settings.cache_ttl_hours)
+        if settings.supabase_url and settings.supabase_service_role_key:
+            from ideago.cache.supabase_cache import SupabaseReportRepository
+
+            _cache = SupabaseReportRepository(ttl_hours=settings.cache_ttl_hours)
+        else:
+            from ideago.cache.file_cache import FileCache
+
+            _cache = FileCache(settings.cache_dir, settings.cache_ttl_hours)
     return _cache
 
 

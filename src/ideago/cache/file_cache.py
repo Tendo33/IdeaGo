@@ -13,22 +13,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from ideago.models.base import BaseModel
+from ideago.cache.base import ReportIndex
 from ideago.models.research import ResearchReport
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
-
-
-class ReportIndex(BaseModel):
-    """Summary entry in the cache index."""
-
-    report_id: str
-    query: str
-    cache_key: str
-    created_at: datetime
-    competitor_count: int = 0
-    user_id: str = ""
 
 
 class FileCache:
@@ -215,6 +204,7 @@ class FileCache:
         *,
         error_code: str | None = None,
         message: str | None = None,
+        user_id: str = "",
     ) -> None:
         """Write a lightweight status file for a pipeline run."""
         await asyncio.to_thread(
