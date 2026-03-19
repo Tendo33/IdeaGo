@@ -36,6 +36,12 @@ class AppStoreSource:
             timeout=timeout,
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
+        self._runtime_max_concurrent_queries: int | None = None
+        self._last_search_diagnostics: dict[str, object] = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
 
     @property
     def platform(self) -> Platform:
@@ -43,6 +49,18 @@ class AppStoreSource:
 
     def is_available(self) -> bool:
         return True
+
+    def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
+        self._runtime_max_concurrent_queries = max(1, int(value)) if value else None
+
+    def consume_last_search_diagnostics(self) -> dict[str, object]:
+        payload = self._last_search_diagnostics
+        self._last_search_diagnostics = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
+        return payload
 
     async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
         try:
@@ -116,17 +134,49 @@ class AppStoreSource:
         if not queries:
             return []
 
+        self._last_search_diagnostics = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
         seen_track_ids: set[int] = set()
         seen_urls: set[str] = set()
-        semaphore = asyncio.Semaphore(self._max_concurrent_queries)
+        max_concurrency = (
+            self._runtime_max_concurrent_queries or self._max_concurrent_queries
+        )
+        semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def run_query(query: str) -> list[RawResult]:
+        async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
-                return await self._search_single_query(query, limit)
+                try:
+                    return query, await self._search_single_query(query, limit)
+                except Exception as exc:  # noqa: BLE001
+                    return query, exc
 
-        grouped_results = await asyncio.gather(*(run_query(query) for query in queries))
+        grouped_results = await asyncio.gather(
+            *(run_query(query) for query in queries),
+            return_exceptions=False,
+        )
         deduped_results: list[RawResult] = []
-        for query_results in grouped_results:
+        failed_queries: list[str] = []
+        timed_out_queries: list[str] = []
+        first_error: Exception | None = None
+        for query, query_result in grouped_results:
+            if isinstance(query_result, Exception):
+                failed_queries.append(query)
+                if first_error is None:
+                    first_error = query_result
+                error_cause = query_result.__cause__
+                if isinstance(error_cause, httpx.TimeoutException):
+                    timed_out_queries.append(query)
+                logger.warning(
+                    "Source query failure: platform={}, query={}, error_type={}",
+                    self.platform.value,
+                    query,
+                    type(query_result).__name__,
+                )
+                continue
+            query_results = query_result
             for result in query_results:
                 track_id = result.raw_data.get("track_id")
                 if isinstance(track_id, int):
@@ -137,6 +187,15 @@ class AppStoreSource:
                     continue
                 seen_urls.add(result.url)
                 deduped_results.append(result)
+        if failed_queries and deduped_results:
+            self._last_search_diagnostics = {
+                "partial_failure": True,
+                "failed_queries": failed_queries,
+                "timed_out_queries": timed_out_queries,
+            }
+            return deduped_results
+        if failed_queries and first_error is not None:
+            raise first_error
         return deduped_results
 
     async def close(self) -> None:

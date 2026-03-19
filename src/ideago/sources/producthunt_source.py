@@ -74,6 +74,12 @@ class ProductHuntSource:
             timeout=timeout,
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
+        self._runtime_max_concurrent_queries: int | None = None
+        self._last_search_diagnostics: dict[str, object] = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
 
     @property
     def platform(self) -> Platform:
@@ -81,6 +87,18 @@ class ProductHuntSource:
 
     def is_available(self) -> bool:
         return bool(self._dev_token)
+
+    def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
+        self._runtime_max_concurrent_queries = max(1, int(value)) if value else None
+
+    def consume_last_search_diagnostics(self) -> dict[str, object]:
+        payload = self._last_search_diagnostics
+        self._last_search_diagnostics = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
+        return payload
 
     async def _graphql(
         self,
@@ -189,16 +207,49 @@ class ProductHuntSource:
         """Search Product Hunt and return deduplicated raw posts."""
         if not self.is_available() or not queries:
             return []
+        self._last_search_diagnostics = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
 
         normalized_queries = [query.strip() for query in queries if query.strip()]
         if not normalized_queries:
             return []
 
+        max_concurrency = (
+            self._runtime_max_concurrent_queries or self._max_concurrent_queries
+        )
+        query_semaphore = asyncio.Semaphore(max_concurrency)
         unique_slugs: list[str] = []
         seen_slugs: set[str] = set()
-        for query in normalized_queries:
-            slugs = await self._find_topic_slugs(query=query, first=5)
-            for slug in slugs:
+        failed_queries: list[str] = []
+        first_error: Exception | None = None
+
+        async def discover_slugs(query: str) -> tuple[str, list[str] | Exception]:
+            async with query_semaphore:
+                try:
+                    return query, await self._find_topic_slugs(query=query, first=5)
+                except Exception as exc:  # noqa: BLE001
+                    return query, exc
+
+        query_slug_results = await asyncio.gather(
+            *(discover_slugs(query) for query in normalized_queries),
+            return_exceptions=False,
+        )
+        for query, slug_result in query_slug_results:
+            if isinstance(slug_result, Exception):
+                failed_queries.append(query)
+                if first_error is None:
+                    first_error = slug_result
+                logger.warning(
+                    "Source query failure: platform={}, query={}, error_type={}",
+                    self.platform.value,
+                    query,
+                    type(slug_result).__name__,
+                )
+                continue
+            for slug in slug_result:
                 if slug in seen_slugs:
                     continue
                 seen_slugs.add(slug)
@@ -212,62 +263,80 @@ class ProductHuntSource:
         ).isoformat()
         page_size = max(1, min(limit, 20))
         max_pages = 3
-        semaphore = asyncio.Semaphore(self._max_concurrent_queries)
+        semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def fetch_slug(slug: str) -> list[dict[str, Any]]:
+        async def fetch_slug(slug: str) -> tuple[str, list[dict[str, Any]] | Exception]:
             async with semaphore:
-                return await self._fetch_posts_by_topic(
-                    topic_slug=slug,
-                    posted_after_iso=posted_after,
-                    page_size=page_size,
-                    max_pages=max_pages,
-                )
+                try:
+                    return slug, await self._fetch_posts_by_topic(
+                        topic_slug=slug,
+                        posted_after_iso=posted_after,
+                        page_size=page_size,
+                        max_pages=max_pages,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    return slug, exc
 
         grouped_posts = await asyncio.gather(
-            *(fetch_slug(slug) for slug in unique_slugs)
+            *(fetch_slug(slug) for slug in unique_slugs),
+            return_exceptions=False,
         )
+        collected_posts: list[dict[str, Any]] = []
+        failed_slugs: list[str] = []
+        for slug, posts_or_exc in grouped_posts:
+            if isinstance(posts_or_exc, Exception):
+                failed_slugs.append(slug)
+                if first_error is None:
+                    first_error = posts_or_exc
+                logger.warning(
+                    "Source topic fetch failure: platform={}, topic={}, error_type={}",
+                    self.platform.value,
+                    slug,
+                    type(posts_or_exc).__name__,
+                )
+                continue
+            collected_posts.extend(posts_or_exc)
         query_tokens = _extract_query_tokens(normalized_queries)
         enforce_token_match = any(
             re.search(r"[a-z0-9]", token) is not None for token in query_tokens
         )
 
         candidates: dict[str, tuple[RawResult, int, int, str]] = {}
-        for posts in grouped_posts:
-            for post in posts:
-                post_url = _safe_str(post.get("url"))
-                if not post_url:
-                    continue
+        for post in collected_posts:
+            post_url = _safe_str(post.get("url"))
+            if not post_url:
+                continue
 
-                name = _safe_str(post.get("name"))
-                tagline = _safe_str(post.get("tagline"))
-                text_blob = f"{name} {tagline}".lower()
-                score = sum(1 for token in query_tokens if token in text_blob)
-                if enforce_token_match and score < 1:
-                    continue
+            name = _safe_str(post.get("name"))
+            tagline = _safe_str(post.get("tagline"))
+            text_blob = f"{name} {tagline}".lower()
+            score = sum(1 for token in query_tokens if token in text_blob)
+            if enforce_token_match and score < 1:
+                continue
 
-                votes_count = _safe_int(post.get("votesCount"))
-                created_at = _safe_str(post.get("createdAt"))
-                raw_result = RawResult(
-                    title=name,
-                    description=tagline,
-                    url=post_url,
-                    platform=Platform.PRODUCT_HUNT,
-                    raw_data={
-                        "post_id": post.get("id"),
-                        "votes_count": votes_count,
-                        "created_at": created_at,
-                        "website": post.get("website"),
-                        "topic_slug": post.get("topic_slug"),
-                    },
-                )
-                existing = candidates.get(post_url)
-                rank_tuple = (score, votes_count, created_at)
-                if existing is None or rank_tuple > (
-                    existing[1],
-                    existing[2],
-                    existing[3],
-                ):
-                    candidates[post_url] = (raw_result, score, votes_count, created_at)
+            votes_count = _safe_int(post.get("votesCount"))
+            created_at = _safe_str(post.get("createdAt"))
+            raw_result = RawResult(
+                title=name,
+                description=tagline,
+                url=post_url,
+                platform=Platform.PRODUCT_HUNT,
+                raw_data={
+                    "post_id": post.get("id"),
+                    "votes_count": votes_count,
+                    "created_at": created_at,
+                    "website": post.get("website"),
+                    "topic_slug": post.get("topic_slug"),
+                },
+            )
+            existing = candidates.get(post_url)
+            rank_tuple = (score, votes_count, created_at)
+            if existing is None or rank_tuple > (
+                existing[1],
+                existing[2],
+                existing[3],
+            ):
+                candidates[post_url] = (raw_result, score, votes_count, created_at)
 
         sorted_candidates = sorted(
             candidates.values(),
@@ -275,7 +344,17 @@ class ProductHuntSource:
             reverse=True,
         )
         upper_bound = max(1, limit) * max(1, len(normalized_queries))
-        return [item[0] for item in sorted_candidates[:upper_bound]]
+        final_results = [item[0] for item in sorted_candidates[:upper_bound]]
+        if (failed_queries or failed_slugs) and final_results:
+            self._last_search_diagnostics = {
+                "partial_failure": True,
+                "failed_queries": [*failed_queries, *failed_slugs],
+                "timed_out_queries": [],
+            }
+            return final_results
+        if (failed_queries or failed_slugs) and first_error is not None:
+            raise first_error
+        return final_results
 
     async def close(self) -> None:
         await self._client.aclose()

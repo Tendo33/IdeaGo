@@ -132,6 +132,12 @@ class Settings(BaseSettings):
         le=8,
         description="Max concurrent requests per source / 每个数据源内部最大并发请求数",
     )
+    source_global_concurrency: int = Field(
+        default=3,
+        ge=1,
+        le=8,
+        description="Max concurrent source fetches across platforms / 跨数据源全局并发上限",
+    )
     producthunt_posted_after_days: int = Field(
         default=730,
         ge=1,

@@ -60,3 +60,13 @@ def test_langgraph_json_parse_max_retries_bounds() -> None:
         Settings(langgraph_json_parse_max_retries=-1)
     with pytest.raises(ValidationError):
         Settings(langgraph_json_parse_max_retries=4)
+
+
+def test_source_global_concurrency_default_and_bounds() -> None:
+    settings = Settings()
+    assert settings.source_global_concurrency == 3
+
+    with pytest.raises(ValidationError):
+        Settings(source_global_concurrency=0)
+    with pytest.raises(ValidationError):
+        Settings(source_global_concurrency=9)

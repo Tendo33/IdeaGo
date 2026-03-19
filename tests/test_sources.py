@@ -300,6 +300,42 @@ async def test_github_search_respects_query_concurrency_limit() -> None:
     assert max_in_flight == 2
 
 
+@pytest.mark.asyncio
+async def test_github_search_partial_failure_returns_partial_results() -> None:
+    src = GitHubSource(token="")
+
+    async def fake_get(*_args, **kwargs):
+        query = kwargs["params"]["q"]
+        if query == "bad":
+            raise httpx.ReadTimeout("timeout")
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "full_name": f"user/{query}",
+                        "description": "ok",
+                        "html_url": f"https://github.com/user/{query}",
+                        "stargazers_count": 1,
+                        "language": "Python",
+                        "topics": [],
+                        "forks_count": 0,
+                        "updated_at": "2026-01-01T00:00:00Z",
+                    }
+                ]
+            },
+        )
+
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        results = await src.search(["good", "bad"], limit=5)
+
+    assert len(results) == 1
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["partial_failure"] is True
+    assert diagnostics["failed_queries"] == ["bad"]
+
+
 # ---------- TavilySource ----------
 
 
@@ -406,6 +442,35 @@ async def test_tavily_search_respects_query_concurrency_limit() -> None:
         await src.search(["q1", "q2", "q3", "q4"], limit=5)
 
     assert max_in_flight == 2
+
+
+@pytest.mark.asyncio
+async def test_tavily_search_partial_failure_returns_partial_results() -> None:
+    src = TavilySource(api_key="tvly-test")
+
+    async def fake_search(**kwargs):
+        query = kwargs["query"]
+        if query == "bad":
+            raise RuntimeError("query failed")
+        return {
+            "results": [
+                {
+                    "title": f"title-{query}",
+                    "url": f"https://example.com/{query}",
+                    "content": "ok",
+                    "score": 0.9,
+                }
+            ]
+        }
+
+    with patch.object(src._client, "search", new_callable=AsyncMock) as mock_search:
+        mock_search.side_effect = fake_search
+        results = await src.search(["good", "bad"], limit=5)
+
+    assert len(results) == 1
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["partial_failure"] is True
+    assert diagnostics["failed_queries"] == ["bad"]
 
 
 # ---------- HackerNewsSource ----------

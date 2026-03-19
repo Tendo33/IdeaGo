@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import deque
 from datetime import datetime, timezone
+from math import ceil
 from typing import Any
 
 from ideago.cache.file_cache import FileCache
@@ -41,6 +43,9 @@ from ideago.utils.text_utils import decode_entities_and_strip_html
 logger = get_logger(__name__)
 _EXTRACTION_DEGRADED_MSG = "Extraction unavailable; showing raw results."
 _QUERY_FALLBACK_PLATFORMS = {Platform.GITHUB, Platform.PRODUCT_HUNT}
+_DEFAULT_ADAPTIVE_WINDOW_SIZE = 6
+_DEGRADE_CONSECUTIVE_FAILURES = 2
+_RECOVERY_SUCCESS_STREAK = 3
 
 
 async def _emit(
@@ -61,6 +66,122 @@ async def _emit(
         )
 
 
+class _SourceAdaptiveController:
+    """In-memory adaptive budget controller for source querying."""
+
+    def __init__(
+        self,
+        *,
+        runtime_metrics: dict[str, dict[str, Any]],
+        source_timeout: int,
+        window_size: int = _DEFAULT_ADAPTIVE_WINDOW_SIZE,
+    ) -> None:
+        self._runtime_metrics = runtime_metrics
+        self._source_timeout = source_timeout
+        self._window_size = max(4, window_size)
+
+    def get_budget(
+        self,
+        *,
+        platform_name: str,
+        queries: list[str],
+        default_source_query_concurrency: int,
+    ) -> tuple[list[str], int]:
+        if not queries:
+            return [], max(1, default_source_query_concurrency)
+        state = self._ensure_state(platform_name)
+        level = int(state.get("degrade_level", 0))
+        if level <= 0:
+            return queries, max(1, default_source_query_concurrency)
+
+        reduced_query_count = max(1, ceil(len(queries) / 2))
+        reduced_concurrency = max(1, default_source_query_concurrency // 2)
+        return queries[:reduced_query_count], reduced_concurrency
+
+    def record(
+        self,
+        *,
+        platform_name: str,
+        status: SourceStatus,
+        duration_ms: int,
+    ) -> None:
+        state = self._ensure_state(platform_name)
+        history: deque[dict[str, Any]] = state["history"]
+        history.append({"status": status.value, "duration_ms": max(0, duration_ms)})
+        if len(history) > self._window_size:
+            history.popleft()
+        self._recompute_state(platform_name, state)
+
+    def _ensure_state(self, platform_name: str) -> dict[str, Any]:
+        existing = self._runtime_metrics.get(platform_name)
+        if existing is None:
+            existing = {
+                "history": deque(),
+                "degrade_level": 0,
+                "failure_streak": 0,
+                "success_streak": 0,
+            }
+            self._runtime_metrics[platform_name] = existing
+        return existing
+
+    def _recompute_state(self, platform_name: str, state: dict[str, Any]) -> None:
+        history: deque[dict[str, Any]] = state["history"]
+        if not history:
+            return
+        latest_status = SourceStatus(history[-1]["status"])
+        is_failure = latest_status in {SourceStatus.FAILED, SourceStatus.TIMEOUT}
+        is_success = latest_status == SourceStatus.OK
+
+        state["failure_streak"] = (
+            int(state.get("failure_streak", 0)) + 1 if is_failure else 0
+        )
+        state["success_streak"] = (
+            int(state.get("success_streak", 0)) + 1 if is_success else 0
+        )
+
+        timeout_count = sum(
+            1 for item in history if item["status"] == SourceStatus.TIMEOUT.value
+        )
+        fail_count = sum(
+            1
+            for item in history
+            if item["status"] in {SourceStatus.TIMEOUT.value, SourceStatus.FAILED.value}
+        )
+        duration_values = sorted(int(item["duration_ms"]) for item in history)
+        p95_index = max(0, ceil(0.95 * len(duration_values)) - 1)
+        p95_duration_ms = duration_values[p95_index] if duration_values else 0
+        timeout_like = self._source_timeout * 1000
+
+        should_degrade = (
+            int(state.get("failure_streak", 0)) >= _DEGRADE_CONSECUTIVE_FAILURES
+            or (len(history) >= 3 and (timeout_count / len(history)) >= 0.5)
+            or (len(history) >= 4 and p95_duration_ms >= int(timeout_like * 0.9))
+        )
+        should_recover = (
+            int(state.get("success_streak", 0)) >= _RECOVERY_SUCCESS_STREAK
+            and (fail_count / len(history)) <= 0.34
+            and p95_duration_ms <= int(timeout_like * 0.7)
+        )
+
+        level_before = int(state.get("degrade_level", 0))
+        if should_degrade:
+            state["degrade_level"] = 1
+        elif level_before > 0 and should_recover:
+            state["degrade_level"] = 0
+
+        level_after = int(state.get("degrade_level", 0))
+        if level_after != level_before:
+            action = "enabled" if level_after > level_before else "disabled"
+            logger.info(
+                "Adaptive degradation {} for {}: failure_streak={}, timeout_ratio={}, p95_ms={}",
+                action,
+                platform_name,
+                int(state.get("failure_streak", 0)),
+                round(timeout_count / len(history), 3),
+                p95_duration_ms,
+            )
+
+
 class PipelineNodes:
     """Node implementation bundle bound to runtime dependencies."""
 
@@ -77,6 +198,8 @@ class PipelineNodes:
         extraction_timeout: int,
         max_results_per_source: int,
         max_concurrent_llm: int,
+        source_global_concurrency: int,
+        source_runtime_metrics: dict[str, dict[str, Any]],
     ) -> None:
         self._intent_parser = intent_parser
         self._extractor = extractor
@@ -88,6 +211,11 @@ class PipelineNodes:
         self._extraction_timeout = extraction_timeout
         self._max_results = max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
+        self._source_semaphore = asyncio.Semaphore(max(1, source_global_concurrency))
+        self._adaptive = _SourceAdaptiveController(
+            runtime_metrics=source_runtime_metrics,
+            source_timeout=source_timeout,
+        )
 
     async def parse_intent_node(self, state: GraphState) -> GraphState:
         """Parse natural language query into structured intent."""
@@ -178,19 +306,47 @@ class PipelineNodes:
                 if sq.platform == source.platform:
                     source_queries = sq.queries
                     break
-            queries = _resolve_queries_for_source(
+            base_queries = _resolve_queries_for_source(
                 platform=source.platform,
                 source_queries=source_queries,
                 fallback_keywords=intent.keywords_en,
             )
+            default_query_concurrency = _safe_get_source_query_concurrency(source)
+            queries, runtime_query_concurrency = self._adaptive.get_budget(
+                platform_name=platform_name,
+                queries=base_queries,
+                default_source_query_concurrency=default_query_concurrency,
+            )
+            _safe_set_source_query_concurrency(source, runtime_query_concurrency)
 
             try:
-                results = await asyncio.wait_for(
-                    source.search(queries, limit=self._max_results),
-                    timeout=self._source_timeout,
-                )
+                async with self._source_semaphore:
+                    results = await asyncio.wait_for(
+                        source.search(queries, limit=self._max_results),
+                        timeout=self._source_timeout,
+                    )
                 duration_ms = int((time.monotonic() - start) * 1000)
                 raw_by_source[platform_name] = results
+                diagnostics = _safe_consume_source_diagnostics(source)
+                has_partial_failure = bool(diagnostics.get("partial_failure", False))
+                failed_queries = diagnostics.get("failed_queries", [])
+                timed_out_queries = diagnostics.get("timed_out_queries", [])
+                status = (
+                    SourceStatus.DEGRADED if has_partial_failure else SourceStatus.OK
+                )
+                error_msg = None
+                if has_partial_failure:
+                    partial_reason = (
+                        f"Partial source failure ({len(failed_queries)} failed, "
+                        f"{len(timed_out_queries)} timed out queries)"
+                    )
+                    error_msg = partial_reason
+                    logger.warning(
+                        "Source partial failure: platform={}, failed_queries={}, timed_out_queries={}",
+                        platform_name,
+                        failed_queries,
+                        timed_out_queries,
+                    )
                 await _emit(
                     self._callback,
                     EventType.SOURCE_COMPLETED,
@@ -198,12 +354,19 @@ class PipelineNodes:
                     f"Found {len(results)} results from {platform_name}",
                     {"platform": platform_name, "count": len(results)},
                 )
-                return SourceResult(
+                source_result = SourceResult(
                     platform=source.platform,
-                    status=SourceStatus.OK,
+                    status=status,
                     raw_count=len(results),
+                    error_msg=error_msg,
                     duration_ms=duration_ms,
                 )
+                self._adaptive.record(
+                    platform_name=platform_name,
+                    status=source_result.status,
+                    duration_ms=duration_ms,
+                )
+                return source_result
             except asyncio.TimeoutError:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 logger.warning("{} search timed out", platform_name)
@@ -213,12 +376,18 @@ class PipelineNodes:
                     f"{platform_name}_search",
                     f"{platform_name} search timed out",
                 )
-                return SourceResult(
+                source_result = SourceResult(
                     platform=source.platform,
                     status=SourceStatus.TIMEOUT,
                     error_msg="Timeout",
                     duration_ms=duration_ms,
                 )
+                self._adaptive.record(
+                    platform_name=platform_name,
+                    status=source_result.status,
+                    duration_ms=duration_ms,
+                )
+                return source_result
             except Exception as exc:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 logger.warning("{} search failed: {}", platform_name, exc)
@@ -228,12 +397,18 @@ class PipelineNodes:
                     f"{platform_name}_search",
                     f"{platform_name} search failed",
                 )
-                return SourceResult(
+                source_result = SourceResult(
                     platform=source.platform,
                     status=SourceStatus.FAILED,
                     error_msg=str(exc),
                     duration_ms=duration_ms,
                 )
+                self._adaptive.record(
+                    platform_name=platform_name,
+                    status=source_result.status,
+                    duration_ms=duration_ms,
+                )
+                return source_result
 
         fetch_results = await asyncio.gather(
             *[_fetch_source(source) for source in sources],
@@ -774,3 +949,25 @@ def _resolve_queries_for_source(
 def _normalize_queries(queries: list[str]) -> list[str]:
     normalized = [query.strip() for query in queries if query.strip()]
     return list(dict.fromkeys(normalized))
+
+
+def _safe_get_source_query_concurrency(source: DataSource) -> int:
+    value = getattr(source, "_max_concurrent_queries", 2)
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return 2
+
+
+def _safe_set_source_query_concurrency(source: DataSource, value: int) -> None:
+    setter = getattr(source, "set_runtime_max_concurrent_queries", None)
+    if callable(setter):
+        setter(max(1, value))
+
+
+def _safe_consume_source_diagnostics(source: DataSource) -> dict[str, Any]:
+    consumer = getattr(source, "consume_last_search_diagnostics", None)
+    if not callable(consumer):
+        return {}
+    payload = consumer()
+    return payload if isinstance(payload, dict) else {}

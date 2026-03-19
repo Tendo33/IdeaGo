@@ -121,6 +121,61 @@ class FailingSource:
         raise ConnectionError("API down")
 
 
+class RecordingSource:
+    shared_in_flight = 0
+    shared_max_in_flight = 0
+
+    def __init__(self, platform: Platform, delay_s: float = 0.03):
+        self._platform = platform
+        self._delay_s = delay_s
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.last_runtime_concurrency: int | None = None
+        self.last_queries_count = 0
+        self._should_fail = False
+
+    @property
+    def platform(self) -> Platform:
+        return self._platform
+
+    def is_available(self) -> bool:
+        return True
+
+    def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
+        self.last_runtime_concurrency = value
+
+    def set_should_fail(self, value: bool) -> None:
+        self._should_fail = value
+
+    def consume_last_search_diagnostics(self) -> dict:
+        return {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+        }
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        self.last_queries_count = len(queries)
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        RecordingSource.shared_in_flight += 1
+        RecordingSource.shared_max_in_flight = max(
+            RecordingSource.shared_max_in_flight, RecordingSource.shared_in_flight
+        )
+        await asyncio.sleep(self._delay_s)
+        self.in_flight -= 1
+        RecordingSource.shared_in_flight -= 1
+        if self._should_fail:
+            raise ConnectionError("synthetic source failure")
+        return [
+            RawResult(
+                title=f"{self.platform.value}-result",
+                url=f"https://example.com/{self.platform.value}",
+                platform=self.platform,
+            )
+        ]
+
+
 class EmptySource:
     @property
     def platform(self) -> Platform:
@@ -148,6 +203,7 @@ def _build_engine(
     extraction_fails: bool = False,
     aggregation_side_effect: object | None = None,
     intent_override: Intent | None = None,
+    source_global_concurrency: int = 3,
 ) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
     intent_parser.parse = AsyncMock(return_value=intent_override or MOCK_INTENT)
@@ -194,6 +250,7 @@ def _build_engine(
         checkpoint_db_path=str(tmp_path / "checkpoint.db"),
         source_timeout=5,
         extraction_timeout=5,
+        source_global_concurrency=source_global_concurrency,
     )
     collector = EventCollector()
     return engine, collector, intent_parser, aggregator
@@ -479,3 +536,72 @@ async def test_langgraph_engine_closes_saver_when_cancelled_during_enter(
             await run_task
 
     assert close_called is True
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_respects_source_global_concurrency(tmp_path) -> None:
+    RecordingSource.shared_in_flight = 0
+    RecordingSource.shared_max_in_flight = 0
+    sources = [
+        RecordingSource(Platform.GITHUB),
+        RecordingSource(Platform.HACKERNEWS),
+        RecordingSource(Platform.TAVILY),
+    ]
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=sources,
+        source_global_concurrency=1,
+    )
+
+    await engine.run("test idea")
+
+    assert RecordingSource.shared_max_in_flight == 1
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> None:
+    source = RecordingSource(Platform.GITHUB)
+    intent_override = Intent(
+        keywords_en=["api", "monitoring", "alerts", "latency"],
+        app_type="web",
+        target_scenario="Track reliability incidents",
+        search_queries=[
+            SearchQuery(
+                platform=Platform.GITHUB,
+                queries=["q1", "q2", "q3", "q4"],
+            ),
+        ],
+        cache_key="adaptive-intent",
+    )
+    engine, _, intent_parser, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        intent_override=intent_override,
+    )
+    parse_count = 0
+
+    async def parse_with_unique_cache(_query: str) -> Intent:
+        nonlocal parse_count
+        parse_count += 1
+        return intent_override.model_copy(
+            update={"cache_key": f"adaptive-{parse_count}"}
+        )
+
+    intent_parser.parse = AsyncMock(side_effect=parse_with_unique_cache)
+
+    source.set_should_fail(True)
+    await engine.run("test idea 1", report_id="adaptive-1")
+    await engine.run("test idea 2", report_id="adaptive-2")
+
+    source.set_should_fail(False)
+    await engine.run("test idea 3", report_id="adaptive-3")
+    degraded_query_count = source.last_queries_count
+    degraded_runtime_concurrency = source.last_runtime_concurrency
+
+    await engine.run("test idea 4", report_id="adaptive-4")
+    await engine.run("test idea 5", report_id="adaptive-5")
+    await engine.run("test idea 6", report_id="adaptive-6")
+
+    assert degraded_query_count < 8
+    assert degraded_runtime_concurrency is not None
+    assert source.last_queries_count == 4
