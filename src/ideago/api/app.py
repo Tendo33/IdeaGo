@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ideago.api.routes import analyze, health, reports
+from ideago.api.routes import analyze, auth, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -38,8 +38,10 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup / shutdown logic."""
     yield
     from ideago.api.dependencies import _orchestrator, shutdown_runtime_state
+    from ideago.auth.dependencies import close_auth_http_client
 
     await shutdown_runtime_state()
+    await close_auth_http_client()
     _rate_limit_store.clear()
 
     if _orchestrator is None:
@@ -64,6 +66,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.get_cors_allow_origins(),
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -87,6 +90,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(auth.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
 

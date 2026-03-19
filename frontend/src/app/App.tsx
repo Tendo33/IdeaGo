@@ -4,6 +4,16 @@ import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-do
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
 import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
 import { HomePage } from '@/features/home/HomePage'
+import { AuthProvider } from '@/lib/auth/AuthProvider'
+import { ProtectedRoute } from '@/lib/auth/ProtectedRoute'
+import { UserMenu } from '@/features/auth/components/UserMenu'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { AuthCallback } from '@/features/auth/AuthCallback'
+
+const ProfilePage = lazy(async () => {
+  const page = await import('@/features/profile/ProfilePage')
+  return { default: page.ProfilePage }
+})
 
 const ReportPage = lazy(async () => {
   const page = await import('@/features/reports/ReportPage')
@@ -293,6 +303,7 @@ function NavBar({
           <History className="w-5 h-5 shrink-0" />
           <span className="hidden sm:inline">{t('app.history')}</span>
         </Link>
+        <UserMenu />
       </div>
     </nav>
   )
@@ -316,20 +327,25 @@ export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <a href="#main-content" className="skip-to-content">
-          Skip to content
-        </a>
-        <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
-        <main id="main-content" className="pb-16 pt-24 sm:pt-32 min-h-screen bg-background text-foreground overflow-x-hidden">
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/reports/:id" element={<ReportPage />} />
-              <Route path="/reports" element={<HistoryPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </main>
+        <AuthProvider>
+          <a href="#main-content" className="skip-to-content">
+            Skip to content
+          </a>
+          <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
+          <main id="main-content" className="pb-16 pt-24 sm:pt-32 min-h-screen bg-background text-foreground overflow-x-hidden">
+            <Suspense fallback={<RouteLoading />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
+                <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </main>
+        </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
   )

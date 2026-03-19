@@ -1,8 +1,14 @@
 import type { ReportListItem, ReportRuntimeStatus, ResearchReport } from '../types/research'
+import { getAccessToken } from '../auth/token'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
 const ANALYSIS_TIMEOUT_MS = 30000
+
+function authHeaders(): Record<string, string> {
+  const token = getAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 export interface RequestOptions {
   signal?: AbortSignal
@@ -102,7 +108,7 @@ export async function startAnalysis(
 ): Promise<{ report_id: string }> {
   const res = await fetchWithTimeout(`${API_BASE}/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ query }),
   }, options, ANALYSIS_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Analysis failed'))
@@ -113,7 +119,7 @@ export async function getReport(
   id: string,
   options: RequestOptions = {},
 ): Promise<ResearchReport> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
   return res.json()
 }
@@ -127,7 +133,7 @@ export async function getReportWithStatus(
   id: string,
   options: RequestOptions = {},
 ): Promise<ReportFetchResult> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (res.status === 202) return { status: 'processing' }
   if (res.status === 404) return { status: 'missing' }
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
@@ -138,7 +144,7 @@ export async function getReportRuntimeStatus(
   id: string,
   options: RequestOptions = {},
 ): Promise<ReportRuntimeStatus> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/status`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/status`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load report status'))
   return res.json()
 }
@@ -154,18 +160,18 @@ export async function listReports(options: ListReportsOptions = {}): Promise<Rep
   }
   const query = params.toString()
   const url = query ? `${API_BASE}/reports?${query}` : `${API_BASE}/reports`
-  const res = await fetchWithTimeout(url, {}, requestOptions, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(url, { headers: authHeaders() }, requestOptions, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to list reports'))
   return res.json()
 }
 
 export async function deleteReport(id: string, options: RequestOptions = {}): Promise<void> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { method: 'DELETE' }, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { method: 'DELETE', headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to delete report'))
 }
 
 export async function cancelAnalysis(id: string, options: RequestOptions = {}): Promise<void> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE' }, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE', headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to cancel analysis'))
 }
 

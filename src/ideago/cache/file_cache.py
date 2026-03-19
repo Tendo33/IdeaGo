@@ -28,6 +28,7 @@ class ReportIndex(BaseModel):
     cache_key: str
     created_at: datetime
     competitor_count: int = 0
+    user_id: str = ""
 
 
 class FileCache:
@@ -133,24 +134,54 @@ class FileCache:
         *,
         limit: int | None = None,
         offset: int = 0,
+        user_id: str = "",
     ) -> list[ReportIndex]:
-        """List cached reports, excluding expired entries."""
-        return await asyncio.to_thread(self._list_reports_sync, limit, offset)
+        """List cached reports, excluding expired entries.
+
+        When *user_id* is provided, only reports belonging to that user are
+        returned.
+        """
+        return await asyncio.to_thread(self._list_reports_sync, limit, offset, user_id)
 
     def _list_reports_sync(
         self,
         limit: int | None = None,
         offset: int = 0,
+        user_id: str = "",
     ) -> list[ReportIndex]:
         with self._index_lock:
             index = self._read_index()
         reports = [e for e in index if not self._is_expired(e.created_at)]
+        if user_id:
+            reports = [e for e in reports if e.user_id == user_id]
         reports.sort(key=lambda entry: entry.created_at, reverse=True)
         if offset > 0:
             reports = reports[offset:]
         if limit is not None:
             reports = reports[:limit]
         return reports
+
+    async def update_report_user_id(self, report_id: str, user_id: str) -> None:
+        """Associate a report with a user in the index."""
+        await asyncio.to_thread(self._update_report_user_id_sync, report_id, user_id)
+
+    def _update_report_user_id_sync(self, report_id: str, user_id: str) -> None:
+        with self._index_lock:
+            entries = self._read_index()
+            for entry in entries:
+                if entry.report_id == report_id:
+                    entry.user_id = user_id
+                    break
+            self._write_index(entries)
+
+    def _get_report_user_id_sync(self, report_id: str) -> str:
+        """Return the user_id for a report, or empty string."""
+        with self._index_lock:
+            entries = self._read_index()
+        for entry in entries:
+            if entry.report_id == report_id:
+                return entry.user_id
+        return ""
 
     async def delete(self, report_id: str) -> bool:
         """Delete a cached report by ID."""

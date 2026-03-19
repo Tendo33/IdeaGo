@@ -1,6 +1,12 @@
-﻿# IdeaGo
+﻿<div align="center">
+  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+</div>
 
-![IdeaGo Banner](docs/assets/banner.png)
+# IdeaGo
+
+<p align="center">
+  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
+</p>
 
 面向创业想法的 AI 竞品调研引擎。
 
@@ -49,6 +55,10 @@
 ---
 
 ## IdeaGo 能做什么
+
+<p align="center">
+  <img src="docs/assets/usage_new.png" alt="IdeaGo 使用流程" width="100%" />
+</p>
 
 IdeaGo 可以把一句自然语言的创业想法，转成结构化竞品分析报告，报告包含：
 

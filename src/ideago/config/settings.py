@@ -168,6 +168,16 @@ class Settings(BaseSettings):
         description="Max retries when LLM returns invalid JSON / LLM 返回非法 JSON 时的最大重试次数",
     )
 
+    # --- Supabase Auth / 认证配置 ---
+    supabase_url: str = Field(
+        default="",
+        description="Supabase project URL / Supabase 项目地址",
+    )
+    supabase_anon_key: str = Field(
+        default="",
+        description="Supabase anon (publishable) key / Supabase 匿名密钥",
+    )
+
     # --- Cache / 缓存配置 ---
     cache_dir: str = Field(
         default=".cache/ideago",

@@ -8,11 +8,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, cast
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, get_processing_reports
 from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
+from ideago.auth.dependencies import get_current_user
+from ideago.auth.models import AuthUser
 from ideago.models.research import ResearchReport
 
 router = APIRouter(tags=["reports"])
@@ -32,10 +34,11 @@ def _parse_status_updated_at(raw_value: object) -> datetime | None:
 async def list_reports(
     limit: int | None = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    user: AuthUser = Depends(get_current_user),
 ) -> list[ReportListItem]:
-    """List all cached research reports."""
+    """List research reports belonging to the authenticated user."""
     cache = get_cache()
-    entries = await cache.list_reports(limit=limit, offset=offset)
+    entries = await cache.list_reports(limit=limit, offset=offset, user_id=user.id)
     return [
         ReportListItem(
             id=e.report_id,
@@ -115,9 +118,15 @@ async def get_report_status(report_id: str) -> ReportRuntimeStatus:
 
 
 @router.delete("/reports/{report_id}")
-async def delete_report(report_id: str) -> dict:
-    """Delete a cached report."""
+async def delete_report(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> dict:
+    """Delete a cached report owned by the authenticated user."""
     cache = get_cache()
+    owner_id = cache._get_report_user_id_sync(report_id)
+    if owner_id and owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     deleted = await cache.delete(report_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Report not found")

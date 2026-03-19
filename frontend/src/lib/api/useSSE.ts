@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useCallback } from 'react'
 import i18n from '../i18n/i18n'
 import type { PipelineEvent } from '../types/research'
 import { getStreamUrl } from "./client";
+import { getAccessToken } from "../auth/token";
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
@@ -165,8 +166,12 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
 			(async () => {
 				try {
+					const sseHeaders: Record<string, string> = { Accept: "text/event-stream" };
+					const token = getAccessToken();
+					if (token) sseHeaders.Authorization = `Bearer ${token}`;
+
 					const res = await fetch(url, {
-						headers: { Accept: "text/event-stream" },
+						headers: sseHeaders,
 						signal: controller.signal,
 					});
 

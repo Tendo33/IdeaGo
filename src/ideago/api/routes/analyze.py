@@ -10,7 +10,7 @@ import hashlib
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
@@ -27,6 +27,8 @@ from ideago.api.dependencies import (
     reserve_processing_report,
 )
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
+from ideago.auth.dependencies import get_current_user
+from ideago.auth.models import AuthUser
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.events import EventType, PipelineEvent
 
@@ -73,7 +75,7 @@ class _RunStateCallback:
         await run_state.publish(event)
 
 
-async def _run_pipeline(query: str, report_id: str) -> None:
+async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
     """Background task: run the pipeline and push events to the queue."""
     cache = get_cache()
     run_state = get_or_create_report_run(report_id)
@@ -91,6 +93,8 @@ async def _run_pipeline(query: str, report_id: str) -> None:
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
+        if user_id:
+            await cache.update_report_user_id(report_id, user_id)
         await cache.put_status(report_id, "complete", query, message="Report ready")
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
@@ -122,7 +126,10 @@ async def _run_pipeline(query: str, report_id: str) -> None:
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def start_analysis(request: AnalyzeRequest) -> AnalyzeResponse:
+async def start_analysis(
+    request: AnalyzeRequest,
+    user: AuthUser = Depends(get_current_user),
+) -> AnalyzeResponse:
     """Start a competitor research pipeline for the given idea."""
     query = request.query.strip()
 
@@ -134,7 +141,7 @@ async def start_analysis(request: AnalyzeRequest) -> AnalyzeResponse:
 
     get_or_create_report_run(report_id)
 
-    task = asyncio.create_task(_run_pipeline(query, report_id))
+    task = asyncio.create_task(_run_pipeline(query, report_id, user.id))
     await register_pipeline_task(report_id, task)
     return AnalyzeResponse(report_id=report_id)
 

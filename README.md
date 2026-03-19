@@ -1,6 +1,12 @@
-﻿# IdeaGo
+﻿<div align="center">
+  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+</div>
 
-![IdeaGo Banner](docs/assets/banner.png)
+# IdeaGo
+
+<p align="center">
+  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
+</p>
 
 AI-powered competitor research engine for startup ideas.
 
@@ -49,6 +55,10 @@ AI-powered competitor research engine for startup ideas.
 ---
 
 ## What IdeaGo Does
+
+<p align="center">
+  <img src="docs/assets/usage_new.png" alt="IdeaGo Usage Pipeline" width="100%" />
+</p>
 
 IdeaGo turns one natural-language startup idea into a structured competitor report with:
 
