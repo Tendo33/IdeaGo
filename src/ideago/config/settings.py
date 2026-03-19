@@ -177,6 +177,16 @@ class Settings(BaseSettings):
         default="",
         description="Supabase anon (publishable) key / Supabase 匿名密钥",
     )
+    supabase_jwt_secret: str = Field(
+        default="",
+        description="Supabase JWT secret for local token verification "
+        "(Dashboard → Settings → API → JWT Secret)",
+    )
+    supabase_service_role_key: str = Field(
+        default="",
+        description="Supabase service_role key for backend-only DB operations "
+        "(Dashboard → Settings → API → service_role). NEVER expose to frontend.",
+    )
 
     # --- Cache / 缓存配置 ---
     cache_dir: str = Field(

@@ -12,7 +12,7 @@ vi.mock('@/lib/api/client', () => ({
   getReportRuntimeStatus: vi.fn(),
   cancelAnalysis: vi.fn(),
   startAnalysis: vi.fn(),
-  getExportUrl: vi.fn(() => '#'),
+  exportReport: vi.fn(),
 }))
 
 vi.mock('@/lib/api/useSSE', () => ({

@@ -39,9 +39,11 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
     from ideago.api.dependencies import _orchestrator, shutdown_runtime_state
     from ideago.auth.dependencies import close_auth_http_client
+    from ideago.auth.supabase_admin import close_supabase_admin_client
 
     await shutdown_runtime_state()
     await close_auth_http_client()
+    await close_supabase_admin_client()
     _rate_limit_store.clear()
 
     if _orchestrator is None:
@@ -63,9 +65,17 @@ def create_app() -> FastAPI:
         description="AI-powered competitor research engine for startup ideas",
         lifespan=_lifespan,
     )
+    origins = settings.get_cors_allow_origins()
+    if origins == ["*"]:
+        origins = [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+        ]
+        logger.info("CORS: using default dev origins {}", origins)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.get_cors_allow_origins(),
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -29,6 +29,7 @@ from ideago.api.dependencies import (
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
+from ideago.auth.supabase_admin import check_and_increment_quota
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.events import EventType, PipelineEvent
 
@@ -131,6 +132,19 @@ async def start_analysis(
     user: AuthUser = Depends(get_current_user),
 ) -> AnalyzeResponse:
     """Start a competitor research pipeline for the given idea."""
+    quota = await check_and_increment_quota(user.id)
+    if not quota.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "QUOTA_EXCEEDED",
+                "message": f"Monthly limit reached ({quota.plan_limit} analyses on {quota.plan} plan)",
+                "usage_count": quota.usage_count,
+                "plan_limit": quota.plan_limit,
+                "plan": quota.plan,
+            },
+        )
+
     query = request.query.strip()
 
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
@@ -245,14 +259,28 @@ async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
 
 
 @router.get("/reports/{report_id}/stream")
-async def stream_progress(report_id: str) -> EventSourceResponse:
+async def stream_progress(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> EventSourceResponse:
     """SSE endpoint — stream pipeline progress events for a report."""
+    cache = get_cache()
+    owner_id = await cache.get_report_user_id(report_id)
+    if owner_id and owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     return EventSourceResponse(_stream_events(report_id))
 
 
 @router.delete("/reports/{report_id}/cancel")
-async def cancel_analysis(report_id: str) -> dict:
+async def cancel_analysis(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> dict:
     """Cancel an in-progress analysis task."""
+    cache = get_cache()
+    owner_id = await cache.get_report_user_id(report_id)
+    if owner_id and owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
     task = await get_pipeline_task_for_report(report_id)
     report_is_processing = await is_processing_report(report_id)
     if (task is None or task.done()) and not report_is_processing:

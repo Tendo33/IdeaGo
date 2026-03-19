@@ -183,6 +183,10 @@ class FileCache:
                 return entry.user_id
         return ""
 
+    async def get_report_user_id(self, report_id: str) -> str:
+        """Return the user_id for a report, or empty string (async)."""
+        return await asyncio.to_thread(self._get_report_user_id_sync, report_id)
+
     async def delete(self, report_id: str) -> bool:
         """Delete a cached report by ID."""
         return await asyncio.to_thread(self._delete_sync, report_id)

@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/Button'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/useAuth'
-import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2 } from 'lucide-react'
+import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 import type { Provider } from '@supabase/supabase-js'
 
-type AuthMode = 'login' | 'register'
+type AuthMode = 'login' | 'register' | 'reset'
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -42,11 +42,13 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<Provider | null>(null)
   const [confirmSent, setConfirmSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
-  if (user) {
-    navigate(from, { replace: true })
-    return null
-  }
+  useEffect(() => {
+    if (user) navigate(from, { replace: true })
+  }, [user, from, navigate])
+
+  if (user) return null
 
   const handleOAuth = async (provider: Provider) => {
     setError('')
@@ -92,6 +94,48 @@ export function LoginPage() {
     }
   }
 
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login`,
+      })
+      if (err) {
+        setError(err.message)
+        return
+      }
+      setResetSent(true)
+    } catch {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (resetSent) {
+    return (
+      <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
+        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+          <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
+          <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
+            {t('auth.resetEmailSent', 'Check your email')}
+          </h2>
+          <p className="text-muted-foreground font-bold mb-8">
+            {t('auth.resetEmailDesc', "We've sent a password reset link to")}
+            <br />
+            <span className="text-foreground">{email}</span>
+          </p>
+          <Button onClick={() => { setMode('login'); setResetSent(false); setError('') }} variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t('auth.backToLogin', 'Back to login')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   if (confirmSent) {
     return (
       <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
@@ -130,12 +174,16 @@ export function LoginPage() {
         <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2">
           {mode === 'login'
             ? t('auth.loginTitle', 'Sign In')
-            : t('auth.registerTitle', 'Create Account')}
+            : mode === 'register'
+              ? t('auth.registerTitle', 'Create Account')
+              : t('auth.resetTitle', 'Reset Password')}
         </h1>
         <p className="text-muted-foreground font-bold mb-8">
           {mode === 'login'
             ? t('auth.loginSubtitle', 'Sign in to access your reports')
-            : t('auth.registerSubtitle', 'Start analyzing competitors today')}
+            : mode === 'register'
+              ? t('auth.registerSubtitle', 'Start analyzing competitors today')
+              : t('auth.resetSubtitle', 'Enter your email and we\'ll send a reset link')}
         </p>
 
         {error && (
@@ -144,46 +192,49 @@ export function LoginPage() {
           </div>
         )}
 
-        {/* OAuth buttons */}
-        <div className="space-y-3 mb-6">
-          <button
-            type="button"
-            disabled={anyLoading}
-            onClick={() => handleOAuth('github')}
-            className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {oauthLoading === 'github' ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <GitHubIcon className="w-5 h-5" />
-            )}
-            {t('auth.continueWithGithub', 'Continue with GitHub')}
-          </button>
-          <button
-            type="button"
-            disabled={anyLoading}
-            onClick={() => handleOAuth('google')}
-            className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {oauthLoading === 'google' ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <GoogleIcon className="w-5 h-5" />
-            )}
-            {t('auth.continueWithGoogle', 'Continue with Google')}
-          </button>
-        </div>
+        {/* OAuth buttons — only on login/register */}
+        {mode !== 'reset' && (
+          <>
+            <div className="space-y-3 mb-6">
+              <button
+                type="button"
+                disabled={anyLoading}
+                onClick={() => handleOAuth('github')}
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === 'github' ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <GitHubIcon className="w-5 h-5" />
+                )}
+                {t('auth.continueWithGithub', 'Continue with GitHub')}
+              </button>
+              <button
+                type="button"
+                disabled={anyLoading}
+                onClick={() => handleOAuth('google')}
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === 'google' ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <GoogleIcon className="w-5 h-5" />
+                )}
+                {t('auth.continueWithGoogle', 'Continue with Google')}
+              </button>
+            </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-0.5 bg-border" />
-          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-            {t('auth.orEmail', 'or')}
-          </span>
-          <div className="flex-1 h-0.5 bg-border" />
-        </div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-0.5 bg-border" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                {t('auth.orEmail', 'or')}
+              </span>
+              <div className="flex-1 h-0.5 bg-border" />
+            </div>
+          </>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={mode === 'reset' ? handleReset : handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="email" className="block text-sm font-black uppercase tracking-wider mb-2">
               {t('auth.email', 'Email')}
@@ -204,38 +255,55 @@ export function LoginPage() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-black uppercase tracking-wider mb-2">
-              {t('auth.password', 'Password')}
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="input w-full pl-11"
-                placeholder={mode === 'register' ? t('auth.minChars', 'At least 6 characters') : '••••••••'}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                disabled={anyLoading}
-              />
+          {mode !== 'reset' && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="block text-sm font-black uppercase tracking-wider">
+                  {t('auth.password', 'Password')}
+                </label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('reset'); setError('') }}
+                    className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                  >
+                    {t('auth.forgotPassword', 'Forgot password?')}
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="input w-full pl-11"
+                  placeholder={mode === 'register' ? t('auth.minChars', 'At least 6 characters') : '••••••••'}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  disabled={anyLoading}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <Button type="submit" className="w-full" size="lg" disabled={anyLoading}>
             {loading ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : mode === 'login' ? (
               <LogIn className="w-5 h-5 mr-2" />
-            ) : (
+            ) : mode === 'register' ? (
               <UserPlus className="w-5 h-5 mr-2" />
+            ) : (
+              <KeyRound className="w-5 h-5 mr-2" />
             )}
             {mode === 'login'
               ? t('auth.signIn', 'Sign In')
-              : t('auth.signUp', 'Sign Up')}
+              : mode === 'register'
+                ? t('auth.signUp', 'Sign Up')
+                : t('auth.sendResetLink', 'Send Reset Link')}
           </Button>
         </form>
 
@@ -253,7 +321,7 @@ export function LoginPage() {
             </p>
           ) : (
             <p className="text-sm font-bold text-muted-foreground">
-              {t('auth.hasAccount', 'Already have an account?')}{' '}
+              {mode === 'register' ? t('auth.hasAccount', 'Already have an account?') : t('auth.rememberPassword', 'Remember your password?')}{' '}
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError('') }}

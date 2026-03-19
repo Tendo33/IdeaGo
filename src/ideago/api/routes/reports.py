@@ -15,9 +15,17 @@ from ideago.api.dependencies import get_cache, get_processing_reports
 from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
+from ideago.cache.file_cache import FileCache
 from ideago.models.research import ResearchReport
 
 router = APIRouter(tags=["reports"])
+
+
+async def _assert_report_owner(cache: FileCache, report_id: str, user_id: str) -> None:
+    """Raise 403 if the report exists but belongs to another user."""
+    owner_id = await cache.get_report_user_id(report_id)
+    if owner_id and owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
 
 
 def _parse_status_updated_at(raw_value: object) -> datetime | None:
@@ -51,9 +59,14 @@ async def list_reports(
 
 
 @router.get("/reports/{report_id}", response_model=None)
-async def get_report(report_id: str) -> dict | JSONResponse:
+async def get_report(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> dict | JSONResponse:
     """Get a completed report by ID. Returns 202 if still processing, 404 if not found."""
     cache = get_cache()
+    await _assert_report_owner(cache, report_id, user.id)
+
     report = await cache.get_by_id(report_id)
     if report is not None:
         return report.model_dump(mode="json")
@@ -76,9 +89,14 @@ async def get_report(report_id: str) -> dict | JSONResponse:
 
 
 @router.get("/reports/{report_id}/status", response_model=ReportRuntimeStatus)
-async def get_report_status(report_id: str) -> ReportRuntimeStatus:
+async def get_report_status(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> ReportRuntimeStatus:
     """Get report runtime status for processing/failed/cancelled/complete/not_found."""
     cache = get_cache()
+    await _assert_report_owner(cache, report_id, user.id)
+
     report = await cache.get_by_id(report_id)
     if report is not None:
         return ReportRuntimeStatus(
@@ -124,9 +142,7 @@ async def delete_report(
 ) -> dict:
     """Delete a cached report owned by the authenticated user."""
     cache = get_cache()
-    owner_id = cache._get_report_user_id_sync(report_id)
-    if owner_id and owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    await _assert_report_owner(cache, report_id, user.id)
     deleted = await cache.delete(report_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -134,9 +150,13 @@ async def delete_report(
 
 
 @router.get("/reports/{report_id}/export")
-async def export_report(report_id: str) -> PlainTextResponse:
+async def export_report(
+    report_id: str,
+    user: AuthUser = Depends(get_current_user),
+) -> PlainTextResponse:
     """Export a report as Markdown."""
     cache = get_cache()
+    await _assert_report_owner(cache, report_id, user.id)
     report = await cache.get_by_id(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")

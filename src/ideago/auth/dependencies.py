@@ -1,11 +1,13 @@
 """FastAPI dependencies for authentication.
 
-FastAPI 认证依赖注入：从请求头提取并验证 Supabase JWT。
+FastAPI 认证依赖注入：优先使用 PyJWT 本地验证 Supabase JWT，
+如未配置 JWT Secret 则回退到 HTTP 远程验证。
 """
 
 from __future__ import annotations
 
 import httpx
+import jwt
 from fastapi import Depends, HTTPException, Request
 
 from ideago.auth.models import AuthUser
@@ -18,7 +20,7 @@ _http_client: httpx.AsyncClient | None = None
 
 
 def _get_http_client() -> httpx.AsyncClient:
-    """Lazily create a shared async HTTP client for auth verification."""
+    """Lazily create a shared async HTTP client for remote auth verification."""
     global _http_client
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=5.0)
@@ -33,11 +35,29 @@ async def close_auth_http_client() -> None:
         _http_client = None
 
 
-async def _verify_supabase_token(token: str) -> dict | None:
-    """Verify a Supabase access token by calling the auth endpoint.
+def _verify_jwt_locally(token: str, jwt_secret: str) -> dict | None:
+    """Verify and decode a Supabase JWT using the project's JWT secret.
 
-    Returns the user payload dict on success, None on failure.
+    Returns the decoded payload on success, None on failure.
+    Supabase uses HS256 by default.
     """
+    try:
+        payload = jwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.debug("JWT expired")
+    except jwt.InvalidTokenError as exc:
+        logger.debug("JWT validation failed: {}", exc)
+    return None
+
+
+async def _verify_supabase_token_remote(token: str) -> dict | None:
+    """Fallback: verify token via Supabase HTTP endpoint (~100-200ms)."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_anon_key:
         logger.warning("Supabase URL or anon key not configured; skipping auth")
@@ -57,13 +77,32 @@ async def _verify_supabase_token(token: str) -> dict | None:
     except httpx.TimeoutException:
         logger.warning("Supabase auth endpoint timed out")
     except Exception:
-        logger.warning("Unexpected error verifying Supabase token")
+        logger.opt(exception=True).warning("Unexpected error verifying Supabase token")
     return None
+
+
+def _extract_user_from_jwt_payload(payload: dict) -> AuthUser | None:
+    """Extract AuthUser from a locally-decoded JWT payload."""
+    user_id = payload.get("sub", "")
+    if not user_id:
+        return None
+    email = payload.get("email", "")
+    return AuthUser(id=user_id, email=email)
+
+
+def _extract_user_from_api_response(data: dict) -> AuthUser | None:
+    """Extract AuthUser from the Supabase /auth/v1/user response."""
+    user_id = data.get("id", "")
+    if not user_id:
+        return None
+    return AuthUser(id=user_id, email=data.get("email", ""))
 
 
 async def get_optional_user(request: Request) -> AuthUser | None:
     """Extract and verify the user from the Authorization header.
 
+    Uses local JWT verification when SUPABASE_JWT_SECRET is configured,
+    falls back to HTTP remote verification otherwise.
     Returns None when no valid token is present (non-blocking).
     """
     auth_header = request.headers.get("Authorization")
@@ -73,16 +112,18 @@ async def get_optional_user(request: Request) -> AuthUser | None:
     if not token:
         return None
 
-    user_data = await _verify_supabase_token(token)
+    settings = get_settings()
+
+    if settings.supabase_jwt_secret:
+        payload = _verify_jwt_locally(token, settings.supabase_jwt_secret)
+        if payload is not None:
+            return _extract_user_from_jwt_payload(payload)
+        return None
+
+    user_data = await _verify_supabase_token_remote(token)
     if user_data is None:
         return None
-    user_id = user_data.get("id", "")
-    if not user_id:
-        return None
-    return AuthUser(
-        id=user_id,
-        email=user_data.get("email", ""),
-    )
+    return _extract_user_from_api_response(user_data)
 
 
 async def get_current_user(

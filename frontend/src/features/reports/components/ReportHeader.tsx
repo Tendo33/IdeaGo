@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Share2, Download, Link2, Check, Printer, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ResearchReport } from '@/lib/types/research'
-import { getExportUrl } from '@/lib/api/client'
+import { exportReport } from '@/lib/api/client'
 
 interface ReportHeaderProps {
   report: ResearchReport
@@ -168,7 +168,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             <DropdownItem
               icon={Download}
               label={t('report.header.markdown')}
-              href={getExportUrl(report.id)}
+              onClick={() => exportReport(report.id)}
             />
             <DropdownItem
               icon={Printer}

@@ -4,15 +4,13 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth/useAuth'
 import { supabase } from '@/lib/supabase/client'
-import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield } from 'lucide-react'
+import { getQuotaInfo, type QuotaInfo } from '@/lib/api/client'
+import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3 } from 'lucide-react'
 
 interface Profile {
   display_name: string
   avatar_url: string
   bio: string
-  plan: string
-  usage_count: number
-  usage_reset_at: string
   created_at: string
 }
 
@@ -20,6 +18,7 @@ export function ProfilePage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [quota, setQuota] = useState<QuotaInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -33,21 +32,29 @@ export function ProfilePage() {
     let cancelled = false
 
     async function load() {
-      const { data, error: err } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user!.id)
-        .single()
+      const [profileResult, quotaResult] = await Promise.allSettled([
+        supabase.from('profiles').select('display_name, avatar_url, bio, created_at').eq('id', user!.id).single(),
+        getQuotaInfo(),
+      ])
 
       if (cancelled) return
-      if (err) {
-        setError(err.message)
-        setLoading(false)
-        return
+
+      if (profileResult.status === 'fulfilled' && !profileResult.value.error) {
+        const data = profileResult.value.data as Profile
+        setProfile(data)
+        setDisplayName(data.display_name)
+        setBio(data.bio)
+      } else {
+        const msg = profileResult.status === 'fulfilled'
+          ? profileResult.value.error?.message
+          : profileResult.reason?.message
+        setError(msg ?? 'Failed to load profile')
       }
-      setProfile(data as Profile)
-      setDisplayName((data as Profile).display_name)
-      setBio((data as Profile).bio)
+
+      if (quotaResult.status === 'fulfilled') {
+        setQuota(quotaResult.value)
+      }
+
       setLoading(false)
     }
     load()
@@ -93,6 +100,10 @@ export function ProfilePage() {
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
     : ''
+
+  const usagePercent = quota && quota.plan_limit > 0
+    ? Math.min(100, Math.round((quota.usage_count / quota.plan_limit) * 100))
+    : 0
 
   return (
     <div className="app-shell px-4 max-w-2xl">
@@ -142,13 +153,13 @@ export function ProfilePage() {
           <Shield className="w-5 h-5" />
           {t('profile.planAndUsage', 'Plan & Usage')}
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="border-2 border-border p-4">
             <p className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-1">
               {t('profile.currentPlan', 'Plan')}
             </p>
             <p className="text-lg font-black uppercase text-primary">
-              {profile?.plan ?? 'free'}
+              {quota?.plan ?? 'free'}
             </p>
           </div>
           <div className="border-2 border-border p-4">
@@ -156,10 +167,36 @@ export function ProfilePage() {
               {t('profile.usageThisMonth', 'Used this month')}
             </p>
             <p className="text-lg font-black">
-              {profile?.usage_count ?? 0}
+              {quota?.usage_count ?? 0} / {quota?.plan_limit ?? '–'}
             </p>
           </div>
         </div>
+
+        {/* Usage bar */}
+        {quota && quota.plan_limit > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                <BarChart3 className="w-3.5 h-3.5" />
+                {t('profile.quotaUsage', 'Quota usage')}
+              </span>
+              <span className="text-xs font-black">{usagePercent}%</span>
+            </div>
+            <div className="w-full h-3 bg-muted border-2 border-border">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  usagePercent >= 90 ? 'bg-destructive' : usagePercent >= 70 ? 'bg-yellow-500' : 'bg-primary'
+                }`}
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+            {quota.reset_at && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {t('profile.resetsOn', 'Resets on')} {new Date(quota.reset_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Edit form */}

@@ -7,7 +7,7 @@ import {
   listReports,
   deleteReport,
   cancelAnalysis,
-  getExportUrl,
+  exportReport,
   getStreamUrl,
 } from '../client'
 
@@ -206,8 +206,22 @@ describe('cancelAnalysis', () => {
 })
 
 describe('URL helpers', () => {
-  it('getExportUrl builds correct URL', () => {
-    expect(getExportUrl('abc')).toContain('/api/v1/reports/abc/export')
+  it('exportReport fetches with auth and triggers download', async () => {
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:fake', revokeObjectURL })
+
+    const mockLink = { href: '', download: '', click: vi.fn(), remove: vi.fn() }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockLink as unknown as HTMLElement)
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as unknown as Node)
+
+    mockFetch.mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(['# Report'])) })
+    await exportReport('abc')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports/abc/export'),
+      expect.objectContaining({ headers: expect.any(Object) }),
+    )
+    expect(mockLink.click).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake')
   })
 
   it('getStreamUrl builds correct URL', () => {

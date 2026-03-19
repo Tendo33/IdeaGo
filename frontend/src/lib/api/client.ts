@@ -1,5 +1,5 @@
 import type { ReportListItem, ReportRuntimeStatus, ResearchReport } from '../types/research'
-import { getAccessToken } from '../auth/token'
+import { getAccessToken, setAccessToken } from '../auth/token'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
@@ -84,11 +84,17 @@ async function fetchWithTimeout(
   }
 
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...init,
       headers: init.headers,
       signal: timeoutController.signal,
     })
+    if (res.status === 401) {
+      setAccessToken(null)
+      window.location.href = '/login'
+      throw new Error('Session expired. Redirecting to login.')
+    }
+    return res
   } catch (error) {
     if (isRequestAbortError(error) && timedOut) {
       throw new Error('Request timed out. Please try again.')
@@ -175,10 +181,36 @@ export async function cancelAnalysis(id: string, options: RequestOptions = {}): 
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to cancel analysis'))
 }
 
-export function getExportUrl(id: string): string {
-  return `${API_BASE}/reports/${id}/export`
+export async function exportReport(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/reports/${id}/export`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `report-${id.slice(0, 8)}.md`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function getStreamUrl(id: string): string {
   return `${API_BASE}/reports/${id}/stream`
+}
+
+export interface QuotaInfo {
+  usage_count: number
+  plan_limit: number
+  plan: string
+  reset_at?: string
+  error?: string
+}
+
+export async function getQuotaInfo(options: RequestOptions = {}): Promise<QuotaInfo> {
+  const res = await fetchWithTimeout(`${API_BASE}/auth/quota`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load quota'))
+  return res.json()
 }
