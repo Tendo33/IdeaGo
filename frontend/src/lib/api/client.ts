@@ -181,11 +181,14 @@ export async function cancelAnalysis(id: string, options: RequestOptions = {}): 
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to cancel analysis'))
 }
 
-export async function exportReport(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/reports/${id}/export`, {
-    headers: authHeaders(),
-  })
-  if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+export async function exportReport(id: string, options: RequestOptions = {}): Promise<void> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/reports/${id}/export`,
+    { headers: authHeaders() },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Export failed'))
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

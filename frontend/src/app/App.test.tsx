@@ -2,8 +2,35 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+const mockUser = { id: 'u1', email: 'test@test.com' }
+let authState: { user: typeof mockUser | null; loading: boolean } = {
+  user: mockUser,
+  loading: false,
+}
+
+vi.mock('@/lib/auth/useAuth', () => ({
+  useAuth: () => ({
+    session: authState.user ? { user: authState.user, access_token: 'tok' } : null,
+    user: authState.user,
+    loading: authState.loading,
+    signOut: vi.fn(),
+  }),
+}))
+
+vi.mock('@/lib/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+vi.mock('@/lib/auth/ProtectedRoute', () => ({
+  ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 vi.mock('@/features/home/HomePage', () => ({
   HomePage: () => <div>HOME PAGE</div>,
+}))
+
+vi.mock('@/features/landing/LandingPage', () => ({
+  LandingPage: () => <div>LANDING PAGE</div>,
 }))
 
 vi.mock('@/features/reports/ReportPage', async () => {
@@ -23,6 +50,7 @@ vi.mock('@/features/history/HistoryPage', async () => {
 describe('App route loading', () => {
   beforeEach(() => {
     localStorage.clear()
+    authState = { user: mockUser, loading: false }
     window.history.pushState({}, '', '/reports/r-1')
   })
 
@@ -52,9 +80,29 @@ function mockMatchMedia(matches: boolean) {
   vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => mediaQueryList))
 }
 
+describe('App landing page', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('shows landing page when not authenticated', async () => {
+    authState = { user: null, loading: false }
+    render(<App />)
+    expect(await screen.findByText('LANDING PAGE')).toBeInTheDocument()
+  })
+
+  it('shows home page when authenticated', async () => {
+    authState = { user: mockUser, loading: false }
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+  })
+})
+
 describe('App theme mode', () => {
   beforeEach(() => {
     localStorage.clear()
+    authState = { user: mockUser, loading: false }
     document.documentElement.classList.remove('dark')
     window.history.pushState({}, '', '/')
   })
@@ -91,6 +139,7 @@ describe('App theme mode', () => {
 describe('App nav branding', () => {
   beforeEach(() => {
     localStorage.clear()
+    authState = { user: mockUser, loading: false }
     window.history.pushState({}, '', '/')
   })
 

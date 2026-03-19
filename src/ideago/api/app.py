@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from ideago import __version__
 from ideago.api.routes import analyze, auth, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
@@ -89,7 +90,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="IdeaGo",
-        version="0.2.9",
+        version=__version__,
         description="AI-powered competitor research engine for startup ideas",
         lifespan=_lifespan,
     )
