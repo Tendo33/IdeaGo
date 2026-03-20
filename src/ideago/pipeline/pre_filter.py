@@ -51,6 +51,8 @@ def _quality_score(result: RawResult) -> float:
         return _score_producthunt(raw)
     if platform == Platform.TAVILY:
         return _score_tavily(raw, has_description)
+    if platform == Platform.REDDIT:
+        return _score_reddit(raw)
     return 0.5 if has_description else 0.1
 
 
@@ -82,6 +84,14 @@ def _score_appstore(raw: dict) -> float:
 def _score_producthunt(raw: dict) -> float:
     votes = _safe_int(raw.get("votes_count", 0))
     return min(1.0, votes / 300)
+
+
+def _score_reddit(raw: dict) -> float:
+    score = _safe_int(raw.get("score", 0))
+    comments = _safe_int(raw.get("num_comments", 0))
+    score_part = min(1.0, score / 200)
+    comment_part = min(1.0, comments / 50) * 0.3
+    return min(1.0, score_part + comment_part)
 
 
 def _score_tavily(raw: dict, has_description: bool) -> float:

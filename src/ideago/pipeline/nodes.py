@@ -718,6 +718,16 @@ def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor
             price = rd.get("price_label")
             if price:
                 features.append(price)
+        elif raw.platform == Platform.REDDIT:
+            subreddit = rd.get("subreddit")
+            if subreddit:
+                features.append(f"r/{subreddit}")
+            score = _safe_int(rd.get("score", 0))
+            if score:
+                features.append(f"{score} upvotes")
+            comments = _safe_int(rd.get("num_comments", 0))
+            if comments:
+                features.append(f"{comments} comments")
 
         result.append(
             Competitor(

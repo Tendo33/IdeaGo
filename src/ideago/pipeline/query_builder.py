@@ -22,6 +22,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["browser-extensions", "chrome-extensions", "productivity"],
         "hn_extra": ["chrome extension"],
         "tavily_phrasing": "browser extension",
+        "reddit_extra": ["extension", "addon"],
     },
     "mobile": {
         "github_extra": ["mobile app"],
@@ -29,6 +30,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["mobile-apps", "ios", "android"],
         "hn_extra": ["mobile app"],
         "tavily_phrasing": "mobile app",
+        "reddit_extra": ["app", "mobile"],
     },
     "web": {
         "github_extra": ["web app", "saas"],
@@ -36,6 +38,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["saas", "web-app", "productivity"],
         "hn_extra": ["web app", "saas"],
         "tavily_phrasing": "web application",
+        "reddit_extra": ["webapp", "saas"],
     },
     "desktop": {
         "github_extra": ["desktop app"],
@@ -43,6 +46,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["mac", "windows", "desktop-apps"],
         "hn_extra": ["desktop app"],
         "tavily_phrasing": "desktop application",
+        "reddit_extra": ["desktop", "software"],
     },
     "cli": {
         "github_extra": ["cli tool", "command line"],
@@ -50,6 +54,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["developer-tools", "command-line-tools"],
         "hn_extra": ["cli tool"],
         "tavily_phrasing": "command line tool",
+        "reddit_extra": ["cli", "terminal"],
     },
     "api": {
         "github_extra": ["api", "sdk"],
@@ -57,6 +62,7 @@ _APP_TYPE_HINTS: dict[str, dict[str, Any]] = {
         "ph_topics": ["developer-tools", "apis"],
         "hn_extra": ["api", "developer tool"],
         "tavily_phrasing": "API service",
+        "reddit_extra": ["api", "sdk"],
     },
 }
 
@@ -66,6 +72,7 @@ _DEFAULT_HINTS: dict[str, Any] = {
     "ph_topics": ["productivity", "developer-tools"],
     "hn_extra": [],
     "tavily_phrasing": "tool",
+    "reddit_extra": [],
 }
 
 
@@ -90,6 +97,7 @@ def build_queries(platform: Platform, intent: Intent) -> list[str]:
         Platform.PRODUCT_HUNT: _build_producthunt,
         Platform.HACKERNEWS: _build_hackernews,
         Platform.TAVILY: _build_tavily,
+        Platform.REDDIT: _build_reddit,
     }
     builder_fn = builders.get(platform)
     if builder_fn is None:
@@ -194,6 +202,27 @@ def _build_tavily(
     if intent.keywords_zh:
         zh_joined = " ".join(intent.keywords_zh[:3])
         queries.append(f"{zh_joined} 竞品")
+
+    return queries
+
+
+def _build_reddit(
+    keywords: list[str],
+    intent: Intent,
+    hints: dict[str, Any],
+) -> list[str]:
+    queries: list[str] = []
+    joined = " ".join(keywords[:_MAX_JOINED_KEYWORDS])
+
+    if joined:
+        queries.append(f"{joined} alternative")
+        queries.append(f"{joined} recommend")
+
+    for pair in combinations(keywords[:4], 2):
+        queries.append(" ".join(pair))
+
+    for extra in hints.get("reddit_extra", []):
+        queries.append(f"{keywords[0]} {extra}" if keywords else extra)
 
     return queries
 

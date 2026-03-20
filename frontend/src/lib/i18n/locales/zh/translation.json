@@ -201,6 +201,10 @@
           "label": "追踪 Product Hunt 发布",
           "short": "Product Hunt"
         },
+        "reddit": {
+          "label": "搜索 Reddit 社区讨论",
+          "short": "Reddit"
+        },
         "extraction": {
           "label": "提取竞品核心特征",
           "short": "特征提取"

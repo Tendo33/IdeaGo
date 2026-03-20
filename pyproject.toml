@@ -251,3 +251,8 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ideago"]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=0.25.0",
+]

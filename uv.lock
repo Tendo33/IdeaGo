@@ -596,6 +596,11 @@ test = [
     { name = "pytest-mock" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest-asyncio" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=23.0.0" },
@@ -627,6 +632,9 @@ requires-dist = [
     { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.10" },
 ]
 provides-extras = ["dev", "test"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest-asyncio", specifier = ">=0.25.0" }]
 
 [[package]]
 name = "identify"

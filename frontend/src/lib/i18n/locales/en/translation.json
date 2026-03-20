@@ -201,6 +201,10 @@
           "label": "Checking Product Hunt launches",
           "short": "Product Hunt"
         },
+        "reddit": {
+          "label": "Searching Reddit discussions",
+          "short": "Reddit"
+        },
         "extraction": {
           "label": "Extracting competitor details",
           "short": "Extract"

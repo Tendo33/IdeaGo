@@ -12,7 +12,7 @@ interface Step {
   detail?: string
 }
 
-const DEFAULT_SOURCE_ORDER = ['github', 'tavily', 'hackernews', 'appstore', 'producthunt'] as const
+const DEFAULT_SOURCE_ORDER = ['github', 'tavily', 'hackernews', 'appstore', 'producthunt', 'reddit'] as const
 
 function getSourcePlatformFromEvent(event: PipelineEvent): string | null {
   const dataPlatform = event.data?.platform

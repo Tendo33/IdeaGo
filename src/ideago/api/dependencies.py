@@ -22,6 +22,7 @@ from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.producthunt_source import ProductHuntSource
+from ideago.sources.reddit_source import RedditSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
@@ -134,6 +135,12 @@ def get_orchestrator() -> LangGraphEngine:
             ProductHuntSource(
                 dev_token=settings.producthunt_dev_token,
                 posted_after_days=settings.producthunt_posted_after_days,
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
+            )
+        )
+        registry.register(
+            RedditSource(
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
             )

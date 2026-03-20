@@ -14,6 +14,7 @@ from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.producthunt_source import ProductHuntSource
+from ideago.sources.reddit_source import RedditSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
@@ -829,3 +830,188 @@ async def test_producthunt_search_falls_back_when_topics_empty() -> None:
         results = await src.search(["markdown"], limit=10)
 
     assert len(results) >= 1
+
+
+# ---------- RedditSource ----------
+
+MOCK_REDDIT_RESPONSE = {
+    "data": {
+        "children": [
+            {
+                "kind": "t3",
+                "data": {
+                    "id": "abc123",
+                    "title": "Best markdown editor alternatives?",
+                    "selftext": "I'm looking for a good markdown editor. Any recommendations?",
+                    "url": "https://www.reddit.com/r/software/comments/abc123/best_markdown_editor_alternatives/",
+                    "permalink": "/r/software/comments/abc123/best_markdown_editor_alternatives/",
+                    "subreddit": "software",
+                    "score": 245,
+                    "num_comments": 87,
+                    "created_utc": 1706745600,
+                    "upvote_ratio": 0.95,
+                },
+            },
+            {
+                "kind": "t3",
+                "data": {
+                    "id": "def456",
+                    "title": "Recommend me a note-taking app",
+                    "selftext": "",
+                    "url": "https://www.reddit.com/r/productivity/comments/def456/recommend_me_a_notetaking_app/",
+                    "permalink": "/r/productivity/comments/def456/recommend_me_a_notetaking_app/",
+                    "subreddit": "productivity",
+                    "score": 120,
+                    "num_comments": 45,
+                    "created_utc": 1706832000,
+                    "upvote_ratio": 0.88,
+                },
+            },
+        ]
+    }
+}
+
+
+def test_reddit_platform() -> None:
+    src = RedditSource()
+    assert src.platform == Platform.REDDIT
+
+
+def test_reddit_always_available() -> None:
+    src = RedditSource()
+    assert src.is_available() is True
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_returns_raw_results() -> None:
+    src = RedditSource()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["markdown editor"], limit=10)
+    assert len(results) == 2
+    assert results[0].platform == Platform.REDDIT
+    assert "reddit.com" in results[0].url
+    assert results[0].raw_data["score"] == 245
+    assert results[0].raw_data["num_comments"] == 87
+    assert results[0].raw_data["subreddit"] == "software"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_deduplicates_across_queries() -> None:
+    src = RedditSource()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["query1", "query2"], limit=10)
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_handles_rate_limit() -> None:
+    src = RedditSource()
+    mock_response = httpx.Response(429, json={"message": "Too Many Requests"})
+    with (
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+        pytest.raises(SourceSearchError),
+    ):
+        await src.search(["test"], limit=5)
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_handles_timeout() -> None:
+    src = RedditSource(timeout=1)
+
+    async def slow_get(*_args, **_kwargs):
+        raise httpx.ReadTimeout("timeout")
+
+    with (
+        patch.object(src._client, "get", new_callable=AsyncMock) as mock_get,
+        pytest.raises(SourceSearchError),
+    ):
+        mock_get.side_effect = slow_get
+        await src.search(["test"], limit=5)
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_partial_failure_returns_partial_results() -> None:
+    src = RedditSource()
+
+    async def fake_get(*_args, **kwargs):
+        query = kwargs["params"]["q"]
+        if query == "bad":
+            raise httpx.ReadTimeout("timeout")
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "children": [
+                        {
+                            "kind": "t3",
+                            "data": {
+                                "id": f"id-{query}",
+                                "title": f"Post about {query}",
+                                "selftext": "content",
+                                "url": f"https://reddit.com/r/test/{query}",
+                                "permalink": f"/r/test/{query}",
+                                "subreddit": "test",
+                                "score": 10,
+                                "num_comments": 5,
+                                "created_utc": 1706745600,
+                                "upvote_ratio": 0.9,
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+
+    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        results = await src.search(["good", "bad"], limit=5)
+
+    assert len(results) == 1
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["partial_failure"] is True
+    assert diagnostics["failed_queries"] == ["bad"]
+    assert diagnostics["timed_out_queries"] == ["bad"]
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_sanitizes_selftext_html() -> None:
+    src = RedditSource()
+    html_response = {
+        "data": {
+            "children": [
+                {
+                    "kind": "t3",
+                    "data": {
+                        "id": "html1",
+                        "title": "Test post",
+                        "selftext": 'Check out <a href="https://example.com">this &amp; that</a>',
+                        "url": "https://www.reddit.com/r/test/comments/html1/test/",
+                        "permalink": "/r/test/comments/html1/test/",
+                        "subreddit": "test",
+                        "score": 10,
+                        "num_comments": 2,
+                        "created_utc": 1706745600,
+                        "upvote_ratio": 0.9,
+                    },
+                }
+            ]
+        }
+    }
+    mock_response = httpx.Response(200, json=html_response)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["test"], limit=10)
+
+    assert len(results) == 1
+    assert "<" not in results[0].description
+    assert "&amp;" not in results[0].description
+    assert "this & that" in results[0].description
