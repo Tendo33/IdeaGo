@@ -99,13 +99,13 @@ function useThemeMode() {
 
 const THEME_OPTIONS: Array<{
   mode: ThemeMode
-  label: string
-  shortLabel: string
+  labelKey: string
+  shortLabelKey: string
   Icon: typeof Monitor
 }> = [
-  { mode: 'system', label: 'System', shortLabel: 'SYS', Icon: Monitor },
-  { mode: 'dark', label: 'Dark', shortLabel: 'DARK', Icon: Moon },
-  { mode: 'light', label: 'Light', shortLabel: 'LIGHT', Icon: Sun },
+  { mode: 'system', labelKey: 'theme.system', shortLabelKey: 'theme.systemShort', Icon: Monitor },
+  { mode: 'dark', labelKey: 'theme.dark', shortLabelKey: 'theme.darkShort', Icon: Moon },
+  { mode: 'light', labelKey: 'theme.light', shortLabelKey: 'theme.lightShort', Icon: Sun },
 ]
 
 function ThemeModeMenu({
@@ -115,6 +115,7 @@ function ThemeModeMenu({
   themeMode: ThemeMode
   onSelectThemeMode: (mode: ThemeMode) => void
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const activeTheme = THEME_OPTIONS.find(option => option.mode === themeMode) ?? THEME_OPTIONS[0]
@@ -148,17 +149,17 @@ function ThemeModeMenu({
         type="button"
         onClick={() => setOpen(previous => !previous)}
         className="topbar-action focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label="Toggle theme mode"
+        aria-label={t('theme.toggle')}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <ActiveIcon className="h-5 w-5" aria-hidden="true" />
-        <span className="hidden sm:inline">{activeTheme.shortLabel}</span>
+        <span className="hidden sm:inline">{t(activeTheme.shortLabelKey)}</span>
       </button>
       {open && (
         <div
           role="menu"
-          aria-label="Theme mode options"
+          aria-label={t('theme.options')}
           className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
         >
           {THEME_OPTIONS.map(option => {
@@ -182,7 +183,7 @@ function ThemeModeMenu({
               >
                 <span className="inline-flex items-center gap-3">
                   <OptionIcon className="h-4 w-4" aria-hidden="true" />
-                  {option.label}
+                  {t(option.labelKey)}
                 </span>
                 {selected && <Check className="h-4 w-4" aria-hidden="true" />}
               </button>
@@ -330,13 +331,14 @@ function HomeOrLanding() {
 }
 
 function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (m: ThemeMode) => void }) {
+  const { t } = useTranslation()
   const { user, loading } = useAuth()
   const showNav = !loading && user !== null
 
   return (
     <>
       <a href="#main-content" className="skip-to-content">
-        Skip to content
+        {t('app.skipToContent')}
       </a>
       {showNav && <NavBar themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />}
       <main

@@ -56,7 +56,7 @@ export function AuthCallback() {
     }
   }, [navigate, urlError])
 
-  const error = urlError ?? (timedOut ? t('auth.callbackTimeout', 'Sign-in is taking longer than expected. Please try again.') : null)
+  const error = urlError ?? (timedOut ? t('auth.callbackTimeout') : null)
 
   if (error) {
     return (
@@ -64,13 +64,13 @@ export function AuthCallback() {
         <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)] text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-black uppercase tracking-tight mb-3">
-            {t('auth.callbackError', 'Sign-in Failed')}
+            {t('auth.callbackError')}
           </h2>
           <p className="text-sm text-muted-foreground font-bold mb-6">{error}</p>
           <Link to="/login">
             <Button>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {t('auth.backToLogin', 'Back to login')}
+              {t('auth.backToLogin')}
             </Button>
           </Link>
         </div>
@@ -83,7 +83,7 @@ export function AuthCallback() {
       <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
         <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin" />
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-          {t('auth.signingIn', 'Signing you in...')}
+          {t('auth.signingIn')}
         </p>
       </div>
     </div>

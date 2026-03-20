@@ -34,10 +34,10 @@ export function UserMenu() {
       <Link
         to="/login"
         className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label={t('auth.signIn', 'Sign In')}
+        aria-label={t('auth.signIn')}
       >
         <LogIn className="w-5 h-5 shrink-0" />
-        <span className="hidden sm:inline">{t('auth.signIn', 'Sign In')}</span>
+        <span className="hidden sm:inline">{t('auth.signIn')}</span>
       </Link>
     )
   }
@@ -50,7 +50,7 @@ export function UserMenu() {
         type="button"
         onClick={() => setOpen(prev => !prev)}
         className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label="User menu"
+        aria-label={t('nav.userMenu')}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -65,12 +65,12 @@ export function UserMenu() {
       {open && (
         <div
           role="menu"
-          aria-label="User options"
+          aria-label={t('nav.userOptions')}
           className="absolute right-0 top-full mt-2 w-56 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
         >
           <div className="px-3 py-2 border-b-2 border-border mb-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {t('auth.signedInAs', 'Signed in as')}
+              {t('auth.signedInAs')}
             </p>
             <p className="text-sm font-bold truncate">{user.email}</p>
           </div>
@@ -82,7 +82,7 @@ export function UserMenu() {
             className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
           >
             <UserCog className="w-4 h-4" />
-            {t('profile.title', 'Profile')}
+            {t('profile.title')}
           </Link>
 
           <button
@@ -96,7 +96,7 @@ export function UserMenu() {
             className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-destructive border-2 border-transparent transition-all cursor-pointer hover:bg-destructive/10 hover:border-destructive"
           >
             <LogOut className="w-4 h-4" />
-            {t('auth.signOut', 'Sign Out')}
+            {t('auth.signOut')}
           </button>
         </div>
       )}

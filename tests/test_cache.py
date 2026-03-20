@@ -7,10 +7,12 @@ import contextlib
 import json
 import threading
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from ideago.cache.file_cache import FileCache
+from ideago.cache.supabase_cache import SupabaseReportRepository
 from ideago.models.research import Intent, Platform, ResearchReport, SearchQuery
 
 
@@ -236,10 +238,172 @@ async def test_cache_concurrent_put_preserves_all_entries(tmp_path) -> None:
                 barrier.wait(timeout=0.2)
         return original_read_index()
 
-    from unittest.mock import patch
-
     with patch.object(cache, "_read_index", side_effect=synchronized_read_index):
         await asyncio.gather(*(cache.put(report) for report in reports))
 
     entries = await cache.list_reports()
     assert len(entries) == len(reports)
+
+
+class _FakeResponse:
+    def __init__(
+        self,
+        status_code: int,
+        *,
+        payload=None,
+        text: str = "",
+    ) -> None:
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text
+
+    def json(self):
+        return self._payload
+
+
+@pytest.mark.asyncio
+async def test_supabase_repo_get_and_get_by_id(tmp_path) -> None:
+    report = _make_report("cache-key", "query-1")
+    fake_client = AsyncMock()
+    fake_client.get = AsyncMock(
+        side_effect=[
+            _FakeResponse(
+                200, payload=[{"report_data": report.model_dump(mode="json")}]
+            ),
+            _FakeResponse(
+                200, payload=[{"report_data": report.model_dump(mode="json")}]
+            ),
+            _FakeResponse(200, payload=[]),
+        ]
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        assert await repo.get("cache-key") is not None
+        assert await repo.get_by_id(report.id) is not None
+        assert await repo.get("missing-key") is None
+
+
+@pytest.mark.asyncio
+async def test_supabase_repo_put_list_and_delete() -> None:
+    report = _make_report("cache-key-2", "query-2")
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(return_value=_FakeResponse(201))
+    fake_client.get = AsyncMock(
+        return_value=_FakeResponse(
+            200,
+            payload=[
+                {
+                    "id": report.id,
+                    "query": report.query,
+                    "cache_key": report.intent.cache_key,
+                    "created_at": report.created_at.isoformat(),
+                    "competitor_count": 0,
+                    "user_id": "user-1",
+                }
+            ],
+        )
+    )
+    fake_client.delete = AsyncMock(
+        return_value=_FakeResponse(200, payload=[{"id": report.id}])
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        await repo.put(report)
+        rows = await repo.list_reports(limit=10, offset=0, user_id="user-1")
+        assert len(rows) == 1
+        deleted = await repo.delete(report.id)
+        assert deleted is True
+
+
+@pytest.mark.asyncio
+async def test_supabase_repo_user_and_status_and_cleanup() -> None:
+    fake_client = AsyncMock()
+    fake_client.patch = AsyncMock(return_value=_FakeResponse(204))
+    fake_client.post = AsyncMock(
+        side_effect=[
+            _FakeResponse(201),
+            _FakeResponse(200, payload=3),
+        ]
+    )
+    fake_client.get = AsyncMock(
+        side_effect=[
+            _FakeResponse(200, payload=[{"user_id": "user-42"}]),
+            _FakeResponse(
+                200,
+                payload=[
+                    {
+                        "report_id": "r-1",
+                        "status": "failed",
+                        "query": "query",
+                        "error_code": "PIPELINE_FAILURE",
+                        "message": "Pipeline failed",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ],
+            ),
+        ]
+    )
+    fake_client.delete = AsyncMock(return_value=_FakeResponse(204))
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        await repo.update_report_user_id("r-1", "user-42")
+        owner = await repo.get_report_user_id("r-1")
+        assert owner == "user-42"
+
+        await repo.put_status("r-1", "failed", "query", error_code="PIPELINE_FAILURE")
+        status = await repo.get_status("r-1")
+        assert status is not None
+        assert status["status"] == "failed"
+
+        await repo.remove_status("r-1")
+        removed = await repo.cleanup_expired()
+        assert removed == 3
+
+
+@pytest.mark.asyncio
+async def test_supabase_repo_close_releases_client() -> None:
+    fake_client = AsyncMock()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        await repo.close()
+    fake_client.aclose.assert_awaited_once()

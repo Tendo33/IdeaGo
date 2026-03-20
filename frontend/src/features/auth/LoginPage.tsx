@@ -59,7 +59,7 @@ export function LoginPage() {
       })
       if (err) setError(err.message)
     } catch {
-      setError('An unexpected error occurred')
+      setError(t('auth.unexpectedError'))
     } finally {
       setOauthLoading(null)
     }
@@ -96,7 +96,7 @@ export function LoginPage() {
         setConfirmSent(true)
       }
     } catch {
-      setError('An unexpected error occurred')
+      setError(t('auth.unexpectedError'))
     } finally {
       setLoading(false)
     }
@@ -116,7 +116,7 @@ export function LoginPage() {
       }
       setResetSent(true)
     } catch {
-      setError('An unexpected error occurred')
+      setError(t('auth.unexpectedError'))
     } finally {
       setLoading(false)
     }
@@ -131,7 +131,7 @@ export function LoginPage() {
             {t('auth.resetEmailSent', 'Check your email')}
           </h2>
           <p className="text-muted-foreground font-bold mb-8">
-            {t('auth.resetEmailDesc', "We've sent a password reset link to")}
+            {t('auth.resetEmailDesc')}
             <br />
             <span className="text-foreground">{email}</span>
           </p>
@@ -153,7 +153,7 @@ export function LoginPage() {
             {t('auth.checkEmail', 'Check your email')}
           </h2>
           <p className="text-muted-foreground font-bold mb-8">
-            {t('auth.confirmSent', "We've sent a confirmation link to")}
+            {t('auth.confirmSent')}
             <br />
             <span className="text-foreground">{email}</span>
           </p>
@@ -191,7 +191,7 @@ export function LoginPage() {
             ? t('auth.loginSubtitle', 'Sign in to access your reports')
             : mode === 'register'
               ? t('auth.registerSubtitle', 'Start analyzing competitors today')
-              : t('auth.resetSubtitle', 'Enter your email and we\'ll send a reset link')}
+              : t('auth.resetSubtitle')}
         </p>
 
         {error && (
@@ -331,7 +331,7 @@ export function LoginPage() {
         <div className="mt-8 pt-6 border-t-2 border-border text-center">
           {mode === 'login' ? (
             <p className="text-sm font-bold text-muted-foreground">
-              {t('auth.noAccount', "Don't have an account?")}{' '}
+              {t('auth.noAccount')}{' '}
               <button
                 type="button"
                 onClick={() => { setMode('register'); setError('') }}
@@ -342,7 +342,7 @@ export function LoginPage() {
             </p>
           ) : (
             <p className="text-sm font-bold text-muted-foreground">
-              {mode === 'register' ? t('auth.hasAccount', 'Already have an account?') : t('auth.rememberPassword', 'Remember your password?')}{' '}
+              {mode === 'register' ? t('auth.hasAccount') : t('auth.rememberPassword')}{' '}
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError('') }}

@@ -100,7 +100,7 @@ export function HomePage() {
             <SearchBox onSubmit={handleSubmit} />
 
             <div className="mt-8">
-              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">{t('home.quickPrompts', { defaultValue: 'Quick Prompts' })}</h3>
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">{t('home.quickPrompts')}</h3>
               <div className="flex flex-wrap gap-2">
                 {[0, 1, 2, 3].map(index => {
                   const prompt = t(`home.prompt${index}`)

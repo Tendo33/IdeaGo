@@ -44,7 +44,7 @@ export function ProfilePage() {
         setBio(data.bio)
       } else {
         const msg = profileResult.reason?.message
-        setError(msg ?? 'Failed to load profile')
+        setError(msg ?? t('profile.loadError'))
       }
 
       if (quotaResult.status === 'fulfilled') {
@@ -55,6 +55,7 @@ export function ProfilePage() {
     }
     load()
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const handleSave = async (e: React.FormEvent) => {
@@ -72,7 +73,7 @@ export function ProfilePage() {
       setSuccess(t('profile.saved', 'Profile updated successfully'))
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update profile'
+      const message = err instanceof Error ? err.message : t('profile.updateError')
       setError(message)
     } finally {
       setSaving(false)

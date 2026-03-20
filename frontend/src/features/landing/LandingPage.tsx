@@ -95,7 +95,7 @@ export function LandingPage() {
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             <LogIn className="w-5 h-5 shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">{t('auth.signIn', 'Sign In')}</span>
+            <span className="hidden sm:inline">{t('auth.signIn')}</span>
           </Link>
         </div>
       </nav>

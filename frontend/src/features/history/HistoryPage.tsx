@@ -277,13 +277,19 @@ export function HistoryPage() {
       </div>
 
       {reportToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/45 p-4 animate-fade-in" onClick={() => setReportToDelete(null)}>
-          <div className="bg-card border-4 border-border shadow-[8px_8px_0px_0px_var(--border)] p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
-              {t('history.deleteConfirmTitle', { defaultValue: 'Delete Report?' })}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/45 p-4 animate-fade-in" onClick={() => setReportToDelete(null)} role="presentation">
+          <div
+            className="bg-card border-4 border-border shadow-[8px_8px_0px_0px_var(--border)] p-6 max-w-sm w-full"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+          >
+            <h3 id="delete-dialog-title" className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
+              {t('history.deleteConfirmTitle')}
             </h3>
             <p className="text-sm font-medium text-muted-foreground mb-6">
-              {t('history.deleteConfirm', { defaultValue: 'Are you sure you want to delete this report? This action cannot be undone.' })}
+              {t('history.deleteConfirm')}
             </p>
             <div className="flex gap-3 justify-end">
               <Button
@@ -291,14 +297,14 @@ export function HistoryPage() {
                 size="sm"
                 onClick={() => setReportToDelete(null)}
               >
-                {t('common.cancel', { defaultValue: 'Cancel' })}
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={confirmDelete}
               >
-                {t('common.delete', { defaultValue: 'Delete' })}
+                {t('common.delete')}
               </Button>
             </div>
           </div>

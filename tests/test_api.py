@@ -13,12 +13,15 @@ from unittest.mock import AsyncMock, patch
 
 import jwt
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
 from ideago.api.routes import analyze as analyze_route
+from ideago.auth import dependencies as auth_deps
+from ideago.auth import supabase_admin
 from ideago.cache.base import ReportIndex
 from ideago.cache.file_cache import FileCache
 from ideago.models.research import (
@@ -42,8 +45,37 @@ def reset_runtime_state() -> None:
 
 @pytest.fixture
 def client():
+    auth_secret = "test-session-secret-0123456789abcdef"
+    token = jwt.encode(
+        {
+            "sub": "test-user-id",
+            "email": "test@example.com",
+            "aud": "ideago-auth",
+        },
+        auth_secret,
+        algorithm="HS256",
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
     app = create_app()
-    with TestClient(app) as test_client:
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        TestClient(
+            app,
+            headers={
+                "X-Requested-With": "IdeaGo",
+                "Authorization": f"Bearer {token}",
+            },
+        ) as test_client,
+    ):
         yield test_client
 
 
@@ -155,7 +187,9 @@ def test_analyze_endpoint_deduplicates_concurrent_same_query(client) -> None:
     query = "I want to build a markdown notes extension for teams"
     start_barrier = threading.Barrier(parties=8)
 
-    async def fake_run_pipeline(_query: str, _report_id: str) -> None:
+    async def fake_run_pipeline(
+        _query: str, _report_id: str, _user_id: str = ""
+    ) -> None:
         await asyncio.sleep(1)
 
     with patch("ideago.api.routes.analyze._run_pipeline", new=fake_run_pipeline):
@@ -225,6 +259,7 @@ def test_get_report_found(client, tmp_path) -> None:
 
 def test_get_report_not_found(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="")
     mock_cache.get_by_id = AsyncMock(return_value=None)
     mock_cache.get_status = AsyncMock(return_value=None)
 
@@ -327,6 +362,7 @@ def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
 
 def test_list_reports(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="")
     mock_cache.list_reports = AsyncMock(
         return_value=[
             ReportIndex(
@@ -345,11 +381,16 @@ def test_list_reports(client) -> None:
     data = response.json()
     assert len(data) == 1
     assert data[0]["query"] == "test idea"
-    mock_cache.list_reports.assert_awaited_once_with(limit=None, offset=0)
+    mock_cache.list_reports.assert_awaited_once_with(
+        limit=None,
+        offset=0,
+        user_id="test-user-id",
+    )
 
 
 def test_list_reports_with_pagination_query_params(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="")
     mock_cache.list_reports = AsyncMock(
         return_value=[
             ReportIndex(
@@ -369,11 +410,16 @@ def test_list_reports_with_pagination_query_params(client) -> None:
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["id"] == "paginated-id"
-    mock_cache.list_reports.assert_awaited_once_with(limit=1, offset=20)
+    mock_cache.list_reports.assert_awaited_once_with(
+        limit=1,
+        offset=20,
+        user_id="test-user-id",
+    )
 
 
 def test_delete_report(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="")
     mock_cache.delete = AsyncMock(return_value=True)
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
@@ -383,6 +429,7 @@ def test_delete_report(client) -> None:
 
 def test_delete_report_not_found(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="")
     mock_cache.delete = AsyncMock(return_value=False)
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
@@ -470,7 +517,7 @@ def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None
     assert "provider=linuxdo" in location
 
 
-def test_auth_me_accepts_backend_session_jwt(client) -> None:
+def test_auth_me_accepts_backend_session_jwt() -> None:
     token = jwt.encode(
         {
             "sub": "f0f581f8-f6e4-47a9-9162-d53eabc8dd9a",
@@ -491,10 +538,12 @@ def test_auth_me_accepts_backend_session_jwt(client) -> None:
         },
     )()
     with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
-        response = client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        app = create_app()
+        with TestClient(app, headers={"X-Requested-With": "IdeaGo"}) as test_client:
+            response = test_client.get(
+                "/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
     assert response.status_code == 200
     payload = response.json()
@@ -760,3 +809,260 @@ def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
             response = local_client.get("/robots.txt")
             assert response.status_code == 200
             assert "User-agent: *" in response.text
+
+
+class _AdminFakeResponse:
+    def __init__(self, status_code: int, *, payload=None, text: str = "") -> None:
+        self.status_code = status_code
+        self._payload = payload
+        self.text = text
+
+    def json(self):
+        return self._payload
+
+
+def test_extract_token_subject_with_ideago_jwt() -> None:
+    token = jwt.encode(
+        {"sub": "user-123", "aud": "ideago-auth"},
+        "test-secret",
+        algorithm="HS256",
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {"auth_session_secret": "test-secret", "supabase_jwt_secret": ""},
+    )()
+
+    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+        assert auth_deps.extract_token_subject(token) == "user-123"
+
+
+def test_extract_token_subject_with_supabase_jwt() -> None:
+    token = jwt.encode(
+        {"sub": "supa-user", "aud": "authenticated"},
+        "supa-secret",
+        algorithm="HS256",
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {"auth_session_secret": "", "supabase_jwt_secret": "supa-secret"},
+    )()
+
+    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+        assert auth_deps.extract_token_subject(token) == "supa-user"
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_via_remote_verification() -> None:
+    request = type(
+        "Req",
+        (),
+        {"headers": {"Authorization": "Bearer remote-token"}},
+    )()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_jwt_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._verify_supabase_token_remote",
+            new=AsyncMock(return_value={"id": "uid-1", "email": "u@example.com"}),
+        ),
+    ):
+        user = await auth_deps.get_optional_user(request)
+    assert user is not None
+    assert user.id == "uid-1"
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_missing_or_empty_token_returns_none() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    request_no_header = type("Req", (), {"headers": {}})()
+    request_empty_token = type("Req", (), {"headers": {"Authorization": "Bearer "}})()
+
+    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+        assert await auth_deps.get_optional_user(request_no_header) is None
+        assert await auth_deps.get_optional_user(request_empty_token) is None
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_supabase_jwt_invalid_returns_none() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_jwt_secret": "supa-secret",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    request = type(
+        "Req",
+        (),
+        {"headers": {"Authorization": "Bearer invalid"}},
+    )()
+
+    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_raises_when_missing() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await auth_deps.get_current_user(None)
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_supabase_admin_quota_and_profile_fallback_paths() -> None:
+    with patch("ideago.auth.supabase_admin._is_configured", return_value=False):
+        quota = await supabase_admin.check_and_increment_quota("uid")
+        info = await supabase_admin.get_quota_info("uid")
+        profile = await supabase_admin.get_profile("uid")
+        updated = await supabase_admin.update_profile("uid", display_name="n", bio="b")
+
+    assert quota.allowed is True
+    assert info["plan"] == "dev"
+    assert profile["display_name"] == ""
+    assert updated["display_name"] == "n"
+
+
+@pytest.mark.asyncio
+async def test_supabase_admin_quota_success_and_errors() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(
+                200,
+                payload={
+                    "allowed": True,
+                    "usage_count": 1,
+                    "plan_limit": 10,
+                    "plan": "free",
+                },
+            ),
+            _AdminFakeResponse(500, text="boom"),
+            RuntimeError("network"),
+        ]
+    )
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+    ):
+        ok = await supabase_admin.check_and_increment_quota("uid")
+        rpc_fail = await supabase_admin.check_and_increment_quota("uid")
+        network_fail = await supabase_admin.check_and_increment_quota("uid")
+
+    assert ok.allowed is True and ok.plan_limit == 10
+    assert rpc_fail.error == "quota_check_failed"
+    assert network_fail.error == "quota_check_error"
+
+
+@pytest.mark.asyncio
+async def test_supabase_admin_profile_and_quota_info_paths() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(
+                200, payload={"usage_count": 3, "plan_limit": 10, "plan": "free"}
+            ),
+            _AdminFakeResponse(204),
+            _AdminFakeResponse(500, text="fail"),
+        ]
+    )
+    fake_client.get = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(
+                200,
+                payload=[
+                    {
+                        "display_name": "Alice",
+                        "avatar_url": "",
+                        "bio": "",
+                        "created_at": "2026-01-01",
+                    }
+                ],
+            ),
+            _AdminFakeResponse(500, text="fail"),
+        ]
+    )
+    fake_client.patch = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(
+                200,
+                payload=[
+                    {
+                        "display_name": "Bob",
+                        "avatar_url": "",
+                        "bio": "Hi",
+                        "created_at": "2026-01-01",
+                    }
+                ],
+            ),
+            _AdminFakeResponse(500, text="fail"),
+        ]
+    )
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+    ):
+        quota = await supabase_admin.get_quota_info("uid")
+        upsert_ok = await supabase_admin.ensure_profile_exists(
+            "uid", display_name="Alice"
+        )
+        upsert_fail = await supabase_admin.ensure_profile_exists(
+            "uid", display_name="Alice"
+        )
+        profile_ok = await supabase_admin.get_profile("uid")
+        profile_fail = await supabase_admin.get_profile("uid")
+        updated_ok = await supabase_admin.update_profile(
+            "uid", display_name="Bob", bio="Hi"
+        )
+        updated_fail = await supabase_admin.update_profile(
+            "uid", display_name="Bob", bio="Hi"
+        )
+
+    assert quota["usage_count"] == 3
+    assert upsert_ok is True and upsert_fail is False
+    assert profile_ok["display_name"] == "Alice"
+    assert profile_fail["error"] == "profile_fetch_failed"
+    assert updated_ok["display_name"] == "Bob"
+    assert updated_fail["error"] == "profile_update_failed"
