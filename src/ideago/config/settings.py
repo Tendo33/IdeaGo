@@ -196,6 +196,45 @@ class Settings(BaseSettings):
         "(Dashboard → Settings → API → service_role). NEVER expose to frontend.",
     )
 
+    auth_session_secret: str = Field(
+        default="",
+        description="Backend session JWT secret for custom OAuth providers",
+    )
+    auth_session_expire_hours: int = Field(
+        default=24 * 30,
+        ge=1,
+        le=24 * 365,
+        description="Backend session JWT expiration time in hours",
+    )
+    frontend_app_url: str = Field(
+        default="",
+        description="Public frontend base URL for OAuth callback redirects",
+    )
+    linuxdo_client_id: str = Field(
+        default="",
+        description="LinuxDoConnect OAuth client id",
+    )
+    linuxdo_client_secret: str = Field(
+        default="",
+        description="LinuxDoConnect OAuth client secret",
+    )
+    linuxdo_authorize_url: str = Field(
+        default="https://connect.linux.do/oauth2/authorize",
+        description="LinuxDoConnect OAuth authorize endpoint",
+    )
+    linuxdo_token_url: str = Field(
+        default="https://connect.linux.do/oauth2/token",
+        description="LinuxDoConnect OAuth token endpoint",
+    )
+    linuxdo_userinfo_url: str = Field(
+        default="https://connect.linux.do/api/user",
+        description="LinuxDoConnect user info endpoint",
+    )
+    linuxdo_scope: str = Field(
+        default="openid profile email",
+        description="LinuxDoConnect OAuth scopes",
+    )
+
     # --- Cache / 缓存配置 ---
     cache_dir: str = Field(
         default=".cache/ideago",

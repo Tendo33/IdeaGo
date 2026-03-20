@@ -1,5 +1,9 @@
 import type { ReportListItem, ReportRuntimeStatus, ResearchReport } from '../types/research'
-import { getAccessToken, setAccessToken } from '../auth/token'
+import {
+  CUSTOM_AUTH_STORAGE_KEY,
+  getAccessToken,
+  setAccessToken,
+} from '../auth/token'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
@@ -94,6 +98,7 @@ async function fetchWithTimeout(
       signal: timeoutController.signal,
     })
     if (res.status === 401) {
+      window.localStorage.removeItem(CUSTOM_AUTH_STORAGE_KEY)
       setAccessToken(null)
       window.location.href = '/login'
       throw new Error('Session expired. Redirecting to login.')
@@ -216,8 +221,39 @@ export interface QuotaInfo {
   error?: string
 }
 
+export interface UserProfile {
+  display_name: string
+  avatar_url: string
+  bio: string
+  created_at: string
+}
+
 export async function getQuotaInfo(options: RequestOptions = {}): Promise<QuotaInfo> {
   const res = await fetchWithTimeout(`${API_BASE}/auth/quota`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load quota'))
+  return res.json()
+}
+
+export async function getMyProfile(options: RequestOptions = {}): Promise<UserProfile> {
+  const res = await fetchWithTimeout(`${API_BASE}/auth/profile`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load profile'))
+  return res.json()
+}
+
+export async function updateMyProfile(
+  payload: Pick<UserProfile, 'display_name' | 'bio'>,
+  options: RequestOptions = {},
+): Promise<UserProfile> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/auth/profile`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
+      body: JSON.stringify(payload),
+    },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to update profile'))
   return res.json()
 }

@@ -122,3 +122,111 @@ async def get_quota_info(user_id: str) -> dict:
     except Exception:
         logger.opt(exception=True).warning("Quota info error")
         return {"error": "network_error"}
+
+
+async def ensure_profile_exists(
+    user_id: str,
+    *,
+    display_name: str = "",
+    avatar_url: str = "",
+    bio: str = "",
+) -> bool:
+    """Create a profile row when missing (idempotent upsert)."""
+    if not _is_configured():
+        return False
+
+    settings = get_settings()
+    client = _get_client()
+    payload = {
+        "id": user_id,
+        "display_name": display_name,
+        "avatar_url": avatar_url,
+        "bio": bio,
+    }
+    try:
+        resp = await client.post(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={
+                **_headers(),
+                "Prefer": "resolution=merge-duplicates,return=minimal",
+            },
+            json=payload,
+        )
+        if resp.status_code in (200, 201, 204):
+            return True
+        logger.warning("Profile upsert failed: {} {}", resp.status_code, resp.text)
+    except Exception:
+        logger.opt(exception=True).warning("Profile upsert error")
+    return False
+
+
+async def get_profile(user_id: str) -> dict:
+    """Return one profile row for the given user id."""
+    if not _is_configured():
+        return {
+            "display_name": "",
+            "avatar_url": "",
+            "bio": "",
+            "created_at": "",
+        }
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.get(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Accept": "application/json"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "display_name,avatar_url,bio,created_at",
+                "limit": "1",
+            },
+        )
+        if resp.status_code != 200:
+            logger.warning("Get profile failed: {} {}", resp.status_code, resp.text)
+            return {"error": "profile_fetch_failed"}
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            row = rows[0]
+            if isinstance(row, dict):
+                return row
+        return {"error": "profile_not_found"}
+    except Exception:
+        logger.opt(exception=True).warning("Get profile error")
+        return {"error": "network_error"}
+
+
+async def update_profile(user_id: str, *, display_name: str, bio: str) -> dict:
+    """Update profile fields and return latest values."""
+    if not _is_configured():
+        return {
+            "display_name": display_name,
+            "avatar_url": "",
+            "bio": bio,
+            "created_at": "",
+        }
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=representation"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "display_name,avatar_url,bio,created_at",
+            },
+            json={"display_name": display_name, "bio": bio},
+        )
+        if resp.status_code != 200:
+            logger.warning("Update profile failed: {} {}", resp.status_code, resp.text)
+            return {"error": "profile_update_failed"}
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            row = rows[0]
+            if isinstance(row, dict):
+                return row
+        return {"error": "profile_not_found"}
+    except Exception:
+        logger.opt(exception=True).warning("Update profile error")
+        return {"error": "network_error"}

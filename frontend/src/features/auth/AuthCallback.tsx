@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
+import { saveCustomAuthSession, setAccessToken } from '@/lib/auth/token'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
@@ -10,6 +11,27 @@ export function AuthCallback() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const [timedOut, setTimedOut] = useState(false)
+
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '')
+    if (!hash) return
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    if (!accessToken) return
+
+    const provider = params.get('provider') || 'linuxdo'
+    const userId = params.get('user_id') || ''
+    const email = params.get('email') || ''
+    if (!userId) return
+
+    saveCustomAuthSession({
+      access_token: accessToken,
+      provider,
+      user: { id: userId, email },
+    })
+    setAccessToken(accessToken)
+    navigate('/', { replace: true })
+  }, [navigate])
 
   const urlError = useMemo(() => {
     const errorParam = searchParams.get('error')

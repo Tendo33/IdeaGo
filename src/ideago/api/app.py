@@ -144,21 +144,10 @@ def create_app() -> FastAPI:
             auth_header = request.headers.get("Authorization", "")
             user_id = ""
             if auth_header.startswith("Bearer "):
-                import jwt as _jwt
+                from ideago.auth.dependencies import extract_token_subject
 
                 token = auth_header.removeprefix("Bearer ").strip()
-                jwt_secret = settings.supabase_jwt_secret
-                if jwt_secret:
-                    try:
-                        payload = _jwt.decode(
-                            token,
-                            jwt_secret,
-                            algorithms=["HS256"],
-                            audience="authenticated",
-                        )
-                        user_id = payload.get("sub", "")
-                    except _jwt.InvalidTokenError:
-                        pass
+                user_id = extract_token_subject(token)
 
             if user_id:
                 rate_key = f"user:{user_id}"

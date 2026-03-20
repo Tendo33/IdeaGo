@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/useAuth'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
-import type { Provider } from '@supabase/supabase-js'
 
 type AuthMode = 'login' | 'register' | 'reset'
 
@@ -40,12 +39,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<Provider | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [confirmSent, setConfirmSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
-  const linuxdoProvider = (
-    import.meta.env.VITE_LINUXDO_OAUTH_PROVIDER?.trim() || 'custom:linuxdo'
-  ) as Provider
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
@@ -53,7 +49,7 @@ export function LoginPage() {
 
   if (user) return null
 
-  const handleOAuth = async (provider: Provider) => {
+  const handleOAuth = async (provider: 'github' | 'google') => {
     setError('')
     setOauthLoading(provider)
     try {
@@ -67,6 +63,15 @@ export function LoginPage() {
     } finally {
       setOauthLoading(null)
     }
+  }
+
+  const handleLinuxDoLogin = () => {
+    setError('')
+    setOauthLoading('linuxdo')
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+    const redirectTo = `${window.location.origin}/auth/callback`
+    const query = new URLSearchParams({ redirect_to: redirectTo })
+    window.location.assign(`${apiBase}/api/v1/auth/linuxdo/start?${query.toString()}`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,10 +233,10 @@ export function LoginPage() {
               <button
                 type="button"
                 disabled={anyLoading}
-                onClick={() => handleOAuth(linuxdoProvider)}
+                onClick={handleLinuxDoLogin}
                 className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {oauthLoading === linuxdoProvider ? (
+                {oauthLoading === 'linuxdo' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <KeyRound className="w-5 h-5" />

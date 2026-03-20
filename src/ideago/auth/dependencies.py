@@ -56,6 +56,22 @@ def _verify_jwt_locally(token: str, jwt_secret: str) -> dict | None:
     return None
 
 
+def _verify_ideago_jwt(token: str, jwt_secret: str) -> dict | None:
+    """Verify and decode a backend-issued JWT for custom OAuth sessions."""
+    try:
+        return jwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="ideago-auth",
+        )
+    except jwt.ExpiredSignatureError:
+        logger.debug("IdeaGo JWT expired")
+    except jwt.InvalidTokenError as exc:
+        logger.debug("IdeaGo JWT validation failed: {}", exc)
+    return None
+
+
 async def _verify_supabase_token_remote(token: str) -> dict | None:
     """Fallback: verify token via Supabase HTTP endpoint (~100-200ms)."""
     settings = get_settings()
@@ -98,6 +114,35 @@ def _extract_user_from_api_response(data: dict) -> AuthUser | None:
     return AuthUser(id=user_id, email=data.get("email", ""))
 
 
+def _extract_user_from_ideago_payload(payload: dict) -> AuthUser | None:
+    """Extract AuthUser from a backend-issued JWT payload."""
+    user_id = payload.get("sub", "")
+    if not user_id:
+        return None
+    return AuthUser(id=user_id, email=payload.get("email", ""))
+
+
+def extract_token_subject(token: str) -> str:
+    """Best-effort extraction of user id from a bearer token for rate limiting."""
+    settings = get_settings()
+
+    if settings.auth_session_secret:
+        payload = _verify_ideago_jwt(token, settings.auth_session_secret)
+        if payload is not None:
+            sub = payload.get("sub", "")
+            if isinstance(sub, str) and sub:
+                return sub
+
+    if settings.supabase_jwt_secret:
+        payload = _verify_jwt_locally(token, settings.supabase_jwt_secret)
+        if payload is not None:
+            sub = payload.get("sub", "")
+            if isinstance(sub, str) and sub:
+                return sub
+
+    return ""
+
+
 async def get_optional_user(request: Request) -> AuthUser | None:
     """Extract and verify the user from the Authorization header.
 
@@ -113,6 +158,11 @@ async def get_optional_user(request: Request) -> AuthUser | None:
         return None
 
     settings = get_settings()
+
+    if settings.auth_session_secret:
+        payload = _verify_ideago_jwt(token, settings.auth_session_secret)
+        if payload is not None:
+            return _extract_user_from_ideago_payload(payload)
 
     if settings.supabase_jwt_secret:
         payload = _verify_jwt_locally(token, settings.supabase_jwt_secret)

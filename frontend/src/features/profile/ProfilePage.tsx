@@ -3,21 +3,19 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth/useAuth'
-import { supabase } from '@/lib/supabase/client'
-import { getQuotaInfo, type QuotaInfo } from '@/lib/api/client'
+import {
+  getMyProfile,
+  getQuotaInfo,
+  updateMyProfile,
+  type QuotaInfo,
+  type UserProfile,
+} from '@/lib/api/client'
 import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3 } from 'lucide-react'
-
-interface Profile {
-  display_name: string
-  avatar_url: string
-  bio: string
-  created_at: string
-}
 
 export function ProfilePage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [quota, setQuota] = useState<QuotaInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,21 +31,19 @@ export function ProfilePage() {
 
     async function load() {
       const [profileResult, quotaResult] = await Promise.allSettled([
-        supabase.from('profiles').select('display_name, avatar_url, bio, created_at').eq('id', user!.id).single(),
+        getMyProfile(),
         getQuotaInfo(),
       ])
 
       if (cancelled) return
 
-      if (profileResult.status === 'fulfilled' && !profileResult.value.error) {
-        const data = profileResult.value.data as Profile
+      if (profileResult.status === 'fulfilled') {
+        const data = profileResult.value
         setProfile(data)
         setDisplayName(data.display_name)
         setBio(data.bio)
       } else {
-        const msg = profileResult.status === 'fulfilled'
-          ? profileResult.value.error?.message
-          : profileResult.reason?.message
+        const msg = profileResult.reason?.message
         setError(msg ?? 'Failed to load profile')
       }
 
@@ -67,19 +63,19 @@ export function ProfilePage() {
     setError('')
     setSuccess('')
     setSaving(true)
-
-    const { error: err } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName.trim(), bio: bio.trim() })
-      .eq('id', user.id)
-
-    setSaving(false)
-    if (err) {
-      setError(err.message)
-    } else {
+    try {
+      const updated = await updateMyProfile({
+        display_name: displayName.trim(),
+        bio: bio.trim(),
+      })
+      setProfile(updated)
       setSuccess(t('profile.saved', 'Profile updated successfully'))
-      setProfile(prev => prev ? { ...prev, display_name: displayName.trim(), bio: bio.trim() } : prev)
       setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update profile'
+      setError(message)
+    } finally {
+      setSaving(false)
     }
   }
 

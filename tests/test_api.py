@@ -11,6 +11,7 @@ import threading
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -403,6 +404,102 @@ def test_export_report(client, tmp_path) -> None:
     assert "text/markdown" in response.headers["content-type"]
     assert "Competitor Research Report" in response.text
     assert "TestProduct" in response.text
+
+
+def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "linuxdo_client_id": "ld-client",
+            "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
+            "linuxdo_scope": "openid profile email",
+            "auth_session_secret": "state-secret",
+            "frontend_app_url": "https://ideago.simonsun.cc",
+        },
+    )()
+    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
+        response = client.get(
+            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 302
+    location = response.headers["location"]
+    assert location.startswith("https://connect.linux.do/oauth2/authorize?")
+    assert "client_id=ld-client" in location
+    assert "redirect_uri=" in location
+    assert "state=" in location
+
+
+def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None:
+    with (
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            return_value={"redirect_to": "https://ideago.simonsun.cc/auth/callback"},
+        ),
+        patch(
+            "ideago.api.routes.auth._exchange_linuxdo_code",
+            new=AsyncMock(return_value="linuxdo-token"),
+        ),
+        patch(
+            "ideago.api.routes.auth._fetch_linuxdo_userinfo",
+            new=AsyncMock(
+                return_value={
+                    "id": 123,
+                    "email": "user@example.com",
+                    "username": "user",
+                }
+            ),
+        ),
+        patch(
+            "ideago.api.routes.auth.ensure_profile_exists",
+            new=AsyncMock(return_value=True),
+        ),
+        patch("ideago.api.routes.auth._issue_auth_token", return_value="ideago-token"),
+    ):
+        response = client.get(
+            "/api/v1/auth/linuxdo/callback?code=ok&state=good",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 302
+    location = response.headers["location"]
+    assert location.startswith("https://ideago.simonsun.cc/auth/callback#")
+    assert "access_token=ideago-token" in location
+    assert "provider=linuxdo" in location
+
+
+def test_auth_me_accepts_backend_session_jwt(client) -> None:
+    token = jwt.encode(
+        {
+            "sub": "f0f581f8-f6e4-47a9-9162-d53eabc8dd9a",
+            "email": "linuxdo@example.com",
+            "aud": "ideago-auth",
+        },
+        "session-secret",
+        algorithm="HS256",
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "session-secret",
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == "f0f581f8-f6e4-47a9-9162-d53eabc8dd9a"
+    assert payload["email"] == "linuxdo@example.com"
 
 
 @pytest.mark.asyncio
