@@ -65,9 +65,9 @@ function StaggerReveal({ children, delay = 0, className = '' }: {
 const DATA_SOURCES = [
   { icon: Github, label: 'GitHub', color: 'var(--foreground)' },
   { icon: Globe, label: 'Web', color: 'var(--primary)' },
-  { icon: HackerNewsIcon, label: 'Hacker News', color: 'oklch(0.7 0.15 60)' },
-  { icon: Smartphone, label: 'App Store', color: 'oklch(0.6 0.2 260)' },
-  { icon: Rocket, label: 'Product Hunt', color: 'oklch(0.6 0.2 25)' },
+  { icon: HackerNewsIcon, label: 'Hacker News', color: 'var(--warning)' },
+  { icon: Smartphone, label: 'App Store', color: 'var(--primary)' },
+  { icon: Rocket, label: 'Product Hunt', color: 'var(--destructive)' },
 ] as const
 
 export function LandingPage() {
@@ -76,13 +76,13 @@ export function LandingPage() {
   const isChinese = currentLang.startsWith('zh')
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* ─── TOP BAR ─── */}
-      <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background/95 backdrop-blur-sm px-4 py-4 md:px-8 flex items-center justify-between">
-        <span className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)]">
+      <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background/95 backdrop-blur-sm px-4 py-4 md:px-8 flex items-center justify-between min-w-0">
+        <span className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] truncate max-w-[50vw] hover:bg-foreground transition-colors cursor-default">
           {t('app.title')} {t('app.titleHighlight')}
         </span>
-        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => i18n.changeLanguage(isChinese ? 'en' : 'zh')}
             className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
@@ -94,76 +94,79 @@ export function LandingPage() {
             to="/login"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
-            <LogIn className="w-5 h-5 shrink-0" />
+            <LogIn className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span className="hidden sm:inline">{t('auth.signIn', 'Sign In')}</span>
           </Link>
         </div>
       </nav>
 
       {/* ─── HERO ─── */}
-      <section className="relative px-4 pt-28 sm:pt-36 pb-24 sm:pb-32">
+      <section className="relative px-4 pt-32 sm:pt-48 pb-32 sm:pb-40 border-b-8 border-border">
         <div className="app-shell">
-          <div className="grid lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-20 items-start">
+          <div className="grid lg:grid-cols-[1.3fr_1fr] gap-12 lg:gap-24 items-center">
             {/* Left: headline */}
-            <div className="animate-fade-in">
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-primary mb-6 border-l-4 border-primary pl-4">
-                {t('landing.badge')}
-              </p>
-              <h1 className="font-heading uppercase tracking-tighter leading-[0.85] text-[clamp(3rem,8vw,7rem)] mb-8">
+            <div className="animate-fade-in relative z-10">
+              <div className="inline-block border-4 border-border bg-primary text-primary-foreground px-6 py-2 mb-8 shadow-[6px_6px_0px_0px_var(--border)] transform -rotate-2">
+                <p className="text-sm font-black uppercase tracking-[0.3em]">
+                  {t('landing.badge')}
+                </p>
+              </div>
+              <h1 className="font-heading uppercase tracking-tighter leading-[0.8] text-[clamp(4rem,10vw,8.5rem)] mb-10 drop-shadow-[4px_4px_0px_var(--border)]">
                 {t('landing.heroLine1')}
                 <br />
-                <span className="text-primary">{t('landing.heroLine2')}</span>
+                <span className="text-primary inline-block transform hover:scale-105 transition-transform cursor-default">{t('landing.heroLine2')}</span>
               </h1>
-              <p className="max-w-lg text-lg sm:text-xl font-bold text-muted-foreground leading-relaxed mb-10">
+              <p className="max-w-xl text-xl sm:text-2xl font-bold text-muted-foreground leading-snug mb-12 wrap min-w-0 break-words border-l-8 border-primary pl-6">
                 {t('landing.heroDesc')}
               </p>
-              <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex flex-wrap gap-6 items-center">
                 <Link to="/login">
-                  <Button size="lg" className="text-base px-8 py-4">
+                  <Button size="lg" className="text-xl px-12 py-6 border-4 shadow-[8px_8px_0px_0px_var(--border)] hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-[12px_12px_0px_0px_var(--border)] transition-all">
                     {t('landing.cta')}
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
                   </Button>
                 </Link>
                 <a
                   href="#how-it-works"
-                  className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-3 text-base font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors group"
                 >
                   {t('landing.learnMore')}
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" aria-hidden="true" />
                 </a>
               </div>
             </div>
 
             {/* Right: mock report card */}
-            <div className="animate-fade-in [animation-delay:200ms] hidden lg:block">
-              <div className="border-4 border-border bg-card p-8 shadow-[12px_12px_0px_0px_var(--border)] rotate-1 hover:rotate-0 transition-transform duration-500">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-3 h-3 bg-success border-2 border-border" />
-                  <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+            <div className="animate-fade-in [animation-delay:200ms] hidden lg:block relative">
+              <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-border" />
+              <div className="relative border-4 border-border bg-card p-10 shadow-[16px_16px_0px_0px_var(--border)] rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
+                <div className="flex items-center gap-4 mb-8 overflow-hidden">
+                  <div className="w-4 h-4 bg-success border-4 border-border shrink-0 animate-pulse" />
+                  <span className="text-sm font-black uppercase tracking-widest text-muted-foreground truncate" title={t('landing.mockLabel')}>
                     {t('landing.mockLabel')}
                   </span>
                 </div>
-                <p className="text-lg font-bold text-foreground mb-6 border-l-4 border-primary pl-4">
+                <p className="text-2xl font-black text-foreground mb-8 border-l-8 border-primary pl-6 line-clamp-3 leading-tight" title={t('landing.mockQuery')}>
                   &ldquo;{t('landing.mockQuery')}&rdquo;
                 </p>
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="flex flex-wrap border-t-4 border-border/20 pt-6 gap-y-6 mb-8">
                   {[
                     { val: '12', label: t('landing.mockCompetitors') },
                     { val: '87%', label: t('landing.mockRelevance') },
                     { val: '5', label: t('landing.mockSources') },
                     { val: '4m', label: t('landing.mockTime') },
                   ].map(stat => (
-                    <div key={stat.label} className="border-2 border-border p-3 bg-background">
-                      <span className="block text-2xl font-black text-primary leading-none">{stat.val}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1 block">
+                    <div key={stat.label} className="w-1/2 flex flex-col pr-4 group cursor-default">
+                      <span className="block text-4xl font-black text-primary leading-none truncate mb-2 group-hover:scale-105 transition-transform origin-left" title={stat.val}>{stat.val}</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground block truncate" title={stat.label}>
                         {stat.label}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border-2 border-success">
-                  <Zap className="w-4 h-4 text-success" />
-                  <span className="text-sm font-black uppercase tracking-wider text-success">
+                <div className="flex items-center gap-3 px-4 py-3 bg-success border-4 border-border overflow-hidden mt-auto shadow-[4px_4px_0px_0px_var(--border)] transform -rotate-1">
+                  <Zap className="w-6 h-6 text-success-foreground shrink-0" />
+                  <span className="text-base font-black uppercase tracking-widest text-success-foreground truncate" title={t('landing.mockVerdict')}>
                     {t('landing.mockVerdict')}
                   </span>
                 </div>
@@ -174,28 +177,31 @@ export function LandingPage() {
 
         {/* Decorative grid lines */}
         <div
-          className="absolute inset-0 -z-10 opacity-[0.03]"
+          className="absolute inset-0 -z-10 opacity-[0.05]"
           style={{
             backgroundImage: `
-              linear-gradient(var(--foreground) 1px, transparent 1px),
-              linear-gradient(90deg, var(--foreground) 1px, transparent 1px)
+              linear-gradient(var(--foreground) 2px, transparent 2px),
+              linear-gradient(90deg, var(--foreground) 2px, transparent 2px)
             `,
-            backgroundSize: '60px 60px',
+            backgroundSize: '100px 100px',
           }}
         />
       </section>
 
       {/* ─── DATA SOURCES STRIP ─── */}
-      <section className="border-y-4 border-border py-8 bg-card overflow-hidden">
-        <div className="app-shell">
-          <p className="text-center text-xs font-black uppercase tracking-[0.3em] text-muted-foreground mb-6">
+      <section className="border-y-8 border-border py-12 bg-card overflow-hidden w-full min-w-0 relative">
+        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] dark:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] pointer-events-none" />
+        <div className="app-shell relative z-10">
+          <p className="text-center text-sm font-black uppercase tracking-[0.4em] text-muted-foreground mb-10">
             {t('landing.sourcesLabel')}
           </p>
-          <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-16 overflow-hidden">
             {DATA_SOURCES.map(({ icon: Icon, label, color }, i) => (
-              <StaggerReveal key={label} delay={i * 80} className="flex items-center gap-3">
-                <Icon className="w-6 h-6 shrink-0" style={{ color }} />
-                <span className="text-sm sm:text-base font-black uppercase tracking-wider">{label}</span>
+              <StaggerReveal key={label} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default">
+                <div className="p-3 border-4 border-border bg-background shadow-[4px_4px_0px_0px_var(--border)] group-hover:-translate-y-2 group-hover:shadow-[8px_8px_0px_0px_var(--border)] transition-all duration-300" style={{ color }}>
+                  <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
+                </div>
+                <span className="text-lg sm:text-xl font-black uppercase tracking-widest truncate group-hover:text-primary transition-colors">{label}</span>
               </StaggerReveal>
             ))}
           </div>
@@ -206,33 +212,33 @@ export function LandingPage() {
       <section id="how-it-works" className="px-4 py-24 sm:py-32">
         <div className="app-shell">
           <StaggerReveal>
-            <h2 className="text-center mb-4">
+            <h2 className="text-center mb-4 text-[clamp(2.5rem,5vw,4.5rem)]">
               {t('landing.howTitle')}
             </h2>
-            <p className="text-center text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-16">
+            <p className="text-center text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-20 wrap min-w-0 break-words">
               {t('landing.howSubtitle')}
             </p>
           </StaggerReveal>
 
-          <div className="grid md:grid-cols-3 gap-0">
+          <div className="flex flex-col md:flex-row gap-8 lg:gap-12 min-w-0">
             {([
-              { icon: Search, step: '01', titleKey: 'landing.step1Title', descKey: 'landing.step1Desc' },
-              { icon: Zap, step: '02', titleKey: 'landing.step2Title', descKey: 'landing.step2Desc' },
-              { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc' },
-            ] as const).map(({ icon: Icon, step, titleKey, descKey }, i) => (
-              <StaggerReveal key={step} delay={i * 120}>
-                <div className={`
-                  p-8 sm:p-10 border-2 border-border bg-background
-                  ${i === 1 ? 'md:border-x-0 md:bg-card md:shadow-[8px_8px_0px_0px_var(--border)] md:scale-105 md:z-10 relative' : ''}
-                `}>
-                  <div className="flex items-start gap-4 mb-6">
-                    <span className="text-5xl font-black text-muted-foreground/15 leading-none select-none">{step}</span>
-                    <div className="w-12 h-12 border-2 border-border bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-[3px_3px_0px_0px_var(--border)]">
-                      <Icon className="w-6 h-6" />
+              { icon: Search, step: '01', titleKey: 'landing.step1Title', descKey: 'landing.step1Desc', mt: 'mt-0' },
+              { icon: Zap, step: '02', titleKey: 'landing.step2Title', descKey: 'landing.step2Desc', mt: 'md:mt-24' },
+              { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc', mt: 'md:mt-48' },
+            ] as const).map(({ icon: Icon, step, titleKey, descKey, mt }, i) => (
+              <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`}>
+                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-[12px_12px_0px_0px_var(--border)] relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-[20px_20px_0px_0px_var(--border)] overflow-hidden flex flex-col min-w-0 group">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Icon className="w-32 h-32" />
+                  </div>
+                  <div className="flex items-start gap-4 mb-8 relative z-10">
+                    <span aria-hidden="true" className="text-7xl font-black text-muted-foreground/20 leading-none select-none tracking-tighter">{step}</span>
+                    <div className="w-14 h-14 border-4 border-border bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_var(--border)] group-hover:scale-110 transition-transform">
+                      <Icon className="w-7 h-7" />
                     </div>
                   </div>
-                  <h3 className="text-xl sm:text-2xl mb-3">{t(titleKey)}</h3>
-                  <p className="text-base font-medium text-muted-foreground leading-relaxed">
+                  <h3 className="text-2xl sm:text-3xl mb-4 wrap truncate relative z-10" title={t(titleKey)}>{t(titleKey)}</h3>
+                  <p className="text-lg font-medium text-muted-foreground leading-relaxed wrap flex-1 line-clamp-4 relative z-10">
                     {t(descKey)}
                   </p>
                 </div>
@@ -243,29 +249,45 @@ export function LandingPage() {
       </section>
 
       {/* ─── FEATURE HIGHLIGHTS ─── */}
-      <section className="px-4 py-24 sm:py-32 bg-card border-y-4 border-border">
-        <div className="app-shell">
+      <section className="px-4 py-32 sm:py-48 bg-muted border-y-8 border-border relative">
+        <div className="absolute inset-0 bg-[radial-gradient(var(--border)_2px,transparent_2px)] [background-size:32px_32px] opacity-10" />
+        <div className="app-shell relative z-10">
           <StaggerReveal>
-            <h2 className="mb-16 max-w-3xl">
+            <h2 className="mb-20 max-w-4xl text-[clamp(2.5rem,5vw,4.5rem)] leading-none">
               {t('landing.featuresTitle')}
             </h2>
           </StaggerReveal>
 
-          <div className="grid sm:grid-cols-2 gap-6">
+          <div className="grid sm:grid-cols-12 gap-8 lg:gap-12 relative z-10">
+            {/* Massive Hero Highlight Card */}
+            <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8">
+              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-[24px_24px_0px_0px_var(--border)] relative overflow-hidden group hover:-translate-y-2 hover:shadow-[32px_32px_0px_0px_var(--border)] transition-all duration-500">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
+                <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
+                  {t('landing.feat1Title')}
+                </h3>
+                <p className="text-xl sm:text-2xl font-bold text-muted-foreground leading-relaxed max-w-2xl relative z-10">
+                  {t('landing.feat1Desc')}
+                </p>
+                <div className="absolute bottom-8 right-8 w-24 h-24 border-8 border-primary rounded-full animate-[spin_10s_linear_infinite] opacity-50" />
+              </div>
+            </StaggerReveal>
+
+            {/* Smaller Secondary Cards */}
             {([
-              { titleKey: 'landing.feat1Title', descKey: 'landing.feat1Desc', accent: 'var(--primary)' },
-              { titleKey: 'landing.feat2Title', descKey: 'landing.feat2Desc', accent: 'var(--success)' },
-              { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)' },
-              { titleKey: 'landing.feat4Title', descKey: 'landing.feat4Desc', accent: 'oklch(0.7 0.15 60)' },
-            ] as const).map(({ titleKey, descKey, accent }, i) => (
-              <StaggerReveal key={titleKey} delay={i * 100}>
-                <div className="p-6 sm:p-8 border-2 border-border bg-background shadow-[4px_4px_0px_0px_var(--border)] h-full">
-                  <div
-                    className="w-full h-1 mb-6"
-                    style={{ backgroundColor: accent }}
-                  />
-                  <h3 className="text-lg sm:text-xl mb-3">{t(titleKey)}</h3>
-                  <p className="text-base font-medium text-muted-foreground leading-relaxed">
+              { titleKey: 'landing.feat2Title', descKey: 'landing.feat2Desc', accent: 'var(--success)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: '-rotate-1', shape: 'rounded-none' },
+              { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: 'rotate-1', shape: 'rounded-full' },
+            ] as const).map(({ titleKey, descKey, accent, colSpan, rotation, shape }, i) => (
+              <StaggerReveal key={titleKey} delay={i * 150} className={colSpan}>
+                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-[12px_12px_0px_0px_var(--border)] h-full flex flex-col overflow-hidden min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
+                  <div className="flex items-center gap-6 mb-8">
+                    <div
+                      className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow-[4px_4px_0px_0px_var(--border)]`}
+                      style={{ backgroundColor: accent }}
+                    />
+                    <h3 className="text-2xl sm:text-3xl wrap truncate group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
+                  </div>
+                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed wrap flex-1 line-clamp-4">
                     {t(descKey)}
                   </p>
                 </div>
@@ -276,18 +298,25 @@ export function LandingPage() {
       </section>
 
       {/* ─── FINAL CTA ─── */}
-      <section className="px-4 py-24 sm:py-32">
-        <div className="app-shell">
+      <section className="px-4 py-32 sm:py-48 relative overflow-hidden">
+        {/* Wild background shapes */}
+        <div className="absolute top-1/2 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="absolute top-1/2 right-0 w-96 h-96 bg-destructive/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+        <div className="app-shell relative z-10">
           <StaggerReveal>
-            <div className="border-4 border-border p-10 sm:p-16 bg-background shadow-[12px_12px_0px_0px_var(--border)] text-center max-w-3xl mx-auto">
-              <h2 className="mb-6">{t('landing.ctaTitle')}</h2>
-              <p className="text-lg font-bold text-muted-foreground max-w-md mx-auto mb-10">
+            <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-[24px_24px_0px_0px_var(--border)] text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:shadow-[32px_32px_0px_0px_var(--border)] transition-all duration-500 relative">
+              <div className="absolute -top-6 -right-6 w-12 h-12 bg-warning border-4 border-border rotate-12" />
+              <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />
+
+              <h2 className="mb-8 text-[clamp(2.5rem,6vw,5rem)] leading-none">{t('landing.ctaTitle')}</h2>
+              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 wrap line-clamp-3 min-w-0 break-words leading-relaxed">
                 {t('landing.ctaDesc')}
               </p>
               <Link to="/login">
-                <Button size="lg" className="text-base px-10 py-5">
+                <Button size="lg" className="text-2xl px-16 py-8 border-4 shadow-[8px_8px_0px_0px_var(--border)] hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-[16px_16px_0px_0px_var(--border)] transition-all group">
                   {t('landing.ctaButton')}
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="w-8 h-8 ml-4 group-hover:translate-x-2 transition-transform" aria-hidden="true" />
                 </Button>
               </Link>
             </div>
@@ -297,11 +326,11 @@ export function LandingPage() {
 
       {/* ─── FOOTER ─── */}
       <footer className="border-t-4 border-border px-4 py-8">
-        <div className="app-shell flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-sm font-bold text-muted-foreground">
+        <div className="app-shell flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden">
+          <span className="text-sm font-bold text-muted-foreground truncate">
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 truncate" title={t('landing.footerTagline')}>
             {t('landing.footerTagline')}
           </span>
         </div>

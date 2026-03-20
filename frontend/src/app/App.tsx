@@ -152,7 +152,7 @@ function ThemeModeMenu({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <ActiveIcon className="h-5 w-5" />
+        <ActiveIcon className="h-5 w-5" aria-hidden="true" />
         <span className="hidden sm:inline">{activeTheme.shortLabel}</span>
       </button>
       {open && (
@@ -181,10 +181,10 @@ function ThemeModeMenu({
                 }`}
               >
                 <span className="inline-flex items-center gap-3">
-                  <OptionIcon className="h-4 w-4" />
+                  <OptionIcon className="h-4 w-4" aria-hidden="true" />
                   {option.label}
                 </span>
-                {selected && <Check className="h-4 w-4" />}
+                {selected && <Check className="h-4 w-4" aria-hidden="true" />}
               </button>
             )
           })}
@@ -211,7 +211,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
       return (
         <div className="min-h-screen px-4 py-10 bg-background text-foreground flex items-center justify-center">
           <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--destructive)] text-center">
-            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" />
+            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" aria-hidden="true" />
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
             </h1>
@@ -226,7 +226,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 window.location.href = '/'
               }}
             >
-              <ArrowLeft className="w-5 h-5 mr-3" />
+              <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
               {t('error.backToHome')}
             </Button>
           </div>
@@ -252,7 +252,7 @@ function NotFound() {
           size="lg"
           onClick={() => navigate('/')}
         >
-          <ArrowLeft className="w-5 h-5 mr-3" />
+          <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
           {t('error.backToHome')}
         </Button>
       </div>
@@ -281,10 +281,10 @@ function NavBar({
   }
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print min-w-0">
       <Link
         to="/"
-        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all"
+        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all truncate max-w-[40vw]"
       >
         {t('app.title')} {t('app.titleHighlight')}
       </Link>
@@ -302,7 +302,7 @@ function NavBar({
           className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           aria-label={t('app.history')}
         >
-          <History className="w-5 h-5 shrink-0" />
+          <History className="w-5 h-5 shrink-0" aria-hidden="true" />
           <span className="hidden sm:inline">{t('app.history')}</span>
         </Link>
         <UserMenu />

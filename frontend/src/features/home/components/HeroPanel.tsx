@@ -56,7 +56,7 @@ function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
         const color = SOURCE_STATUS_COLOR[sr.status] ?? 'text-danger'
         return (
           <span key={sr.platform} className={`inline-flex items-center gap-1.5 ${color}`}>
-            <Icon className="w-3 h-3" />
+            <Icon className="w-3 h-3" aria-hidden="true" />
             <span>{PLATFORM_LABELS[sr.platform] ?? sr.platform}</span>
             {sr.status === 'ok' && (
               <span className="text-text-dim">
@@ -81,26 +81,28 @@ function StatCard({
   icon: Icon,
   index,
   reduceMotion = false,
+  className = '',
 }: {
   value: string | number
   label: string
   icon: typeof Users
   index: number
   reduceMotion?: boolean
+  className?: string
 }) {
   const content = (
     <>
-      <div className="flex items-center gap-2.5 mb-2.5">
-        <Icon className="w-5 h-5 text-text-dim" />
-        <span className="text-sm text-text-dim font-medium">{label}</span>
+      <div className="flex items-center gap-2.5 mb-2.5 overflow-hidden">
+        <Icon className="w-5 h-5 text-text-dim shrink-0" aria-hidden="true" />
+        <span className="text-sm text-text-dim font-medium truncate">{label}</span>
       </div>
-      <p className="text-4xl font-bold font-heading text-text">{value}</p>
+      <p className="text-3xl sm:text-4xl font-bold font-heading text-text truncate">{value}</p>
     </>
   )
 
   if (reduceMotion) {
     return (
-      <div className="rounded-none bg-card border-2 border-border p-6 shadow-[4px_4px_0px_0px_var(--border)]">
+      <div className={`p-6 sm:p-8 flex flex-col justify-center h-full ${className}`}>
         {content}
       </div>
     )
@@ -108,10 +110,10 @@ function StatCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: 'easeOut' }}
-      className="rounded-none bg-card border-2 border-border p-6 transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] hover:bg-muted"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.1 + index * 0.08, duration: 0.4 }}
+      className={`p-6 sm:p-8 flex flex-col justify-center h-full transition-colors duration-150 hover:bg-muted ${className}`}
     >
       {content}
     </motion.div>
@@ -137,14 +139,14 @@ export function HeroPanel({ report }: HeroPanelProps) {
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-5">
       {/* Verdict Card — left 3/5 */}
       <div className={`lg:col-span-3 rounded-none border-2 border-border ${verdict.bg} p-8 sm:p-10 ${verdict.glow}`}>
-        <div className="flex items-start gap-5 mb-5">
+      <div className="flex items-start gap-5 mb-5 overflow-hidden">
           <div className={`w-16 h-16 rounded-none ${verdict.bg} border-2 ${verdict.ring} flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_currentColor] ${verdict.text}`}>
             <span className="text-3xl font-black font-heading">
               {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className={`text-2xl font-bold font-heading ${verdict.text} mb-2`}>
+            <h2 className={`text-2xl font-bold font-heading ${verdict.text} mb-2 wrap`}>
               {verdict.label}
             </h2>
             {report.go_no_go && (
@@ -157,7 +159,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
                     onClick={() => setExpanded(e => !e)}
                     className="mt-1 inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
                   >
-                    {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    {expanded ? <ChevronUp className="w-3 h-3" aria-hidden="true" /> : <ChevronDown className="w-3 h-3" aria-hidden="true" />}
                     {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
                   </button>
                 )}
@@ -174,11 +176,23 @@ export function HeroPanel({ report }: HeroPanelProps) {
       </div>
 
       {/* Stats Grid — right 2/5 */}
-      <div className="lg:col-span-2 grid grid-cols-2 gap-3">
-        <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} reduceMotion={reduceMotion} />
-        <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} reduceMotion={reduceMotion} />
-        <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} reduceMotion={reduceMotion} />
-        <StatCard value={angleCount} label={t('report.hero.stats.opportunities')} icon={Lightbulb} index={3} reduceMotion={reduceMotion} />
+      <div className="lg:col-span-2 flex flex-col bg-card border-2 border-border shadow-[6px_6px_0px_0px_var(--border)]">
+        <div className="flex flex-1 border-b-2 border-border overflow-hidden">
+          <div className="flex-1 border-r-2 border-border min-w-0">
+            <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} reduceMotion={reduceMotion} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} reduceMotion={reduceMotion} />
+          </div>
+        </div>
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex-1 border-r-2 border-border min-w-0">
+            <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} reduceMotion={reduceMotion} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <StatCard value={angleCount} label={t('report.hero.stats.opportunities')} icon={Lightbulb} index={3} reduceMotion={reduceMotion} />
+          </div>
+        </div>
       </div>
     </section>
   )
