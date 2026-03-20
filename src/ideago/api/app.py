@@ -110,13 +110,63 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    _CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+    @app.middleware("http")
+    async def csrf_protection(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        """Reject cross-origin state-changing requests without a custom header.
+
+        Browsers block cross-origin JS from setting custom headers, so
+        requiring `X-Requested-With` on mutating API calls prevents CSRF
+        while remaining transparent to our own SPA (which always sends it).
+        """
+        if (
+            request.method in _CSRF_METHODS
+            and request.url.path.startswith("/api/")
+            and not request.headers.get("X-Requested-With")
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Missing required header: X-Requested-With"},
+            )
+        return await call_next(request)
+
     @app.middleware("http")
     async def rate_limit_analyze(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
-        """In-memory rate limiter for /analyze, keyed by (IP, session)."""
+        """In-memory rate limiter for /analyze.
+
+        Keys by authenticated user ID when available (survives proxy/LB
+        changes), falls back to IP + session for unauthenticated requests.
+        The Supabase quota system (check_and_increment_quota) provides the
+        durable monthly cap; this layer only throttles burst frequency.
+        """
         if request.method == "POST" and request.url.path.endswith("/analyze"):
-            client_ip = request.client.host if request.client else "unknown"
-            session_id = request.headers.get("X-Session-Id", "")
-            rate_key = f"{client_ip}:{session_id}" if session_id else client_ip
+            auth_header = request.headers.get("Authorization", "")
+            user_id = ""
+            if auth_header.startswith("Bearer "):
+                import jwt as _jwt
+
+                token = auth_header.removeprefix("Bearer ").strip()
+                jwt_secret = settings.supabase_jwt_secret
+                if jwt_secret:
+                    try:
+                        payload = _jwt.decode(
+                            token,
+                            jwt_secret,
+                            algorithms=["HS256"],
+                            audience="authenticated",
+                        )
+                        user_id = payload.get("sub", "")
+                    except _jwt.InvalidTokenError:
+                        pass
+
+            if user_id:
+                rate_key = f"user:{user_id}"
+            else:
+                client_ip = request.client.host if request.client else "unknown"
+                session_id = request.headers.get("X-Session-Id", "")
+                rate_key = f"{client_ip}:{session_id}" if session_id else client_ip
+
             now = time.monotonic()
             timestamps = _rate_limit_store[rate_key]
             timestamps[:] = [t for t in timestamps if now - t < _RATE_LIMIT_WINDOW]

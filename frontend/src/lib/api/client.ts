@@ -10,6 +10,10 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+function mutationHeaders(): Record<string, string> {
+  return { ...authHeaders(), 'X-Requested-With': 'IdeaGo' }
+}
+
 export interface RequestOptions {
   signal?: AbortSignal
   timeoutMs?: number
@@ -114,7 +118,7 @@ export async function startAnalysis(
 ): Promise<{ report_id: string }> {
   const res = await fetchWithTimeout(`${API_BASE}/analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
     body: JSON.stringify({ query }),
   }, options, ANALYSIS_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Analysis failed'))
@@ -172,12 +176,12 @@ export async function listReports(options: ListReportsOptions = {}): Promise<Rep
 }
 
 export async function deleteReport(id: string, options: RequestOptions = {}): Promise<void> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { method: 'DELETE', headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { method: 'DELETE', headers: mutationHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to delete report'))
 }
 
 export async function cancelAnalysis(id: string, options: RequestOptions = {}): Promise<void> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE', headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/cancel`, { method: 'DELETE', headers: mutationHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to cancel analysis'))
 }
 
