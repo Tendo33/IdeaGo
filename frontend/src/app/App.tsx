@@ -3,14 +3,30 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode,
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
 import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
-import { HomePage } from '@/features/home/HomePage'
-import { LandingPage } from '@/features/landing/LandingPage'
 import { AuthProvider } from '@/lib/auth/AuthProvider'
 import { ProtectedRoute } from '@/lib/auth/ProtectedRoute'
 import { useAuth } from '@/lib/auth/useAuth'
 import { UserMenu } from '@/features/auth/components/UserMenu'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { AuthCallback } from '@/features/auth/AuthCallback'
+
+const HomePage = lazy(async () => {
+  const page = await import('@/features/home/HomePage')
+  return { default: page.HomePage }
+})
+
+const LandingPage = lazy(async () => {
+  const page = await import('@/features/landing/LandingPage')
+  return { default: page.LandingPage }
+})
+
+const LoginPage = lazy(async () => {
+  const page = await import('@/features/auth/LoginPage')
+  return { default: page.LoginPage }
+})
+
+const AuthCallback = lazy(async () => {
+  const page = await import('@/features/auth/AuthCallback')
+  return { default: page.AuthCallback }
+})
 
 const ProfilePage = lazy(async () => {
   const page = await import('@/features/profile/ProfilePage')
