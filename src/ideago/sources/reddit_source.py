@@ -1,12 +1,13 @@
-"""Reddit data source — searches via Reddit's public JSON API.
+"""Reddit data source — searches via Reddit OAuth2 API.
 
-通过 Reddit 公开 JSON API 搜索社区讨论帖，用于竞品发现和需求验证。
+通过 Reddit OAuth2 API 搜索社区讨论帖，用于竞品发现和需求验证。
+需要在 https://www.reddit.com/prefs/apps 创建 "script" 类型应用获取凭证。
 """
 
 from __future__ import annotations
 
 import asyncio
-import random
+import time
 
 import httpx
 
@@ -17,29 +18,41 @@ from ideago.utils.text_utils import decode_entities_and_strip_html
 
 logger = get_logger(__name__)
 
-_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
-]
-
+_APP_USER_AGENT = "IdeaGo/0.3 (competitor-research-engine)"
+_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
+_TOKEN_REFRESH_BUFFER = 60
 _INTER_REQUEST_DELAY = 1.0
 
 
 class RedditSource:
-    """Searches Reddit posts using the free public JSON API."""
+    """Searches Reddit posts using the OAuth2 Application-Only flow."""
 
-    _BASE_URL = "https://www.reddit.com"
+    _BASE_URL = "https://oauth.reddit.com"
 
-    def __init__(self, timeout: int = 30, max_concurrent_queries: int = 2) -> None:
+    def __init__(
+        self,
+        client_id: str = "",
+        client_secret: str = "",
+        timeout: int = 30,
+        max_concurrent_queries: int = 2,
+    ) -> None:
+        self._client_id = client_id
+        self._client_secret = client_secret
         self._client = httpx.AsyncClient(
             base_url=self._BASE_URL,
             timeout=timeout,
-            headers={"User-Agent": random.choice(_USER_AGENTS)},
+            headers={"User-Agent": _APP_USER_AGENT},
             follow_redirects=True,
+        )
+        self._auth_client = httpx.AsyncClient(
+            timeout=15,
+            headers={"User-Agent": _APP_USER_AGENT},
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
         self._runtime_max_concurrent_queries: int | None = None
+        self._access_token: str | None = None
+        self._token_expires_at: float = 0.0
+        self._token_lock = asyncio.Lock()
         self._last_search_diagnostics: dict[str, object] = {
             "partial_failure": False,
             "failed_queries": [],
@@ -51,7 +64,7 @@ class RedditSource:
         return Platform.REDDIT
 
     def is_available(self) -> bool:
-        return True
+        return bool(self._client_id and self._client_secret)
 
     def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
         self._runtime_max_concurrent_queries = max(1, int(value)) if value else None
@@ -65,19 +78,68 @@ class RedditSource:
         }
         return payload
 
+    async def _ensure_token(self) -> str:
+        """Obtain or refresh the OAuth2 application-only access token."""
+        async with self._token_lock:
+            if (
+                self._access_token
+                and time.monotonic() < self._token_expires_at - _TOKEN_REFRESH_BUFFER
+            ):
+                return self._access_token
+
+            try:
+                resp = await self._auth_client.post(
+                    _TOKEN_URL,
+                    auth=(self._client_id, self._client_secret),
+                    data={"grant_type": "client_credentials"},
+                )
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Reddit token request failed with status {status}",
+                        status=resp.status_code,
+                    )
+                    raise SourceSearchError(
+                        self.platform.value,
+                        f"OAuth token request failed (status={resp.status_code})",
+                        status_code=resp.status_code,
+                    )
+                body = resp.json()
+                self._access_token = body["access_token"]
+                expires_in = int(body.get("expires_in", 3600))
+                self._token_expires_at = time.monotonic() + expires_in
+                logger.debug("Reddit OAuth token acquired, expires in {}s", expires_in)
+                return self._access_token
+            except httpx.HTTPError as exc:
+                logger.warning("Reddit OAuth token request error: {exc}", exc=exc)
+                raise SourceSearchError(
+                    self.platform.value, f"OAuth token error: {exc}"
+                ) from exc
+
     async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+        token = await self._ensure_token()
         try:
             resp = await self._client.get(
-                "/search.json",
+                "/search",
                 params={
                     "q": query,
                     "limit": min(limit, 25),
                     "sort": "relevance",
                     "t": "year",
                     "type": "link",
-                    "restrict_sr": "",
                 },
+                headers={"Authorization": f"Bearer {token}"},
             )
+            if resp.status_code == 401:
+                self._access_token = None
+                logger.warning(
+                    "Reddit token expired mid-request for '{query}', will retry",
+                    query=query,
+                )
+                raise SourceSearchError(
+                    self.platform.value,
+                    "OAuth token expired",
+                    status_code=401,
+                )
             if resp.status_code == 429:
                 logger.warning("Reddit rate-limited for query '{query}'", query=query)
                 raise SourceSearchError(
@@ -146,7 +208,7 @@ class RedditSource:
 
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         """Search Reddit posts for each query and return combined, deduplicated results."""
-        if not queries:
+        if not queries or not self.is_available():
             return []
 
         self._last_search_diagnostics = {
@@ -214,3 +276,4 @@ class RedditSource:
 
     async def close(self) -> None:
         await self._client.aclose()
+        await self._auth_client.aclose()

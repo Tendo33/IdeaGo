@@ -112,6 +112,14 @@ class Settings(BaseSettings):
             "Product Hunt developer token for GraphQL source / Product Hunt 开发者令牌"
         ),
     )
+    reddit_client_id: str = Field(
+        default="",
+        description="Reddit OAuth client ID (from https://www.reddit.com/prefs/apps)",
+    )
+    reddit_client_secret: str = Field(
+        default="",
+        description="Reddit OAuth client secret",
+    )
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(

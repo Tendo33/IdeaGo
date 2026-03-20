@@ -871,23 +871,58 @@ MOCK_REDDIT_RESPONSE = {
     }
 }
 
+MOCK_TOKEN_RESPONSE = {
+    "access_token": "fake-token-abc",
+    "token_type": "bearer",
+    "expires_in": 86400,
+    "scope": "*",
+}
+
+
+def _make_reddit(client_id: str = "test-id", client_secret: str = "test-secret", **kw):
+    return RedditSource(client_id=client_id, client_secret=client_secret, **kw)
+
+
+def _patch_token(src: RedditSource):
+    """Patch _ensure_token to skip real OAuth and return a fake token."""
+    return patch.object(
+        src, "_ensure_token", new_callable=AsyncMock, return_value="fake-token"
+    )
+
 
 def test_reddit_platform() -> None:
-    src = RedditSource()
+    src = _make_reddit()
     assert src.platform == Platform.REDDIT
 
 
-def test_reddit_always_available() -> None:
-    src = RedditSource()
+def test_reddit_available_with_credentials() -> None:
+    src = _make_reddit()
     assert src.is_available() is True
+
+
+def test_reddit_not_available_without_credentials() -> None:
+    src = RedditSource()
+    assert src.is_available() is False
+    src2 = RedditSource(client_id="id-only")
+    assert src2.is_available() is False
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_without_credentials_returns_empty() -> None:
+    src = RedditSource()
+    results = await src.search(["test"])
+    assert results == []
 
 
 @pytest.mark.asyncio
 async def test_reddit_search_returns_raw_results() -> None:
-    src = RedditSource()
+    src = _make_reddit()
     mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
-    with patch.object(
-        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
     ):
         results = await src.search(["markdown editor"], limit=10)
     assert len(results) == 2
@@ -900,10 +935,13 @@ async def test_reddit_search_returns_raw_results() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_search_deduplicates_across_queries() -> None:
-    src = RedditSource()
+    src = _make_reddit()
     mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
-    with patch.object(
-        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
     ):
         results = await src.search(["query1", "query2"], limit=10)
     assert len(results) == 2
@@ -911,9 +949,10 @@ async def test_reddit_search_deduplicates_across_queries() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_search_handles_rate_limit() -> None:
-    src = RedditSource()
+    src = _make_reddit()
     mock_response = httpx.Response(429, json={"message": "Too Many Requests"})
     with (
+        _patch_token(src),
         patch.object(
             src._client, "get", new_callable=AsyncMock, return_value=mock_response
         ),
@@ -924,12 +963,13 @@ async def test_reddit_search_handles_rate_limit() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_search_handles_timeout() -> None:
-    src = RedditSource(timeout=1)
+    src = _make_reddit(timeout=1)
 
     async def slow_get(*_args, **_kwargs):
         raise httpx.ReadTimeout("timeout")
 
     with (
+        _patch_token(src),
         patch.object(src._client, "get", new_callable=AsyncMock) as mock_get,
         pytest.raises(SourceSearchError),
     ):
@@ -939,7 +979,7 @@ async def test_reddit_search_handles_timeout() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_search_partial_failure_returns_partial_results() -> None:
-    src = RedditSource()
+    src = _make_reddit()
 
     async def fake_get(*_args, **kwargs):
         query = kwargs["params"]["q"]
@@ -970,7 +1010,10 @@ async def test_reddit_search_partial_failure_returns_partial_results() -> None:
             },
         )
 
-    with patch.object(src._client, "get", new_callable=AsyncMock) as mock_get:
+    with (
+        _patch_token(src),
+        patch.object(src._client, "get", new_callable=AsyncMock) as mock_get,
+    ):
         mock_get.side_effect = fake_get
         results = await src.search(["good", "bad"], limit=5)
 
@@ -983,7 +1026,7 @@ async def test_reddit_search_partial_failure_returns_partial_results() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_search_sanitizes_selftext_html() -> None:
-    src = RedditSource()
+    src = _make_reddit()
     html_response = {
         "data": {
             "children": [
@@ -1006,8 +1049,11 @@ async def test_reddit_search_sanitizes_selftext_html() -> None:
         }
     }
     mock_response = httpx.Response(200, json=html_response)
-    with patch.object(
-        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
     ):
         results = await src.search(["test"], limit=10)
 
@@ -1015,3 +1061,43 @@ async def test_reddit_search_sanitizes_selftext_html() -> None:
     assert "<" not in results[0].description
     assert "&amp;" not in results[0].description
     assert "this & that" in results[0].description
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_acquisition() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(200, json=MOCK_TOKEN_RESPONSE)
+    with patch.object(
+        src._auth_client, "post", new_callable=AsyncMock, return_value=mock_token_resp
+    ):
+        token = await src._ensure_token()
+    assert token == "fake-token-abc"
+    assert src._access_token == "fake-token-abc"
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_reuses_valid_token() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(200, json=MOCK_TOKEN_RESPONSE)
+    with patch.object(
+        src._auth_client, "post", new_callable=AsyncMock, return_value=mock_token_resp
+    ) as mock_post:
+        await src._ensure_token()
+        await src._ensure_token()
+    mock_post.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_failure_raises() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(401, json={"error": "invalid_grant"})
+    with (
+        patch.object(
+            src._auth_client,
+            "post",
+            new_callable=AsyncMock,
+            return_value=mock_token_resp,
+        ),
+        pytest.raises(SourceSearchError, match="OAuth token request failed"),
+    ):
+        await src._ensure_token()

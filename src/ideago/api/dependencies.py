@@ -141,6 +141,8 @@ def get_orchestrator() -> LangGraphEngine:
         )
         registry.register(
             RedditSource(
+                client_id=settings.reddit_client_id,
+                client_secret=settings.reddit_client_secret,
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
             )
