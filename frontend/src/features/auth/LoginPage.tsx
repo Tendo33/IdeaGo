@@ -43,6 +43,9 @@ export function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState<Provider | null>(null)
   const [confirmSent, setConfirmSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const linuxdoProvider = (
+    import.meta.env.VITE_LINUXDO_OAUTH_PROVIDER?.trim() || 'custom:linuxdo'
+  ) as Provider
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
@@ -221,6 +224,19 @@ export function LoginPage() {
                   <GoogleIcon className="w-5 h-5" />
                 )}
                 {t('auth.continueWithGoogle', 'Continue with Google')}
+              </button>
+              <button
+                type="button"
+                disabled={anyLoading}
+                onClick={() => handleOAuth(linuxdoProvider)}
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {oauthLoading === linuxdoProvider ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <KeyRound className="w-5 h-5" />
+                )}
+                {t('auth.continueWithLinuxDo', 'Continue with LinuxDo')}
               </button>
             </div>
 
