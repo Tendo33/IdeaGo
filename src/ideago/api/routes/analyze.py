@@ -82,21 +82,14 @@ async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
     run_state = get_or_create_report_run(report_id)
     callback = _RunStateCallback(report_id)
     try:
-        await cache.put_status(
-            report_id,
-            "processing",
-            query,
-            message="Analysis is in progress",
-            user_id=user_id,
-        )
         orchestrator = get_orchestrator()
-        report = await orchestrator.run(query, callback=callback, report_id=report_id)
+        report = await orchestrator.run(
+            query, callback=callback, report_id=report_id, user_id=user_id
+        )
         if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
-        if user_id:
-            await cache.update_report_user_id(report_id, user_id)
         await cache.put_status(
             report_id,
             "complete",
@@ -157,9 +150,20 @@ async def start_analysis(
 
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
     report_id = str(uuid.uuid4())
-    existing_report_id = await reserve_processing_report(query_hash, report_id)
+    existing_report_id = await reserve_processing_report(
+        query_hash, report_id, user_id=user.id
+    )
     if existing_report_id is not None:
         return AnalyzeResponse(report_id=existing_report_id)
+
+    cache = get_cache()
+    await cache.put_status(
+        report_id,
+        "processing",
+        query,
+        message="Analysis is in progress",
+        user_id=user.id,
+    )
 
     get_or_create_report_run(report_id)
 
@@ -266,16 +270,32 @@ async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
         cleanup_report_runs()
 
 
+async def _get_effective_owner(report_id: str) -> str:
+    """Return the effective owner of a report, checking both report and status."""
+    cache = get_cache()
+    owner_id = await cache.get_report_user_id(report_id)
+    if owner_id:
+        return owner_id
+    status = await cache.get_status(report_id)
+    if status:
+        return status.get("user_id", "") or ""
+    return ""
+
+
+async def _assert_owner_or_deny(report_id: str, user_id: str) -> None:
+    """Raise 403 if the report/status exists with a different owner."""
+    owner_id = await _get_effective_owner(report_id)
+    if owner_id and owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+
 @router.get("/reports/{report_id}/stream")
 async def stream_progress(
     report_id: str,
     user: AuthUser = Depends(get_current_user),
 ) -> EventSourceResponse:
     """SSE endpoint — stream pipeline progress events for a report."""
-    cache = get_cache()
-    owner_id = await cache.get_report_user_id(report_id)
-    if owner_id and owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    await _assert_owner_or_deny(report_id, user.id)
     return EventSourceResponse(_stream_events(report_id))
 
 
@@ -285,10 +305,7 @@ async def cancel_analysis(
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Cancel an in-progress analysis task."""
-    cache = get_cache()
-    owner_id = await cache.get_report_user_id(report_id)
-    if owner_id and owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    await _assert_owner_or_deny(report_id, user.id)
     task = await get_pipeline_task_for_report(report_id)
     report_is_processing = await is_processing_report(report_id)
     if (task is None or task.done()) and not report_is_processing:

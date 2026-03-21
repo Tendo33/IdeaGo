@@ -70,6 +70,7 @@ class LangGraphEngine:
         query: str,
         callback: ProgressCallback | None = None,
         report_id: str | None = None,
+        user_id: str = "",
     ) -> ResearchReport:
         """Execute graph and return the final research report."""
         nodes = PipelineNodes(
@@ -102,6 +103,8 @@ class LangGraphEngine:
                 input_state: GraphState = {"query": query}
                 if report_id:
                     input_state["report_id"] = report_id
+                if user_id:
+                    input_state["user_id"] = user_id
                 result_state = await graph.ainvoke(input_state, config=config)
         except BaseException as run_exc:  # noqa: BLE001
             exc_type = type(run_exc)

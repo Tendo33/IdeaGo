@@ -193,13 +193,20 @@ def get_report_run(report_id: str) -> ReportRunState | None:
     return _report_runs.get(report_id)
 
 
-async def reserve_processing_report(query_hash: str, report_id: str) -> str | None:
-    """Atomically reserve processing slot; return existing active report_id if present."""
+async def reserve_processing_report(
+    query_hash: str, report_id: str, *, user_id: str = ""
+) -> str | None:
+    """Atomically reserve processing slot; return existing active report_id if present.
+
+    The reservation key includes *user_id* so that different users running
+    the same query each get their own pipeline (tenant isolation).
+    """
+    key = f"{user_id}:{query_hash}" if user_id else query_hash
     with _runtime_state_lock:
-        existing_report_id = _processing_reports.get(query_hash)
+        existing_report_id = _processing_reports.get(key)
         if existing_report_id is not None:
             return existing_report_id
-        _processing_reports[query_hash] = report_id
+        _processing_reports[key] = report_id
         return None
 
 

@@ -135,19 +135,22 @@ def create_app() -> FastAPI:
     async def rate_limit_analyze(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
         """In-memory rate limiter for /analyze.
 
-        Keys by authenticated user ID when available (survives proxy/LB
-        changes), falls back to IP + session for unauthenticated requests.
+        Keys by authenticated user ID using the full auth verification
+        chain (survives proxy/LB changes and works with all auth providers).
+        Falls back to IP + session for unauthenticated requests.
         The Supabase quota system (check_and_increment_quota) provides the
         durable monthly cap; this layer only throttles burst frequency.
         """
         if request.method == "POST" and request.url.path.endswith("/analyze"):
-            auth_header = request.headers.get("Authorization", "")
-            user_id = ""
-            if auth_header.startswith("Bearer "):
-                from ideago.auth.dependencies import extract_token_subject
+            from ideago.auth.dependencies import get_optional_user
 
-                token = auth_header.removeprefix("Bearer ").strip()
-                user_id = extract_token_subject(token)
+            user_id = ""
+            try:
+                user = await get_optional_user(request)
+                if user is not None:
+                    user_id = user.id
+            except Exception:
+                pass
 
             if user_id:
                 rate_key = f"user:{user_id}"

@@ -269,15 +269,16 @@ class PipelineNodes:
         """Resolve cache hit/miss for parsed intent."""
         intent = state["intent"]
         report_id = state.get("report_id")
+        user_id = state.get("user_id", "")
 
-        cached = await self._cache.get(intent.cache_key)
+        cached = await self._cache.get(intent.cache_key, user_id=user_id)
         if cached is None:
             return {"is_cache_hit": False}
 
         logger.info("Cache hit for key {}", intent.cache_key)
         if report_id and cached.id != report_id:
             cached = cached.model_copy(update={"id": report_id})
-            await self._cache.put(cached)
+            await self._cache.put(cached, user_id=user_id)
         await _emit(
             self._callback,
             EventType.REPORT_READY,
@@ -666,7 +667,8 @@ class PipelineNodes:
     async def persist_report_node(self, state: GraphState) -> GraphState:
         """Persist report to cache and emit terminal ready event."""
         report = state["report"]
-        await self._cache.put(report)
+        user_id = state.get("user_id", "")
+        await self._cache.put(report, user_id=user_id)
         await _emit(
             self._callback,
             EventType.REPORT_READY,

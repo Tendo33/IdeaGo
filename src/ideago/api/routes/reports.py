@@ -24,8 +24,16 @@ router = APIRouter(tags=["reports"])
 async def _assert_report_owner(
     cache: ReportRepository, report_id: str, user_id: str
 ) -> None:
-    """Raise 403 if the report exists but belongs to another user."""
+    """Raise 403 if the report/status belongs to another user.
+
+    Checks report.user_id first, then falls back to report_status.user_id
+    for reports still in processing (owner set before pipeline starts).
+    """
     owner_id = await cache.get_report_user_id(report_id)
+    if not owner_id:
+        status = await cache.get_status(report_id)
+        if status:
+            owner_id = status.get("user_id", "") or ""
     if owner_id and owner_id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 

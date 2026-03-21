@@ -44,6 +44,15 @@ function extractErrorDetail(payload: unknown): string | null {
   if (typeof detail === 'string' && detail.trim()) {
     return detail.trim()
   }
+  if (detail && typeof detail === 'object') {
+    const detailRecord = detail as Record<string, unknown>
+    if (typeof detailRecord.message === 'string' && detailRecord.message.trim()) {
+      return detailRecord.message.trim()
+    }
+    if (typeof detailRecord.code === 'string' && detailRecord.code.trim()) {
+      return detailRecord.code.trim()
+    }
+  }
   const error = record.error
   if (typeof error === 'string' && error.trim()) {
     return error.trim()

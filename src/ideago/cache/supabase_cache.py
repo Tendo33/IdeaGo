@@ -46,17 +46,20 @@ class SupabaseReportRepository:
 
     # ── Report CRUD ──────────────────────────────────────────────
 
-    async def get(self, cache_key: str) -> ResearchReport | None:
+    async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
         client = self._get_client()
+        params: dict[str, str] = {
+            "cache_key": f"eq.{cache_key}",
+            "select": "report_data",
+            "order": "created_at.desc",
+            "limit": "1",
+        }
+        if user_id:
+            params["user_id"] = f"eq.{user_id}"
         resp = await client.get(
             self._url("reports"),
             headers={**self._headers(), "Accept": "application/json"},
-            params={
-                "cache_key": f"eq.{cache_key}",
-                "select": "report_data",
-                "order": "created_at.desc",
-                "limit": "1",
-            },
+            params=params,
         )
         if resp.status_code != 200:
             logger.warning("Supabase get by cache_key failed: {}", resp.status_code)
@@ -92,9 +95,9 @@ class SupabaseReportRepository:
             logger.opt(exception=True).warning("Failed to parse report {}", report_id)
             return None
 
-    async def put(self, report: ResearchReport) -> None:
+    async def put(self, report: ResearchReport, *, user_id: str = "") -> None:
         client = self._get_client()
-        body = {
+        body: dict[str, object] = {
             "id": report.id,
             "query": report.query,
             "cache_key": report.intent.cache_key,
@@ -102,6 +105,8 @@ class SupabaseReportRepository:
             "report_data": report.model_dump(mode="json"),
             "created_at": report.created_at.isoformat(),
         }
+        if user_id:
+            body["user_id"] = user_id
         resp = await client.post(
             self._url("reports"),
             headers={

@@ -244,7 +244,7 @@ def test_get_report_found(client, tmp_path) -> None:
 
     import asyncio
 
-    asyncio.run(cache.put(report))
+    asyncio.run(cache.put(report, user_id="test-user-id"))
 
     with (
         patch("ideago.api.dependencies._cache", cache),
@@ -259,7 +259,7 @@ def test_get_report_found(client, tmp_path) -> None:
 
 def test_get_report_not_found(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_report_user_id = AsyncMock(return_value="")
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
     mock_cache.get_by_id = AsyncMock(return_value=None)
     mock_cache.get_status = AsyncMock(return_value=None)
 
@@ -271,7 +271,7 @@ def test_get_report_not_found(client) -> None:
 def test_get_report_status_complete(client, tmp_path) -> None:
     report = _make_test_report()
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    asyncio.run(cache.put(report))
+    asyncio.run(cache.put(report, user_id="test-user-id"))
 
     with (
         patch("ideago.api.dependencies._cache", cache),
@@ -296,6 +296,7 @@ def test_get_report_status_reads_runtime_status_payload(client, tmp_path) -> Non
             "query text",
             error_code="PIPELINE_FAILURE",
             message="Pipeline failed. Please retry.",
+            user_id="test-user-id",
         )
     )
 
@@ -347,6 +348,7 @@ def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
             "query text",
             error_code="PIPELINE_CANCELLED",
             message="Analysis cancelled by user",
+            user_id="test-user-id",
         )
     )
 
@@ -362,7 +364,8 @@ def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
 
 def test_list_reports(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_report_user_id = AsyncMock(return_value="")
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.list_reports = AsyncMock(
         return_value=[
             ReportIndex(
@@ -390,7 +393,8 @@ def test_list_reports(client) -> None:
 
 def test_list_reports_with_pagination_query_params(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_report_user_id = AsyncMock(return_value="")
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.list_reports = AsyncMock(
         return_value=[
             ReportIndex(
@@ -419,7 +423,8 @@ def test_list_reports_with_pagination_query_params(client) -> None:
 
 def test_delete_report(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_report_user_id = AsyncMock(return_value="")
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.delete = AsyncMock(return_value=True)
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
@@ -429,7 +434,8 @@ def test_delete_report(client) -> None:
 
 def test_delete_report_not_found(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_report_user_id = AsyncMock(return_value="")
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.delete = AsyncMock(return_value=False)
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
@@ -443,7 +449,7 @@ def test_export_report(client, tmp_path) -> None:
 
     import asyncio
 
-    asyncio.run(cache.put(report))
+    asyncio.run(cache.put(report, user_id="test-user-id"))
 
     with patch("ideago.api.routes.reports.get_cache", return_value=cache):
         response = client.get(f"/api/v1/reports/{report.id}/export")
@@ -480,7 +486,16 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
 
 
 def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "frontend_app_url": "https://ideago.simonsun.cc",
+            "auth_session_secret": "state-secret",
+        },
+    )()
     with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
             return_value={"redirect_to": "https://ideago.simonsun.cc/auth/callback"},
@@ -704,15 +719,21 @@ async def test_status_terminal_event_for_failed_status_includes_error_code(
 
 @pytest.mark.asyncio
 async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
+    from ideago.auth.models import AuthUser
+
     query = "A cancellable startup research query"
     report_id = "report-cancel"
+    user_id = "test-cancel-user"
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
-    deps.get_processing_reports()[query_hash] = report_id
+    deps.get_processing_reports()[f"{user_id}:{query_hash}"] = report_id
+    await cache.put_status(report_id, "processing", query, user_id=user_id)
 
     class SlowOrchestrator:
         async def run(self, *_args, **_kwargs) -> None:
             await asyncio.sleep(10)
+
+    mock_user = AuthUser(id=user_id, email="cancel@test.com")
 
     with (
         patch("ideago.api.routes.analyze.get_cache", return_value=cache),
@@ -721,10 +742,12 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
             return_value=SlowOrchestrator(),
         ),
     ):
-        task = asyncio.create_task(analyze_route._run_pipeline(query, report_id))
+        task = asyncio.create_task(
+            analyze_route._run_pipeline(query, report_id, user_id)
+        )
         deps.set_pipeline_task(report_id, task)
 
-        result = await analyze_route.cancel_analysis(report_id)
+        result = await analyze_route.cancel_analysis(report_id, user=mock_user)
         assert result["status"] == "cancelled"
 
         with contextlib.suppress(asyncio.CancelledError):
@@ -1066,3 +1089,290 @@ async def test_supabase_admin_profile_and_quota_info_paths() -> None:
     assert profile_fail["error"] == "profile_fetch_failed"
     assert updated_ok["display_name"] == "Bob"
     assert updated_fail["error"] == "profile_update_failed"
+
+
+# ── Multi-user isolation tests ────────────────────────────────────────
+
+
+def test_user_b_cannot_view_user_a_report(tmp_path) -> None:
+    """User B gets 403 when accessing user A's report."""
+    report = _make_test_report()
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    asyncio.run(cache.put(report, user_id="user-a-id"))
+
+    auth_secret = "test-session-secret-0123456789abcdef"
+    fake_auth = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    token_b = jwt.encode(
+        {"sub": "user-b-id", "email": "b@test.com", "aud": "ideago-auth"},
+        auth_secret,
+        algorithm="HS256",
+    )
+    app = create_app()
+
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+        patch("ideago.api.dependencies._cache", cache),
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+        TestClient(
+            app,
+            headers={
+                "X-Requested-With": "IdeaGo",
+                "Authorization": f"Bearer {token_b}",
+            },
+        ) as client_b,
+    ):
+        response = client_b.get(f"/api/v1/reports/{report.id}")
+    assert response.status_code == 403
+
+
+def test_user_b_cannot_delete_user_a_report(tmp_path) -> None:
+    """User B gets 403 when deleting user A's report."""
+    report = _make_test_report()
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    asyncio.run(cache.put(report, user_id="user-a-id"))
+
+    auth_secret = "test-session-secret-0123456789abcdef"
+    fake_auth = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    token_b = jwt.encode(
+        {"sub": "user-b-id", "email": "b@test.com", "aud": "ideago-auth"},
+        auth_secret,
+        algorithm="HS256",
+    )
+    app = create_app()
+
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+        patch("ideago.api.dependencies._cache", cache),
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+        TestClient(
+            app,
+            headers={
+                "X-Requested-With": "IdeaGo",
+                "Authorization": f"Bearer {token_b}",
+            },
+        ) as client_b,
+    ):
+        response = client_b.delete(f"/api/v1/reports/{report.id}")
+    assert response.status_code == 403
+
+
+def test_user_b_cannot_export_user_a_report(tmp_path) -> None:
+    """User B gets 403 when exporting user A's report."""
+    report = _make_test_report()
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    asyncio.run(cache.put(report, user_id="user-a-id"))
+
+    auth_secret = "test-session-secret-0123456789abcdef"
+    fake_auth = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    token_b = jwt.encode(
+        {"sub": "user-b-id", "email": "b@test.com", "aud": "ideago-auth"},
+        auth_secret,
+        algorithm="HS256",
+    )
+    app = create_app()
+
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+        patch("ideago.api.dependencies._cache", cache),
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+        TestClient(
+            app,
+            headers={
+                "X-Requested-With": "IdeaGo",
+                "Authorization": f"Bearer {token_b}",
+            },
+        ) as client_b,
+    ):
+        response = client_b.get(f"/api/v1/reports/{report.id}/export")
+    assert response.status_code == 403
+
+
+def test_owner_check_falls_back_to_status_user_id(tmp_path) -> None:
+    """When report.user_id is empty, owner check uses status.user_id."""
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "processing-report-x"
+    asyncio.run(
+        cache.put_status(
+            report_id,
+            "processing",
+            "test query",
+            user_id="user-a-id",
+        )
+    )
+
+    auth_secret = "test-session-secret-0123456789abcdef"
+    fake_auth = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+    token_b = jwt.encode(
+        {"sub": "user-b-id", "email": "b@test.com", "aud": "ideago-auth"},
+        auth_secret,
+        algorithm="HS256",
+    )
+    app = create_app()
+
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+        patch("ideago.api.routes.reports.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.reports.get_processing_reports",
+            return_value={},
+        ),
+        TestClient(
+            app,
+            headers={
+                "X-Requested-With": "IdeaGo",
+                "Authorization": f"Bearer {token_b}",
+            },
+        ) as client_b,
+    ):
+        response = client_b.get(f"/api/v1/reports/{report_id}/status")
+    assert response.status_code == 403
+
+
+def test_same_query_different_users_separate_pipelines(tmp_path) -> None:
+    """Two users with the same query get separate report IDs (dedup is per-user)."""
+    auth_secret = "test-session-secret-0123456789abcdef"
+    fake_auth = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": auth_secret,
+            "supabase_jwt_secret": "",
+            "supabase_url": "",
+            "supabase_anon_key": "",
+        },
+    )()
+
+    async def fake_run(_q: str, _r: str, _u: str = "") -> None:
+        await asyncio.sleep(1)
+
+    query = "I want to build a todo app"
+    report_ids = []
+
+    for uid, email in [("user-a", "a@test.com"), ("user-b", "b@test.com")]:
+        token = jwt.encode(
+            {"sub": uid, "email": email, "aud": "ideago-auth"},
+            auth_secret,
+            algorithm="HS256",
+        )
+        app = create_app()
+        with (
+            patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+            patch("ideago.api.routes.analyze._run_pipeline", new=fake_run),
+            TestClient(
+                app,
+                headers={
+                    "X-Requested-With": "IdeaGo",
+                    "Authorization": f"Bearer {token}",
+                },
+            ) as c,
+        ):
+            resp = c.post("/api/v1/analyze", json={"query": query})
+            assert resp.status_code == 200
+            report_ids.append(resp.json()["report_id"])
+
+    assert len(set(report_ids)) == 2, "Different users should get different report IDs"
+
+
+def test_cache_isolation_between_users(tmp_path) -> None:
+    """Cache get() with user_id only returns reports owned by that user."""
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_a = _make_test_report()
+    asyncio.run(cache.put(report_a, user_id="user-a"))
+
+    result_a = asyncio.run(cache.get("test_cache_key", user_id="user-a"))
+    assert result_a is not None
+    assert result_a.id == report_a.id
+
+    result_b = asyncio.run(cache.get("test_cache_key", user_id="user-b"))
+    assert result_b is None, "User B should not see user A's cached report"
+
+
+def test_file_cache_put_status_stores_user_id(tmp_path) -> None:
+    """FileCache.put_status must persist user_id in the status JSON file."""
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    asyncio.run(
+        cache.put_status(
+            "report-xyz",
+            "processing",
+            "test query",
+            user_id="uid-123",
+        )
+    )
+    status = asyncio.run(cache.get_status("report-xyz"))
+    assert status is not None
+    assert status["user_id"] == "uid-123"
+
+
+def test_open_redirect_blocked_when_frontend_url_empty() -> None:
+    """_is_safe_redirect must reject any URL when frontend_app_url is empty."""
+    from ideago.api.routes.auth import _is_safe_redirect
+
+    fake_settings = type("Settings", (), {"frontend_app_url": ""})()
+    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
+        assert not _is_safe_redirect("https://evil.com/steal")
+        assert not _is_safe_redirect("https://ideago.simonsun.cc/callback")
+
+
+def test_quota_fails_closed_on_rpc_error() -> None:
+    """Quota check must deny when the RPC endpoint returns an error."""
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://test.supabase.co",
+            "supabase_service_role_key": "key",
+        },
+    )()
+
+    class _FakeResponse:
+        status_code = 500
+        text = "Internal Server Error"
+
+    class _FakeClient:
+        async def post(self, *_a, **_kw):
+            return _FakeResponse()
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=_FakeClient()),
+    ):
+        result = asyncio.run(supabase_admin.check_and_increment_quota("uid"))
+    assert result.allowed is False
+    assert result.error == "quota_check_failed"

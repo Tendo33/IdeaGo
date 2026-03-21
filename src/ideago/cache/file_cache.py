@@ -53,15 +53,21 @@ class FileCache:
         )
         temp_path.replace(self._index_path)
 
-    async def get(self, cache_key: str) -> ResearchReport | None:
-        """Retrieve a cached report by cache key. Returns None if missing or expired."""
-        return await asyncio.to_thread(self._get_sync, cache_key)
+    async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
+        """Retrieve a cached report by cache key. Returns None if missing or expired.
 
-    def _get_sync(self, cache_key: str) -> ResearchReport | None:
+        When *user_id* is provided, only reports belonging to that user are
+        returned (tenant isolation).
+        """
+        return await asyncio.to_thread(self._get_sync, cache_key, user_id)
+
+    def _get_sync(self, cache_key: str, user_id: str = "") -> ResearchReport | None:
         with self._index_lock:
             index = self._read_index()
         for entry in index:
             if entry.cache_key == cache_key:
+                if user_id and entry.user_id and entry.user_id != user_id:
+                    continue
                 if self._is_expired(entry.created_at):
                     return None
                 report_path = self._dir / f"{entry.report_id}.json"
@@ -93,11 +99,11 @@ class FileCache:
             logger.warning("Failed to read cached report {}", report_id)
             return None
 
-    async def put(self, report: ResearchReport) -> None:
-        """Store a report in the cache."""
-        await asyncio.to_thread(self._put_sync, report)
+    async def put(self, report: ResearchReport, *, user_id: str = "") -> None:
+        """Store a report in the cache, associating it with *user_id*."""
+        await asyncio.to_thread(self._put_sync, report, user_id)
 
-    def _put_sync(self, report: ResearchReport) -> None:
+    def _put_sync(self, report: ResearchReport, user_id: str = "") -> None:
         report_path = self._dir / f"{report.id}.json"
         report_path.write_text(
             report.model_dump_json(indent=2),
@@ -106,7 +112,11 @@ class FileCache:
 
         with self._index_lock:
             index = self._read_index()
-            index = [e for e in index if e.cache_key != report.intent.cache_key]
+            index = [
+                e
+                for e in index
+                if not (e.cache_key == report.intent.cache_key and e.user_id == user_id)
+            ]
             index.append(
                 ReportIndex(
                     report_id=report.id,
@@ -114,6 +124,7 @@ class FileCache:
                     cache_key=report.intent.cache_key,
                     created_at=report.created_at,
                     competitor_count=len(report.competitors),
+                    user_id=user_id,
                 )
             )
             self._write_index(index)
@@ -214,6 +225,7 @@ class FileCache:
             query,
             error_code,
             message,
+            user_id,
         )
 
     def _put_status_sync(
@@ -223,9 +235,10 @@ class FileCache:
         query: str,
         error_code: str | None,
         message: str | None,
+        user_id: str = "",
     ) -> None:
         status_path = self._dir / f"{report_id}.status.json"
-        data = {
+        data: dict[str, str] = {
             "report_id": report_id,
             "status": status,
             "query": query,
@@ -235,6 +248,8 @@ class FileCache:
             data["error_code"] = error_code
         if message:
             data["message"] = message
+        if user_id:
+            data["user_id"] = user_id
         status_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
     async def get_status(self, report_id: str) -> dict | None:

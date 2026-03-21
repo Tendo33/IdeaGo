@@ -61,6 +61,7 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
 
     Returns a QuotaResult. If Supabase is not configured, allows by default
     (graceful degradation for local dev without Supabase).
+    When configured but the RPC fails, denies by default to prevent abuse.
     """
     if not _is_configured():
         logger.debug("Supabase not configured; skipping quota check")
@@ -77,9 +78,9 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
         if resp.status_code != 200:
             logger.warning("Quota RPC failed: {} {}", resp.status_code, resp.text)
             return QuotaResult(
-                allowed=True,
+                allowed=False,
                 usage_count=0,
-                plan_limit=999,
+                plan_limit=0,
                 plan="unknown",
                 error="quota_check_failed",
             )
@@ -94,9 +95,9 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
     except Exception:
         logger.opt(exception=True).warning("Quota check error")
         return QuotaResult(
-            allowed=True,
+            allowed=False,
             usage_count=0,
-            plan_limit=999,
+            plan_limit=0,
             plan="unknown",
             error="quota_check_error",
         )

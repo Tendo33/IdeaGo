@@ -52,13 +52,13 @@ def _is_safe_redirect(url: str) -> bool:
         return False
     settings = get_settings()
     configured = settings.frontend_app_url.strip()
-    if configured:
-        try:
-            configured_host = urlparse(configured).netloc
-            return parsed.netloc == configured_host
-        except ValueError:
-            return False
-    return True
+    if not configured:
+        return False
+    try:
+        configured_host = urlparse(configured).netloc
+        return parsed.netloc == configured_host
+    except ValueError:
+        return False
 
 
 def _build_state_token(*, redirect_to: str) -> str:

@@ -30,16 +30,20 @@ class ReportRepository(Protocol):
 
     # ── Report CRUD ──────────────────────────────────────────────
 
-    async def get(self, cache_key: str) -> ResearchReport | None:
-        """Retrieve a cached report by its content-hash cache key."""
+    async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
+        """Retrieve a cached report by its content-hash cache key.
+
+        When *user_id* is provided, only reports belonging to that user are
+        returned (tenant isolation).
+        """
         ...
 
     async def get_by_id(self, report_id: str) -> ResearchReport | None:
         """Retrieve a report by its unique ID."""
         ...
 
-    async def put(self, report: ResearchReport) -> None:
-        """Store (upsert) a report."""
+    async def put(self, report: ResearchReport, *, user_id: str = "") -> None:
+        """Store (upsert) a report, optionally associating it with a user."""
         ...
 
     async def delete(self, report_id: str) -> bool:

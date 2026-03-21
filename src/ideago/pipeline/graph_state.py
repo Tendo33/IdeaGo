@@ -19,6 +19,7 @@ class GraphState(TypedDict, total=False):
 
     query: str
     report_id: str
+    user_id: str
 
     intent: Intent
     raw_by_source: dict[str, list[RawResult]]
