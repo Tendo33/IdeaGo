@@ -11,7 +11,7 @@ from typing import Literal, cast
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from ideago.api.dependencies import get_cache, get_processing_reports
+from ideago.api.dependencies import get_cache, is_report_id_processing
 from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
@@ -81,8 +81,7 @@ async def get_report(
     if report is not None:
         return report.model_dump(mode="json")
 
-    processing = get_processing_reports()
-    if report_id in processing.values():
+    if is_report_id_processing(report_id):
         return JSONResponse(
             status_code=202,
             content={"status": "processing", "report_id": report_id},
@@ -116,8 +115,7 @@ async def get_report_status(
             query=report.query,
         )
 
-    processing = get_processing_reports()
-    if report_id in processing.values():
+    if is_report_id_processing(report_id):
         return ReportRuntimeStatus(status="processing", report_id=report_id)
 
     status_payload = await cache.get_status(report_id)

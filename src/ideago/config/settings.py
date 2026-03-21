@@ -195,6 +195,13 @@ class Settings(BaseSettings):
         description="Supabase service_role key for backend-only DB operations "
         "(Dashboard → Settings → API → service_role). NEVER expose to frontend.",
     )
+    supabase_db_url: str = Field(
+        default="",
+        description="Direct PostgreSQL connection string for Supabase DB "
+        "(Dashboard → Settings → Database → Connection string). "
+        "Used for LangGraph checkpoints and distributed state. "
+        "Use direct connection (port 5432), not pooler.",
+    )
 
     auth_session_secret: str = Field(
         default="",

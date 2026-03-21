@@ -23,7 +23,10 @@ def _get_http_client() -> httpx.AsyncClient:
     """Lazily create a shared async HTTP client for remote auth verification."""
     global _http_client
     if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=5.0)
+        _http_client = httpx.AsyncClient(
+            timeout=5.0,
+            limits=httpx.Limits(max_connections=30, max_keepalive_connections=10),
+        )
     return _http_client
 
 

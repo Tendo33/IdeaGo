@@ -40,8 +40,21 @@ _cleanup_task: asyncio.Task[None] | None = None
 _CLEANUP_INTERVAL_SECONDS = 3600
 
 
+def _evict_stale_rate_limit_keys() -> int:
+    """Remove rate-limit keys whose timestamps have all expired."""
+    now = time.monotonic()
+    stale_keys = [
+        k
+        for k, ts in _rate_limit_store.items()
+        if not ts or all(now - t >= _RATE_LIMIT_WINDOW for t in ts)
+    ]
+    for k in stale_keys:
+        _rate_limit_store.pop(k, None)
+    return len(stale_keys)
+
+
 async def _periodic_cleanup() -> None:
-    """Background task: clean up expired reports every hour."""
+    """Background task: clean up expired reports and stale rate-limit keys."""
     from ideago.api.dependencies import get_cache
 
     while True:
@@ -52,6 +65,9 @@ async def _periodic_cleanup() -> None:
                 logger.info("Cleaned up {} expired reports", removed)
         except Exception:
             logger.opt(exception=True).warning("Cleanup task error")
+        evicted = _evict_stale_rate_limit_keys()
+        if evicted > 0:
+            logger.debug("Evicted {} stale rate-limit keys", evicted)
 
 
 @asynccontextmanager
@@ -162,6 +178,9 @@ def create_app() -> FastAPI:
             now = time.monotonic()
             timestamps = _rate_limit_store[rate_key]
             timestamps[:] = [t for t in timestamps if now - t < _RATE_LIMIT_WINDOW]
+            if not timestamps:
+                _rate_limit_store.pop(rate_key, None)
+                timestamps = _rate_limit_store[rate_key]
             if len(timestamps) >= _RATE_LIMIT_MAX:
                 return JSONResponse(
                     status_code=429,

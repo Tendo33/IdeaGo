@@ -24,7 +24,13 @@ class SupabaseReportRepository:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=15.0)
+            self._client = httpx.AsyncClient(
+                timeout=15.0,
+                limits=httpx.Limits(
+                    max_connections=100,
+                    max_keepalive_connections=30,
+                ),
+            )
         return self._client
 
     async def close(self) -> None:
@@ -248,7 +254,7 @@ class SupabaseReportRepository:
             headers={**self._headers(), "Accept": "application/json"},
             params={
                 "report_id": f"eq.{report_id}",
-                "select": "report_id,status,query,error_code,message,updated_at",
+                "select": "report_id,status,query,error_code,message,updated_at,user_id",
                 "limit": "1",
             },
         )

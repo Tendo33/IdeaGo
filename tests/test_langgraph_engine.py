@@ -511,7 +511,7 @@ async def test_langgraph_engine_closes_saver_when_cancelled_during_enter(
             close_called = True
 
     with patch(
-        "ideago.pipeline.langgraph_engine.AsyncSqliteSaver.from_conn_string",
+        "langgraph.checkpoint.sqlite.aio.AsyncSqliteSaver.from_conn_string",
         return_value=FakeSaverContextManager(),
     ):
         run_task = asyncio.create_task(engine.run("cancel-safe-enter"))

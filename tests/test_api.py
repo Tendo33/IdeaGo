@@ -86,13 +86,13 @@ async def test_shutdown_runtime_state_cancels_tasks_and_clears_maps() -> None:
 
     task = asyncio.create_task(never_finishes())
     deps.set_pipeline_task("shutdown-report", task)
-    deps.get_processing_reports()["shutdown-query"] = "shutdown-report"
+    deps._processing_reports["shutdown-query"] = "shutdown-report"
     deps.get_or_create_report_run("shutdown-report")
 
     await deps.shutdown_runtime_state()
 
     assert "shutdown-report" not in deps._pipeline_tasks
-    assert "shutdown-query" not in deps.get_processing_reports()
+    assert "shutdown-query" not in deps._processing_reports
     assert deps.get_report_run("shutdown-report") is None
     assert task.cancelled() or task.done()
 
@@ -110,7 +110,7 @@ def test_shutdown_runtime_state_handles_tasks_from_different_event_loop() -> Non
         asyncio.run(deps.shutdown_runtime_state())
     finally:
         deps._pipeline_tasks.clear()
-        deps.get_processing_reports().clear()
+        deps._processing_reports.clear()
         deps._report_runs.clear()
         if not task.done():
             task.cancel()
@@ -327,7 +327,7 @@ def test_get_report_status_not_found(client, tmp_path) -> None:
 def test_get_report_status_processing_from_runtime_map(client, tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     report_id = "processing-report"
-    deps.get_processing_reports()["query-hash"] = report_id
+    deps._processing_reports["query-hash"] = report_id
 
     with patch("ideago.api.routes.reports.get_cache", return_value=cache):
         response = client.get(f"/api/v1/reports/{report_id}/status")
@@ -726,7 +726,7 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
     user_id = "test-cancel-user"
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
-    deps.get_processing_reports()[f"{user_id}:{query_hash}"] = report_id
+    deps._processing_reports[f"{user_id}:{query_hash}"] = report_id
     await cache.put_status(report_id, "processing", query, user_id=user_id)
 
     class SlowOrchestrator:
@@ -1249,8 +1249,8 @@ def test_owner_check_falls_back_to_status_user_id(tmp_path) -> None:
         patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
         patch("ideago.api.routes.reports.get_cache", return_value=cache),
         patch(
-            "ideago.api.routes.reports.get_processing_reports",
-            return_value={},
+            "ideago.api.routes.reports.is_report_id_processing",
+            return_value=False,
         ),
         TestClient(
             app,

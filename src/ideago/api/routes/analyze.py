@@ -57,11 +57,17 @@ async def _mark_cancelled(report_id: str) -> None:
                 data={"report_id": report_id},
             )
         )
-    await get_cache().put_status(
+    cache = get_cache()
+    existing_user_id = ""
+    existing_status = await cache.get_status(report_id)
+    if existing_status:
+        existing_user_id = existing_status.get("user_id", "") or ""
+    await cache.put_status(
         report_id,
         "cancelled",
         error_code="PIPELINE_CANCELLED",
         message="Analysis cancelled by user",
+        user_id=existing_user_id,
     )
 
 
