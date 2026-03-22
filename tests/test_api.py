@@ -8,11 +8,13 @@ import contextlib
 import hashlib
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -24,6 +26,7 @@ from ideago.auth import dependencies as auth_deps
 from ideago.auth import supabase_admin
 from ideago.cache.base import ReportIndex
 from ideago.cache.file_cache import FileCache
+from ideago.config.settings import Settings
 from ideago.models.research import (
     Competitor,
     Intent,
@@ -37,10 +40,14 @@ from ideago.pipeline.events import EventType, PipelineEvent
 @pytest.fixture(autouse=True)
 def reset_runtime_state() -> None:
     app_module._rate_limit_store.clear()
-    asyncio.run(deps.shutdown_runtime_state())
+    auth_deps._clear_jwks_cache()
+    with contextlib.suppress(RuntimeError):
+        asyncio.run(deps.shutdown_runtime_state())
     yield
     app_module._rate_limit_store.clear()
-    asyncio.run(deps.shutdown_runtime_state())
+    auth_deps._clear_jwks_cache()
+    with contextlib.suppress(RuntimeError):
+        asyncio.run(deps.shutdown_runtime_state())
 
 
 @pytest.fixture
@@ -55,28 +62,29 @@ def client():
         auth_secret,
         algorithm="HS256",
     )
-    fake_settings = type(
-        "Settings",
-        (),
-        {
-            "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
-            "supabase_url": "",
-            "supabase_anon_key": "",
-        },
-    )()
-    app = create_app()
+    fake_settings = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret=auth_secret,
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
     with (
         patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
-        TestClient(
+        patch("ideago.api.dependencies.get_settings", return_value=fake_settings),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._is_configured", return_value=False),
+    ):
+        app = create_app()
+        with TestClient(
             app,
             headers={
                 "X-Requested-With": "IdeaGo",
                 "Authorization": f"Bearer {token}",
             },
-        ) as test_client,
-    ):
-        yield test_client
+        ) as test_client:
+            yield test_client
 
 
 @pytest.mark.asyncio
@@ -837,6 +845,36 @@ class _AdminFakeResponse:
         return self._payload
 
 
+def _build_supabase_jwks_token(
+    *,
+    subject: str = "supa-user",
+    email: str = "supa@example.com",
+    audience: str = "authenticated",
+    issuer: str = "https://example.supabase.co/auth/v1",
+    expires_at: datetime | None = None,
+    kid: str = "kid-1",
+) -> tuple[str, dict]:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_jwk = json.loads(
+        jwt.algorithms.RSAAlgorithm.to_jwk(private_key.public_key())
+    )
+    public_jwk["kid"] = kid
+    expires = expires_at or (datetime.now(timezone.utc) + timedelta(minutes=5))
+    token = jwt.encode(
+        {
+            "sub": subject,
+            "email": email,
+            "aud": audience,
+            "iss": issuer,
+            "exp": expires,
+        },
+        private_key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
+    return token, public_jwk
+
+
 def test_extract_token_subject_with_ideago_jwt() -> None:
     token = jwt.encode(
         {"sub": "user-123", "aud": "ideago-auth"},
@@ -853,41 +891,67 @@ def test_extract_token_subject_with_ideago_jwt() -> None:
         assert auth_deps.extract_token_subject(token) == "user-123"
 
 
-def test_extract_token_subject_with_supabase_jwt() -> None:
-    token = jwt.encode(
-        {"sub": "supa-user", "aud": "authenticated"},
-        "supa-secret",
-        algorithm="HS256",
-    )
+def test_extract_token_subject_with_supabase_jwks_jwt() -> None:
+    token, public_jwk = _build_supabase_jwks_token()
     fake_settings = type(
         "Settings",
         (),
-        {"auth_session_secret": "", "supabase_jwt_secret": "supa-secret"},
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon-key",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
     )()
 
-    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+    ):
         assert auth_deps.extract_token_subject(token) == "supa-user"
 
 
 @pytest.mark.asyncio
 async def test_get_optional_user_via_remote_verification() -> None:
+    token, _public_jwk = _build_supabase_jwks_token()
     request = type(
         "Req",
         (),
-        {"headers": {"Authorization": "Bearer remote-token"}},
+        {"headers": {"Authorization": f"Bearer {token}"}},
     )()
     fake_settings = type(
         "Settings",
         (),
         {
             "auth_session_secret": "",
-            "supabase_jwt_secret": "",
             "supabase_url": "https://example.supabase.co",
             "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
         },
     )()
     with (
         patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(side_effect=httpx.TimeoutException("timeout")),
+        ),
         patch(
             "ideago.auth.dependencies._verify_supabase_token_remote",
             new=AsyncMock(return_value={"id": "uid-1", "email": "u@example.com"}),
@@ -905,9 +969,12 @@ async def test_get_optional_user_missing_or_empty_token_returns_none() -> None:
         (),
         {
             "auth_session_secret": "",
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: "",
+            "get_supabase_jwt_issuer": lambda self: "",
         },
     )()
     request_no_header = type("Req", (), {"headers": {}})()
@@ -925,9 +992,16 @@ async def test_get_optional_user_supabase_jwt_invalid_returns_none() -> None:
         (),
         {
             "auth_session_secret": "",
-            "supabase_jwt_secret": "supa-secret",
-            "supabase_url": "",
-            "supabase_anon_key": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
         },
     )()
     request = type(
@@ -936,7 +1010,215 @@ async def test_get_optional_user_supabase_jwt_invalid_returns_none() -> None:
         {"headers": {"Authorization": "Bearer invalid"}},
     )()
 
-    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": []}),
+        ),
+    ):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_via_supabase_jwks() -> None:
+    token, public_jwk = _build_supabase_jwks_token()
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+    ):
+        user = await auth_deps.get_optional_user(request)
+
+    assert user is not None
+    assert user.id == "supa-user"
+    assert user.email == "supa@example.com"
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_supabase_jwt_expired_returns_none() -> None:
+    token, public_jwk = _build_supabase_jwks_token(
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1)
+    )
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+    ):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_supabase_jwt_invalid_audience_returns_none() -> None:
+    token, public_jwk = _build_supabase_jwks_token(audience="other-audience")
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+    ):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_supabase_jwt_invalid_issuer_returns_none() -> None:
+    token, public_jwk = _build_supabase_jwks_token(
+        issuer="https://evil.example.com/auth/v1"
+    )
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+    ):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_refreshes_jwks_on_missing_kid() -> None:
+    token, public_jwk = _build_supabase_jwks_token(kid="new-kid")
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(side_effect=[{"keys": []}, {"keys": [public_jwk]}]),
+        ) as fetch_jwks,
+    ):
+        user = await auth_deps.get_optional_user(request)
+
+    assert user is not None
+    assert user.id == "supa-user"
+    assert fetch_jwks.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_optional_user_remote_fallback_fails_when_jwks_unavailable() -> None:
+    token, _public_jwk = _build_supabase_jwks_token()
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "auth_session_secret": "",
+            "supabase_url": "https://example.supabase.co",
+            "supabase_anon_key": "anon",
+            "supabase_jwt_audience": "authenticated",
+            "supabase_jwks_cache_ttl_seconds": 300,
+            "get_supabase_jwks_url": lambda self: (
+                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+            ),
+            "get_supabase_jwt_issuer": lambda self: (
+                "https://example.supabase.co/auth/v1"
+            ),
+        },
+    )()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(side_effect=httpx.TimeoutException("timeout")),
+        ),
+        patch(
+            "ideago.auth.dependencies._verify_supabase_token_remote",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
         assert await auth_deps.get_optional_user(request) is None
 
 
@@ -1099,7 +1381,6 @@ def test_user_b_cannot_view_user_a_report(tmp_path) -> None:
         (),
         {
             "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
         },
@@ -1260,16 +1541,14 @@ def test_owner_check_falls_back_to_status_user_id(tmp_path) -> None:
 def test_same_query_different_users_separate_pipelines(tmp_path) -> None:
     """Two users with the same query get separate report IDs (dedup is per-user)."""
     auth_secret = "test-session-secret-0123456789abcdef"
-    fake_auth = type(
-        "Settings",
-        (),
-        {
-            "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
-            "supabase_url": "",
-            "supabase_anon_key": "",
-        },
-    )()
+    fake_auth = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret=auth_secret,
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
 
     async def fake_run(_q: str, _r: str, _u: str = "", **_kw: object) -> None:
         await asyncio.sleep(1)
@@ -1283,21 +1562,24 @@ def test_same_query_different_users_separate_pipelines(tmp_path) -> None:
             auth_secret,
             algorithm="HS256",
         )
-        app = create_app()
         with (
             patch("ideago.auth.dependencies.get_settings", return_value=fake_auth),
+            patch("ideago.api.dependencies.get_settings", return_value=fake_auth),
+            patch("ideago.api.app.get_settings", return_value=fake_auth),
+            patch("ideago.auth.supabase_admin._is_configured", return_value=False),
             patch("ideago.api.routes.analyze._run_pipeline", new=fake_run),
-            TestClient(
+        ):
+            app = create_app()
+            with TestClient(
                 app,
                 headers={
                     "X-Requested-With": "IdeaGo",
                     "Authorization": f"Bearer {token}",
                 },
-            ) as c,
-        ):
-            resp = c.post("/api/v1/analyze", json={"query": query})
-            assert resp.status_code == 200
-            report_ids.append(resp.json()["report_id"])
+            ) as c:
+                resp = c.post("/api/v1/analyze", json={"query": query})
+                assert resp.status_code == 200
+                report_ids.append(resp.json()["report_id"])
 
     assert len(set(report_ids)) == 2, "Different users should get different report IDs"
 

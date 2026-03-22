@@ -1,10 +1,16 @@
 """FastAPI dependencies for authentication.
 
-FastAPI 认证依赖注入：优先使用 PyJWT 本地验证 Supabase JWT，
-如未配置 JWT Secret 则回退到 HTTP 远程验证。
+FastAPI 认证依赖注入：优先使用后端自签 JWT，
+随后使用 Supabase JWKS 做本地验签，
+最后在基础设施异常时回退到 Supabase HTTP 远程验证。
 """
 
 from __future__ import annotations
+
+import asyncio
+import threading
+import time
+from typing import Any, NamedTuple
 
 import httpx
 import jwt
@@ -17,10 +23,20 @@ from ideago.observability.log_config import get_logger
 logger = get_logger(__name__)
 
 _http_client: httpx.AsyncClient | None = None
+_jwks_cache: dict[str, Any] | None = None
+_jwks_cache_expires_at = 0.0
+_TRUSTED_SUPABASE_ALGORITHMS = frozenset(
+    {"RS256", "RS384", "RS512", "ES256", "ES384", "ES512"}
+)
+
+
+class _SupabaseJwtVerificationResult(NamedTuple):
+    payload: dict[str, Any] | None
+    should_fallback_remote: bool
 
 
 def _get_http_client() -> httpx.AsyncClient:
-    """Lazily create a shared async HTTP client for remote auth verification."""
+    """Lazily create a shared async HTTP client for auth verification."""
     global _http_client
     if _http_client is None:
         _http_client = httpx.AsyncClient(
@@ -30,36 +46,23 @@ def _get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 
+def _clear_jwks_cache() -> None:
+    """Clear the in-memory JWKS cache."""
+    global _jwks_cache, _jwks_cache_expires_at
+    _jwks_cache = None
+    _jwks_cache_expires_at = 0.0
+
+
 async def close_auth_http_client() -> None:
     """Shut down the shared HTTP client (called during app lifespan teardown)."""
     global _http_client
     if _http_client is not None:
         await _http_client.aclose()
         _http_client = None
+    _clear_jwks_cache()
 
 
-def _verify_jwt_locally(token: str, jwt_secret: str) -> dict | None:
-    """Verify and decode a Supabase JWT using the project's JWT secret.
-
-    Returns the decoded payload on success, None on failure.
-    Supabase uses HS256 by default.
-    """
-    try:
-        payload = jwt.decode(
-            token,
-            jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        logger.debug("JWT expired")
-    except jwt.InvalidTokenError as exc:
-        logger.debug("JWT validation failed: {}", exc)
-    return None
-
-
-def _verify_ideago_jwt(token: str, jwt_secret: str) -> dict | None:
+def _verify_ideago_jwt(token: str, jwt_secret: str) -> dict[str, Any] | None:
     """Verify and decode a backend-issued JWT for custom OAuth sessions."""
     try:
         return jwt.decode(
@@ -75,7 +78,111 @@ def _verify_ideago_jwt(token: str, jwt_secret: str) -> dict | None:
     return None
 
 
-async def _verify_supabase_token_remote(token: str) -> dict | None:
+async def _fetch_jwks() -> dict[str, Any]:
+    """Fetch the current Supabase JWKS document."""
+    settings = get_settings()
+    jwks_url = settings.get_supabase_jwks_url()
+    if not jwks_url:
+        raise RuntimeError("Supabase JWKS URL is not configured")
+
+    client = _get_http_client()
+    resp = await client.get(jwks_url)
+    resp.raise_for_status()
+    payload = resp.json()
+    keys = payload.get("keys")
+    if not isinstance(payload, dict) or not isinstance(keys, list):
+        raise RuntimeError("Invalid JWKS response")
+    return payload
+
+
+async def _get_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
+    """Return cached JWKS, refreshing it when expired or explicitly requested."""
+    global _jwks_cache, _jwks_cache_expires_at
+
+    now = time.monotonic()
+    if not force_refresh and _jwks_cache is not None and now < _jwks_cache_expires_at:
+        return _jwks_cache
+
+    payload = await _fetch_jwks()
+    ttl = get_settings().supabase_jwks_cache_ttl_seconds
+    _jwks_cache = payload
+    _jwks_cache_expires_at = now + max(ttl, 0)
+    return payload
+
+
+def _get_jwk_for_kid(jwks: dict[str, Any], kid: str) -> dict[str, Any] | None:
+    """Find the JWK matching the given kid."""
+    keys = jwks.get("keys", [])
+    if not isinstance(keys, list):
+        return None
+    for key in keys:
+        if isinstance(key, dict) and key.get("kid") == kid:
+            return key
+    return None
+
+
+async def _get_supabase_signing_key(
+    token: str,
+) -> tuple[Any, str]:
+    """Resolve the signing key for a Supabase JWT."""
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.DecodeError as exc:
+        raise ValueError("Invalid JWT header") from exc
+
+    alg = header.get("alg")
+    kid = header.get("kid")
+    if not isinstance(alg, str) or alg not in _TRUSTED_SUPABASE_ALGORITHMS:
+        raise ValueError("Unsupported JWT signing algorithm")
+    if not isinstance(kid, str) or not kid:
+        raise ValueError("JWT kid is missing")
+
+    jwks = await _get_jwks(force_refresh=False)
+    jwk = _get_jwk_for_kid(jwks, kid)
+    if jwk is None:
+        jwks = await _get_jwks(force_refresh=True)
+        jwk = _get_jwk_for_kid(jwks, kid)
+    if jwk is None:
+        raise ValueError("Signing key not found for JWT kid")
+
+    jwk_alg = jwk.get("alg")
+    if isinstance(jwk_alg, str) and jwk_alg != alg:
+        raise ValueError("JWT algorithm does not match JWK")
+
+    pyjwk = jwt.PyJWK.from_dict(jwk)
+    return pyjwk.key, alg
+
+
+async def _verify_supabase_jwt(token: str) -> _SupabaseJwtVerificationResult:
+    """Verify and decode a Supabase JWT using the project's JWKS."""
+    settings = get_settings()
+    issuer = settings.get_supabase_jwt_issuer()
+    if not settings.supabase_url or not issuer:
+        return _SupabaseJwtVerificationResult(None, False)
+
+    try:
+        signing_key, algorithm = await _get_supabase_signing_key(token)
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=[algorithm],
+            audience=settings.supabase_jwt_audience,
+            issuer=issuer,
+        )
+        return _SupabaseJwtVerificationResult(payload, False)
+    except (httpx.HTTPError, RuntimeError) as exc:
+        logger.warning("Supabase JWKS fetch failed: {}", exc)
+        return _SupabaseJwtVerificationResult(None, True)
+    except jwt.ExpiredSignatureError:
+        logger.debug("Supabase JWT expired")
+    except jwt.InvalidTokenError as exc:
+        logger.debug("Supabase JWT validation failed: {}", exc)
+    except ValueError as exc:
+        logger.debug("Supabase JWT validation failed: {}", exc)
+    return _SupabaseJwtVerificationResult(None, False)
+
+
+async def _verify_supabase_token_remote(token: str) -> dict[str, Any] | None:
     """Fallback: verify token via Supabase HTTP endpoint (~100-200ms)."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_anon_key:
@@ -100,7 +207,7 @@ async def _verify_supabase_token_remote(token: str) -> dict | None:
     return None
 
 
-def _extract_user_from_jwt_payload(payload: dict) -> AuthUser | None:
+def _extract_user_from_jwt_payload(payload: dict[str, Any]) -> AuthUser | None:
     """Extract AuthUser from a locally-decoded JWT payload."""
     user_id = payload.get("sub", "")
     if not user_id:
@@ -110,7 +217,7 @@ def _extract_user_from_jwt_payload(payload: dict) -> AuthUser | None:
     return AuthUser(id=user_id, email=email, role=role)
 
 
-def _extract_user_from_api_response(data: dict) -> AuthUser | None:
+def _extract_user_from_api_response(data: dict[str, Any]) -> AuthUser | None:
     """Extract AuthUser from the Supabase /auth/v1/user response."""
     user_id = data.get("id", "")
     if not user_id:
@@ -118,13 +225,37 @@ def _extract_user_from_api_response(data: dict) -> AuthUser | None:
     return AuthUser(id=user_id, email=data.get("email", ""))
 
 
-def _extract_user_from_ideago_payload(payload: dict) -> AuthUser | None:
+def _extract_user_from_ideago_payload(payload: dict[str, Any]) -> AuthUser | None:
     """Extract AuthUser from a backend-issued JWT payload."""
     user_id = payload.get("sub", "")
     if not user_id:
         return None
     role = payload.get("role", "user")
     return AuthUser(id=user_id, email=payload.get("email", ""), role=role)
+
+
+def _run_async_for_sync_context(coro: Any) -> Any:
+    """Run an async coroutine from sync code, even if a loop is already running."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    result: dict[str, Any] = {}
+    error: dict[str, BaseException] = {}
+
+    def _runner() -> None:
+        try:
+            result["value"] = asyncio.run(coro)
+        except BaseException as exc:  # pragma: no cover - defensive bridge
+            error["value"] = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+    if "value" in error:
+        raise error["value"]
+    return result.get("value")
 
 
 def extract_token_subject(token: str) -> str:
@@ -138,23 +269,20 @@ def extract_token_subject(token: str) -> str:
             if isinstance(sub, str) and sub:
                 return sub
 
-    if settings.supabase_jwt_secret:
-        payload = _verify_jwt_locally(token, settings.supabase_jwt_secret)
-        if payload is not None:
-            sub = payload.get("sub", "")
-            if isinstance(sub, str) and sub:
-                return sub
+    result = _run_async_for_sync_context(_verify_supabase_jwt(token))
+    if (
+        isinstance(result, _SupabaseJwtVerificationResult)
+        and result.payload is not None
+    ):
+        sub = result.payload.get("sub", "")
+        if isinstance(sub, str) and sub:
+            return sub
 
     return ""
 
 
 async def get_optional_user(request: Request) -> AuthUser | None:
-    """Extract and verify the user from the Authorization header.
-
-    Uses local JWT verification when SUPABASE_JWT_SECRET is configured,
-    falls back to HTTP remote verification otherwise.
-    Returns None when no valid token is present (non-blocking).
-    """
+    """Extract and verify the user from the Authorization header."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
@@ -169,10 +297,10 @@ async def get_optional_user(request: Request) -> AuthUser | None:
         if payload is not None:
             return _extract_user_from_ideago_payload(payload)
 
-    if settings.supabase_jwt_secret:
-        payload = _verify_jwt_locally(token, settings.supabase_jwt_secret)
-        if payload is not None:
-            return _extract_user_from_jwt_payload(payload)
+    jwks_result = await _verify_supabase_jwt(token)
+    if jwks_result.payload is not None:
+        return _extract_user_from_jwt_payload(jwks_result.payload)
+    if not jwks_result.should_fallback_remote:
         return None
 
     user_data = await _verify_supabase_token_remote(token)

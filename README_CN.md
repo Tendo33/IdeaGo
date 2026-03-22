@@ -314,7 +314,7 @@ curl http://localhost:8000/api/v1/reports/<report_id>
 | `CACHE_TTL_HOURS` | 否 | `24` | 缓存有效期 |
 | `LANGGRAPH_CHECKPOINT_DB_PATH` | 否 | `.cache/ideago/langgraph-checkpoints.db` | LangGraph 检查点数据库 |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 否 | `""` | Supabase 客户端认证配置 |
-| `SUPABASE_JWT_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` | 否 | `""` | 后端鉴权与高权限 Supabase 访问 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 否 | `""` | 后端高权限 Supabase 访问 |
 | `AUTH_SESSION_SECRET` / `AUTH_SESSION_EXPIRE_HOURS` | 否 | `""` / `720` | 后端会话签名配置 |
 | `FRONTEND_APP_URL` | 否 | `""` | 用于认证回调的前端公开地址 |
 | `LINUXDO_CLIENT_ID` / `LINUXDO_CLIENT_SECRET` | 否 | `""` | LinuxDo OAuth 客户端配置 |

@@ -314,7 +314,7 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 | `CACHE_TTL_HOURS` | No | `24` | Cache TTL |
 | `LANGGRAPH_CHECKPOINT_DB_PATH` | No | `.cache/ideago/langgraph-checkpoints.db` | LangGraph checkpoint DB |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | No | `""` | Supabase client auth config |
-| `SUPABASE_JWT_SECRET` / `SUPABASE_SERVICE_ROLE_KEY` | No | `""` | Backend auth and privileged Supabase access |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | `""` | Backend privileged Supabase access |
 | `AUTH_SESSION_SECRET` / `AUTH_SESSION_EXPIRE_HOURS` | No | `""` / `720` | Backend session signing config |
 | `FRONTEND_APP_URL` | No | `""` | Public frontend base URL for auth redirects |
 | `LINUXDO_CLIENT_ID` / `LINUXDO_CLIENT_SECRET` | No | `""` | LinuxDo OAuth client config |

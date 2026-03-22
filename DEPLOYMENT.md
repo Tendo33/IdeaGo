@@ -165,7 +165,8 @@ sudo systemctl enable caddy
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_ANON_KEY` | `anon` `public` key |
 | `SUPABASE_SERVICE_ROLE_KEY` | `service_role` `secret` key（不要泄露） |
-| `SUPABASE_JWT_SECRET` | JWT Secret（Settings → API → JWT Secret） |
+> 新版 Supabase 默认使用 JWT Signing Keys / JWKS。后端会自动通过
+> `/.well-known/jwks.json` 做本地验签，不需要额外查找或填写 `JWT Secret`。
 
 ### 4.3 创建数据库表
 
@@ -443,7 +444,7 @@ OPENAI_MODEL=gpt-4o-mini
 # ========== Supabase ==========
 SUPABASE_URL=https://你的项目.supabase.co
 SUPABASE_ANON_KEY=你的anon-key
-SUPABASE_JWT_SECRET=你的jwt-secret
+## JWT 使用 Supabase JWKS 自动验签，无需额外配置 JWT Secret
 SUPABASE_SERVICE_ROLE_KEY=你的service-role-key
 
 # ========== 认证 ==========

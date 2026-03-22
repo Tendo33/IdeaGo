@@ -195,6 +195,16 @@ class Settings(BaseSettings):
         description="Supabase service_role key for backend-only DB operations "
         "(Dashboard → Settings → API → service_role). NEVER expose to frontend.",
     )
+    supabase_jwt_audience: str = Field(
+        default="authenticated",
+        description="Expected Supabase JWT audience for local JWKS verification",
+    )
+    supabase_jwks_cache_ttl_seconds: int = Field(
+        default=300,
+        ge=0,
+        le=86400,
+        description="How long to cache Supabase JWKS responses in memory",
+    )
     supabase_db_url: str = Field(
         default="",
         description="Direct PostgreSQL connection string for Supabase DB "
@@ -404,6 +414,20 @@ class Settings(BaseSettings):
             return ["*"]
         origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
         return origins or ["*"]
+
+    def get_supabase_jwks_url(self) -> str:
+        """Return the Supabase JWKS URL derived from the project URL."""
+        base = self.supabase_url.strip().rstrip("/")
+        if not base:
+            return ""
+        return f"{base}/auth/v1/.well-known/jwks.json"
+
+    def get_supabase_jwt_issuer(self) -> str:
+        """Return the expected Supabase JWT issuer."""
+        base = self.supabase_url.strip().rstrip("/")
+        if not base:
+            return ""
+        return f"{base}/auth/v1"
 
     def get_openai_fallback_endpoints(self) -> list[dict[str, Any]]:
         """Parse fallback endpoint JSON config for ChatModelClient."""

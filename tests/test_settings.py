@@ -77,3 +77,20 @@ def test_source_global_concurrency_default_and_bounds() -> None:
         Settings(source_global_concurrency=0)
     with pytest.raises(ValidationError):
         Settings(source_global_concurrency=9)
+
+
+def test_supabase_jwks_settings_defaults() -> None:
+    settings = Settings()
+    assert settings.supabase_jwt_audience == "authenticated"
+    assert settings.supabase_jwks_cache_ttl_seconds == 300
+
+
+def test_supabase_jwks_urls_are_derived_from_supabase_url() -> None:
+    settings = Settings(supabase_url="https://demo-project.supabase.co")
+    assert (
+        settings.get_supabase_jwks_url()
+        == "https://demo-project.supabase.co/auth/v1/.well-known/jwks.json"
+    )
+    assert (
+        settings.get_supabase_jwt_issuer() == "https://demo-project.supabase.co/auth/v1"
+    )
