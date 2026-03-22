@@ -12,9 +12,9 @@ interface HeroPanelProps {
 
 function getVerdictConfig(type: RecommendationType, t: TFunction) {
   const baseConfigs = {
-    go: { glow: 'shadow-[6px_6px_0px_0px_var(--success)]', bg: 'bg-success/10', text: 'text-success', ring: 'border-success' },
-    caution: { glow: 'shadow-[6px_6px_0px_0px_var(--warning)]', bg: 'bg-warning/10', text: 'text-warning', ring: 'border-warning' },
-    no_go: { glow: 'shadow-[6px_6px_0px_0px_var(--destructive)]', bg: 'bg-destructive/10', text: 'text-destructive', ring: 'border-destructive' }
+    go: { glow: 'shadow-md shadow-success', bg: 'bg-success/10', text: 'text-success', ring: 'border-success' },
+    caution: { glow: 'shadow-md shadow-warning', bg: 'bg-warning/10', text: 'text-warning', ring: 'border-warning' },
+    no_go: { glow: 'shadow-md shadow-destructive', bg: 'bg-destructive/10', text: 'text-destructive', ring: 'border-destructive' }
   }
 
   const config = baseConfigs[type] || baseConfigs.go
@@ -176,7 +176,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
       </div>
 
       {/* Stats Grid — right 2/5 */}
-      <div className="lg:col-span-2 flex flex-col bg-card border-2 border-border shadow-[6px_6px_0px_0px_var(--border)]">
+      <div className="lg:col-span-2 flex flex-col bg-card border-2 border-border shadow-md">
         <div className="flex flex-1 border-b-2 border-border overflow-hidden">
           <div className="flex-1 border-r-2 border-border min-w-0">
             <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} reduceMotion={reduceMotion} />

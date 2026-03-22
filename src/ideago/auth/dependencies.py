@@ -106,7 +106,8 @@ def _extract_user_from_jwt_payload(payload: dict) -> AuthUser | None:
     if not user_id:
         return None
     email = payload.get("email", "")
-    return AuthUser(id=user_id, email=email)
+    role = payload.get("role", "user")
+    return AuthUser(id=user_id, email=email, role=role)
 
 
 def _extract_user_from_api_response(data: dict) -> AuthUser | None:
@@ -122,7 +123,8 @@ def _extract_user_from_ideago_payload(payload: dict) -> AuthUser | None:
     user_id = payload.get("sub", "")
     if not user_id:
         return None
-    return AuthUser(id=user_id, email=payload.get("email", ""))
+    role = payload.get("role", "user")
+    return AuthUser(id=user_id, email=payload.get("email", ""), role=role)
 
 
 def extract_token_subject(token: str) -> str:
@@ -185,4 +187,29 @@ async def get_current_user(
     """Require an authenticated user. Raises 401 when unauthenticated."""
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+async def _resolve_admin_role(user: AuthUser) -> AuthUser:
+    """Fetch role from profiles if not already embedded in the JWT."""
+    if user.role == "admin":
+        return user
+    try:
+        from ideago.auth.supabase_admin import get_profile
+
+        profile = await get_profile(user.id)
+        if profile and profile.get("role") == "admin":
+            return user.model_copy(update={"role": "admin"})
+    except Exception:
+        logger.debug("Could not fetch profile role for admin check")
+    return user
+
+
+async def require_admin(
+    user: AuthUser = Depends(get_current_user),
+) -> AuthUser:
+    """Require an admin user. Raises 403 when the user lacks the admin role."""
+    user = await _resolve_admin_role(user)
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user

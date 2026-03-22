@@ -46,7 +46,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
             aria-disabled={isLoading}
             aria-invalid={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? true : undefined}
             aria-errormessage={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? `${inputId}-error` : undefined}
-            className="w-full h-16 border-2 border-border bg-background px-6 py-4 text-xl font-bold text-foreground placeholder:text-muted-foreground/40 transition-all duration-150 outline-none focus:ring-0 focus:border-primary focus:shadow-[4px_4px_0px_0px_var(--primary)] disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus:shadow-[4px_4px_0px_0px_var(--destructive)]"
+            className="w-full h-16 border-2 border-border bg-background px-6 py-4 text-xl font-bold text-foreground placeholder:text-muted-foreground/40 transition-all duration-150 outline-none focus:ring-0 focus:border-primary focus:shadow shadow-primary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus:shadow shadow-destructive"
             aria-label={t('search.placeholder')}
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">
@@ -58,7 +58,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
           type="submit"
           disabled={isSubmitDisabled}
           aria-live="polite"
-          className="h-16 px-8 flex items-center justify-center gap-3 bg-primary text-primary-foreground border-2 border-border font-black uppercase tracking-widest text-lg transition-all duration-150 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer outline-none"
+          className="h-16 px-8 flex items-center justify-center gap-3 bg-primary text-primary-foreground border-2 border-border font-black uppercase tracking-widest text-lg transition-all duration-150 shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm active:translate-x-[4px] active:translate-y-[4px] active:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow cursor-pointer outline-none"
           aria-label={t('search.button')}
         >
           {isLoading ? (

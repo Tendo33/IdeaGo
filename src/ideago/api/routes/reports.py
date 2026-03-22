@@ -165,7 +165,7 @@ async def delete_report(
     """Delete a cached report owned by the authenticated user."""
     cache = get_cache()
     await _assert_report_owner(cache, report_id, user.id)
-    deleted = await cache.delete(report_id)
+    deleted = await cache.delete(report_id, user_id=user.id)
     if not deleted:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     return {"status": "deleted"}

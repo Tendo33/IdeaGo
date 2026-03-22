@@ -21,7 +21,12 @@ logger = get_logger(__name__)
 
 
 class FileCache:
-    """File-based cache that stores reports as JSON files with a central index."""
+    """File-based cache that stores reports as JSON files with a central index.
+
+    **Development only** — not suitable for production deployments because it
+    lacks cross-process safety, RLS, and does not guarantee tenant isolation.
+    Use ``SupabaseReportRepository`` in production.
+    """
 
     def __init__(
         self, cache_dir: str, ttl_hours: int = 24, *, max_entries: int = 500
@@ -236,25 +241,35 @@ class FileCache:
         """Return the user_id for a report, or empty string (async)."""
         return await asyncio.to_thread(self._get_report_user_id_sync, report_id)
 
-    async def delete(self, report_id: str) -> bool:
-        """Delete a cached report by ID."""
-        return await asyncio.to_thread(self._delete_sync, report_id)
+    async def delete(self, report_id: str, *, user_id: str = "") -> bool:
+        """Delete a cached report by ID.
 
-    def _delete_sync(self, report_id: str) -> bool:
+        When *user_id* is provided, only deletes if the report belongs
+        to that user (tenant isolation).
+        """
+        return await asyncio.to_thread(self._delete_sync, report_id, user_id)
+
+    def _delete_sync(self, report_id: str, user_id: str = "") -> bool:
+        with self._index_lock:
+            index = self._read_index()
+            if user_id:
+                entry = next((e for e in index if e.report_id == report_id), None)
+                if entry is None:
+                    return False
+                if entry.user_id and entry.user_id != user_id:
+                    return False
+            new_index = [e for e in index if e.report_id != report_id]
+            if len(new_index) >= len(index):
+                return False
+            self._write_index(new_index)
+
         report_path = self._dir / f"{report_id}.json"
         if report_path.exists():
             report_path.unlink()
         status_path = self._dir / f"{report_id}.status.json"
         if status_path.exists():
             status_path.unlink()
-
-        with self._index_lock:
-            index = self._read_index()
-            new_index = [e for e in index if e.report_id != report_id]
-            if len(new_index) < len(index):
-                self._write_index(new_index)
-                return True
-            return False
+        return True
 
     async def put_status(
         self,

@@ -66,7 +66,7 @@ export function UserMenu() {
         <div
           role="menu"
           aria-label={t('nav.userOptions')}
-          className="absolute right-0 top-full mt-2 w-56 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
+          className="absolute right-0 top-full mt-2 w-56 border-2 border-border bg-background p-2 shadow z-50"
         >
           <div className="px-3 py-2 border-b-2 border-border mb-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">

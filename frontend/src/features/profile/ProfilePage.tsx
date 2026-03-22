@@ -9,15 +9,16 @@ import {
   updateMyProfile,
   getSubscriptionStatus,
   createPortalSession,
+  deleteAccount,
   type QuotaInfo,
   type UserProfile,
   type SubscriptionStatus,
 } from '@/lib/api/client'
-import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, CreditCard, Crown, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, CreditCard, Crown, ExternalLink, Trash2, AlertTriangle } from 'lucide-react'
 
 export function ProfilePage() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [quota, setQuota] = useState<QuotaInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,6 +30,9 @@ export function ProfilePage() {
   const [bio, setBio] = useState('')
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -93,7 +97,7 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-        <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
+        <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
           <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin" />
           <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
             {t('loading.page', 'Loading...')}
@@ -127,24 +131,27 @@ export function ProfilePage() {
       </h1>
 
       {/* Avatar + info header */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)] mb-8">
-        <div className="flex items-center gap-6">
+      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
+          <div className="flex items-center gap-6">
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt=""
-              className="w-20 h-20 border-4 border-border object-cover"
+              className="w-20 h-20 shrink-0 border-4 border-border object-cover"
+              loading="lazy"
+              width={80}
+              height={80}
             />
           ) : (
-            <div className="w-20 h-20 bg-primary text-primary-foreground border-4 border-border flex items-center justify-center text-3xl font-black">
+            <div className="w-20 h-20 shrink-0 bg-primary text-primary-foreground border-4 border-border flex items-center justify-center text-3xl font-black">
               {avatarInitial}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-black truncate">
+            <h2 className="text-xl font-black truncate" title={displayName || user?.email || 'User'}>
               {displayName || user?.email || 'User'}
             </h2>
-            <p className="text-sm text-muted-foreground font-bold truncate">{user?.email}</p>
+            <p className="text-sm text-muted-foreground font-bold truncate" title={user?.email}>{user?.email}</p>
             {memberSince && (
               <p className="text-xs text-muted-foreground mt-1">
                 {t('profile.memberSince', 'Member since')} {memberSince}
@@ -155,7 +162,7 @@ export function ProfilePage() {
       </div>
 
       {/* Plan & usage card */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)] mb-8">
+      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
         <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5" />
           {t('profile.planAndUsage', 'Plan & Usage')}
@@ -208,7 +215,7 @@ export function ProfilePage() {
 
       {/* Subscription management */}
       {subscription?.stripe_configured && (
-        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)] mb-8">
+        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
           <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
             <CreditCard className="w-5 h-5" />
             {t('profile.subscription', 'Subscription')}
@@ -267,7 +274,7 @@ export function ProfilePage() {
       )}
 
       {/* Edit form */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)]">
+      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md">
         <h3 className="text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2">
           <User className="w-5 h-5" />
           {t('profile.editProfile', 'Edit Profile')}
@@ -328,8 +335,9 @@ export function ProfilePage() {
               onChange={e => setBio(e.target.value)}
               className="input w-full resize-none"
               placeholder={t('profile.bioPlaceholder', 'Tell us about yourself...')}
+              aria-describedby="bio-count"
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">{bio.length}/300</p>
+            <p id="bio-count" className="text-xs text-muted-foreground mt-1 text-right">{bio.length}/300</p>
           </div>
 
           <Button type="submit" size="lg" disabled={saving}>
@@ -341,6 +349,73 @@ export function ProfilePage() {
             {t('profile.save', 'Save Changes')}
           </Button>
         </form>
+      </div>
+
+      {/* Danger zone */}
+      <div className="border-4 border-destructive bg-destructive/5 p-6 md:p-8 shadow-md shadow-destructive mt-8">
+        <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2 text-destructive">
+          <AlertTriangle className="w-5 h-5" />
+          {t('profile.dangerZone', 'Danger Zone')}
+        </h3>
+        <p className="text-sm font-bold text-muted-foreground mb-4">
+          {t('profile.deleteWarning', 'Permanently delete your account and all associated data. This action cannot be undone.')}
+        </p>
+        {deleteError && (
+          <div className="border-2 border-destructive bg-destructive/10 p-3 mb-4">
+            <p className="text-sm font-bold text-destructive">{deleteError}</p>
+          </div>
+        )}
+        {!deleteConfirmOpen ? (
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteConfirmOpen(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {t('profile.deleteAccount', 'Delete Account')}
+          </Button>
+        ) : (
+          <div className="border-2 border-destructive p-4 space-y-4">
+            <p className="text-sm font-black text-destructive">
+              {t('profile.deleteConfirm', 'Are you sure? All reports, profile data, and subscription will be permanently removed.')}
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="destructive"
+                disabled={deleteLoading}
+                onClick={async () => {
+                  setDeleteLoading(true)
+                  setDeleteError('')
+                  try {
+                    await deleteAccount()
+                    signOut()
+                    window.location.href = '/'
+                  } catch (err) {
+                    setDeleteError(
+                      err instanceof Error ? err.message : t('profile.deleteError', 'Failed to delete account')
+                    )
+                    setDeleteLoading(false)
+                  }
+                }}
+              >
+                {deleteLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                {t('profile.confirmDelete', 'Yes, Delete Everything')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteConfirmOpen(false)
+                  setDeleteError('')
+                }}
+              >
+                {t('profile.cancelDelete', 'Cancel')}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

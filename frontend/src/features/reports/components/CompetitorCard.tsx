@@ -64,8 +64,8 @@ export const CompetitorCard = memo(function CompetitorCard({
       id={elementId}
       className={`relative bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
-          ? 'border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
-          : 'border-2 border-border hover:shadow-[4px_4px_0px_0px_var(--border)] p-5 card-clickable'
+          ? 'border-2 border-border shadow p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
+          : 'border-2 border-border hover:shadow p-5 card-clickable'
       }`}
     >
       {/* Featured Accent Line */}

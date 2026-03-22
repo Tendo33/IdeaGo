@@ -125,7 +125,7 @@ export function LoginPage() {
   if (resetSent) {
     return (
       <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg text-center">
           <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
             {t('auth.resetEmailSent', 'Check your email')}
@@ -147,7 +147,7 @@ export function LoginPage() {
   if (confirmSent) {
     return (
       <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg text-center">
           <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
             {t('auth.checkEmail', 'Check your email')}
@@ -170,7 +170,7 @@ export function LoginPage() {
 
   return (
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-      <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)]">
+      <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg">
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-8"
@@ -208,7 +208,7 @@ export function LoginPage() {
                 type="button"
                 disabled={anyLoading}
                 onClick={() => handleOAuth('github')}
-                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === 'github' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -221,7 +221,7 @@ export function LoginPage() {
                 type="button"
                 disabled={anyLoading}
                 onClick={() => handleOAuth('google')}
-                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === 'google' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -234,7 +234,7 @@ export function LoginPage() {
                 type="button"
                 disabled={anyLoading}
                 onClick={handleLinuxDoLogin}
-                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex items-center justify-center gap-3 px-4 py-3 border-2 border-border bg-background font-bold text-sm uppercase tracking-wider transition-all cursor-pointer shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {oauthLoading === 'linuxdo' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -352,6 +352,17 @@ export function LoginPage() {
               </button>
             </p>
           )}
+
+          <p className="mt-4 text-xs text-muted-foreground/70">
+            {t('auth.legalNotice', 'By continuing, you agree to our')}{' '}
+            <Link to="/terms" className="underline underline-offset-2 hover:text-foreground transition-colors">
+              {t('legal.termsTitle', 'Terms of Service')}
+            </Link>{' '}
+            {t('common.and', 'and')}{' '}
+            <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground transition-colors">
+              {t('legal.privacyTitle', 'Privacy Policy')}
+            </Link>
+          </p>
         </div>
       </div>
     </div>

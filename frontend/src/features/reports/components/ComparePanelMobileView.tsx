@@ -21,7 +21,7 @@ export function ComparePanelMobileView({ competitors, allFeatures, onRemove }: C
         return (
           <div
             key={competitorId}
-            className="rounded-none border-2 border-border bg-card p-4 shadow-[4px_4px_0px_0px_var(--border)] relative"
+            className="rounded-none border-2 border-border bg-card p-4 shadow relative"
           >
             <button
               type="button"

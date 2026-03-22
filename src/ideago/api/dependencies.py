@@ -91,8 +91,17 @@ def get_cache() -> ReportRepository:
                 ttl_hours=settings.anonymous_cache_ttl_hours,
             )
         else:
+            if settings.environment == "production":
+                raise RuntimeError(
+                    "FileCache cannot be used in production. "
+                    "Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+                )
             from ideago.cache.file_cache import FileCache
 
+            logger.warning(
+                "Using local FileCache (dev-only). "
+                "Configure Supabase for multi-tenant data isolation."
+            )
             _cache = FileCache(
                 settings.cache_dir,
                 settings.anonymous_cache_ttl_hours,

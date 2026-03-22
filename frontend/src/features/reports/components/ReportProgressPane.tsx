@@ -57,7 +57,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={reduceMotion ? false : { opacity: 0, x: 20 }}
           animate={reduceMotion ? false : { opacity: 1, x: 0 }}
           transition={reduceMotion ? undefined : { duration: 0.4 }}
-          className="rounded-none border border-2 border-border bg-card shadow-[4px_4px_0px_0px_var(--border)] p-6"
+          className="rounded-none border border-2 border-border bg-card shadow p-6"
         >
           <p className="text-xs font-medium text-muted-foreground mb-2">{t('report.progress.ideaProfile')}</p>
           <div className="flex flex-wrap gap-2">
@@ -83,7 +83,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={reduceMotion ? false : { opacity: 0, x: 20 }}
           animate={reduceMotion ? false : { opacity: 1, x: 0 }}
           transition={reduceMotion ? undefined : { duration: 0.4, delay: 0.1 }}
-          className="rounded-none border border-2 border-border bg-card shadow-[4px_4px_0px_0px_var(--border)] p-6 mt-5"
+          className="rounded-none border border-2 border-border bg-card shadow p-6 mt-5"
         >
           <p className="text-xs font-medium text-muted-foreground mb-2">{t('report.progress.searchResults')}</p>
           <div className="space-y-1.5">

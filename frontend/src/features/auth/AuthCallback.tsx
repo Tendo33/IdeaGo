@@ -61,7 +61,7 @@ export function AuthCallback() {
   if (error) {
     return (
       <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+        <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg text-center">
           <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-black uppercase tracking-tight mb-3">
             {t('auth.callbackError')}
@@ -80,7 +80,7 @@ export function AuthCallback() {
 
   return (
     <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-      <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
+      <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
         <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin" />
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
           {t('auth.signingIn')}

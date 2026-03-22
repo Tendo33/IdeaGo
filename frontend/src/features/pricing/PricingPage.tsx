@@ -96,8 +96,8 @@ export function PricingPage() {
               key={plan.name}
               className={`border-4 bg-card p-6 md:p-8 transition-all ${
                 plan.highlighted
-                  ? 'border-primary shadow-[8px_8px_0px_0px_var(--primary)]'
-                  : 'border-border shadow-[6px_6px_0px_0px_var(--border)]'
+                  ? 'border-primary shadow-lg shadow-primary'
+                  : 'border-border shadow-md'
               }`}
             >
               <div className="flex items-center gap-3 mb-4">

@@ -133,11 +133,70 @@ def construct_webhook_event(payload: bytes, sig_header: str) -> stripe.Event:
     )
 
 
+async def _is_event_processed(event_id: str) -> bool:
+    """Check if a Stripe event was already processed (idempotency guard)."""
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        return False
+    import httpx
+
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+        "Accept": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{settings.supabase_url}/rest/v1/processed_webhook_events",
+                headers=headers,
+                params={
+                    "event_id": f"eq.{event_id}",
+                    "select": "event_id",
+                    "limit": "1",
+                },
+            )
+            if resp.status_code == 200 and resp.json():
+                return True
+    except Exception:
+        logger.opt(exception=True).debug("Idempotency check failed")
+    return False
+
+
+async def _mark_event_processed(event_id: str, event_type: str) -> None:
+    """Record a Stripe event as processed."""
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        return
+    import httpx
+
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{settings.supabase_url}/rest/v1/processed_webhook_events",
+                headers=headers,
+                json={"event_id": event_id, "event_type": event_type},
+            )
+    except Exception:
+        logger.opt(exception=True).debug("Failed to record processed event")
+
+
 async def handle_webhook_event(event: stripe.Event) -> None:
     """Process a verified Stripe webhook event.
 
     Updates the profiles table to keep plan and subscription ID in sync.
+    Skips duplicate events via the processed_webhook_events table.
     """
+    if await _is_event_processed(event.id):
+        logger.debug("Skipping already-processed Stripe event {}", event.id)
+        return
+
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
         logger.warning("Supabase not configured; skipping webhook processing")
@@ -205,3 +264,5 @@ async def handle_webhook_event(event: stripe.Event) -> None:
                 )
         else:
             logger.debug("Unhandled Stripe event: {}", event_type)
+
+    await _mark_event_processed(event.id, event_type)

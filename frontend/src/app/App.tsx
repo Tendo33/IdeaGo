@@ -48,6 +48,21 @@ const PricingPage = lazy(async () => {
   return { default: page.PricingPage }
 })
 
+const AdminPage = lazy(async () => {
+  const page = await import('@/features/admin/AdminPage')
+  return { default: page.AdminPage }
+})
+
+const TermsPage = lazy(async () => {
+  const page = await import('@/features/legal/TermsPage')
+  return { default: page.TermsPage }
+})
+
+const PrivacyPage = lazy(async () => {
+  const page = await import('@/features/legal/PrivacyPage')
+  return { default: page.PrivacyPage }
+})
+
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
@@ -181,7 +196,7 @@ function ThemeModeMenu({
         <div
           role="menu"
           aria-label={t('theme.options')}
-          className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
+          className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow z-50"
         >
           {THEME_OPTIONS.map(option => {
             const OptionIcon = option.Icon
@@ -198,8 +213,8 @@ function ThemeModeMenu({
                 }}
                 className={`w-full inline-flex items-center justify-between px-3 py-2 text-sm font-bold uppercase tracking-wider transition-all cursor-pointer border-2 border-transparent ${
                   selected
-                    ? 'bg-primary text-primary-foreground border-border shadow-[2px_2px_0px_0px_var(--border)]'
-                    : 'text-muted-foreground hover:bg-muted hover:border-border hover:shadow-[2px_2px_0px_0px_var(--border)] hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground border-border shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:border-border hover:shadow-sm hover:text-foreground'
                 }`}
               >
                 <span className="inline-flex items-center gap-3">
@@ -232,7 +247,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     if (this.state.hasError) {
       return (
         <div className="min-h-screen px-4 py-10 bg-background text-foreground flex items-center justify-center">
-          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--destructive)] text-center">
+          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-lg shadow-destructive text-center">
             <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" aria-hidden="true" />
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
@@ -266,10 +281,10 @@ function NotFound() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-lg text-center">
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
-        <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground">{t('error.notFoundTitle')}</h2>
-        <p className="mb-10 text-lg font-bold text-muted-foreground">{t('error.notFoundMessage')}</p>
+          <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
+        <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.notFoundMessage')}</p>
         <Button
           size="lg"
           onClick={() => navigate('/')}
@@ -306,7 +321,7 @@ function NavBar({
     <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print min-w-0">
       <Link
         to="/"
-        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all truncate max-w-[40vw]"
+        className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base"
       >
         {t('app.title')} {t('app.titleHighlight')}
       </Link>
@@ -316,6 +331,7 @@ function NavBar({
           onClick={toggleLanguage}
           className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           aria-label={isChinese ? 'Switch to English' : '切换到中文'}
+          aria-pressed={isChinese}
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
@@ -337,7 +353,7 @@ function RouteLoading() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
+      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
         <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin"></div>
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">{t('loading.page')}</p>
       </div>
@@ -374,7 +390,10 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

@@ -52,8 +52,12 @@ class ReportRepository(Protocol):
         """Store (upsert) a report, optionally associating it with a user."""
         ...
 
-    async def delete(self, report_id: str) -> bool:
-        """Delete a report. Returns True if it existed."""
+    async def delete(self, report_id: str, *, user_id: str = "") -> bool:
+        """Delete a report. Returns True if it existed.
+
+        When *user_id* is provided, only the report belonging to that user
+        is deleted (tenant isolation at the repository level).
+        """
         ...
 
     async def list_reports(

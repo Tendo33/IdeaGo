@@ -11,7 +11,7 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
   if (count < 2) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-none bg-popover/95 border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] animate-fade-in no-print">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-none bg-popover/95 border-2 border-border shadow animate-fade-in no-print">
       <span className="text-sm text-foreground">
         <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
@@ -23,7 +23,7 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
             document.getElementById('compare-panel')?.scrollIntoView({ behavior: 'smooth' })
           }, 50)
         }}
-        className="px-5 py-2 text-sm font-semibold rounded-none bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow-[4px_4px_0px_0px_var(--border)] hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="px-5 py-2 text-sm font-semibold rounded-none bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         {t('report.compare.compareBtn')}
       </button>

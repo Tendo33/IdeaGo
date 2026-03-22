@@ -69,7 +69,7 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
   return (
     <div className="fixed top-16 left-0 right-0 z-40 no-print animate-fade-in">
       <div className="max-w-5xl mx-auto px-4">
-        <nav className="flex items-center gap-1 px-2 py-1.5 rounded-none bg-popover/95 backdrop-blur-2xl border border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] overflow-x-auto">
+        <nav className="flex items-center gap-1 px-2 py-1.5 rounded-none bg-popover/95 backdrop-blur-2xl border border-2 border-border shadow overflow-x-auto">
           {sections.map(s => (
             <button
               key={s.id}

@@ -10,7 +10,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
 
     const variantClasses = {
       default: "bg-secondary/50 text-muted-foreground border border-transparent",
-      primary: "bg-primary text-primary-foreground border-2 border-border shadow-[2px_2px_0px_0px_var(--border)] font-black",
+      primary: "bg-primary text-primary-foreground border-2 border-border shadow-sm font-black",
       secondary: "bg-background text-muted-foreground border border-border",
       outline: "bg-transparent text-foreground border border-border",
       accent: "bg-primary/10 text-primary border border-border font-black",

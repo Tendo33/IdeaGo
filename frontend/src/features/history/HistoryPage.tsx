@@ -20,23 +20,16 @@ interface HistoryReportCardProps {
 
 const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, onNavigate, onDelete, t }: HistoryReportCardProps) {
   return (
-    <div
-      onClick={() => onNavigate(report.id)}
-      className="group flex flex-col sm:flex-row items-start sm:items-center justify-between border-2 border-border bg-card p-5 shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all duration-150 cursor-pointer"
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onNavigate(report.id)
-        }
-      }}
-    >
+    <div className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between border-2 border-border bg-card p-5 shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm transition-all duration-150 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
       <div className="mr-6 min-w-0 flex-1 mb-4 sm:mb-0">
-        <p className="truncate text-lg sm:text-xl font-black text-foreground transition-colors duration-150 group-hover:text-primary wrap" title={report.query}>
+        <Link
+          to={`/reports/${report.id}`}
+          className="truncate block text-lg sm:text-xl font-black text-foreground transition-colors duration-150 group-hover:text-primary outline-none before:absolute before:inset-0"
+          title={report.query}
+        >
           {report.query}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4">
+        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 relative z-10 pointer-events-none">
           <Badge variant="secondary">
             <Clock className="h-3.5 w-3.5" />
             {new Date(report.created_at).toLocaleDateString()}
@@ -50,7 +43,7 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
       <button
         onClick={e => onDelete(report.id, e)}
         disabled={isDeleting}
-        className="shrink-0 cursor-pointer border-2 border-border bg-background p-3 text-muted-foreground transition-all duration-150 hover:bg-destructive hover:text-destructive-foreground hover:shadow-[2px_2px_0px_var(--border)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="relative z-10 shrink-0 cursor-pointer border-2 border-border bg-background p-3 text-muted-foreground transition-all duration-150 hover:bg-destructive hover:text-destructive-foreground hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         aria-label={isDeleting ? t('history.deleting') : t('history.delete')}
       >
         {isDeleting ? (
@@ -177,7 +170,7 @@ export function HistoryPage() {
           {t('history.back')}
         </Link>
 
-        <div className="border-4 border-border bg-card p-6 md:p-10 mb-8 shadow-[8px_8px_0px_0px_var(--border)]">
+        <div className="border-4 border-border bg-card p-6 md:p-10 mb-8 shadow-lg">
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2">
@@ -195,7 +188,7 @@ export function HistoryPage() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder={t('history.filterPlaceholder')}
-                  className="w-full border-2 border-border bg-background pl-12 pr-4 py-3 text-sm font-bold placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 focus:border-primary focus:shadow-[4px_4px_0px_0px_var(--primary)] transition-all"
+                  className="w-full border-2 border-border bg-background pl-12 pr-4 py-3 text-sm font-bold placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 focus:border-primary focus:shadow shadow-primary transition-all"
                 />
               </div>
             )}
@@ -261,7 +254,7 @@ export function HistoryPage() {
             >
               {t('history.prevPage')}
             </Button>
-            <span className="text-sm font-black text-muted-foreground border-2 border-border bg-background px-4 py-2 shadow-[2px_2px_0px_0px_var(--border)]">
+            <span className="text-sm font-black text-muted-foreground border-2 border-border bg-background px-4 py-2 shadow-sm">
               {t('history.pageLabel', { page: pageIndex + 1 })}
             </span>
             <Button
@@ -278,7 +271,7 @@ export function HistoryPage() {
       {reportToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/45 p-4 animate-fade-in" onClick={() => setReportToDelete(null)} role="presentation">
           <div
-            className="bg-card border-4 border-border shadow-[8px_8px_0px_0px_var(--border)] p-6 max-w-sm w-full"
+            className="bg-card border-4 border-border shadow-lg p-6 max-w-sm w-full"
             onClick={e => e.stopPropagation()}
             role="dialog"
             aria-modal="true"

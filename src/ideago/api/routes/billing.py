@@ -23,6 +23,32 @@ router = APIRouter(tags=["billing"])
 logger = get_logger(__name__)
 
 
+def _validate_redirect_url(url: str, label: str) -> None:
+    """Reject redirect URLs that don't match the configured frontend origin."""
+    from urllib.parse import urlparse
+
+    settings = get_settings()
+    configured = settings.frontend_app_url.strip().rstrip("/")
+    if not configured:
+        return
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise AppError(400, ErrorCode.VALIDATION_ERROR, f"Invalid {label}")
+
+    try:
+        allowed_host = urlparse(configured).netloc
+    except ValueError:
+        return
+
+    if parsed.netloc != allowed_host:
+        raise AppError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"{label} must point to {allowed_host}",
+        )
+
+
 class CheckoutRequest(BaseModel):
     success_url: str = Field(
         ..., max_length=2000, description="URL to redirect after successful payment"
@@ -65,6 +91,9 @@ async def create_checkout(
     if not settings.stripe_pro_price_id:
         raise AppError(503, ErrorCode.BILLING_NO_PRICE, "No Pro price configured")
 
+    _validate_redirect_url(body.success_url, "success_url")
+    _validate_redirect_url(body.cancel_url, "cancel_url")
+
     try:
         customer_id = await get_or_create_customer(user.id, user.email)
         url = await create_checkout_session(
@@ -97,6 +126,8 @@ async def create_portal(
     """Create a Stripe Customer Portal session for managing subscription."""
     if not is_configured():
         raise AppError(503, ErrorCode.BILLING_NOT_CONFIGURED, "Billing not configured")
+
+    _validate_redirect_url(body.return_url, "return_url")
 
     try:
         customer_id = await get_or_create_customer(user.id, user.email)

@@ -57,7 +57,7 @@ function Dropdown({ trigger, children }: { trigger: React.ReactNode; children: R
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 top-full mt-1.5 w-48 rounded-none border border-2 border-border bg-popover/95 backdrop-blur-2xl shadow-[4px_4px_0px_0px_var(--border)] py-1 z-50 overflow-hidden outline-none"
+          className="absolute right-0 top-full mt-1.5 w-48 rounded-none border border-2 border-border bg-popover/95 backdrop-blur-2xl shadow py-1 z-50 overflow-hidden outline-none"
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
               setOpen(false)

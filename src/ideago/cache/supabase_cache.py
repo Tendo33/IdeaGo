@@ -23,6 +23,7 @@ class SupabaseReportRepository:
     def __init__(self, ttl_hours: int = 24) -> None:
         self._ttl_hours = ttl_hours
         self._client: httpx.AsyncClient | None = None
+        self._is_production = get_settings().environment == "production"
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -52,9 +53,21 @@ class SupabaseReportRepository:
     def _url(self, path: str) -> str:
         return f"{get_settings().supabase_url}/rest/v1/{path}"
 
+    # ── Tenant enforcement ─────────────────────────────────────
+
+    def _warn_missing_user_id(self, operation: str) -> None:
+        """Log a warning when user_id is empty in production."""
+        if self._is_production:
+            logger.warning(
+                "Tenant isolation: {} called without user_id in production",
+                operation,
+            )
+
     # ── Report CRUD ──────────────────────────────────────────────
 
     async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
+        if not user_id:
+            self._warn_missing_user_id("get")
         client = self._get_client()
         params: dict[str, str] = {
             "cache_key": f"eq.{cache_key}",
@@ -84,6 +97,8 @@ class SupabaseReportRepository:
     async def get_by_id(
         self, report_id: str, *, user_id: str = ""
     ) -> ResearchReport | None:
+        if not user_id:
+            self._warn_missing_user_id("get_by_id")
         client = self._get_client()
         params: dict[str, str] = {
             "id": f"eq.{report_id}",
@@ -109,6 +124,8 @@ class SupabaseReportRepository:
             return None
 
     async def put(self, report: ResearchReport, *, user_id: str = "") -> None:
+        if not user_id:
+            self._warn_missing_user_id("put")
         client = self._get_client()
         body: dict[str, object] = {
             "id": report.id,
@@ -140,12 +157,17 @@ class SupabaseReportRepository:
                 "Supabase put report failed: {} {}", resp.status_code, resp.text
             )
 
-    async def delete(self, report_id: str) -> bool:
+    async def delete(self, report_id: str, *, user_id: str = "") -> bool:
+        if not user_id:
+            self._warn_missing_user_id("delete")
         client = self._get_client()
+        params: dict[str, str] = {"id": f"eq.{report_id}"}
+        if user_id:
+            params["user_id"] = f"eq.{user_id}"
         resp = await client.delete(
             self._url("reports"),
             headers=self._headers(),
-            params={"id": f"eq.{report_id}"},
+            params=params,
         )
         if resp.status_code == 200:
             rows = resp.json()

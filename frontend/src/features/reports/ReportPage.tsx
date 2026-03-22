@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Crown } from 'lucide-react'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
-import { isRequestAbortError, startAnalysis } from '@/lib/api/client'
+import { Alert } from '@/components/ui/Alert'
+import { Button } from '@/components/ui/Button'
+import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
 import { ReportContentPane } from '@/features/reports/components/ReportContentPane'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
@@ -15,6 +18,7 @@ export function ReportPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [createError, setCreateError] = useState<string | null>(null)
+  const [quotaExceeded, setQuotaExceeded] = useState(false)
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
@@ -33,7 +37,11 @@ export function ReportPage() {
       })
       .catch(e => {
         if (isRequestAbortError(e)) return
-        setCreateError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
+        if (isApiError(e) && e.is('QUOTA_EXCEEDED')) {
+          setQuotaExceeded(true)
+        }
+        const msg = e instanceof Error ? e.message : ''
+        setCreateError(msg || t('home.errorStartAnalysis'))
       })
     return () => controller.abort()
   }, [isNewAnalysis, location.state, navigate, t])
@@ -106,7 +114,29 @@ export function ReportPage() {
           onCancel={cancelCurrentAnalysis}
         />
 
-        {(sseError || loadError) && (
+        {quotaExceeded && (
+          <Alert variant="warning" className="mb-6 items-center">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-warning">
+                {t('quota.exceeded', 'You\'ve reached your monthly analysis limit.')}
+              </p>
+              <p className="text-xs text-warning/80 mt-1">
+                {t('quota.upgradeHint', 'Upgrade to Pro for 100 analyses per month.')}
+              </p>
+            </div>
+            <Link to="/pricing">
+              <Button
+                size="sm"
+                className="ml-3"
+              >
+                <Crown className="w-4 h-4 mr-1.5" />
+                {t('quota.upgradeCta', 'Upgrade')}
+              </Button>
+            </Link>
+          </Alert>
+        )}
+
+        {!quotaExceeded && (sseError || loadError) && (
           <ReportErrorBanner
             message={sseError || loadError || t('report.error.unknown')}
             onRetry={retryErrorState}

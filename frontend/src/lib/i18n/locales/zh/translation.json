@@ -81,7 +81,8 @@
   },
   "common": {
     "cancel": "取消",
-    "delete": "删除"
+    "delete": "删除",
+    "dismiss": "关闭"
   },
   "home": {
     "description": "通过来自 GitHub、全网、Hacker News 和 App Store 的真实竞品数据，快速验证您的创业想法。",
@@ -392,5 +393,31 @@
     "proFeature4": "报告导出 (Markdown)",
     "proFeature5": "报告永不过期",
     "proFeature6": "优先技术支持"
+  },
+  "quota": {
+    "exceeded": "您已达到本月分析次数上限。",
+    "upgradeHint": "升级到专业版可获得更多分析次数。",
+    "upgradeCta": "升级"
+  },
+  "welcome": {
+    "title": "欢迎使用 IdeaGo！",
+    "body": "在下方描述您的创业想法，我们将为您搜索竞品、分析市场信号，并在几分钟内生成研究报告。",
+    "step1": "输入想法",
+    "step2": "AI 调研市场",
+    "step3": "查看报告"
+  },
+  "errors": {
+    "rateLimited": "请求过于频繁，请稍后再试。",
+    "networkError": "网络错误，请检查您的网络连接后重试。",
+    "sessionExpired": "登录已过期，请重新登录。",
+    "quotaExceeded": "本月分析次数已用完，请升级您的套餐。",
+    "unknown": "出现了问题，请重试。"
+  },
+  "account": {
+    "deleteTitle": "删除账户",
+    "deleteDescription": "这将永久删除您的账户及所有关联数据，此操作不可撤销。",
+    "deleteConfirm": "删除我的账户",
+    "deleteCancel": "取消",
+    "dangerZone": "危险操作"
   }
 }

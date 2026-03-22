@@ -137,6 +137,7 @@ async def ensure_profile_exists(
     display_name: str = "",
     avatar_url: str = "",
     bio: str = "",
+    auth_provider: str = "supabase",
 ) -> bool:
     """Create a profile row when missing (idempotent upsert)."""
     if not _is_configured():
@@ -144,11 +145,12 @@ async def ensure_profile_exists(
 
     settings = get_settings()
     client = _get_client()
-    payload = {
+    payload: dict[str, str] = {
         "id": user_id,
         "display_name": display_name,
         "avatar_url": avatar_url,
         "bio": bio,
+        "auth_provider": auth_provider,
     }
     try:
         resp = await client.post(
@@ -185,7 +187,7 @@ async def get_profile(user_id: str) -> dict:
             headers={**_headers(), "Accept": "application/json"},
             params={
                 "id": f"eq.{user_id}",
-                "select": "display_name,avatar_url,bio,created_at",
+                "select": "display_name,avatar_url,bio,created_at,role",
                 "limit": "1",
             },
         )
@@ -237,3 +239,126 @@ async def update_profile(user_id: str, *, display_name: str, bio: str) -> dict:
     except Exception:
         logger.opt(exception=True).warning("Update profile error")
         return {"error": "network_error"}
+
+
+async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
+    """List all user profiles (admin only). Returns a list of profile dicts."""
+    if not _is_configured():
+        return []
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.get(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={
+                **_headers(),
+                "Accept": "application/json",
+                "Prefer": "count=exact",
+            },
+            params={
+                "select": "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit,role,auth_provider",
+                "order": "created_at.desc",
+                "limit": str(limit),
+                "offset": str(offset),
+            },
+        )
+        if resp.status_code != 200:
+            logger.warning("list_profiles failed: {} {}", resp.status_code, resp.text)
+            return []
+        rows = resp.json()
+        return rows if isinstance(rows, list) else []
+    except Exception:
+        logger.opt(exception=True).warning("list_profiles error")
+        return []
+
+
+async def set_user_quota(
+    user_id: str, *, plan_limit: int | None = None, usage_count: int | None = None
+) -> dict:
+    """Admin adjustment of a user's quota fields."""
+    if not _is_configured():
+        return {"error": "supabase_not_configured"}
+
+    settings = get_settings()
+    client = _get_client()
+    payload: dict[str, int] = {}
+    if plan_limit is not None:
+        payload["plan_limit"] = plan_limit
+    if usage_count is not None:
+        payload["usage_count"] = usage_count
+    if not payload:
+        return {"error": "nothing_to_update"}
+
+    try:
+        resp = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=representation"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "id,display_name,plan,usage_count,plan_limit,role",
+            },
+            json=payload,
+        )
+        if resp.status_code != 200:
+            logger.warning("set_user_quota failed: {} {}", resp.status_code, resp.text)
+            return {"error": "update_failed"}
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            return rows[0]
+        return {"error": "user_not_found"}
+    except Exception:
+        logger.opt(exception=True).warning("set_user_quota error")
+        return {"error": "network_error"}
+
+
+async def delete_user_data(user_id: str) -> dict:
+    """Cascade-delete all data for a user (GDPR / account deletion).
+
+    Deletes: reports, report_status, processing_reports, profile.
+    Returns {"deleted": True} on success, {"error": ...} on failure.
+    """
+    if not _is_configured():
+        return {"error": "supabase_not_configured"}
+
+    settings = get_settings()
+    client = _get_client()
+    headers = _headers()
+    base = settings.supabase_url
+    errors: list[str] = []
+
+    for table, filter_col in [
+        ("reports", "user_id"),
+        ("report_status", "user_id"),
+        ("processing_reports", "user_id"),
+    ]:
+        try:
+            resp = await client.delete(
+                f"{base}/rest/v1/{table}",
+                headers=headers,
+                params={filter_col: f"eq.{user_id}"},
+            )
+            if resp.status_code not in (200, 204):
+                errors.append(f"{table}: {resp.status_code}")
+        except Exception:
+            logger.opt(exception=True).warning("delete_user_data: {} failed", table)
+            errors.append(f"{table}: exception")
+
+    try:
+        resp = await client.delete(
+            f"{base}/rest/v1/profiles",
+            headers=headers,
+            params={"id": f"eq.{user_id}"},
+        )
+        if resp.status_code not in (200, 204):
+            errors.append(f"profiles: {resp.status_code}")
+    except Exception:
+        logger.opt(exception=True).warning("delete_user_data: profiles failed")
+        errors.append("profiles: exception")
+
+    if errors:
+        logger.warning("delete_user_data partial failure for {}: {}", user_id, errors)
+        return {"error": "partial_failure", "details": errors}
+
+    logger.info("All data deleted for user {}", user_id)
+    return {"deleted": True}

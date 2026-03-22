@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import (
+    delete_user_data,
     ensure_profile_exists,
     get_profile,
     get_quota_info,
@@ -261,6 +262,7 @@ async def linuxdo_callback(
             user_id,
             display_name=display_name,
             avatar_url=avatar_url,
+            auth_provider="linuxdo",
         )
         app_access_token = _issue_auth_token(
             user_id=user_id,
@@ -290,6 +292,55 @@ async def linuxdo_callback(
 async def get_me(user: AuthUser = Depends(get_current_user)) -> dict:
     """Return the currently authenticated user."""
     return {"id": user.id, "email": user.email}
+
+
+_REFRESH_GRACE_HOURS = 24 * 7
+
+
+@router.post("/auth/refresh")
+async def refresh_token(
+    user: AuthUser = Depends(get_current_user),
+    request: Request = None,  # type: ignore[assignment]
+) -> dict:
+    """Issue a fresh JWT for custom OAuth sessions (LinuxDo).
+
+    The caller must present a still-valid (or within grace period) token.
+    Supabase-native sessions should use the Supabase SDK refresh flow.
+    """
+    settings = get_settings()
+    if not settings.auth_session_secret:
+        raise HTTPException(
+            status_code=503, detail="AUTH_SESSION_SECRET is not configured"
+        )
+
+    auth_header = request.headers.get("Authorization", "") if request else ""
+    token = auth_header.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.auth_session_secret,
+            algorithms=["HS256"],
+            audience="ideago-auth",
+            options={"verify_exp": False},
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token") from None
+
+    exp_ts = payload.get("exp", 0)
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if exp_ts > 0 and now_ts - exp_ts > _REFRESH_GRACE_HOURS * 3600:
+        raise HTTPException(status_code=401, detail="Token expired beyond grace period")
+
+    provider = payload.get("provider", "")
+    new_token = _issue_auth_token(
+        user_id=user.id,
+        email=user.email,
+        provider=provider,
+    )
+    return {"access_token": new_token}
 
 
 @router.get("/auth/quota")
@@ -324,3 +375,14 @@ async def update_my_profile(
     if data.get("error"):
         raise HTTPException(status_code=400, detail=data["error"])
     return data
+
+
+@router.delete("/auth/account")
+async def delete_account(
+    user: AuthUser = Depends(get_current_user),
+) -> dict:
+    """Permanently delete the authenticated user's account and all data."""
+    result = await delete_user_data(user.id)
+    if result.get("error"):
+        raise HTTPException(status_code=500, detail=result)
+    return {"status": "deleted"}

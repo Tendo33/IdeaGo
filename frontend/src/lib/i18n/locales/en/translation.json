@@ -81,7 +81,8 @@
   },
   "common": {
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "dismiss": "Dismiss"
   },
   "home": {
     "description": "Validate your startup idea using real competitor data from GitHub, the web, Hacker News, and the App Store.",
@@ -392,5 +393,31 @@
     "proFeature4": "Report export (Markdown)",
     "proFeature5": "Reports never expire",
     "proFeature6": "Priority support"
+  },
+  "quota": {
+    "exceeded": "You have reached your monthly analysis limit.",
+    "upgradeHint": "Upgrade to Pro for more analyses per month.",
+    "upgradeCta": "Upgrade"
+  },
+  "welcome": {
+    "title": "Welcome to IdeaGo!",
+    "body": "Describe your startup idea below and we will find competitors, analyze market signals, and generate a research report in minutes.",
+    "step1": "Enter your idea",
+    "step2": "AI researches the market",
+    "step3": "Read your report"
+  },
+  "errors": {
+    "rateLimited": "Too many requests. Please wait a moment and try again.",
+    "networkError": "Network error. Check your connection and retry.",
+    "sessionExpired": "Session expired. Please sign in again.",
+    "quotaExceeded": "Monthly analysis limit reached. Upgrade your plan.",
+    "unknown": "Something went wrong. Please try again."
+  },
+  "account": {
+    "deleteTitle": "Delete Account",
+    "deleteDescription": "This will permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteConfirm": "Delete My Account",
+    "deleteCancel": "Cancel",
+    "dangerZone": "Danger Zone"
   }
 }

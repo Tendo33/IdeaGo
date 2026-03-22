@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
+import uuid
 from collections import defaultdict
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -20,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ideago import __version__
 from ideago.api.errors import AppError, ErrorCode
-from ideago.api.routes import analyze, auth, billing, health, reports
+from ideago.api.routes import admin, analyze, auth, billing, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -116,6 +117,12 @@ def create_app() -> FastAPI:
     )
     origins = settings.get_cors_allow_origins()
     if origins == ["*"]:
+        if settings.environment == "production":
+            raise RuntimeError(
+                "CORS_ALLOW_ORIGINS must be explicitly configured in production. "
+                "Set the CORS_ALLOW_ORIGINS environment variable to a comma-separated "
+                "list of allowed origins (e.g. 'https://ideago.example.com')."
+            )
         origins = [
             "http://localhost:5173",
             "http://localhost:3000",
@@ -129,6 +136,20 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    from ideago.observability.metrics import metrics as _app_metrics
+
+    @app.middleware("http")
+    async def trace_id_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        """Attach a unique trace ID and record metrics for every request."""
+        trace_id = request.headers.get("X-Trace-Id") or uuid.uuid4().hex
+        request.state.trace_id = trace_id
+        start = time.monotonic()
+        response: Response = await call_next(request)
+        latency_ms = (time.monotonic() - start) * 1000
+        _app_metrics.record(request.url.path, response.status_code, latency_ms)
+        response.headers["X-Trace-Id"] = trace_id
+        return response
 
     _CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
     _CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhook"}
@@ -168,8 +189,10 @@ def create_app() -> FastAPI:
         session_id = request.headers.get("X-Session-Id", "")
         return f"{client_ip}:{session_id}" if session_id else client_ip
 
-    def _check_rate_limit(key: str, *, max_requests: int, window_seconds: int) -> bool:
-        """Return True if the request should be rejected (over limit)."""
+    def _check_rate_limit_memory(
+        key: str, *, max_requests: int, window_seconds: int
+    ) -> bool:
+        """In-memory sliding-window check. Returns True when over limit."""
         now = time.monotonic()
         timestamps = _rate_limit_store[key]
         timestamps[:] = [t for t in timestamps if now - t < window_seconds]
@@ -181,12 +204,57 @@ def create_app() -> FastAPI:
         timestamps.append(now)
         return False
 
+    _use_pg_rate_limit = bool(
+        settings.supabase_url and settings.supabase_service_role_key
+    )
+
+    async def _check_rate_limit_pg(
+        key: str, *, max_requests: int, window_seconds: int
+    ) -> bool:
+        """PG-backed sliding-window check via Supabase RPC."""
+        import httpx
+
+        url = f"{settings.supabase_url}/rest/v1/rpc/check_rate_limit"
+        headers = {
+            "apikey": settings.supabase_service_role_key,
+            "Authorization": f"Bearer {settings.supabase_service_role_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "p_key": key,
+            "p_max_requests": max_requests,
+            "p_window_seconds": window_seconds,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code == 200:
+                return resp.json() is True
+        except Exception:
+            logger.debug("PG rate-limit RPC failed, falling back to in-memory")
+        return _check_rate_limit_memory(
+            key, max_requests=max_requests, window_seconds=window_seconds
+        )
+
+    async def _check_rate_limit(
+        key: str, *, max_requests: int, window_seconds: int
+    ) -> bool:
+        if _use_pg_rate_limit:
+            return await _check_rate_limit_pg(
+                key, max_requests=max_requests, window_seconds=window_seconds
+            )
+        return _check_rate_limit_memory(
+            key, max_requests=max_requests, window_seconds=window_seconds
+        )
+
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
-        """Configurable in-memory rate limiter for /analyze and /reports.
+        """Sliding-window rate limiter for /analyze and /reports.
 
-        Keys by authenticated user ID (survives proxy/LB changes and works
-        with all auth providers). Falls back to IP + session for
+        Uses PG-backed rate limiting when Supabase is configured (works across
+        multiple workers/nodes). Falls back to in-memory for dev mode.
+
+        Keys by authenticated user ID. Falls back to IP + session for
         unauthenticated requests.
         """
         path = request.url.path
@@ -215,7 +283,7 @@ def create_app() -> FastAPI:
                 pass
 
             rate_key = prefix + _resolve_rate_key(request, user_id)
-            if _check_rate_limit(
+            if await _check_rate_limit(
                 rate_key, max_requests=limit_max, window_seconds=limit_window
             ):
                 return JSONResponse(
@@ -241,6 +309,7 @@ def create_app() -> FastAPI:
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
     app.include_router(billing.router, prefix="/api/v1")
+    app.include_router(admin.router, prefix="/api/v1")
 
     if _FRONTEND_DIST.is_dir():
         assets_dir = _FRONTEND_DIST / "assets"
