@@ -4,6 +4,7 @@ import {
   getAccessToken,
   setAccessToken,
 } from '../auth/token'
+import { supabase } from '../supabase/client'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
@@ -153,7 +154,9 @@ async function fetchWithTimeout(
     if (res.status === 401) {
       clearCustomAuthSession()
       setAccessToken(null)
-      window.location.href = '/login'
+      supabase.auth.signOut().catch(() => {})
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
+      window.location.href = `/login?returnTo=${returnTo}`
       throw new Error('Session expired. Redirecting to login.')
     }
     return res

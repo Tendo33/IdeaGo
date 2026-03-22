@@ -3,6 +3,7 @@ import i18n from '../i18n/i18n'
 import type { PipelineEvent } from '../types/research'
 import { getStreamUrl } from "./client";
 import { clearCustomAuthSession, getAccessToken, setAccessToken } from "../auth/token";
+import { supabase } from "../supabase/client";
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
@@ -179,7 +180,9 @@ export function useSSE(reportId: string | null): UseSSEResult {
 					if (res.status === 401) {
 						clearCustomAuthSession();
 						setAccessToken(null);
-						window.location.href = '/login';
+						supabase.auth.signOut().catch(() => {});
+						const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+						window.location.href = `/login?returnTo=${returnTo}`;
 						return;
 					}
 						if (!res.ok && !shouldRetrySseStatus(res.status)) {

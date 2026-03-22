@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+from ideago.api.errors import AppError, ErrorCode
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import (
@@ -306,13 +307,11 @@ _REFRESH_GRACE_HOURS = 24 * 7
 
 
 @router.post("/auth/refresh")
-async def refresh_token(
-    user: AuthUser = Depends(get_current_user),
-    request: Request = None,  # type: ignore[assignment]
-) -> dict:
+async def refresh_token(request: Request) -> dict:
     """Issue a fresh JWT for custom OAuth sessions (LinuxDo).
 
-    The caller must present a still-valid (or within grace period) token.
+    Accepts tokens that are expired within a grace period so that
+    clients can renew without forcing a full re-login.
     Supabase-native sessions should use the Supabase SDK refresh flow.
     """
     settings = get_settings()
@@ -321,7 +320,7 @@ async def refresh_token(
             status_code=503, detail="AUTH_SESSION_SECRET is not configured"
         )
 
-    auth_header = request.headers.get("Authorization", "") if request else ""
+    auth_header = request.headers.get("Authorization", "")
     token = auth_header.removeprefix("Bearer ").strip()
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
@@ -337,16 +336,19 @@ async def refresh_token(
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token") from None
 
+    user_id = payload.get("sub", "")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
     exp_ts = payload.get("exp", 0)
     now_ts = int(datetime.now(timezone.utc).timestamp())
     if exp_ts > 0 and now_ts - exp_ts > _REFRESH_GRACE_HOURS * 3600:
         raise HTTPException(status_code=401, detail="Token expired beyond grace period")
 
-    provider = payload.get("provider", "")
     new_token = _issue_auth_token(
-        user_id=user.id,
-        email=user.email,
-        provider=provider,
+        user_id=user_id,
+        email=payload.get("email", ""),
+        provider=payload.get("provider", ""),
     )
     return {"access_token": new_token}
 
@@ -393,7 +395,7 @@ async def delete_account(
     """Permanently delete the authenticated user's account and all data."""
     result = await delete_user_data(user.id)
     if result.get("error"):
-        raise HTTPException(status_code=500, detail=result)
+        raise AppError(500, ErrorCode.INTERNAL_ERROR, "Failed to delete account")
     await log_audit_event(
         actor_id=user.id,
         action="auth.delete_account",

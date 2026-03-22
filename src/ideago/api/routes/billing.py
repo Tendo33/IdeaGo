@@ -30,7 +30,11 @@ def _validate_redirect_url(url: str, label: str) -> None:
     settings = get_settings()
     configured = settings.frontend_app_url.strip().rstrip("/")
     if not configured:
-        return
+        raise AppError(
+            500,
+            ErrorCode.VALIDATION_ERROR,
+            "FRONTEND_APP_URL must be configured for billing redirects",
+        )
 
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:

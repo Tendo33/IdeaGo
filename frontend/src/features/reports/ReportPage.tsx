@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Crown } from 'lucide-react'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
-import { Button } from '@/components/ui/Button'
 import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
 import { ReportContentPane } from '@/features/reports/components/ReportContentPane'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
@@ -129,14 +128,12 @@ export function ReportPage() {
                 {t('quota.upgradeHint', 'Upgrade to Pro for 100 analyses per month.')}
               </p>
             </div>
-            <Link to="/pricing">
-              <Button
-                size="sm"
-                className="ml-3"
-              >
-                <Crown className="w-4 h-4 mr-1.5" />
-                {t('quota.upgradeCta', 'Upgrade')}
-              </Button>
+            <Link
+              to="/pricing"
+              className="ml-3 inline-flex items-center justify-center gap-2 border-2 border-border bg-primary text-primary-foreground px-3 py-1.5 text-sm font-bold uppercase tracking-wider shadow-sm transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+            >
+              <Crown className="w-4 h-4" />
+              {t('quota.upgradeCta', 'Upgrade')}
             </Link>
           </Alert>
         )}

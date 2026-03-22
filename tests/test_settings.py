@@ -26,7 +26,11 @@ def test_reload_settings_supports_custom_env_file(
     env_file.write_text(
         "LOG_LEVEL=debug\n"
         "ENVIRONMENT=production\n"
-        "OPENAI_BASE_URL=https://openrouter.ai/api/v1\n",
+        "OPENAI_BASE_URL=https://openrouter.ai/api/v1\n"
+        "AUTH_SESSION_SECRET=test-secret-long-enough\n"
+        "SUPABASE_URL=https://test.supabase.co\n"
+        "SUPABASE_SERVICE_ROLE_KEY=test-service-role-key\n"
+        "FRONTEND_APP_URL=https://example.com\n",
         encoding="utf-8",
     )
 

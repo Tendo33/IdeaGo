@@ -129,3 +129,13 @@ async def admin_metrics(
 ) -> dict:
     """In-process request metrics snapshot."""
     return app_metrics.snapshot()
+
+
+@router.get("/health")
+async def admin_health(
+    _admin: AuthUser = Depends(require_admin),
+) -> dict:
+    """Detailed dependency and source health (admin-only)."""
+    from ideago.api.routes.health import detailed_health_check
+
+    return await detailed_health_check()

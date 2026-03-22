@@ -127,23 +127,8 @@ def test_health_endpoint(client) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert "sources" in data
-    assert "producthunt" in data["sources"]
-    assert data["sources"]["hackernews"] is True
-    assert data["sources"]["appstore"] is True
-
-
-def test_health_endpoint_returns_degraded_when_orchestrator_unavailable(client) -> None:
-    with patch(
-        "ideago.api.routes.health.get_orchestrator",
-        side_effect=RuntimeError("dependency init failed"),
-    ):
-        response = client.get("/api/v1/health")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "degraded"
-    assert data["sources"] == {}
+    assert "sources" not in data
+    assert "dependencies" not in data
 
 
 def test_analyze_endpoint_returns_report_id(client) -> None:

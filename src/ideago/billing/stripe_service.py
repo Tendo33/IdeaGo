@@ -133,68 +133,53 @@ def construct_webhook_event(payload: bytes, sig_header: str) -> stripe.Event:
     )
 
 
-async def _is_event_processed(event_id: str) -> bool:
-    """Check if a Stripe event was already processed (idempotency guard)."""
+async def _try_claim_event(event_id: str, event_type: str) -> bool:
+    """Atomically claim a Stripe event for processing (insert-first idempotency).
+
+    Returns True if this call successfully claimed the event (i.e. the row
+    was inserted). Returns False if the event was already claimed by another
+    worker or if Supabase is not configured.
+    """
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
-        return False
-    import httpx
+        return True
 
-    headers = {
-        "apikey": settings.supabase_service_role_key,
-        "Authorization": f"Bearer {settings.supabase_service_role_key}",
-        "Accept": "application/json",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"{settings.supabase_url}/rest/v1/processed_webhook_events",
-                headers=headers,
-                params={
-                    "event_id": f"eq.{event_id}",
-                    "select": "event_id",
-                    "limit": "1",
-                },
-            )
-            if resp.status_code == 200 and resp.json():
-                return True
-    except Exception:
-        logger.opt(exception=True).debug("Idempotency check failed")
-    return False
-
-
-async def _mark_event_processed(event_id: str, event_type: str) -> None:
-    """Record a Stripe event as processed."""
-    settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_service_role_key:
-        return
     import httpx
 
     headers = {
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
         "Content-Type": "application/json",
-        "Prefer": "return=minimal",
+        "Prefer": "resolution=ignore-duplicates,return=representation",
+        "Accept": "application/json",
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
+            resp = await client.post(
                 f"{settings.supabase_url}/rest/v1/processed_webhook_events",
                 headers=headers,
                 json={"event_id": event_id, "event_type": event_type},
             )
+            if resp.status_code == 409:
+                return False
+            if resp.status_code in (200, 201):
+                rows = resp.json()
+                return not (isinstance(rows, list) and len(rows) == 0)
+            return True
     except Exception:
-        logger.opt(exception=True).debug("Failed to record processed event")
+        logger.opt(exception=True).debug("Idempotency claim failed, proceeding anyway")
+        return True
 
 
 async def handle_webhook_event(event: stripe.Event) -> None:
     """Process a verified Stripe webhook event.
 
-    Updates the profiles table to keep plan and subscription ID in sync.
-    Skips duplicate events via the processed_webhook_events table.
+    Uses insert-first idempotency: claims the event atomically before
+    processing. If a concurrent worker already claimed it, this call
+    returns early.
     """
-    if await _is_event_processed(event.id):
-        logger.debug("Skipping already-processed Stripe event {}", event.id)
+    if not await _try_claim_event(event.id, event.type):
+        logger.debug("Skipping already-claimed Stripe event {}", event.id)
         return
 
     settings = get_settings()
@@ -264,5 +249,3 @@ async def handle_webhook_event(event: stripe.Event) -> None:
                 )
         else:
             logger.debug("Unhandled Stripe event: {}", event_type)
-
-    await _mark_event_processed(event.id, event_type)

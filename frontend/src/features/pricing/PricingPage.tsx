@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Check, Zap, Crown, Loader2 } from 'lucide-react'
+import { ArrowLeft, Check, Zap, Crown, Loader2, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
 import { createCheckoutSession, getSubscriptionStatus } from '@/lib/api/client'
 
@@ -42,6 +43,7 @@ export function PricingPage() {
       )
       window.location.href = url
     } catch {
+      toast.error(t('pricing.upgradeError', 'Failed to start checkout. Please try again.'))
       setLoading(false)
     }
   }
@@ -139,12 +141,12 @@ export function PricingPage() {
                 <Button variant="outline" size="lg" className="w-full" disabled>
                   {t('pricing.currentPlan', 'Current Plan')}
                 </Button>
-              ) : plan.highlighted && stripeConfigured ? (
+              ) : plan.highlighted && stripeConfigured && user ? (
                 <Button
                   size="lg"
                   className="w-full"
                   onClick={handleUpgrade}
-                  disabled={loading || !user}
+                  disabled={loading}
                 >
                   {loading ? (
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
@@ -153,6 +155,14 @@ export function PricingPage() {
                   )}
                   {t('pricing.upgrade', 'Upgrade to Pro')}
                 </Button>
+              ) : plan.highlighted && stripeConfigured && !user ? (
+                <Link
+                  to="/login"
+                  className="w-full inline-flex items-center justify-center gap-2 min-h-[48px] border-2 border-border bg-primary text-primary-foreground px-6 py-3 text-base font-bold uppercase tracking-wider shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                >
+                  <LogIn className="w-5 h-5" />
+                  {t('pricing.signInToUpgrade', 'Sign in to Upgrade')}
+                </Link>
               ) : plan.highlighted && !stripeConfigured ? (
                 <Button variant="outline" size="lg" className="w-full" disabled>
                   {t('pricing.comingSoon', 'Coming Soon')}

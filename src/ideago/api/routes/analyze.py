@@ -10,7 +10,7 @@ import hashlib
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
@@ -150,15 +150,10 @@ async def start_analysis(
     """Start a competitor research pipeline for the given idea."""
     quota = await check_and_increment_quota(user.id)
     if not quota.allowed:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "QUOTA_EXCEEDED",
-                "message": f"Monthly limit reached ({quota.plan_limit} analyses on {quota.plan} plan)",
-                "usage_count": quota.usage_count,
-                "plan_limit": quota.plan_limit,
-                "plan": quota.plan,
-            },
+        raise AppError(
+            429,
+            ErrorCode.QUOTA_EXCEEDED,
+            f"Monthly limit reached ({quota.plan_limit} analyses on {quota.plan} plan)",
         )
 
     query = request.query.strip()

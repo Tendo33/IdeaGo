@@ -269,11 +269,12 @@ export function ProfilePage() {
                 {t('profile.manageSubscription', 'Manage Subscription')}
               </Button>
             ) : (
-              <Link to="/pricing">
-                <Button>
-                  <Crown className="w-4 h-4 mr-2" />
-                  {t('profile.upgradeToPro', 'Upgrade to Pro')}
-                </Button>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] border-2 border-border bg-primary text-primary-foreground px-4 py-2 text-sm font-bold uppercase tracking-wider shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              >
+                <Crown className="w-4 h-4" />
+                {t('profile.upgradeToPro', 'Upgrade to Pro')}
               </Link>
             )}
           </div>

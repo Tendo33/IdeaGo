@@ -83,10 +83,10 @@ export function LandingPage() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* ─── TOP BAR ─── */}
       <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background/95 backdrop-blur-sm px-4 py-4 md:px-8 flex items-center justify-between min-w-0">
-        <span className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base hover:bg-foreground transition-colors cursor-default">
+        <Link to="/" className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base hover:bg-foreground transition-colors">
           {t('app.title')} {t('app.titleHighlight')}
-        </span>
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        </Link>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => i18n.changeLanguage(isChinese ? 'en' : 'zh')}
             className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
@@ -95,6 +95,13 @@ export function LandingPage() {
           >
             {isChinese ? 'EN' : 'ZH'}
           </button>
+          <Link
+            to="/pricing"
+            className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            <span className="hidden sm:inline">{t('pricing.title', 'Pricing')}</span>
+            <span className="sm:hidden">{t('pricing.title', 'Pricing')}</span>
+          </Link>
           <Link
             to="/login"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
@@ -336,6 +343,9 @@ export function LandingPage() {
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
           <div className="flex items-center gap-4">
+            <Link to="/pricing" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+              {t('pricing.title', 'Pricing')}
+            </Link>
             <Link to="/terms" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.termsTitle', 'Terms')}
             </Link>

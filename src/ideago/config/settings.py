@@ -33,7 +33,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -355,6 +355,23 @@ class Settings(BaseSettings):
         if v_upper not in allowed:
             raise ValueError(f"Log level must be one of {allowed}")
         return v_upper
+
+    @model_validator(mode="after")
+    def validate_production_config(self) -> "Settings":
+        """Ensure critical settings are present in production."""
+        if self.environment != "production":
+            return self
+        required = {
+            "auth_session_secret": self.auth_session_secret,
+            "supabase_url": self.supabase_url,
+            "supabase_service_role_key": self.supabase_service_role_key,
+            "frontend_app_url": self.frontend_app_url,
+        }
+        missing = [k for k, v in required.items() if not v.strip()]
+        if missing:
+            names = ", ".join(k.upper() for k in missing)
+            raise ValueError(f"Production requires the following settings: {names}")
+        return self
 
     def get_project_root(self) -> Path:
         """Get project root directory / 获取项目根目录.

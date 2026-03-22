@@ -1,4 +1,8 @@
-"""Health check endpoint."""
+"""Health check endpoints.
+
+Public ``/health`` returns a minimal status. Detailed dependency and source
+information is served from ``/admin/health`` (see admin routes).
+"""
 
 from __future__ import annotations
 
@@ -43,7 +47,16 @@ async def _check_stripe() -> str:
 
 @router.get("/health")
 async def health_check() -> dict:
-    """Return service health, source availability, and dependency status."""
+    """Return minimal service health status (public)."""
+    status = "ok"
+    supabase_status = await _check_supabase()
+    if supabase_status not in ("ok", "not_configured"):
+        status = "degraded"
+    return {"status": status}
+
+
+async def detailed_health_check() -> dict:
+    """Return full dependency and source health (called by admin route)."""
     status = "ok"
     try:
         orchestrator = get_orchestrator()
