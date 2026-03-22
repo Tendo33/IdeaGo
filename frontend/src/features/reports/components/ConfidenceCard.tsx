@@ -69,21 +69,21 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.samples')}</p>
           <p className="text-base font-bold text-foreground mt-2">{sampleSize}</p>
         </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.coverage')}</p>
           <p className="text-base font-bold text-foreground mt-2">{sourceCoverage}</p>
         </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.successRate')}</p>
           <p className="text-base font-bold text-foreground mt-2">{successRate}%</p>
         </div>
       </div>
 
-      <div className="rounded-none border border-2 border-border bg-muted/55 p-4">
+      <div className="rounded-none border-2 border-border bg-muted/55 p-4">
         <p className="text-xs text-muted-foreground break-words">{freshnessHint}</p>
       </div>
 

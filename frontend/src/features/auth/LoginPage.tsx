@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/useAuth'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 type AuthMode = 'login' | 'register' | 'reset'
 
 function GitHubIcon({ className }: { className?: string }) {
@@ -29,6 +31,8 @@ function GoogleIcon({ className }: { className?: string }) {
 
 export function LoginPage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('auth.loginTitle', 'Sign In') + ' — IdeaGo')
+
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()

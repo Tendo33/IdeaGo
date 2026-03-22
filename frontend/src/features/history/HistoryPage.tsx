@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, memo } from 'react'
+import { useCallback, useEffect, useMemo, useState, memo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import type { ReportListItem } from '@/lib/types/research'
+
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const PAGE_SIZE = 20
 
@@ -18,7 +21,7 @@ interface HistoryReportCardProps {
   t: (key: string) => string;
 }
 
-const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, onNavigate, onDelete, t }: HistoryReportCardProps) {
+const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, onDelete, t }: HistoryReportCardProps) {
   return (
     <div className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between border-2 border-border bg-card p-5 shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm transition-all duration-150 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
       <div className="mr-6 min-w-0 flex-1 mb-4 sm:mb-0">
@@ -59,12 +62,22 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
 export function HistoryPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  useDocumentTitle(t('history.title') + ' — IdeaGo')
   const [reports, setReports] = useState<ReportListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [reportToDelete, setReportToDelete] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    if (reportToDelete) {
+      dialogRef.current?.showModal()
+    } else {
+      dialogRef.current?.close()
+    }
+  }, [reportToDelete])
   const [pageIndex, setPageIndex] = useState(0)
   const [hasNextPage, setHasNextPage] = useState(false)
 
@@ -131,6 +144,7 @@ export function HistoryPage() {
 
     try {
       await deleteReport(id)
+      toast.success(t('history.deleted', 'Report deleted'))
       const targetPage = reports.length === 1 && pageIndex > 0 ? pageIndex - 1 : pageIndex
       if (targetPage !== pageIndex) {
         setPageIndex(targetPage)
@@ -145,7 +159,9 @@ export function HistoryPage() {
       setReports(refreshed)
       setHasNextPage(hasNext)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('history.errorDelete'))
+      const msg = err instanceof Error ? err.message : t('history.errorDelete')
+      setError(msg)
+      toast.error(msg)
     } finally {
       setDeletingIds(previous => {
         const next = new Set(previous)
@@ -268,40 +284,42 @@ export function HistoryPage() {
         )}
       </div>
 
-      {reportToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/45 p-4 animate-fade-in" onClick={() => setReportToDelete(null)} role="presentation">
-          <div
-            className="bg-card border-4 border-border shadow-lg p-6 max-w-sm w-full"
-            onClick={e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-dialog-title"
-          >
-            <h3 id="delete-dialog-title" className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
-              {t('history.deleteConfirmTitle')}
-            </h3>
-            <p className="text-sm font-medium text-muted-foreground mb-6">
-              {t('history.deleteConfirm')}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setReportToDelete(null)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={confirmDelete}
-              >
-                {t('common.delete')}
-              </Button>
-            </div>
+      <dialog
+        ref={dialogRef}
+        className="fixed inset-0 z-50 m-auto bg-transparent p-4 open:animate-fade-in backdrop:bg-foreground/45"
+        onCancel={() => setReportToDelete(null)}
+        onClick={(e) => {
+          if (e.target === dialogRef.current) setReportToDelete(null)
+        }}
+      >
+        <div
+          className="bg-card border-4 border-border shadow-lg p-6 max-w-sm w-full"
+          onClick={e => e.stopPropagation()}
+        >
+          <h3 id="delete-dialog-title" className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
+            {t('history.deleteConfirmTitle')}
+          </h3>
+          <p className="text-sm font-medium text-muted-foreground mb-6">
+            {t('history.deleteConfirm')}
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setReportToDelete(null)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={confirmDelete}
+            >
+              {t('common.delete')}
+            </Button>
           </div>
         </div>
-      )}
+      </dialog>
     </div>
   )
 }

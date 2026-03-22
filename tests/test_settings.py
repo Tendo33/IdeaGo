@@ -18,7 +18,9 @@ def test_get_settings_uses_singleton_cache() -> None:
     assert first is second
 
 
-def test_reload_settings_supports_custom_env_file(tmp_path: Path) -> None:
+def test_reload_settings_supports_custom_env_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """reload_settings should rebuild settings from the provided env file."""
     env_file = tmp_path / ".env.test"
     env_file.write_text(
@@ -28,6 +30,7 @@ def test_reload_settings_supports_custom_env_file(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
     settings = reload_settings(env_file=env_file)
     assert settings.log_level == "DEBUG"
     assert settings.environment == "production"

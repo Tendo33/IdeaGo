@@ -12,6 +12,8 @@ import { ReportProgressPane } from '@/features/reports/components/ReportProgress
 import { useCompetitorFilters } from '@/features/reports/components/useCompetitorFilters'
 import { useReportLifecycle } from '@/features/reports/components/useReportLifecycle'
 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 export function ReportPage() {
   const { t } = useTranslation()
   const { id: paramId } = useParams<{ id: string }>()
@@ -62,6 +64,9 @@ export function ReportPage() {
     retryErrorState,
     cancelCurrentAnalysis,
   } = useReportLifecycle(effectiveId, navigate)
+
+  useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
+
 
   const loadError = (isNewAnalysis ? createError : null) || lifecycleError
 

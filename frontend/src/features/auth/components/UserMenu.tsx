@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth/useAuth'
-import { LogIn, LogOut, UserCog } from 'lucide-react'
+import { LogIn, LogOut, UserCog, ShieldCheck } from 'lucide-react'
 
 export function UserMenu() {
   const { t } = useTranslation()
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -84,6 +84,18 @@ export function UserMenu() {
             <UserCog className="w-4 h-4" />
             {t('profile.title')}
           </Link>
+
+          {role === 'admin' && (
+            <Link
+              to="/admin"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              {t('admin.title', 'Admin')}
+            </Link>
+          )}
 
           <button
             type="button"

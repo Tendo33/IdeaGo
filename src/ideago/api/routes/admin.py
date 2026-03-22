@@ -11,6 +11,7 @@ from ideago.auth.dependencies import require_admin
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import list_profiles, set_user_quota
 from ideago.config.settings import get_settings
+from ideago.observability.audit import log_audit_event
 from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
 
@@ -48,6 +49,13 @@ async def admin_set_quota(
     )
     if result.get("error"):
         raise AppError(400, ErrorCode.VALIDATION_ERROR, result["error"])
+    await log_audit_event(
+        actor_id=_admin.id,
+        action="admin.quota_update",
+        target_type="user",
+        target_id=user_id,
+        metadata={"plan_limit": body.plan_limit, "usage_count": body.usage_count},
+    )
     return result
 
 

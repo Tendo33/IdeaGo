@@ -188,7 +188,7 @@ def test_analyze_endpoint_deduplicates_concurrent_same_query(client) -> None:
     start_barrier = threading.Barrier(parties=8)
 
     async def fake_run_pipeline(
-        _query: str, _report_id: str, _user_id: str = ""
+        _query: str, _report_id: str, _user_id: str = "", **_kwargs: object
     ) -> None:
         await asyncio.sleep(1)
 
@@ -1286,7 +1286,7 @@ def test_same_query_different_users_separate_pipelines(tmp_path) -> None:
         },
     )()
 
-    async def fake_run(_q: str, _r: str, _u: str = "") -> None:
+    async def fake_run(_q: str, _r: str, _u: str = "", **_kw: object) -> None:
         await asyncio.sleep(1)
 
     query = "I want to build a todo app"

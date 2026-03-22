@@ -3,8 +3,9 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode,
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
 import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
+import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth/AuthProvider'
-import { ProtectedRoute } from '@/lib/auth/ProtectedRoute'
+import { ProtectedRoute, AdminRoute } from '@/lib/auth/ProtectedRoute'
 import { useAuth } from '@/lib/auth/useAuth'
 import { UserMenu } from '@/features/auth/components/UserMenu'
 
@@ -390,7 +391,7 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
@@ -410,6 +411,12 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppShell themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              className: 'border-2 border-border bg-background text-foreground font-bold shadow-lg',
+            }}
+          />
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

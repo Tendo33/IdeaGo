@@ -9,7 +9,7 @@ export interface AlertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, '
 
 export const Alert = forwardRef<HTMLDivElement, AlertProps>(
   ({ className = '', variant = 'default', title, children, icon, ...props }, ref) => {
-    const baseClasses = "flex items-start gap-3 p-4 border-2 shadow-[4px_4px_0px_0px]"
+    const baseClasses = "flex items-start gap-3 p-4 border-2"
 
     const variantConfig = {
       default: {

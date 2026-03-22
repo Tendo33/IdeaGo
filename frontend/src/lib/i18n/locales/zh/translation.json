@@ -419,5 +419,25 @@
     "deleteConfirm": "删除我的账户",
     "deleteCancel": "取消",
     "dangerZone": "危险操作"
+  },
+  "admin": {
+    "title": "管理后台",
+    "forbidden": "无权访问",
+    "forbiddenMessage": "您没有访问此页面的权限。",
+    "totalUsers": "用户数",
+    "totalReports": "报告数",
+    "activeProcessing": "处理中",
+    "planBreakdown": "套餐分布",
+    "usersTitle": "用户列表",
+    "noUsers": "未找到用户。",
+    "col": {
+      "user": "用户",
+      "role": "角色",
+      "plan": "套餐",
+      "provider": "登录方式",
+      "usage": "用量",
+      "limit": "上限",
+      "joined": "注册时间"
+    }
   }
 }

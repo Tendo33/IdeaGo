@@ -62,7 +62,7 @@ export function EvidenceCostCard({
                     {item.title || t('report.transparency.evidence.unknown')}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{item.platform}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-all">{item.snippet}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">{item.snippet}</p>
                 </div>
                 {item.url ? (
                   <a

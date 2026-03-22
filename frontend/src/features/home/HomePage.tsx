@@ -50,7 +50,7 @@ const WELCOME_DISMISSED_KEY = 'ideago_welcome_dismissed'
 
 function WelcomeBanner() {
   const { t } = useTranslation()
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(() => !localStorage.getItem(WELCOME_DISMISSED_KEY))
 
   if (!visible) return null
 
@@ -83,9 +83,13 @@ function WelcomeBanner() {
   )
 }
 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 export function HomePage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
+
   const { user } = useAuth()
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
@@ -107,8 +111,7 @@ export function HomePage() {
         setRecentReportsError(t('home.errorLoadRecent'))
       })
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [t])
 
   const handleSubmit = useCallback((query: string) => {
     const normalizedQuery = query.trim()
@@ -122,7 +125,7 @@ export function HomePage() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen px-4 pb-16 pt-12 sm:pt-20 bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+    <div className="min-h-screen px-4 pb-16 pt-12 sm:pt-20 bg-background text-foreground">
       <div className="app-shell grid items-start gap-16 lg:grid-cols-[1fr_400px]">
 
         {showWelcome && (
@@ -133,13 +136,13 @@ export function HomePage() {
 
         {/* Main Content Section */}
         <section className="py-12 lg:py-16 text-left animate-fade-in">
-          <h1 className="mb-8 font-heading uppercase tracking-tighter leading-[0.9] text-6xl sm:text-8xl md:text-[7rem] break-words wrap">
+          <h1 className="mb-8 font-heading uppercase tracking-tighter leading-[0.9] text-6xl sm:text-8xl md:text-[7rem] break-words">
             {t('app.title')}
             <br />
             <span className="text-primary">{t('app.titleHighlight')}</span>
           </h1>
 
-          <p className="mb-12 max-w-2xl text-xl md:text-2xl font-bold leading-snug text-muted-foreground border-l-4 border-primary pl-6 wrap min-w-0 break-words">
+          <p className="mb-12 max-w-2xl text-xl md:text-2xl font-bold leading-snug text-muted-foreground border-l-4 border-primary pl-6 min-w-0 break-words">
             {t('home.description')}
           </p>
 

@@ -6,12 +6,18 @@ import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/auth/useAuth'
 import { createCheckoutSession, getSubscriptionStatus } from '@/lib/api/client'
 
+import { Alert } from '@/components/ui/Alert'
+
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 export function PricingPage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('pricing.title', 'Choose Your Plan') + ' — IdeaGo')
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [currentPlan, setCurrentPlan] = useState('free')
   const [stripeConfigured, setStripeConfigured] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -20,8 +26,11 @@ export function PricingPage() {
         setCurrentPlan(status.plan)
         setStripeConfigured(status.stripe_configured)
       })
-      .catch(() => {})
-  }, [user])
+      .catch(err => {
+        console.error('Failed to get subscription status', err)
+        setError(t('pricing.loadError', 'Could not verify your current subscription status.'))
+      })
+  }, [user, t])
 
   const handleUpgrade = async () => {
     if (!user) return
@@ -83,9 +92,14 @@ export function PricingPage() {
         <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight mb-4">
           {t('pricing.title', 'Choose Your Plan')}
         </h1>
-        <p className="text-lg text-muted-foreground font-bold max-w-xl mx-auto">
+        <p className="text-lg text-muted-foreground font-bold max-w-xl mx-auto mb-6">
           {t('pricing.subtitle', 'Start free, upgrade when you need more power.')}
         </p>
+        {error && (
+          <Alert variant="warning" className="max-w-xl mx-auto text-left">
+            <span className="font-bold">{error}</span>
+          </Alert>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 md:gap-8">

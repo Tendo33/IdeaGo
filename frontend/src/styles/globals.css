@@ -44,9 +44,10 @@
 
   --warning: oklch(0.8 0.2 80);
   --success: oklch(0.6 0.2 150);
+  --success-foreground: oklch(0.99 0.01 150);
 
-  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
-  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Very sharp radius for brutalism */
@@ -69,33 +70,34 @@
 }
 
 .dark {
-  /* Deep charcoal background */
-  --background: oklch(0.15 0 0);
+  /* Deep charcoal background with subtle blue tint */
+  --background: oklch(0.15 0.005 260);
   --foreground: oklch(0.98 0 0); /* Off white */
 
-  --card: oklch(0.18 0 0);
+  --card: oklch(0.18 0.005 260);
   --card-foreground: oklch(0.98 0 0);
 
-  --popover: oklch(0.18 0 0);
+  --popover: oklch(0.18 0.005 260);
   --popover-foreground: oklch(0.98 0 0);
 
   --primary: oklch(0.7 0.2 260); /* Brighter blue for dark mode */
-  --primary-foreground: oklch(0.1 0 0);
+  --primary-foreground: oklch(0.1 0.01 260);
 
-  --secondary: oklch(0.25 0 0);
+  --secondary: oklch(0.25 0.005 260);
   --secondary-foreground: oklch(0.98 0 0);
 
-  --muted: oklch(0.25 0 0);
+  --muted: oklch(0.25 0.005 260);
   --muted-foreground: oklch(0.7 0 0);
 
   --text-dim: oklch(0.6 0 0);
 
-  --accent: oklch(0.25 0 0);
+  --accent: oklch(0.25 0.005 260);
   --accent-foreground: oklch(0.98 0 0);
 
   --border: oklch(0.98 0 0); /* White borders for brutalism in dark mode */
   --input: oklch(0.98 0 0);
   --ring: oklch(0.7 0.2 260);
+  --success-foreground: oklch(0.1 0.05 150);
 }
 
 @theme inline {
@@ -130,11 +132,12 @@
   --color-danger: var(--destructive);
   --color-warning: var(--warning);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-  --font-heading: 'Archivo Black', 'Space Grotesk', var(--font-sans);
+  --font-heading: 'Archivo Black', var(--font-sans);
 
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
@@ -230,7 +233,7 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     letter-spacing: -0.04em;
-    font-weight: 800;
+    font-weight: 400; /* Archivo Black is a single-weight font (400) */
     text-transform: uppercase;
   }
   h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1; }

@@ -279,6 +279,7 @@ export interface UserProfile {
   avatar_url: string
   bio: string
   created_at: string
+  role?: string
 }
 
 export async function refreshAuthToken(options: RequestOptions = {}): Promise<string> {

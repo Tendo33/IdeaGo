@@ -302,6 +302,18 @@ class Settings(BaseSettings):
         description="Stripe Price ID for the Pro plan (price_...)",
     )
 
+    # --- Observability ---
+    sentry_dsn: str = Field(
+        default="",
+        description="Sentry DSN for error tracking. Leave empty to disable.",
+    )
+    sentry_traces_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Sentry performance traces sample rate (0.0-1.0)",
+    )
+
     # --- Server / 服务配置 ---
     host: str = Field(
         default="0.0.0.0",

@@ -31,6 +31,7 @@ from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import check_and_increment_quota
+from ideago.notifications.service import notify_quota_warning, notify_report_ready
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.events import EventType, PipelineEvent
 
@@ -83,7 +84,9 @@ class _RunStateCallback:
         await run_state.publish(event)
 
 
-async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
+async def _run_pipeline(
+    query: str, report_id: str, user_id: str = "", user_email: str = ""
+) -> None:
     """Background task: run the pipeline and push events to the queue."""
     cache = get_cache()
     run_state = get_or_create_report_run(report_id)
@@ -104,6 +107,11 @@ async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
             message="Report ready",
             user_id=user_id,
         )
+        if user_email:
+            try:
+                await notify_report_ready(user_email, report_id, query)
+            except Exception:
+                logger.debug("Failed to send report-ready notification")
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _mark_cancelled(report_id)
@@ -174,7 +182,15 @@ async def start_analysis(
 
     get_or_create_report_run(report_id)
 
-    task = asyncio.create_task(_run_pipeline(query, report_id, user.id))
+    if quota.usage_count >= int(quota.plan_limit * 0.8) and user.email:
+        try:
+            await notify_quota_warning(user.email, quota.usage_count, quota.plan_limit)
+        except Exception:
+            logger.debug("Failed to send quota warning notification")
+
+    task = asyncio.create_task(
+        _run_pipeline(query, report_id, user.id, user_email=user.email)
+    )
     await register_pipeline_task(report_id, task)
     return AnalyzeResponse(report_id=report_id)
 

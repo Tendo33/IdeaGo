@@ -419,5 +419,25 @@
     "deleteConfirm": "Delete My Account",
     "deleteCancel": "Cancel",
     "dangerZone": "Danger Zone"
+  },
+  "admin": {
+    "title": "Admin Dashboard",
+    "forbidden": "Access Denied",
+    "forbiddenMessage": "You do not have permission to access this page.",
+    "totalUsers": "Users",
+    "totalReports": "Reports",
+    "activeProcessing": "Processing",
+    "planBreakdown": "Plans",
+    "usersTitle": "Users",
+    "noUsers": "No users found.",
+    "col": {
+      "user": "User",
+      "role": "Role",
+      "plan": "Plan",
+      "provider": "Provider",
+      "usage": "Usage",
+      "limit": "Limit",
+      "joined": "Joined"
+    }
   }
 }

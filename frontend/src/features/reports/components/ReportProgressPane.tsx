@@ -57,7 +57,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={reduceMotion ? false : { opacity: 0, x: 20 }}
           animate={reduceMotion ? false : { opacity: 1, x: 0 }}
           transition={reduceMotion ? undefined : { duration: 0.4 }}
-          className="rounded-none border border-2 border-border bg-card shadow p-6"
+          className="rounded-none border-2 border-border bg-card shadow p-6"
         >
           <p className="text-xs font-medium text-muted-foreground mb-2">{t('report.progress.ideaProfile')}</p>
           <div className="flex flex-wrap gap-2">
@@ -83,7 +83,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           initial={reduceMotion ? false : { opacity: 0, x: 20 }}
           animate={reduceMotion ? false : { opacity: 1, x: 0 }}
           transition={reduceMotion ? undefined : { duration: 0.4, delay: 0.1 }}
-          className="rounded-none border border-2 border-border bg-card shadow p-6 mt-5"
+          className="rounded-none border-2 border-border bg-card shadow p-6 mt-5"
         >
           <p className="text-xs font-medium text-muted-foreground mb-2">{t('report.progress.searchResults')}</p>
           <div className="space-y-1.5">
@@ -138,7 +138,7 @@ export function ReportProgressPane({
         <div className="flex justify-center mt-4">
           <button
             onClick={onCancel}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground rounded-none border border-2 border-border cursor-pointer transition-colors duration-200 hover:text-danger hover:border-danger/30"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] gap-1.5 px-4 py-2 text-xs text-muted-foreground rounded-none border-2 border-border cursor-pointer transition-colors duration-200 hover:text-danger hover:border-danger/30"
           >
             <XCircle className="w-3.5 h-3.5" />
             {t('report.progress.cancel')}

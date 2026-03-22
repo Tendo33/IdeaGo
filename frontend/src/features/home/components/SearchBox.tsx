@@ -46,7 +46,7 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
             aria-disabled={isLoading}
             aria-invalid={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? true : undefined}
             aria-errormessage={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? `${inputId}-error` : undefined}
-            className="w-full h-16 border-2 border-border bg-background px-6 py-4 text-xl font-bold text-foreground placeholder:text-muted-foreground/40 transition-all duration-150 outline-none focus:ring-0 focus:border-primary focus:shadow shadow-primary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus:shadow shadow-destructive"
+            className="w-full h-16 border-2 border-border bg-background px-6 py-4 text-xl font-bold text-foreground placeholder:text-muted-foreground/40 transition-all duration-150 outline-none focus:ring-0 focus:border-primary focus:shadow focus:shadow-primary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus:shadow aria-invalid:focus:shadow-destructive"
             aria-label={t('search.placeholder')}
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/30">

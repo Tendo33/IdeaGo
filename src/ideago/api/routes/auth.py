@@ -23,6 +23,7 @@ from ideago.auth.supabase_admin import (
     update_profile,
 )
 from ideago.config.settings import get_settings
+from ideago.observability.audit import log_audit_event
 
 router = APIRouter(tags=["auth"])
 
@@ -277,6 +278,13 @@ async def linuxdo_callback(
     except Exception:
         return _redirect_error(redirect_to, "Authentication failed")
 
+    await log_audit_event(
+        actor_id=user_id,
+        action="auth.login",
+        metadata={"provider": "linuxdo", "email": email},
+        ip_address=request.client.host if request.client else None,
+    )
+
     fragment = urlencode(
         {
             "access_token": app_access_token,
@@ -379,10 +387,17 @@ async def update_my_profile(
 
 @router.delete("/auth/account")
 async def delete_account(
+    request: Request,
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Permanently delete the authenticated user's account and all data."""
     result = await delete_user_data(user.id)
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result)
+    await log_audit_event(
+        actor_id=user.id,
+        action="auth.delete_account",
+        metadata={"email": user.email},
+        ip_address=request.client.host if request.client else None,
+    )
     return {"status": "deleted"}

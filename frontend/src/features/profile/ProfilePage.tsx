@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
 import {
   getMyProfile,
@@ -16,8 +17,11 @@ import {
 } from '@/lib/api/client'
 import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, CreditCard, Crown, ExternalLink, Trash2, AlertTriangle } from 'lucide-react'
 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 export function ProfilePage() {
   const { t } = useTranslation()
+  useDocumentTitle(t('profile.title', 'Profile') + ' — IdeaGo')
   const { user, signOut } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [quota, setQuota] = useState<QuotaInfo | null>(null)
@@ -33,6 +37,7 @@ export function ProfilePage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -69,8 +74,7 @@ export function ProfilePage() {
     }
     load()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user, t])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,10 +89,12 @@ export function ProfilePage() {
       })
       setProfile(updated)
       setSuccess(t('profile.saved', 'Profile updated successfully'))
+      toast.success(t('profile.saved', 'Profile updated successfully'))
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       const message = err instanceof Error ? err.message : t('profile.updateError')
       setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -131,12 +137,13 @@ export function ProfilePage() {
       </h1>
 
       {/* Avatar + info header */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
+        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
           <div className="flex items-center gap-6">
-          {profile?.avatar_url ? (
+          {profile?.avatar_url && !imgError ? (
             <img
               src={profile.avatar_url}
               alt=""
+              onError={() => setImgError(true)}
               className="w-20 h-20 shrink-0 border-4 border-border object-cover"
               loading="lazy"
               width={80}
@@ -199,7 +206,7 @@ export function ProfilePage() {
             <div className="w-full h-3 bg-muted border-2 border-border">
               <div
                 className={`h-full transition-all duration-500 ${
-                  usagePercent >= 90 ? 'bg-destructive' : usagePercent >= 70 ? 'bg-yellow-500' : 'bg-primary'
+                  usagePercent >= 90 ? 'bg-destructive' : usagePercent >= 70 ? 'bg-warning' : 'bg-primary'
                 }`}
                 style={{ width: `${usagePercent}%` }}
               />

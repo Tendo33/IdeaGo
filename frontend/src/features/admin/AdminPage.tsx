@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Users, FileText, Loader2, Activity, Save } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/Button'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/Badge'
 import { Alert } from '@/components/ui/Alert'
 import {
@@ -30,6 +30,7 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
   const [limit, setLimit] = useState(String(user.plan_limit))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [imgError, setImgError] = useState(false)
 
   const save = async () => {
     setSaving(true)
@@ -37,9 +38,12 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
     try {
       await adminSetQuota(user.id, { plan_limit: Number(limit) })
       setEditing(false)
+      toast.success(`Quota updated for ${user.display_name || user.id.slice(0, 8)}`)
       onQuotaSaved()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      const msg = e instanceof Error ? e.message : 'Failed'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -49,10 +53,12 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
     <tr className="border-b-2 border-border/30 hover:bg-muted/30 transition-colors">
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
-          {user.avatar_url ? (
-            <img src={user.avatar_url} alt="" className="w-8 h-8 border-2 border-border" />
+          {user.avatar_url && !imgError ? (
+            <img src={user.avatar_url} alt="" onError={() => setImgError(true)} className="w-8 h-8 border-2 border-border" />
           ) : (
-            <div className="w-8 h-8 border-2 border-border bg-muted" />
+            <div className="w-8 h-8 border-2 border-border bg-muted flex items-center justify-center text-[10px] font-black">
+              {(user.display_name || user.id).charAt(0).toUpperCase()}
+            </div>
           )}
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">{user.display_name || '(unnamed)'}</p>

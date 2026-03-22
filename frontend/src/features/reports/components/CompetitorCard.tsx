@@ -83,7 +83,7 @@ export const CompetitorCard = memo(function CompetitorCard({
               </Badge>
             )}
             <h3
-              className={`font-black font-heading text-foreground truncate ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
+              className={`font-black font-heading text-foreground truncate min-w-0 ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
               title={competitor.name}
             >
               {competitor.name}

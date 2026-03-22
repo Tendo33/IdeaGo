@@ -70,8 +70,12 @@ const DATA_SOURCES = [
   { icon: Rocket, label: 'Product Hunt', color: 'var(--destructive)' },
 ] as const
 
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
 export function LandingPage() {
   const { t, i18n } = useTranslation()
+  useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
+
   const currentLang = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLang.startsWith('zh')
 
@@ -117,7 +121,7 @@ export function LandingPage() {
                 <br />
                 <span className="text-primary inline-block transform hover:scale-105 transition-transform cursor-default">{t('landing.heroLine2')}</span>
               </h1>
-              <p className="max-w-xl text-xl sm:text-2xl font-bold text-muted-foreground leading-snug mb-12 wrap min-w-0 break-words border-l-8 border-primary pl-6">
+              <p className="max-w-xl text-xl sm:text-2xl font-bold text-muted-foreground leading-snug mb-12 min-w-0 break-words border-l-8 border-primary pl-6">
                 {t('landing.heroDesc')}
               </p>
               <div className="flex flex-wrap gap-6 items-center">
@@ -138,7 +142,7 @@ export function LandingPage() {
             </div>
 
             {/* Right: mock report card */}
-            <div className="animate-fade-in [animation-delay:200ms] hidden lg:block relative">
+            <div className="animate-fade-in [animation-delay:200ms] mt-12 lg:mt-0 relative w-full max-w-lg mx-auto lg:max-w-none">
               <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-border" />
               <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
                 <div className="flex items-center gap-4 mb-8 overflow-hidden">
@@ -216,7 +220,7 @@ export function LandingPage() {
             <h2 className="text-center mb-4 text-[clamp(2.5rem,5vw,4.5rem)]">
               {t('landing.howTitle')}
             </h2>
-            <p className="text-center text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-20 wrap min-w-0 break-words">
+            <p className="text-center text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-20 min-w-0 break-words">
               {t('landing.howSubtitle')}
             </p>
           </StaggerReveal>
@@ -238,8 +242,8 @@ export function LandingPage() {
                       <Icon className="w-7 h-7" />
                     </div>
                   </div>
-                  <h3 className="text-2xl sm:text-3xl mb-4 wrap truncate relative z-10" title={t(titleKey)}>{t(titleKey)}</h3>
-                  <p className="text-lg font-medium text-muted-foreground leading-relaxed wrap flex-1 line-clamp-4 relative z-10">
+                  <h3 className="text-2xl sm:text-3xl mb-4 truncate relative z-10" title={t(titleKey)}>{t(titleKey)}</h3>
+                  <p className="text-lg font-medium text-muted-foreground leading-relaxed flex-1 line-clamp-4 relative z-10">
                     {t(descKey)}
                   </p>
                 </div>
@@ -286,9 +290,9 @@ export function LandingPage() {
                       className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow`}
                       style={{ backgroundColor: accent }}
                     />
-                    <h3 className="text-2xl sm:text-3xl wrap truncate group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
+                    <h3 className="text-2xl sm:text-3xl truncate group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
                   </div>
-                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed wrap flex-1 line-clamp-4">
+                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed flex-1 line-clamp-4">
                     {t(descKey)}
                   </p>
                 </div>
@@ -311,7 +315,7 @@ export function LandingPage() {
               <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />
 
               <h2 className="mb-8 text-[clamp(2.5rem,6vw,5rem)] leading-none">{t('landing.ctaTitle')}</h2>
-              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 wrap line-clamp-3 min-w-0 break-words leading-relaxed">
+              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 line-clamp-3 min-w-0 break-words leading-relaxed">
                 {t('landing.ctaDesc')}
               </p>
               <Link to="/login">
@@ -332,14 +336,14 @@ export function LandingPage() {
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
           <div className="flex items-center gap-4">
-            <Link to="/terms" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-colors">
+            <Link to="/terms" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.termsTitle', 'Terms')}
             </Link>
-            <Link to="/privacy" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-colors">
+            <Link to="/privacy" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.privacyTitle', 'Privacy')}
             </Link>
           </div>
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 truncate" title={t('landing.footerTagline')}>
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground truncate" title={t('landing.footerTagline')}>
             {t('landing.footerTagline')}
           </span>
         </div>

@@ -14,6 +14,7 @@ export interface AuthSession {
 export interface AuthContextType {
   session: AuthSession | null
   user: AuthSessionUser | null
+  role: string
   loading: boolean
   signOut: () => Promise<void>
 }

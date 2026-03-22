@@ -45,6 +45,7 @@ dependencies = [
     "PyJWT[crypto]>=2.8.0",
     "langgraph-checkpoint-postgres>=3.0.5",
     "stripe>=14.4.1",
+    "sentry-sdk[fastapi]>=2.55.0",
 ]
 
 [project.optional-dependencies]

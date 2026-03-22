@@ -14,7 +14,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -88,10 +89,12 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from ideago.api.dependencies import _cache, _orchestrator, shutdown_runtime_state
     from ideago.auth.dependencies import close_auth_http_client
     from ideago.auth.supabase_admin import close_supabase_admin_client
+    from ideago.observability.audit import close_audit_client
 
     await shutdown_runtime_state()
     await close_auth_http_client()
     await close_supabase_admin_client()
+    await close_audit_client()
     if _cache is not None and hasattr(_cache, "close"):
         await _cache.close()
     _rate_limit_store.clear()
@@ -106,9 +109,26 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 logger.warning("Failed to close source {}", source.platform.value)
 
 
+def _init_sentry(settings: Settings) -> None:  # type: ignore[name-defined]  # noqa: F821
+    """Initialize Sentry SDK if a DSN is configured."""
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        environment=settings.environment,
+        release=__version__,
+        send_default_pii=False,
+    )
+    logger.info("Sentry initialized (env={})", settings.environment)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
+    _init_sentry(settings)
     app = FastAPI(
         title="IdeaGo",
         version=__version__,
@@ -297,11 +317,71 @@ def create_app() -> FastAPI:
                 )
         return await call_next(request)
 
+    @app.middleware("http")
+    async def security_headers_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        """Add standard security headers to all responses."""
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
+        if settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
     @app.exception_handler(AppError)
     async def _app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": exc.detail},
+        )
+
+    _STATUS_TO_ERROR_CODE = {
+        400: ErrorCode.VALIDATION_ERROR,
+        401: ErrorCode.NOT_AUTHORIZED,
+        403: ErrorCode.NOT_AUTHORIZED,
+        404: ErrorCode.NOT_FOUND,
+        503: ErrorCode.AUTH_NOT_CONFIGURED,
+    }
+
+    @app.exception_handler(HTTPException)
+    async def _http_error_handler(
+        _request: Request, exc: HTTPException
+    ) -> JSONResponse:
+        """Normalise plain HTTPException into the unified error envelope."""
+        if isinstance(exc, AppError):
+            return await _app_error_handler(_request, exc)
+        code = _STATUS_TO_ERROR_CODE.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
+        message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": code.value, "message": message}},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error_handler(
+        _request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """Return 422 validation errors in the unified error envelope."""
+        errors = exc.errors()
+        if errors:
+            first = errors[0]
+            loc = " → ".join(str(p) for p in first.get("loc", []))
+            message = f"{loc}: {first.get('msg', 'Validation error')}"
+        else:
+            message = "Request validation failed"
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": ErrorCode.VALIDATION_ERROR.value,
+                    "message": message,
+                }
+            },
         )
 
     app.include_router(health.router, prefix="/api/v1")
