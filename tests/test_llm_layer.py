@@ -193,12 +193,8 @@ async def test_chat_model_client_all_endpoints_fail_exposes_error_class() -> Non
     with pytest.raises(AuthError):
         await client.invoke_json("test prompt")
 
-    metadata = client.pop_last_call_metadata()
-    assert metadata["llm_calls"] == 2
-    assert metadata["llm_retries"] == 1
-    assert metadata["fallback_used"] is True
-    assert metadata["endpoints_tried"] == ["primary", "fallback-1"]
-    assert metadata["last_error_class"] == "auth_error"
+    assert primary_model.ainvoke.call_count == 1
+    assert fallback_model.ainvoke.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -236,7 +232,7 @@ async def test_chat_model_client_json_parse_retry_with_endpoint_failover_succeed
 
 
 @pytest.mark.asyncio
-async def test_chat_model_client_json_parse_retry_exhausted_keeps_metadata() -> None:
+async def test_chat_model_client_json_parse_retry_exhausted_raises() -> None:
     client = ChatModelClient(
         api_key="sk-primary",
         model="gpt-4o-mini",
@@ -253,12 +249,7 @@ async def test_chat_model_client_json_parse_retry_exhausted_keeps_metadata() -> 
     with pytest.raises(json.JSONDecodeError):
         await client.invoke_json("test prompt")
 
-    metadata = client.pop_last_call_metadata()
-    assert metadata["llm_calls"] == 2
-    assert metadata["llm_retries"] == 1
-    assert metadata["fallback_used"] is False
-    assert metadata["endpoints_tried"] == ["primary"]
-    assert metadata["last_error_class"] == "json_parse_error"
+    assert primary_model.ainvoke.call_count == 2
 
 
 def test_chat_model_client_passes_custom_base_url(
@@ -335,7 +326,7 @@ MOCK_INTENT_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_intent_parser_returns_intent() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_INTENT_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(return_value=(MOCK_INTENT_LLM_RESPONSE, {}))
 
     parser = IntentParser(llm)
     intent = await parser.parse("我想做一个给网页内容做Markdown笔记的浏览器插件")
@@ -376,7 +367,9 @@ MOCK_EXTRACTOR_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_extractor_extracts_valid_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_EXTRACTOR_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(MOCK_EXTRACTOR_LLM_RESPONSE, {})
+    )
 
     extractor = Extractor(llm)
     raw = [
@@ -395,31 +388,34 @@ async def test_extractor_extracts_valid_competitors() -> None:
 @pytest.mark.asyncio
 async def test_extractor_filters_unverifiable_links() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(
-        return_value={
-            "competitors": [
-                {
-                    "name": "MixedLinks",
-                    "links": [
-                        "https://github.com/user/markdown-clipper",
-                        "https://fake-site.example/fabricated",
-                    ],
-                    "one_liner": "Contains one valid and one fabricated link",
-                    "source_platforms": ["github"],
-                    "source_urls": [
-                        "https://github.com/user/markdown-clipper",
-                        "https://fake-site.example/fabricated",
-                    ],
-                },
-                {
-                    "name": "AllFake",
-                    "links": ["https://fake-site.example/only-fake"],
-                    "one_liner": "Should be removed",
-                    "source_platforms": ["github"],
-                    "source_urls": ["https://fake-site.example/only-fake"],
-                },
-            ]
-        }
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [
+                    {
+                        "name": "MixedLinks",
+                        "links": [
+                            "https://github.com/user/markdown-clipper",
+                            "https://fake-site.example/fabricated",
+                        ],
+                        "one_liner": "Contains one valid and one fabricated link",
+                        "source_platforms": ["github"],
+                        "source_urls": [
+                            "https://github.com/user/markdown-clipper",
+                            "https://fake-site.example/fabricated",
+                        ],
+                    },
+                    {
+                        "name": "AllFake",
+                        "links": ["https://fake-site.example/only-fake"],
+                        "one_liner": "Should be removed",
+                        "source_platforms": ["github"],
+                        "source_urls": ["https://fake-site.example/only-fake"],
+                    },
+                ]
+            },
+            {},
+        )
     )
 
     extractor = Extractor(llm)
@@ -551,7 +547,9 @@ MOCK_AGGREGATOR_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_aggregator_analyzes_without_modifying_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_AGGREGATOR_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(MOCK_AGGREGATOR_LLM_RESPONSE, {})
+    )
 
     agg = Aggregator(llm)
     competitors = [

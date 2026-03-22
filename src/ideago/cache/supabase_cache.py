@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import httpx
 
 from ideago.cache.base import ReportIndex
@@ -79,16 +81,21 @@ class SupabaseReportRepository:
             logger.opt(exception=True).warning("Failed to parse report from DB")
             return None
 
-    async def get_by_id(self, report_id: str) -> ResearchReport | None:
+    async def get_by_id(
+        self, report_id: str, *, user_id: str = ""
+    ) -> ResearchReport | None:
         client = self._get_client()
+        params: dict[str, str] = {
+            "id": f"eq.{report_id}",
+            "select": "report_data",
+            "limit": "1",
+        }
+        if user_id:
+            params["user_id"] = f"eq.{user_id}"
         resp = await client.get(
             self._url("reports"),
             headers={**self._headers(), "Accept": "application/json"},
-            params={
-                "id": f"eq.{report_id}",
-                "select": "report_data",
-                "limit": "1",
-            },
+            params=params,
         )
         if resp.status_code != 200:
             return None
@@ -113,6 +120,13 @@ class SupabaseReportRepository:
         }
         if user_id:
             body["user_id"] = user_id
+            body["expires_at"] = None
+        else:
+            from datetime import datetime, timedelta, timezone
+
+            body["expires_at"] = (
+                datetime.now(timezone.utc) + timedelta(hours=self._ttl_hours)
+            ).isoformat()
         resp = await client.post(
             self._url("reports"),
             headers={
@@ -144,7 +158,7 @@ class SupabaseReportRepository:
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
-    ) -> list[ReportIndex]:
+    ) -> tuple[list[ReportIndex], int]:
         client = self._get_client()
         params: dict[str, str] = {
             "select": "id,query,cache_key,created_at,competitor_count,user_id",
@@ -159,12 +173,23 @@ class SupabaseReportRepository:
 
         resp = await client.get(
             self._url("reports"),
-            headers={**self._headers(), "Accept": "application/json"},
+            headers={
+                **self._headers(),
+                "Accept": "application/json",
+                "Prefer": "count=exact",
+            },
             params=params,
         )
         if resp.status_code != 200:
             logger.warning("Supabase list_reports failed: {}", resp.status_code)
-            return []
+            return [], 0
+
+        total = 0
+        content_range = resp.headers.get("content-range", "")
+        if "/" in content_range:
+            with contextlib.suppress(ValueError, IndexError):
+                total = int(content_range.rsplit("/", 1)[1])
+
         rows = resp.json()
         result: list[ReportIndex] = []
         for row in rows:
@@ -181,7 +206,9 @@ class SupabaseReportRepository:
                 )
             except Exception:
                 continue
-        return result
+        if not total:
+            total = len(result)
+        return result, total
 
     # ── User ownership ───────────────────────────────────────────
 
@@ -191,7 +218,7 @@ class SupabaseReportRepository:
             self._url("reports"),
             headers={**self._headers(), "Prefer": "return=minimal"},
             params={"id": f"eq.{report_id}"},
-            json={"user_id": user_id},
+            json={"user_id": user_id, "expires_at": None},
         )
         if resp.status_code not in (200, 204):
             logger.warning("update_report_user_id failed: {}", resp.status_code)

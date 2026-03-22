@@ -119,6 +119,13 @@ export interface ReportListItem {
   competitor_count: number
 }
 
+export interface PaginatedReportList {
+  items: ReportListItem[]
+  total: number
+  limit: number | null
+  offset: number
+}
+
 export type RuntimeStatus =
   | 'processing'
   | 'failed'

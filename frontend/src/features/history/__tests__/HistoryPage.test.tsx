@@ -10,6 +10,10 @@ vi.mock('@/lib/api/client', () => ({
   listReports: vi.fn(),
 }))
 
+function paginated(items: Array<{ id: string; query: string; created_at: string; competitor_count: number }>, total?: number) {
+  return { items, total: total ?? items.length, limit: 20, offset: 0 }
+}
+
 describe('HistoryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -18,15 +22,15 @@ describe('HistoryPage', () => {
 
   it('shows deleting state and prevents duplicate delete clicks', async () => {
     vi.mocked(listReports)
-      .mockResolvedValueOnce([
+      .mockResolvedValueOnce(paginated([
         {
           id: 'report-1',
           query: 'AI meeting notes',
           created_at: new Date().toISOString(),
           competitor_count: 3,
         },
-      ])
-      .mockResolvedValueOnce([])
+      ]))
+      .mockResolvedValueOnce(paginated([]))
 
     let resolveDelete: (() => void) | null = null
     vi.mocked(deleteReport).mockImplementation(() => new Promise<void>(resolve => {
@@ -70,7 +74,7 @@ describe('HistoryPage', () => {
   })
 
   it('requests paginated report pages and supports page navigation', async () => {
-    const firstPageWithSentinel = Array.from({ length: 21 }, (_, index) => ({
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
       id: `report-${index + 1}`,
       query: `Report ${index + 1}`,
       created_at: new Date().toISOString(),
@@ -86,9 +90,9 @@ describe('HistoryPage', () => {
     ]
 
     vi.mocked(listReports)
-      .mockResolvedValueOnce(firstPageWithSentinel)
-      .mockResolvedValueOnce(secondPage)
-      .mockResolvedValueOnce(firstPageWithSentinel)
+      .mockResolvedValueOnce(paginated(firstPage, 21))
+      .mockResolvedValueOnce(paginated(secondPage, 21))
+      .mockResolvedValueOnce(paginated(firstPage, 21))
 
     render(
       <MemoryRouter initialEntries={['/history']}>
@@ -104,9 +108,8 @@ describe('HistoryPage', () => {
     })
     expect(vi.mocked(listReports)).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ limit: 21, offset: 0 }),
+      expect.objectContaining({ limit: 20, offset: 0 }),
     )
-    expect(screen.queryByText('Report 21')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /next/i }))
     await waitFor(() => {
@@ -114,7 +117,7 @@ describe('HistoryPage', () => {
     })
     expect(vi.mocked(listReports)).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ limit: 21, offset: 20 }),
+      expect.objectContaining({ limit: 20, offset: 20 }),
     )
     expect(screen.getByRole('button', { name: /next/i })).toBeDisabled()
 
@@ -124,12 +127,12 @@ describe('HistoryPage', () => {
     })
     expect(vi.mocked(listReports)).toHaveBeenNthCalledWith(
       3,
-      expect.objectContaining({ limit: 21, offset: 0 }),
+      expect.objectContaining({ limit: 20, offset: 0 }),
     )
   })
 
   it('recovers to previous page when next page becomes empty', async () => {
-    const firstPageWithSentinel = Array.from({ length: 21 }, (_, index) => ({
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
       id: `report-${index + 1}`,
       query: `Report ${index + 1}`,
       created_at: new Date().toISOString(),
@@ -137,9 +140,9 @@ describe('HistoryPage', () => {
     }))
 
     vi.mocked(listReports)
-      .mockResolvedValueOnce(firstPageWithSentinel)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(firstPageWithSentinel)
+      .mockResolvedValueOnce(paginated(firstPage, 21))
+      .mockResolvedValueOnce(paginated([], 20))
+      .mockResolvedValueOnce(paginated(firstPage, 20))
 
     render(
       <MemoryRouter initialEntries={['/history']}>

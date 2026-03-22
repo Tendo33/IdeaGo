@@ -70,7 +70,14 @@
     "bioPlaceholder": "介绍一下自己...",
     "save": "保存更改",
     "loadError": "无法加载个人资料",
-    "updateError": "无法更新个人资料"
+    "updateError": "无法更新个人资料",
+    "subscription": "订阅管理",
+    "proPlan": "Pro 套餐",
+    "freePlan": "免费套餐",
+    "activeSubscription": "订阅有效中",
+    "noSubscription": "暂无有效订阅",
+    "manageSubscription": "管理订阅",
+    "upgradeToPro": "升级到 Pro"
   },
   "common": {
     "cancel": "取消",
@@ -367,5 +374,23 @@
     "ctaDesc": "别再猜测，用数据说话。",
     "ctaButton": "免费开始使用",
     "footerTagline": "由创业者打造，为创业者服务"
+  },
+  "pricing": {
+    "title": "选择您的套餐",
+    "subtitle": "免费开始使用，需要更多时再升级。",
+    "perMonth": "/月",
+    "currentPlan": "当前套餐",
+    "upgrade": "升级到 Pro",
+    "comingSoon": "即将推出",
+    "freeFeature1": "每月 5 次分析",
+    "freeFeature2": "基础竞品报告",
+    "freeFeature3": "6 个数据源",
+    "freeFeature4": "报告导出 (Markdown)",
+    "proFeature1": "每月 100 次分析",
+    "proFeature2": "高级竞品洞察",
+    "proFeature3": "6 个数据源 + 优先处理",
+    "proFeature4": "报告导出 (Markdown)",
+    "proFeature5": "报告永不过期",
+    "proFeature6": "优先技术支持"
   }
 }

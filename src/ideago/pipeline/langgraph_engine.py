@@ -68,7 +68,6 @@ class LangGraphEngine:
         self._max_results_per_source = max_results_per_source
         self._max_concurrent_llm = max_concurrent_llm
         self._source_global_concurrency = max(1, source_global_concurrency)
-        self._source_runtime_metrics: dict[str, dict[str, Any]] = {}
 
         if self._checkpoint_db_url:
             logger.info("Checkpoint backend: PostgreSQL")
@@ -94,6 +93,7 @@ class LangGraphEngine:
         user_id: str = "",
     ) -> ResearchReport:
         """Execute graph and return the final research report."""
+        per_run_metrics: dict[str, dict[str, Any]] = {}
         nodes = PipelineNodes(
             intent_parser=self._intent_parser,
             extractor=self._extractor,
@@ -106,7 +106,7 @@ class LangGraphEngine:
             max_results_per_source=self._max_results_per_source,
             max_concurrent_llm=self._max_concurrent_llm,
             source_global_concurrency=self._source_global_concurrency,
-            source_runtime_metrics=self._source_runtime_metrics,
+            source_runtime_metrics=per_run_metrics,
         )
         thread_id = report_id or str(uuid4())
         config = {"configurable": {"thread_id": thread_id}}

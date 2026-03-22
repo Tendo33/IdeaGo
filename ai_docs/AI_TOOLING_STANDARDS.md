@@ -39,12 +39,14 @@ This document defines one shared engineering contract for all AI assistants used
 - Tests: `pytest`
 - Style: type hints required, explicit error handling, small pure functions preferred
 
-If a backend API/service is needed and no framework is specified, default to:
+Current backend stack:
 
 - FastAPI for HTTP API layer
 - Pydantic v2 for DTO/schema validation
-- SQLAlchemy + Alembic for persistence and migrations
-- Redis for cache/short-lived state when required
+- Supabase (PostgREST) + local file cache for persistence
+- SQL migrations in `supabase/migrations/`
+- Stripe SDK for billing
+- Structured error codes via `AppError` / `ErrorCode` (`api/errors.py`)
 
 Backend verification:
 

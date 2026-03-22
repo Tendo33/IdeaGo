@@ -133,11 +133,16 @@ describe('getReportRuntimeStatus', () => {
 })
 
 describe('listReports', () => {
-  it('returns list of reports', async () => {
-    const reports = [{ id: 'r1', query: 'test', created_at: '2026-01-01', competitor_count: 3 }]
+  it('returns paginated reports', async () => {
+    const paginated = {
+      items: [{ id: 'r1', query: 'test', created_at: '2026-01-01', competitor_count: 3 }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    }
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve(reports),
+      json: () => Promise.resolve(paginated),
     })
 
     const result = await listReports()
@@ -145,13 +150,13 @@ describe('listReports', () => {
       expect.stringContaining('/api/v1/reports'),
       expect.objectContaining({ signal: expect.anything() }),
     )
-    expect(result).toEqual(reports)
+    expect(result).toEqual(paginated)
   })
 
   it('supports limit and offset query parameters', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve([]),
+      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 20 }),
     })
 
     await listReports({ limit: 5, offset: 20 })

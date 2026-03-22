@@ -38,8 +38,14 @@ class ReportRepository(Protocol):
         """
         ...
 
-    async def get_by_id(self, report_id: str) -> ResearchReport | None:
-        """Retrieve a report by its unique ID."""
+    async def get_by_id(
+        self, report_id: str, *, user_id: str = ""
+    ) -> ResearchReport | None:
+        """Retrieve a report by its unique ID.
+
+        When *user_id* is provided, only the report belonging to that user is
+        returned (tenant isolation at the repository level).
+        """
         ...
 
     async def put(self, report: ResearchReport, *, user_id: str = "") -> None:
@@ -56,8 +62,13 @@ class ReportRepository(Protocol):
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
-    ) -> list[ReportIndex]:
-        """List reports, optionally filtered by user, sorted newest-first."""
+    ) -> tuple[list[ReportIndex], int]:
+        """List reports, optionally filtered by user, sorted newest-first.
+
+        Returns:
+            Tuple of (entries, total_count) where total_count is the full
+            count before limit/offset pagination.
+        """
         ...
 
     # ── User ownership ───────────────────────────────────────────

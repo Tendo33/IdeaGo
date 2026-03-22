@@ -16,7 +16,7 @@ cp .env.example .env
 
 ### 2. 使用配置
 ```python
-from python_template.config.settings import get_settings
+from ideago.config.settings import get_settings
 
 settings = get_settings()
 print(f"Env: {settings.environment}")
@@ -28,7 +28,7 @@ print(f"Log level: {settings.log_level}")
 ### 步骤 1: 在 Settings 类中添加字段
 
 ```python
-# 在 src/python_template/config/settings.py 的 Settings 类中添加
+# 在 src/ideago/config/settings.py 的 Settings 类中添加
 database_url: str = Field(
     default="sqlite:///./app.db",
     description="Database connection URL"

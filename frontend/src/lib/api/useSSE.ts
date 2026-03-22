@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useCallback } from 'react'
 import i18n from '../i18n/i18n'
 import type { PipelineEvent } from '../types/research'
 import { getStreamUrl } from "./client";
-import { getAccessToken, setAccessToken } from "../auth/token";
+import { clearCustomAuthSession, getAccessToken, setAccessToken } from "../auth/token";
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
@@ -176,11 +176,12 @@ export function useSSE(reportId: string | null): UseSSEResult {
 					});
 
 					if (!res.ok || !res.body) {
-						if (res.status === 401) {
-							setAccessToken(null);
-							window.location.href = '/login';
-							return;
-						}
+					if (res.status === 401) {
+						clearCustomAuthSession();
+						setAccessToken(null);
+						window.location.href = '/login';
+						return;
+					}
 						if (!res.ok && !shouldRetrySseStatus(res.status)) {
 							dispatch({ type: "error", message: i18n.t("report.error.connectionLost") });
 							return;

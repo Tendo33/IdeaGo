@@ -56,6 +56,15 @@ class ReportListItem(BaseModel):
     competitor_count: int = 0
 
 
+class PaginatedReportList(BaseModel):
+    """Paginated response for the reports list endpoint."""
+
+    items: list[ReportListItem]
+    total: int
+    limit: int | None = None
+    offset: int = 0
+
+
 class ReportRuntimeStatus(BaseModel):
     """Runtime status payload for report processing state."""
 

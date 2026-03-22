@@ -8,11 +8,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, is_report_id_processing
-from ideago.api.schemas import ReportListItem, ReportRuntimeStatus
+from ideago.api.errors import AppError, ErrorCode
+from ideago.api.schemas import PaginatedReportList, ReportListItem, ReportRuntimeStatus
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.cache.base import ReportRepository
@@ -24,18 +25,20 @@ router = APIRouter(tags=["reports"])
 async def _assert_report_owner(
     cache: ReportRepository, report_id: str, user_id: str
 ) -> None:
-    """Raise 403 if the report/status belongs to another user.
+    """Raise 403/404 if the report/status belongs to another user or has no owner.
 
-    Checks report.user_id first, then falls back to report_status.user_id
-    for reports still in processing (owner set before pipeline starts).
+    Fail-close: when no owner can be resolved, treat the report as not found
+    to prevent unauthorized access to orphaned data.
     """
     owner_id = await cache.get_report_user_id(report_id)
     if not owner_id:
         status = await cache.get_status(report_id)
         if status:
             owner_id = status.get("user_id", "") or ""
-    if owner_id and owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if not owner_id:
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
+    if owner_id != user_id:
+        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
 
 
 def _parse_status_updated_at(raw_value: object) -> datetime | None:
@@ -48,24 +51,35 @@ def _parse_status_updated_at(raw_value: object) -> datetime | None:
         return None
 
 
-@router.get("/reports", response_model=list[ReportListItem])
+_MAX_LIST_LIMIT = 100
+
+
+@router.get("/reports", response_model=PaginatedReportList)
 async def list_reports(
-    limit: int | None = Query(default=None, ge=1, le=200),
+    limit: int = Query(default=20, ge=1, le=_MAX_LIST_LIMIT),
     offset: int = Query(default=0, ge=0),
     user: AuthUser = Depends(get_current_user),
-) -> list[ReportListItem]:
+) -> PaginatedReportList:
     """List research reports belonging to the authenticated user."""
     cache = get_cache()
-    entries = await cache.list_reports(limit=limit, offset=offset, user_id=user.id)
-    return [
-        ReportListItem(
-            id=e.report_id,
-            query=e.query,
-            created_at=e.created_at,
-            competitor_count=e.competitor_count,
-        )
-        for e in entries
-    ]
+    capped_limit = min(limit, _MAX_LIST_LIMIT)
+    entries, total = await cache.list_reports(
+        limit=capped_limit, offset=offset, user_id=user.id
+    )
+    return PaginatedReportList(
+        items=[
+            ReportListItem(
+                id=e.report_id,
+                query=e.query,
+                created_at=e.created_at,
+                competitor_count=e.competitor_count,
+            )
+            for e in entries
+        ],
+        total=total,
+        limit=capped_limit,
+        offset=offset,
+    )
 
 
 @router.get("/reports/{report_id}", response_model=None)
@@ -77,7 +91,7 @@ async def get_report(
     cache = get_cache()
     await _assert_report_owner(cache, report_id, user.id)
 
-    report = await cache.get_by_id(report_id)
+    report = await cache.get_by_id(report_id, user_id=user.id)
     if report is not None:
         return report.model_dump(mode="json")
 
@@ -94,7 +108,7 @@ async def get_report(
             content={"status": "processing", "report_id": report_id},
         )
 
-    raise HTTPException(status_code=404, detail="Report not found")
+    raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 
 
 @router.get("/reports/{report_id}/status", response_model=ReportRuntimeStatus)
@@ -106,7 +120,7 @@ async def get_report_status(
     cache = get_cache()
     await _assert_report_owner(cache, report_id, user.id)
 
-    report = await cache.get_by_id(report_id)
+    report = await cache.get_by_id(report_id, user_id=user.id)
     if report is not None:
         return ReportRuntimeStatus(
             status="complete",
@@ -153,7 +167,7 @@ async def delete_report(
     await _assert_report_owner(cache, report_id, user.id)
     deleted = await cache.delete(report_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     return {"status": "deleted"}
 
 
@@ -165,9 +179,9 @@ async def export_report(
     """Export a report as Markdown."""
     cache = get_cache()
     await _assert_report_owner(cache, report_id, user.id)
-    report = await cache.get_by_id(report_id)
+    report = await cache.get_by_id(report_id, user_id=user.id)
     if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 
     md = _report_to_markdown(report)
     return PlainTextResponse(

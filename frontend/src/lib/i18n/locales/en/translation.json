@@ -70,7 +70,14 @@
     "bioPlaceholder": "Tell us about yourself...",
     "save": "Save Changes",
     "loadError": "Failed to load profile",
-    "updateError": "Failed to update profile"
+    "updateError": "Failed to update profile",
+    "subscription": "Subscription",
+    "proPlan": "Pro Plan",
+    "freePlan": "Free Plan",
+    "activeSubscription": "Active subscription",
+    "noSubscription": "No active subscription",
+    "manageSubscription": "Manage Subscription",
+    "upgradeToPro": "Upgrade to Pro"
   },
   "common": {
     "cancel": "Cancel",
@@ -367,5 +374,23 @@
     "ctaDesc": "Stop guessing. Start building on data.",
     "ctaButton": "Get Started Free",
     "footerTagline": "Built for founders, by founders"
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Start free, upgrade when you need more power.",
+    "perMonth": "/month",
+    "currentPlan": "Current Plan",
+    "upgrade": "Upgrade to Pro",
+    "comingSoon": "Coming Soon",
+    "freeFeature1": "5 analyses per month",
+    "freeFeature2": "Basic competitor reports",
+    "freeFeature3": "6 data sources",
+    "freeFeature4": "Report export (Markdown)",
+    "proFeature1": "100 analyses per month",
+    "proFeature2": "Advanced competitor insights",
+    "proFeature3": "6 data sources + priority",
+    "proFeature4": "Report export (Markdown)",
+    "proFeature5": "Reports never expire",
+    "proFeature6": "Priority support"
   }
 }

@@ -13,13 +13,14 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ideago import __version__
-from ideago.api.routes import analyze, auth, health, reports
+from ideago.api.errors import AppError, ErrorCode
+from ideago.api.routes import analyze, auth, billing, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -32,8 +33,6 @@ _FRONTEND_DIST = (
 _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
-_RATE_LIMIT_MAX = 10
-_RATE_LIMIT_WINDOW = 60
 
 
 _cleanup_task: asyncio.Task[None] | None = None
@@ -42,11 +41,16 @@ _CLEANUP_INTERVAL_SECONDS = 3600
 
 def _evict_stale_rate_limit_keys() -> int:
     """Remove rate-limit keys whose timestamps have all expired."""
+    settings = get_settings()
+    max_window = max(
+        settings.rate_limit_analyze_window_seconds,
+        settings.rate_limit_reports_window_seconds,
+    )
     now = time.monotonic()
     stale_keys = [
         k
         for k, ts in _rate_limit_store.items()
-        if not ts or all(now - t >= _RATE_LIMIT_WINDOW for t in ts)
+        if not ts or all(now - t >= max_window for t in ts)
     ]
     for k in stale_keys:
         _rate_limit_store.pop(k, None)
@@ -127,6 +131,7 @@ def create_app() -> FastAPI:
     )
 
     _CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+    _CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhook"}
 
     @app.middleware("http")
     async def csrf_protection(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
@@ -135,29 +140,70 @@ def create_app() -> FastAPI:
         Browsers block cross-origin JS from setting custom headers, so
         requiring `X-Requested-With` on mutating API calls prevents CSRF
         while remaining transparent to our own SPA (which always sends it).
+
+        Webhook endpoints are exempt because they use signature verification
+        instead of CSRF tokens.
         """
         if (
             request.method in _CSRF_METHODS
             and request.url.path.startswith("/api/")
+            and request.url.path not in _CSRF_EXEMPT_PATHS
             and not request.headers.get("X-Requested-With")
         ):
             return JSONResponse(
                 status_code=403,
-                content={"detail": "Missing required header: X-Requested-With"},
+                content={
+                    "error": {
+                        "code": ErrorCode.CSRF_MISSING_HEADER.value,
+                        "message": "Missing required header: X-Requested-With",
+                    }
+                },
             )
         return await call_next(request)
 
-    @app.middleware("http")
-    async def rate_limit_analyze(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
-        """In-memory rate limiter for /analyze.
+    def _resolve_rate_key(request: Request, user_id: str) -> str:
+        if user_id:
+            return f"user:{user_id}"
+        client_ip = request.client.host if request.client else "unknown"
+        session_id = request.headers.get("X-Session-Id", "")
+        return f"{client_ip}:{session_id}" if session_id else client_ip
 
-        Keys by authenticated user ID using the full auth verification
-        chain (survives proxy/LB changes and works with all auth providers).
-        Falls back to IP + session for unauthenticated requests.
-        The Supabase quota system (check_and_increment_quota) provides the
-        durable monthly cap; this layer only throttles burst frequency.
+    def _check_rate_limit(key: str, *, max_requests: int, window_seconds: int) -> bool:
+        """Return True if the request should be rejected (over limit)."""
+        now = time.monotonic()
+        timestamps = _rate_limit_store[key]
+        timestamps[:] = [t for t in timestamps if now - t < window_seconds]
+        if not timestamps:
+            _rate_limit_store.pop(key, None)
+            timestamps = _rate_limit_store[key]
+        if len(timestamps) >= max_requests:
+            return True
+        timestamps.append(now)
+        return False
+
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        """Configurable in-memory rate limiter for /analyze and /reports.
+
+        Keys by authenticated user ID (survives proxy/LB changes and works
+        with all auth providers). Falls back to IP + session for
+        unauthenticated requests.
         """
-        if request.method == "POST" and request.url.path.endswith("/analyze"):
+        path = request.url.path
+        limit_max: int | None = None
+        limit_window: int | None = None
+        prefix = ""
+
+        if request.method == "POST" and path.endswith("/analyze"):
+            limit_max = settings.rate_limit_analyze_max
+            limit_window = settings.rate_limit_analyze_window_seconds
+            prefix = "analyze:"
+        elif path.startswith("/api/") and "/reports" in path:
+            limit_max = settings.rate_limit_reports_max
+            limit_window = settings.rate_limit_reports_window_seconds
+            prefix = "reports:"
+
+        if limit_max is not None and limit_window is not None:
             from ideago.auth.dependencies import get_optional_user
 
             user_id = ""
@@ -168,31 +214,33 @@ def create_app() -> FastAPI:
             except Exception:
                 pass
 
-            if user_id:
-                rate_key = f"user:{user_id}"
-            else:
-                client_ip = request.client.host if request.client else "unknown"
-                session_id = request.headers.get("X-Session-Id", "")
-                rate_key = f"{client_ip}:{session_id}" if session_id else client_ip
-
-            now = time.monotonic()
-            timestamps = _rate_limit_store[rate_key]
-            timestamps[:] = [t for t in timestamps if now - t < _RATE_LIMIT_WINDOW]
-            if not timestamps:
-                _rate_limit_store.pop(rate_key, None)
-                timestamps = _rate_limit_store[rate_key]
-            if len(timestamps) >= _RATE_LIMIT_MAX:
+            rate_key = prefix + _resolve_rate_key(request, user_id)
+            if _check_rate_limit(
+                rate_key, max_requests=limit_max, window_seconds=limit_window
+            ):
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": "Rate limit exceeded. Please try again later."},
+                    content={
+                        "error": {
+                            "code": ErrorCode.RATE_LIMIT_EXCEEDED.value,
+                            "message": "Rate limit exceeded. Please try again later.",
+                        }
+                    },
                 )
-            timestamps.append(now)
         return await call_next(request)
+
+    @app.exception_handler(AppError)
+    async def _app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": exc.detail},
+        )
 
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
+    app.include_router(billing.router, prefix="/api/v1")
 
     if _FRONTEND_DIST.is_dir():
         assets_dir = _FRONTEND_DIST / "assets"
@@ -213,9 +261,9 @@ def create_app() -> FastAPI:
             if requested_path.is_file() and requested_path.is_relative_to(dist_root):
                 return FileResponse(path=requested_path)
             if full_path.startswith("api/"):
-                raise HTTPException(status_code=404, detail="Not Found")
+                raise AppError(404, ErrorCode.NOT_FOUND, "Not Found")
             if Path(full_path).suffix:
-                raise HTTPException(status_code=404, detail="Not Found")
+                raise AppError(404, ErrorCode.NOT_FOUND, "Not Found")
             return FileResponse(path=_FRONTEND_INDEX)
 
     return app

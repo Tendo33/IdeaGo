@@ -545,7 +545,8 @@ async def test_langgraph_engine_respects_source_global_concurrency(tmp_path) -> 
 
 
 @pytest.mark.asyncio
-async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> None:
+async def test_langgraph_engine_adaptive_metrics_isolated_per_run(tmp_path) -> None:
+    """Adaptive metrics are per-run: prior failures don't degrade subsequent runs."""
     source = RecordingSource(Platform.GITHUB)
     intent_override = Intent(
         keywords_en=["api", "monitoring", "alerts", "latency"],
@@ -579,14 +580,5 @@ async def test_langgraph_engine_adaptive_degradation_and_recovery(tmp_path) -> N
 
     source.set_should_fail(False)
     await engine.run("test idea 3", report_id="adaptive-3")
-    degraded_query_count = source.last_queries_count
-    degraded_runtime_concurrency = source.last_runtime_concurrency
 
-    await engine.run("test idea 4", report_id="adaptive-4")
-    await engine.run("test idea 5", report_id="adaptive-5")
-    await engine.run("test idea 6", report_id="adaptive-6")
-    await engine.run("test idea 7", report_id="adaptive-7")
-
-    assert degraded_query_count < full_query_count
-    assert degraded_runtime_concurrency is not None
     assert source.last_queries_count == full_query_count

@@ -9,7 +9,6 @@ import { Button, buttonVariants } from '@/components/ui/Button'
 import type { ReportListItem } from '@/lib/types/research'
 
 const PAGE_SIZE = 20
-const PAGE_FETCH_LIMIT = PAGE_SIZE + 1
 
 interface HistoryReportCardProps {
   report: ReportListItem;
@@ -77,14 +76,14 @@ export function HistoryPage() {
   const [hasNextPage, setHasNextPage] = useState(false)
 
   const loadPage = useCallback(async (targetPage: number, signal?: AbortSignal) => {
-    const fetched = await listReports({
-      limit: PAGE_FETCH_LIMIT,
+    const { items, total } = await listReports({
+      limit: PAGE_SIZE,
       offset: targetPage * PAGE_SIZE,
       signal,
     })
     return {
-      reports: fetched.slice(0, PAGE_SIZE),
-      hasNext: fetched.length > PAGE_SIZE,
+      reports: items,
+      hasNext: (targetPage + 1) * PAGE_SIZE < total,
     }
   }, [])
 

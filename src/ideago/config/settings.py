@@ -247,11 +247,59 @@ class Settings(BaseSettings):
         default=".cache/ideago",
         description="Cache directory path / 缓存目录路径",
     )
-    cache_ttl_hours: int = Field(
+    anonymous_cache_ttl_hours: int = Field(
         default=24,
         ge=1,
         le=168,
-        description="Cache TTL in hours / 缓存有效期（小时）",
+        description="TTL for anonymous (unowned) reports. "
+        "User-owned reports persist indefinitely.",
+    )
+    file_cache_max_entries: int = Field(
+        default=500,
+        ge=10,
+        le=10000,
+        description="Maximum number of entries in the local file cache. "
+        "Oldest entries are evicted when limit is reached.",
+    )
+
+    # --- Rate limiting ---
+    rate_limit_analyze_max: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Max analyze requests per user within the rate-limit window",
+    )
+    rate_limit_analyze_window_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=3600,
+        description="Rate-limit sliding window for analyze (seconds)",
+    )
+    rate_limit_reports_max: int = Field(
+        default=60,
+        ge=1,
+        le=300,
+        description="Max report read requests per user within the rate-limit window",
+    )
+    rate_limit_reports_window_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=3600,
+        description="Rate-limit sliding window for report reads (seconds)",
+    )
+
+    # --- Stripe billing ---
+    stripe_secret_key: str = Field(
+        default="",
+        description="Stripe secret key (sk_live_... or sk_test_...)",
+    )
+    stripe_webhook_secret: str = Field(
+        default="",
+        description="Stripe webhook endpoint signing secret (whsec_...)",
+    )
+    stripe_pro_price_id: str = Field(
+        default="",
+        description="Stripe Price ID for the Pro plan (price_...)",
     )
 
     # --- Server / 服务配置 ---

@@ -87,11 +87,17 @@ def get_cache() -> ReportRepository:
         if settings.supabase_url and settings.supabase_service_role_key:
             from ideago.cache.supabase_cache import SupabaseReportRepository
 
-            _cache = SupabaseReportRepository(ttl_hours=settings.cache_ttl_hours)
+            _cache = SupabaseReportRepository(
+                ttl_hours=settings.anonymous_cache_ttl_hours,
+            )
         else:
             from ideago.cache.file_cache import FileCache
 
-            _cache = FileCache(settings.cache_dir, settings.cache_ttl_hours)
+            _cache = FileCache(
+                settings.cache_dir,
+                settings.anonymous_cache_ttl_hours,
+                max_entries=settings.file_cache_max_entries,
+            )
     return _cache
 
 

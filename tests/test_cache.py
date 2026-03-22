@@ -87,8 +87,9 @@ async def test_cache_list_reports(tmp_path) -> None:
     await cache.put(_make_report("key1", "idea 1"))
     await cache.put(_make_report("key2", "idea 2"))
 
-    reports = await cache.list_reports()
+    reports, total = await cache.list_reports()
     assert len(reports) == 2
+    assert total == 2
 
 
 @pytest.mark.asyncio
@@ -103,7 +104,7 @@ async def test_cache_delete(tmp_path) -> None:
     result = await cache.get_by_id(report.id)
     assert result is None
 
-    reports = await cache.list_reports()
+    reports, _ = await cache.list_reports()
     assert len(reports) == 0
 
 
@@ -142,7 +143,7 @@ async def test_cache_cleanup_expired(tmp_path) -> None:
     removed = await cache.cleanup_expired()
     assert removed == 1
 
-    reports = await cache.list_reports()
+    reports, _ = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "fresh"
 
@@ -181,7 +182,7 @@ async def test_cache_overwrites_same_cache_key(tmp_path) -> None:
     r2 = _make_report("same_key", "second query")
     await cache.put(r2)
 
-    reports = await cache.list_reports()
+    reports, _ = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "second query"
 
@@ -241,7 +242,7 @@ async def test_cache_concurrent_put_preserves_all_entries(tmp_path) -> None:
     with patch.object(cache, "_read_index", side_effect=synchronized_read_index):
         await asyncio.gather(*(cache.put(report) for report in reports))
 
-    entries = await cache.list_reports()
+    entries, _ = await cache.list_reports()
     assert len(entries) == len(reports)
 
 
@@ -252,10 +253,12 @@ class _FakeResponse:
         *,
         payload=None,
         text: str = "",
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.status_code = status_code
         self._payload = payload
         self.text = text
+        self.headers = headers or {}
 
     def json(self):
         return self._payload
@@ -311,6 +314,7 @@ async def test_supabase_repo_put_list_and_delete() -> None:
                     "user_id": "user-1",
                 }
             ],
+            headers={"content-range": "0-0/1"},
         )
     )
     fake_client.delete = AsyncMock(
@@ -329,8 +333,9 @@ async def test_supabase_repo_put_list_and_delete() -> None:
 
     with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
         await repo.put(report)
-        rows = await repo.list_reports(limit=10, offset=0, user_id="user-1")
+        rows, total = await repo.list_reports(limit=10, offset=0, user_id="user-1")
         assert len(rows) == 1
+        assert total == 1
         deleted = await repo.delete(report.id)
         assert deleted is True
 

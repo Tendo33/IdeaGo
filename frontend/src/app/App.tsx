@@ -43,6 +43,11 @@ const HistoryPage = lazy(async () => {
   return { default: page.HistoryPage }
 })
 
+const PricingPage = lazy(async () => {
+  const page = await import('@/features/pricing/PricingPage')
+  return { default: page.PricingPage }
+})
+
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
@@ -369,6 +374,7 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/pricing" element={<PricingPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

@@ -318,16 +318,16 @@ def test_get_report_status_not_found(client, tmp_path) -> None:
     with patch("ideago.api.routes.reports.get_cache", return_value=cache):
         response = client.get("/api/v1/reports/nonexistent-id/status")
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "not_found"
-    assert payload["report_id"] == "nonexistent-id"
+    assert response.status_code == 404
 
 
 def test_get_report_status_processing_from_runtime_map(client, tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     report_id = "processing-report"
     deps._processing_reports["query-hash"] = report_id
+    asyncio.run(
+        cache.put_status(report_id, "processing", "query text", user_id="test-user-id")
+    )
 
     with patch("ideago.api.routes.reports.get_cache", return_value=cache):
         response = client.get(f"/api/v1/reports/{report_id}/status")
@@ -367,25 +367,29 @@ def test_list_reports(client) -> None:
     mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
     mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.list_reports = AsyncMock(
-        return_value=[
-            ReportIndex(
-                report_id="abc",
-                query="test idea",
-                cache_key="k",
-                created_at=datetime.now(timezone.utc),
-                competitor_count=3,
-            )
-        ]
+        return_value=(
+            [
+                ReportIndex(
+                    report_id="abc",
+                    query="test idea",
+                    cache_key="k",
+                    created_at=datetime.now(timezone.utc),
+                    competitor_count=3,
+                )
+            ],
+            1,
+        )
     )
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
         response = client.get("/api/v1/reports")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]["query"] == "test idea"
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["query"] == "test idea"
     mock_cache.list_reports.assert_awaited_once_with(
-        limit=None,
+        limit=20,
         offset=0,
         user_id="test-user-id",
     )
@@ -396,15 +400,18 @@ def test_list_reports_with_pagination_query_params(client) -> None:
     mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
     mock_cache.get_status = AsyncMock(return_value=None)
     mock_cache.list_reports = AsyncMock(
-        return_value=[
-            ReportIndex(
-                report_id="paginated-id",
-                query="paged idea",
-                cache_key="k",
-                created_at=datetime.now(timezone.utc),
-                competitor_count=1,
-            )
-        ]
+        return_value=(
+            [
+                ReportIndex(
+                    report_id="paginated-id",
+                    query="paged idea",
+                    cache_key="k",
+                    created_at=datetime.now(timezone.utc),
+                    competitor_count=1,
+                )
+            ],
+            50,
+        )
     )
 
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
@@ -412,8 +419,9 @@ def test_list_reports_with_pagination_query_params(client) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["id"] == "paginated-id"
+    assert payload["total"] == 50
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["id"] == "paginated-id"
     mock_cache.list_reports.assert_awaited_once_with(
         limit=1,
         offset=20,

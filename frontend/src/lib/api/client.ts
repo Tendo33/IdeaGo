@@ -1,6 +1,6 @@
-import type { ReportListItem, ReportRuntimeStatus, ResearchReport } from '../types/research'
+import type { PaginatedReportList, ReportRuntimeStatus, ResearchReport } from '../types/research'
 import {
-  CUSTOM_AUTH_STORAGE_KEY,
+  clearCustomAuthSession,
   getAccessToken,
   setAccessToken,
 } from '../auth/token'
@@ -54,6 +54,15 @@ function extractErrorDetail(payload: unknown): string | null {
     }
   }
   const error = record.error
+  if (error && typeof error === 'object') {
+    const errorRecord = error as Record<string, unknown>
+    if (typeof errorRecord.message === 'string' && errorRecord.message.trim()) {
+      return errorRecord.message.trim()
+    }
+    if (typeof errorRecord.code === 'string' && errorRecord.code.trim()) {
+      return errorRecord.code.trim()
+    }
+  }
   if (typeof error === 'string' && error.trim()) {
     return error.trim()
   }
@@ -107,7 +116,7 @@ async function fetchWithTimeout(
       signal: timeoutController.signal,
     })
     if (res.status === 401) {
-      window.localStorage.removeItem(CUSTOM_AUTH_STORAGE_KEY)
+      clearCustomAuthSession()
       setAccessToken(null)
       window.location.href = '/login'
       throw new Error('Session expired. Redirecting to login.')
@@ -173,7 +182,7 @@ export async function getReportRuntimeStatus(
   return res.json()
 }
 
-export async function listReports(options: ListReportsOptions = {}): Promise<ReportListItem[]> {
+export async function listReports(options: ListReportsOptions = {}): Promise<PaginatedReportList> {
   const { limit, offset, ...requestOptions } = options
   const params = new URLSearchParams()
   if (typeof limit === 'number') {
@@ -265,4 +274,57 @@ export async function updateMyProfile(
   )
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to update profile'))
   return res.json()
+}
+
+// --- Billing ---
+
+export interface SubscriptionStatus {
+  plan: string
+  has_subscription: boolean
+  stripe_configured: boolean
+}
+
+export async function getSubscriptionStatus(options: RequestOptions = {}): Promise<SubscriptionStatus> {
+  const res = await fetchWithTimeout(`${API_BASE}/billing/status`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load subscription status'))
+  return res.json()
+}
+
+export async function createCheckoutSession(
+  successUrl: string,
+  cancelUrl: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/billing/checkout`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
+      body: JSON.stringify({ success_url: successUrl, cancel_url: cancelUrl }),
+    },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to create checkout'))
+  const data = await res.json()
+  return data.url
+}
+
+export async function createPortalSession(
+  returnUrl: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/billing/portal`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
+      body: JSON.stringify({ return_url: returnUrl }),
+    },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to create portal session'))
+  const data = await res.json()
+  return data.url
 }

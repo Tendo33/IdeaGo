@@ -26,6 +26,7 @@ from ideago.api.dependencies import (
     remove_pipeline_task,
     reserve_processing_report,
 )
+from ideago.api.errors import AppError, ErrorCode
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
@@ -289,10 +290,15 @@ async def _get_effective_owner(report_id: str) -> str:
 
 
 async def _assert_owner_or_deny(report_id: str, user_id: str) -> None:
-    """Raise 403 if the report/status exists with a different owner."""
+    """Raise 403/404 if the report/status belongs to another user or has no owner.
+
+    Fail-close: when no owner can be resolved, treat the report as not found.
+    """
     owner_id = await _get_effective_owner(report_id)
-    if owner_id and owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if not owner_id:
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
+    if owner_id != user_id:
+        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
 
 
 @router.get("/reports/{report_id}/stream")
@@ -315,8 +321,10 @@ async def cancel_analysis(
     task = await get_pipeline_task_for_report(report_id)
     report_is_processing = await is_processing_report(report_id)
     if (task is None or task.done()) and not report_is_processing:
-        raise HTTPException(
-            status_code=404, detail="No active analysis found for this report"
+        raise AppError(
+            404,
+            ErrorCode.ANALYSIS_NOT_FOUND,
+            "No active analysis found for this report",
         )
 
     if task is not None and not task.done():

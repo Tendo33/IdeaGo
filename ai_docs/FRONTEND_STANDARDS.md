@@ -70,15 +70,16 @@ Rules:
 ## State Management
 
 - Start with React built-ins: `useState`, `useReducer`, `useContext`.
-- For cross-feature or complex client state, prefer a lightweight store (e.g. Zustand).
-- Server state should be managed via TanStack Query (React Query) — never store fetched data in local state manually.
+- For cross-feature or complex client state, prefer a lightweight store (e.g. Zustand) if needed.
+- Server state is currently managed via custom hooks with `useEffect` + `useState`.
 
 ## API Layer
 
-- Centralize HTTP calls in `lib/api.ts` (or `lib/api/` folder).
-- Use a typed fetch wrapper; do not scatter raw `fetch()` calls across components.
+- Centralize HTTP calls in `lib/api/client.ts`.
+- Use the typed `fetchWithTimeout` wrapper; do not scatter raw `fetch()` calls across components.
 - Return typed response objects; throw typed errors.
-- All API hooks should be built on TanStack Query (`useQuery` / `useMutation`).
+- Error parsing uses `extractErrorDetail` to handle both `{"detail": ...}` and `{"error": {"code", "message"}}` formats.
+- On 401 responses, both `client.ts` and `useSSE.ts` clear auth state via `clearCustomAuthSession()` and redirect to `/login`.
 
 ## Routing
 

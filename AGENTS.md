@@ -34,8 +34,9 @@ Use this file as the default project contract for Codex.
 - `uv`, `ruff`, `pytest`, `mypy`
 - FastAPI + Pydantic v2
 - LangGraph + LangChain OpenAI
-- File cache + SQLite checkpoints
-- Supabase-backed authentication/session support already exists
+- File cache + Supabase cache + SQLite checkpoints
+- Supabase-backed authentication/session support
+- Stripe SDK for billing integration
 
 ### Frontend
 
@@ -52,10 +53,11 @@ Use this file as the default project contract for Codex.
 
 Main package: `src/ideago`
 
-- `api/`: FastAPI app, dependencies, schemas, `auth` / `analyze` / `reports` / `health` routes
+- `api/`: FastAPI app, dependencies, schemas, errors, `auth` / `analyze` / `reports` / `billing` / `health` routes
 - `auth/`: auth dependencies, Supabase admin helpers, auth models
-- `cache/`: cache abstractions, file cache, Supabase cache
-- `config/`: runtime settings
+- `billing/`: Stripe checkout, portal, webhook processing
+- `cache/`: cache abstractions (ReportRepository protocol), file cache, Supabase cache
+- `config/`: runtime settings (Pydantic)
 - `contracts/`: protocols and interfaces
 - `core/`: shared runtime context
 - `llm/`: model wrappers, prompt loader, prompt templates
@@ -72,12 +74,13 @@ Main package: `src/ideago`
 - `frontend/src/features/history`: report history
 - `frontend/src/features/home`: main search experience
 - `frontend/src/features/landing`: landing page
-- `frontend/src/features/profile`: user profile
+- `frontend/src/features/pricing`: plan selection and Stripe checkout
+- `frontend/src/features/profile`: user profile and subscription management
 - `frontend/src/features/reports`: report details, compare views, charts, progress states
 - `frontend/src/components/ui`: shared UI primitives
-- `frontend/src/lib/api`: typed API client and SSE hook
+- `frontend/src/lib/api`: typed API client (incl. billing endpoints) and SSE hook
 - `frontend/src/lib/auth`: auth context, token helpers, protected route
-- `frontend/src/lib/i18n`: locale setup and translations
+- `frontend/src/lib/i18n`: locale setup and translations (en, zh)
 - `frontend/src/lib/supabase`: Supabase client
 - `frontend/src/lib/types`, `frontend/src/lib/utils`: shared types and utilities
 - `frontend/src/styles`: global styles

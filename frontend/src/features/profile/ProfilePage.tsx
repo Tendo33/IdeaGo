@@ -7,10 +7,13 @@ import {
   getMyProfile,
   getQuotaInfo,
   updateMyProfile,
+  getSubscriptionStatus,
+  createPortalSession,
   type QuotaInfo,
   type UserProfile,
+  type SubscriptionStatus,
 } from '@/lib/api/client'
-import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, CreditCard, Crown, ExternalLink } from 'lucide-react'
 
 export function ProfilePage() {
   const { t } = useTranslation()
@@ -24,15 +27,18 @@ export function ProfilePage() {
 
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
 
     async function load() {
-      const [profileResult, quotaResult] = await Promise.allSettled([
+      const [profileResult, quotaResult, subResult] = await Promise.allSettled([
         getMyProfile(),
         getQuotaInfo(),
+        getSubscriptionStatus(),
       ])
 
       if (cancelled) return
@@ -49,6 +55,10 @@ export function ProfilePage() {
 
       if (quotaResult.status === 'fulfilled') {
         setQuota(quotaResult.value)
+      }
+
+      if (subResult.status === 'fulfilled') {
+        setSubscription(subResult.value)
       }
 
       setLoading(false)
@@ -195,6 +205,66 @@ export function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Subscription management */}
+      {subscription?.stripe_configured && (
+        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)] mb-8">
+          <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            {t('profile.subscription', 'Subscription')}
+          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {subscription.plan === 'pro' ? (
+                <Crown className="w-6 h-6 text-primary" />
+              ) : null}
+              <div>
+                <p className="font-black uppercase text-lg">
+                  {subscription.plan === 'pro'
+                    ? t('profile.proPlan', 'Pro Plan')
+                    : t('profile.freePlan', 'Free Plan')}
+                </p>
+                <p className="text-sm text-muted-foreground font-bold">
+                  {subscription.has_subscription
+                    ? t('profile.activeSubscription', 'Active subscription')
+                    : t('profile.noSubscription', 'No active subscription')}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {subscription.has_subscription ? (
+              <Button
+                variant="outline"
+                disabled={portalLoading}
+                onClick={async () => {
+                  setPortalLoading(true)
+                  try {
+                    const url = await createPortalSession(window.location.href)
+                    window.location.href = url
+                  } catch {
+                    setPortalLoading(false)
+                  }
+                }}
+              >
+                {portalLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                )}
+                {t('profile.manageSubscription', 'Manage Subscription')}
+              </Button>
+            ) : (
+              <Link to="/pricing">
+                <Button>
+                  <Crown className="w-4 h-4 mr-2" />
+                  {t('profile.upgradeToPro', 'Upgrade to Pro')}
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edit form */}
       <div className="border-4 border-border bg-card p-6 md:p-8 shadow-[6px_6px_0px_0px_var(--border)]">

@@ -57,8 +57,8 @@ export function HomePage() {
   useEffect(() => {
     const controller = new AbortController()
     listReports({ limit: 5, offset: 0, signal: controller.signal })
-      .then(reports => {
-        setRecentReports(reports)
+      .then(({ items }) => {
+        setRecentReports(items)
         setRecentReportsError(null)
       })
       .catch(error => {
