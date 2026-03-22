@@ -1,44 +1,60 @@
 # 00 · Codebase 全景地图
 
-> 目标：先把「这库到底怎么分层」一次性建立起来，再进入链路细节。
+> 目标：先建立“当前版本”的目录和职责地图，避免后续沿着旧文档、旧路径、旧心智模型阅读。
 
-## 1) 顶层结构：你真正要关注的目录
+## 1) 顶层结构：真正值得看的目录
 
-- `src/ideago/`：后端主代码（重点）
-- `frontend/src/`：前端主代码（重点）
-- `tests/`：后端 pytest 测试（高价值阅读）
-- `doc/`：工程规范与配置说明
-- `scripts/`：发布/维护脚本（次重点）
+- `ai_docs/`：项目规范入口，先读这里再动代码
+- `src/ideago/`：后端主包
+- `frontend/src/`：前端主代码
+- `tests/`：后端 pytest 测试，很多设计意图都写在这里
+- `docs/`：设计文档、带教文档、项目资料
+- `supabase/`：SQL 迁移和 Supabase 相关资源
+- `scripts/`：发布和维护脚本
 
-你可以暂时忽略：`htmlcov/`、`logs/`、`.history/`、`.cache/`。
+可以先忽略：
 
-## 2) 后端模块地图（按执行价值排序）
+- `htmlcov/`
+- `logs/`
+- `.history/`
+- `.cache/`
 
-### A. API 层
+## 2) 后端模块地图
 
+### A. 应用与路由层
+
+- `src/ideago/__main__.py`
+  - `main()`：单进程启动入口
 - `src/ideago/api/app.py`
-  - `create_app()`：FastAPI 应用工厂，挂中间件、路由、前端静态资源
-- `rate_limit_analyze`：`/analyze` 内存限流
+  - `create_app()`：FastAPI 应用工厂
+  - 统一装配 CORS、CSRF、防护头、限流、trace id、异常处理、SPA fallback
 - `src/ideago/api/routes/analyze.py`
-  - `start_analysis()`：启动任务，返回 `report_id`
-  - `_run_pipeline()`：后台协程跑完整管道
-  - `stream_progress()` + `_stream_events()`：SSE 事件流
-  - `cancel_analysis()`：取消运行中任务
+  - `start_analysis()`：校验配额，创建任务，返回 `report_id`
+  - `_run_pipeline()`：后台跑完整分析流程
+  - `stream_progress()` / `_stream_events()`：SSE 推送与历史重放
+  - `cancel_analysis()`：取消运行中分析
 - `src/ideago/api/routes/reports.py`
-  - 报告查询、状态查询、导出、删除
+  - 列表、详情、状态、导出、删除
+- `src/ideago/api/routes/auth.py`
+  - LinuxDo OAuth、profile、quota、token refresh、账号删除
+- `src/ideago/api/routes/billing.py`
+  - Stripe checkout、portal、webhook
+- `src/ideago/api/routes/admin.py`
+  - 管理后台统计、用户、健康检查
 
-### B. 依赖装配层（非常关键）
+### B. 依赖装配与运行态层
 
 - `src/ideago/api/dependencies.py`
-  - `get_orchestrator()`：把 LLM、数据源、管道组件装起来
-  - `reserve_processing_report()`：相同 query 去重并发
-  - `ReportRunState`：SSE 订阅队列与事件历史
+  - `get_cache()`：按配置选择 `FileCache` 或 Supabase 实现
+  - `get_orchestrator()`：装配 LLM、source registry、pipeline 组件
+  - `reserve_processing_report()`：按用户维度做并发去重
+  - `ReportRunState`：SSE 历史、订阅者、终态内存管理
 
-### C. 管道执行层（核心）
+### C. Pipeline 核心层
 
 - `src/ideago/pipeline/langgraph_engine.py`
-  - `LangGraphEngine.run()`：图执行入口
-  - `_build_graph()`：定义节点和跳转关系
+  - `LangGraphEngine.run()`：执行图
+  - `_build_graph()`：定义节点与分支
 - `src/ideago/pipeline/nodes.py`
   - `parse_intent_node`
   - `cache_lookup_node`
@@ -47,78 +63,130 @@
   - `aggregate_node`
   - `assemble_report_node`
   - `persist_report_node`
+- `src/ideago/pipeline/events.py`
+  - `EventType`、`PipelineEvent`
+- `src/ideago/pipeline/graph_state.py`
+  - 节点间共享状态
 
 ### D. 领域能力层
 
 - `src/ideago/pipeline/intent_parser.py`
 - `src/ideago/pipeline/extractor.py`
 - `src/ideago/pipeline/aggregator.py`
-- `src/ideago/llm/chat_model.py`（重试、故障切换、元数据）
-- `src/ideago/sources/*.py`（GitHub/Tavily/HN/AppStore/ProductHunt）
-- `src/ideago/cache/file_cache.py`（报告缓存与状态文件）
+- `src/ideago/pipeline/query_builder.py`
+- `src/ideago/pipeline/pre_filter.py`
+- `src/ideago/llm/chat_model.py`
+  - 模型调用、重试、JSON 恢复、fallback endpoint
+- `src/ideago/sources/*.py`
+  - GitHub、Tavily、Hacker News、App Store、Product Hunt、Reddit
 
-### E. 模型与契约
+### E. 持久化与模型层
 
-- `src/ideago/models/research.py`：核心数据模型
-- `src/ideago/contracts/protocols.py`：`DataSource` / `ProgressCallback`
+- `src/ideago/cache/base.py`
+  - `ReportRepository` 抽象
+- `src/ideago/cache/file_cache.py`
+  - 本地开发用缓存与状态文件
+- `src/ideago/cache/supabase_cache.py`
+  - 生产/多用户场景的持久化实现
+- `src/ideago/models/research.py`
+  - `ResearchReport`、`Competitor`、`Intent` 等核心模型
 
-## 3) 前端模块地图（按用户路径）
+## 3) 前端模块地图
 
-- `frontend/src/App.tsx`：路由入口，主题/语言切换，ErrorBoundary
-- `frontend/src/pages/HomePage.tsx`：提交 query，查看最近报告
-- `frontend/src/pages/ReportPage.tsx`：报告页容器
-- `frontend/src/pages/report/useReportLifecycle.ts`：报告加载与状态机
-- `frontend/src/api/useSSE.ts`：SSE 连接、重连、事件解析
-- `frontend/src/pages/report/ReportContentPane.tsx`：报告渲染主视图
-- `frontend/src/components/VirtualizedCompetitorList.tsx`：大列表虚拟化
+### A. 应用壳层
+
+- `frontend/src/app/App.tsx`
+  - 路由、主题模式、语言切换、ErrorBoundary、AuthProvider
+- `frontend/src/app/main.tsx`
+  - React 挂载入口
+
+### B. 业务 feature 层
+
+- `frontend/src/features/home/HomePage.tsx`
+  - 登录后首页，发起分析
+- `frontend/src/features/reports/ReportPage.tsx`
+  - 报告页容器
+- `frontend/src/features/reports/components/useReportLifecycle.ts`
+  - 报告加载、状态恢复、SSE 协调、重试、取消
+- `frontend/src/features/reports/components/ReportContentPane.tsx`
+  - 报告主视图
+- `frontend/src/features/reports/components/ReportProgressPane.tsx`
+  - 进度态展示
+- `frontend/src/features/reports/components/VirtualizedCompetitorList.tsx`
+  - 大列表虚拟化
+- `frontend/src/features/history/HistoryPage.tsx`
+  - 报告历史
+- `frontend/src/features/profile/ProfilePage.tsx`
+  - 资料和订阅管理
+
+### C. 前端基础设施层
+
+- `frontend/src/lib/api/client.ts`
+  - 统一 API 客户端
+- `frontend/src/lib/api/useSSE.ts`
+  - SSE 连接、解析、重连、401 处理
+- `frontend/src/lib/auth/*`
+  - token、context、受保护路由
+- `frontend/src/lib/types/research.ts`
+  - 前端报告类型
 
 ## 4) 一张图看端到端
 
 ```mermaid
 flowchart LR
-  U[User Query] --> FE1[HomePage submit]
-  FE1 --> API1[POST /api/v1/analyze]
-  API1 --> R1[start_analysis]
-  R1 --> BG[_run_pipeline task]
-  BG --> G1[LangGraphEngine.run]
-  G1 --> N1[parse_intent]
-  N1 --> N2[cache_lookup]
-  N2 -->|miss| N3[fetch_sources]
-  N3 --> N4[extract_map]
-  N4 --> N5[aggregate]
-  N5 --> N6[assemble_report]
-  N6 --> N7[persist_report]
-  N7 --> C1[FileCache JSON]
-  BG --> SSE[GET /reports/{id}/stream]
-  SSE --> FE2[useSSE/useReportLifecycle]
-  FE2 --> FE3[ReportContentPane]
+  U["用户提交 Idea"] --> FE1["HomePage / SearchBox"]
+  FE1 --> API1["POST /api/v1/analyze"]
+  API1 --> A1["start_analysis"]
+  A1 --> A2["quota 校验 + 去重"]
+  A2 --> BG["_run_pipeline"]
+  BG --> G1["LangGraphEngine.run"]
+  G1 --> N1["parse_intent"]
+  N1 --> N2["cache_lookup"]
+  N2 -->|miss| N3["fetch_sources"]
+  N3 --> N4["extract_map"]
+  N4 --> N5["aggregate"]
+  N5 --> N6["assemble_report"]
+  N6 --> N7["persist_report"]
+  N7 --> C1["FileCache / Supabase"]
+  BG --> SSE["GET /reports/{id}/stream"]
+  SSE --> FE2["useSSE"]
+  FE2 --> FE3["useReportLifecycle"]
+  FE3 --> FE4["ReportContentPane / ProgressPane"]
 ```
 
-## 5) 推荐阅读顺序（文件级）
+## 5) 推荐阅读顺序
 
-1. `src/ideago/__main__.py`
-2. `src/ideago/api/app.py`
-3. `src/ideago/api/routes/analyze.py`
-4. `src/ideago/api/dependencies.py`
-5. `src/ideago/pipeline/langgraph_engine.py`
-6. `src/ideago/pipeline/nodes.py`
-7. `src/ideago/pipeline/intent_parser.py` / `extractor.py` / `aggregator.py`
-8. `src/ideago/llm/chat_model.py`
-9. `frontend/src/pages/report/useReportLifecycle.ts`
-10. `frontend/src/api/useSSE.ts`
+1. `ai_docs/AI_TOOLING_STANDARDS.md`
+2. `src/ideago/__main__.py`
+3. `src/ideago/api/app.py`
+4. `src/ideago/api/routes/analyze.py`
+5. `src/ideago/api/dependencies.py`
+6. `src/ideago/pipeline/langgraph_engine.py`
+7. `src/ideago/pipeline/nodes.py`
+8. `src/ideago/pipeline/intent_parser.py`
+9. `src/ideago/pipeline/extractor.py`
+10. `src/ideago/pipeline/aggregator.py`
+11. `frontend/src/app/App.tsx`
+12. `frontend/src/features/reports/components/useReportLifecycle.ts`
+13. `frontend/src/lib/api/useSSE.ts`
 
-## 6) 动手任务（10 分钟）
+## 6) 动手任务
 
-执行以下命令，手工对照上面的地图：
+执行下面这些命令，对照地图找入口：
 
 ```bash
-rg -n "def create_app|start_analysis|_run_pipeline|class LangGraphEngine|async def parse_intent_node" src
-rg -n "export function useReportLifecycle|export function useSSE" frontend/src
+Select-String -Path src/ideago/api/app.py -Pattern "def create_app"
+Select-String -Path src/ideago/api/routes/analyze.py -Pattern "async def start_analysis|async def _run_pipeline|async def _stream_events"
+Select-String -Path src/ideago/api/dependencies.py -Pattern "def get_orchestrator|class ReportRunState|async def reserve_processing_report"
+Select-String -Path frontend/src/app/App.tsx -Pattern "const ReportPage|<Route path=\"/reports/:id\""
+Select-String -Path frontend/src/features/reports/components/useReportLifecycle.ts -Pattern "export function useReportLifecycle"
+Select-String -Path frontend/src/lib/api/useSSE.ts -Pattern "export function useSSE"
 ```
 
 完成标准：
-- 你能口述“一个 query 从前端到报告生成”的 6 个步骤。
+
+- 你能用自己的话讲清楚“分析链路”和“报告展示链路”分别从哪里开始
 
 ---
 
-下一篇：`docs/mentor/01-quickstart-path.md`（20 分钟内跑通并定位关键入口）。
+下一篇：`docs/mentor/01-quickstart-path.md`
