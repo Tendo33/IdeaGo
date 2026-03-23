@@ -1997,6 +1997,28 @@ async def test_get_optional_user_via_supabase_jwks() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_optional_user_via_supabase_jwks_skips_ideago_debug_noise() -> None:
+    token, public_jwk = _build_supabase_jwks_token()
+    request = type("Req", (), {"headers": {"Authorization": f"Bearer {token}"}})()
+    fake_settings = _make_supabase_auth_settings(
+        auth_session_secret="test-secret-test-secret-0123456789"
+    )
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies._fetch_jwks",
+            new=AsyncMock(return_value={"keys": [public_jwk]}),
+        ),
+        patch.object(auth_deps.logger, "debug") as debug_mock,
+    ):
+        user = await auth_deps.get_optional_user(request)
+
+    assert user is not None
+    assert user.id == "supa-user"
+    debug_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_get_optional_user_supabase_jwt_expired_returns_none() -> None:
     token, public_jwk = _build_supabase_jwks_token(
         expires_at=datetime.now(timezone.utc) - timedelta(minutes=1)

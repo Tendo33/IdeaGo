@@ -78,6 +78,17 @@ def _verify_ideago_jwt(token: str, jwt_secret: str) -> dict[str, Any] | None:
     return None
 
 
+def _should_try_ideago_jwt(token: str) -> bool:
+    """Quickly identify whether a token looks like an IdeaGo-issued HS256 JWT."""
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.InvalidTokenError:
+        return True
+
+    alg = header.get("alg")
+    return isinstance(alg, str) and alg == "HS256"
+
+
 async def _fetch_jwks() -> dict[str, Any]:
     """Fetch the current Supabase JWKS document."""
     settings = get_settings()
@@ -264,7 +275,7 @@ def extract_token_subject(token: str) -> str:
     """Best-effort extraction of user id from a bearer token for rate limiting."""
     settings = get_settings()
 
-    if settings.auth_session_secret:
+    if settings.auth_session_secret and _should_try_ideago_jwt(token):
         payload = _verify_ideago_jwt(token, settings.auth_session_secret)
         if payload is not None:
             sub = payload.get("sub", "")
@@ -294,7 +305,7 @@ async def get_optional_user(request: Request) -> AuthUser | None:
 
     settings = get_settings()
 
-    if settings.auth_session_secret:
+    if settings.auth_session_secret and _should_try_ideago_jwt(token):
         payload = _verify_ideago_jwt(token, settings.auth_session_secret)
         if payload is not None:
             return _extract_user_from_ideago_payload(payload)
