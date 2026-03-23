@@ -120,10 +120,10 @@ export function ReportPage() {
           <Alert variant="warning" className="mb-6 items-center">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-warning">
-                {t('quota.exceeded', 'You have reached your monthly analysis limit.')}
+                {t('quota.exceeded', 'You have reached your daily analysis limit.')}
               </p>
               <p className="text-xs text-warning/80 mt-1">
-                {t('quota.upgradeHint', 'More analyses per month will return in a later release.')}
+                {t('quota.upgradeHint', 'You can start another analysis after your quota resets tomorrow.')}
               </p>
             </div>
           </Alert>

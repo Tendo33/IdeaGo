@@ -415,7 +415,7 @@ describe('ReportPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/monthly analysis limit/i)).toBeInTheDocument()
+      expect(screen.getByText(/daily analysis limit/i)).toBeInTheDocument()
     })
     expect(screen.queryByRole('link', { name: /upgrade/i })).not.toBeInTheDocument()
   })

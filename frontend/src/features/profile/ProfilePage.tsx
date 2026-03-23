@@ -161,24 +161,24 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Plan & usage card */}
+      {/* Daily usage card */}
       <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
         <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5" />
-          {t('profile.planAndUsage', 'Plan & Usage')}
+          {t('profile.planAndUsage', 'Daily Usage')}
         </h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="border-2 border-border p-4">
             <p className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-1">
-              {t('profile.currentPlan', 'Plan')}
+              {t('profile.currentPlan', 'Quota type')}
             </p>
             <p className="text-lg font-black uppercase text-primary">
-              {quota?.plan ?? 'free'}
+              {t('profile.dailyQuotaLabel', 'Daily limit')}
             </p>
           </div>
           <div className="border-2 border-border p-4">
             <p className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-1">
-              {t('profile.usageThisMonth', 'Used this month')}
+              {t('profile.usageThisMonth', 'Used today')}
             </p>
             <p className="text-lg font-black">
               {quota?.usage_count ?? 0} / {quota?.plan_limit ?? '–'}
@@ -206,7 +206,7 @@ export function ProfilePage() {
             </div>
             {quota.reset_at && (
               <p className="text-xs text-muted-foreground mt-1.5">
-                {t('profile.resetsOn', 'Resets on')} {new Date(quota.reset_at).toLocaleDateString()}
+                {t('profile.resetsOn', 'Resets on')} {new Date(quota.reset_at).toLocaleString()}
               </p>
             )}
           </div>

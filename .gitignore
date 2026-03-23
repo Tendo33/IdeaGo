@@ -214,5 +214,5 @@ project_document/
 temp/
 temporary/
 scratch/
-
+.env.prod
 .worktrees/

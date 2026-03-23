@@ -224,12 +224,7 @@ Notes:
 
 - Do **not** set `APP_API_KEY` (it is no longer supported).
 - Keep only real provider secrets in `.env` (e.g. `OPENAI_API_KEY`, `TAVILY_API_KEY`).
-- `docker-compose.yml` uses a prebuilt image by default. For local image build, use:
-
-```bash
-docker compose build --no-cache
-docker compose up -d
-```
+- `docker-compose.yml` builds the local image from [`Dockerfile`](Dockerfile) by default.
 
 Open: [http://localhost:8000](http://localhost:8000)
 

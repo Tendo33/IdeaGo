@@ -15,6 +15,8 @@ from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
+_DAILY_ANALYSIS_LIMIT = 5
+_DAILY_PLAN_NAME = "daily"
 
 _http_client: httpx.AsyncClient | None = None
 
@@ -71,7 +73,12 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
     """
     if not _is_configured():
         logger.debug("Supabase not configured; skipping quota check")
-        return QuotaResult(allowed=True, usage_count=0, plan_limit=999, plan="dev")
+        return QuotaResult(
+            allowed=True,
+            usage_count=0,
+            plan_limit=_DAILY_ANALYSIS_LIMIT,
+            plan=_DAILY_PLAN_NAME,
+        )
 
     settings = get_settings()
     client = _get_client()
@@ -112,7 +119,12 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
 async def get_quota_info(user_id: str) -> dict:
     """Read-only quota info for display purposes."""
     if not _is_configured():
-        return {"usage_count": 0, "plan_limit": 999, "plan": "dev", "reset_at": ""}
+        return {
+            "usage_count": 0,
+            "plan_limit": _DAILY_ANALYSIS_LIMIT,
+            "plan": _DAILY_PLAN_NAME,
+            "reset_at": "",
+        }
 
     settings = get_settings()
     client = _get_client()

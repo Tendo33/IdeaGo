@@ -1311,17 +1311,17 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
     quota_denied = type(
         "Quota",
         (),
-        {"allowed": False, "plan_limit": 10, "plan": "free", "usage_count": 10},
+        {"allowed": False, "plan_limit": 5, "plan": "daily", "usage_count": 5},
     )()
     quota_warn = type(
         "Quota",
         (),
-        {"allowed": True, "plan_limit": 10, "plan": "free", "usage_count": 8},
+        {"allowed": True, "plan_limit": 5, "plan": "daily", "usage_count": 4},
     )()
     quota_low = type(
         "Quota",
         (),
-        {"allowed": True, "plan_limit": 10, "plan": "free", "usage_count": 1},
+        {"allowed": True, "plan_limit": 5, "plan": "daily", "usage_count": 1},
     )()
 
     with (
@@ -1333,6 +1333,7 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
     ):
         await analyze_route.start_analysis(request, user)
     assert quota_exc.value.status_code == 429
+    assert "5 analyses per day" in quota_exc.value.detail["message"]
 
     with (
         patch(
@@ -2672,7 +2673,8 @@ async def test_supabase_admin_quota_and_profile_fallback_paths() -> None:
         updated = await supabase_admin.update_profile("uid", display_name="n", bio="b")
 
     assert quota.allowed is True
-    assert info["plan"] == "dev"
+    assert info["plan"] == "daily"
+    assert info["plan_limit"] == 5
     assert profile["display_name"] == ""
     assert updated["display_name"] == "n"
 
@@ -2695,8 +2697,8 @@ async def test_supabase_admin_quota_success_and_errors() -> None:
                 payload={
                     "allowed": True,
                     "usage_count": 1,
-                    "plan_limit": 10,
-                    "plan": "free",
+                    "plan_limit": 5,
+                    "plan": "daily",
                 },
             ),
             _AdminFakeResponse(500, text="boom"),
@@ -2713,7 +2715,7 @@ async def test_supabase_admin_quota_success_and_errors() -> None:
         rpc_fail = await supabase_admin.check_and_increment_quota("uid")
         network_fail = await supabase_admin.check_and_increment_quota("uid")
 
-    assert ok.allowed is True and ok.plan_limit == 10
+    assert ok.allowed is True and ok.plan_limit == 5
     assert rpc_fail.error == "quota_check_failed"
     assert network_fail.error == "quota_check_error"
 
@@ -2732,7 +2734,13 @@ async def test_supabase_admin_profile_and_quota_info_paths() -> None:
     fake_client.post = AsyncMock(
         side_effect=[
             _AdminFakeResponse(
-                200, payload={"usage_count": 3, "plan_limit": 10, "plan": "free"}
+                200,
+                payload={
+                    "usage_count": 3,
+                    "plan_limit": 5,
+                    "plan": "daily",
+                    "reset_at": "2026-03-24T00:00:00+00:00",
+                },
             ),
             _AdminFakeResponse(204),
             _AdminFakeResponse(500, text="fail"),
@@ -2793,6 +2801,9 @@ async def test_supabase_admin_profile_and_quota_info_paths() -> None:
         )
 
     assert quota["usage_count"] == 3
+    assert quota["plan_limit"] == 5
+    assert quota["plan"] == "daily"
+    assert quota["reset_at"] == "2026-03-24T00:00:00+00:00"
     assert upsert_ok is True and upsert_fail is False
     assert profile_ok["display_name"] == "Alice"
     assert profile_fail["error"] == "profile_fetch_failed"

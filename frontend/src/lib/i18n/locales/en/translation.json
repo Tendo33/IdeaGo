@@ -58,9 +58,10 @@
     "title": "Profile",
     "saved": "Profile updated successfully",
     "memberSince": "Member since",
-    "planAndUsage": "Plan & Usage",
-    "currentPlan": "Plan",
-    "usageThisMonth": "Used this month",
+    "planAndUsage": "Daily Usage",
+    "currentPlan": "Quota type",
+    "dailyQuotaLabel": "Daily limit",
+    "usageThisMonth": "Used today",
     "quotaUsage": "Quota usage",
     "resetsOn": "Resets on",
     "editProfile": "Edit Profile",
@@ -395,9 +396,9 @@
     "proFeature6": "Priority support"
   },
   "quota": {
-    "exceeded": "You have reached your monthly analysis limit.",
-    "upgradeHint": "More analyses per month will return in a later release.",
-    "upgradeCta": "Upgrade"
+    "exceeded": "You have reached your daily analysis limit.",
+    "upgradeHint": "You can start another analysis after your quota resets tomorrow.",
+    "upgradeCta": "Tomorrow"
   },
   "welcome": {
     "title": "Welcome to IdeaGo!",
@@ -410,7 +411,7 @@
     "rateLimited": "Too many requests. Please wait a moment and try again.",
     "networkError": "Network error. Check your connection and retry.",
     "sessionExpired": "Session expired. Please sign in again.",
-    "quotaExceeded": "Monthly analysis limit reached.",
+    "quotaExceeded": "Daily analysis limit reached.",
     "unknown": "Something went wrong. Please try again."
   },
   "account": {

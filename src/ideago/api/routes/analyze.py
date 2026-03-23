@@ -153,7 +153,7 @@ async def start_analysis(
         raise AppError(
             429,
             ErrorCode.QUOTA_EXCEEDED,
-            f"Monthly limit reached ({quota.plan_limit} analyses on {quota.plan} plan)",
+            f"Daily limit reached ({quota.plan_limit} analyses per day)",
         )
 
     query = request.query.strip()

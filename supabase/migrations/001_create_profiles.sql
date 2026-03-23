@@ -8,7 +8,7 @@ create table if not exists public.profiles (
   bio text not null default '',
   plan text not null default 'free' check (plan in ('free', 'pro', 'enterprise')),
   usage_count int not null default 0,
-  usage_reset_at timestamptz not null default date_trunc('month', now() at time zone 'utc') + interval '1 month',
+  usage_reset_at timestamptz not null default date_trunc('day', now() at time zone 'utc') + interval '1 day',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
