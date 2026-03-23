@@ -106,8 +106,7 @@ export function ReportPage() {
     : false
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      <div className="app-shell max-w-5xl">
+    <div className="app-shell max-w-5xl pt-8 pb-16">
         <ReportProgressPane
           show={showProgress}
           events={events}
@@ -185,6 +184,5 @@ export function ReportPage() {
           </div>
         )}
       </div>
-    </div>
   )
 }

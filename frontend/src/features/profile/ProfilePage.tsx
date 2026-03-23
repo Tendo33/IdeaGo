@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -102,7 +102,7 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
+      <div className="app-shell pt-16 flex items-center justify-center">
         <div className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
           <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin" />
           <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
@@ -123,21 +123,24 @@ export function ProfilePage() {
     : 0
 
   return (
-    <div className="app-shell px-4 max-w-2xl">
+    <div className="app-shell max-w-3xl pt-8 pb-16">
       <Link
         to="/"
-        className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-8"
+        className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8 bg-card" })}
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-4 h-4 mr-2" />
         {t('nav.home', 'Home')}
       </Link>
 
-      <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-8">
-        {t('profile.title', 'Profile')}
-      </h1>
+      <div className="border-4 border-border bg-card p-6 md:p-10 mb-8 shadow-lg flex items-center justify-between">
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter">
+          {t('profile.title', 'Profile')}
+        </h1>
+        <div className="hidden sm:block w-16 h-16 bg-primary border-4 border-border shadow-sm transform rotate-12"></div>
+      </div>
 
       {/* Avatar + info header */}
-        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
+        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
           <div className="flex items-center gap-6">
           {profile?.avatar_url && !imgError ? (
             <img
@@ -169,7 +172,7 @@ export function ProfilePage() {
       </div>
 
       {/* Plan & usage card */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
+      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
         <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5" />
           {t('profile.planAndUsage', 'Plan & Usage')}
@@ -222,7 +225,7 @@ export function ProfilePage() {
 
       {/* Subscription management */}
       {subscription?.stripe_configured && (
-        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md mb-8">
+        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
           <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
             <CreditCard className="w-5 h-5" />
             {t('profile.subscription', 'Subscription')}
@@ -282,7 +285,7 @@ export function ProfilePage() {
       )}
 
       {/* Edit form */}
-      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md">
+      <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">
         <h3 className="text-lg font-black uppercase tracking-wider mb-6 flex items-center gap-2">
           <User className="w-5 h-5" />
           {t('profile.editProfile', 'Edit Profile')}
@@ -360,7 +363,7 @@ export function ProfilePage() {
       </div>
 
       {/* Danger zone */}
-      <div className="border-4 border-destructive bg-destructive/5 p-6 md:p-8 shadow-md shadow-destructive mt-8">
+      <div className="border-4 border-destructive bg-destructive/5 p-6 md:p-8 shadow-md shadow-destructive mt-8 hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg hover:shadow-destructive transition-all duration-300">
         <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2 text-destructive">
           <AlertTriangle className="w-5 h-5" />
           {t('profile.dangerZone', 'Danger Zone')}

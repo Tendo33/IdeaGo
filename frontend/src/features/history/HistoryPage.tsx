@@ -176,8 +176,8 @@ export function HistoryPage() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen px-4 pb-16 pt-12 bg-background text-foreground">
-      <div className="app-shell max-w-5xl">
+    <>
+      <div className="app-shell max-w-5xl pt-8 pb-16">
         <Link
           to="/"
           className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8" })}
@@ -320,6 +320,6 @@ export function HistoryPage() {
           </div>
         </div>
       </dialog>
-    </div>
+    </>
   )
 }

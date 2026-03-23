@@ -332,7 +332,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 1. 进入 **Products → + Add Product**
 2. 产品名: `IdeaGo Pro`
-3. 定价: $19/month（或你想要的价格），Recurring
+3. 定价: $9/month（或你想要的价格），Recurring
 4. 保存后，记录 **Price ID**（格式 `price_xxx`）
 
 ### 5.3 获取密钥

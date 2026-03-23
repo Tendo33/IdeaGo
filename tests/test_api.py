@@ -11,13 +11,13 @@ import runpy
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
@@ -30,6 +30,7 @@ from ideago.api.routes import analyze as analyze_route
 from ideago.api.routes import auth as auth_route
 from ideago.api.routes import billing as billing_route
 from ideago.api.routes import health as health_route
+from ideago.api.routes import reports as reports_route
 from ideago.auth import dependencies as auth_deps
 from ideago.auth import supabase_admin
 from ideago.billing import stripe_service
@@ -484,7 +485,7 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
             "linuxdo_client_id": "ld-client",
             "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
             "linuxdo_scope": "openid profile email",
-            "auth_session_secret": "state-secret",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
             "frontend_app_url": "https://ideago.simonsun.cc",
         },
     )()
@@ -508,7 +509,7 @@ def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None
         (),
         {
             "frontend_app_url": "https://ideago.simonsun.cc",
-            "auth_session_secret": "state-secret",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
         },
     )()
     with (
@@ -556,14 +557,14 @@ def test_auth_me_accepts_backend_session_jwt() -> None:
             "email": "linuxdo@example.com",
             "aud": "ideago-auth",
         },
-        "session-secret",
+        "session-secret-session-secret-012345",
         algorithm="HS256",
     )
     fake_settings = type(
         "Settings",
         (),
         {
-            "auth_session_secret": "session-secret",
+            "auth_session_secret": "session-secret-session-secret-012345",
             "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
@@ -1570,6 +1571,202 @@ def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
             assert "User-agent: *" in response.text
 
 
+@pytest.mark.asyncio
+async def test_periodic_cleanup_success_and_error_paths() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "rate_limit_analyze_window_seconds": 10,
+            "rate_limit_reports_window_seconds": 20,
+        },
+    )()
+    cache = AsyncMock()
+    cache.cleanup_expired = AsyncMock(return_value=2)
+    app_module._rate_limit_store["stale"] = [1.0]
+    app_module._rate_limit_store["fresh"] = [99.0]
+
+    with (
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.app.time.monotonic", return_value=100.0),
+        patch(
+            "ideago.api.app.asyncio.sleep",
+            new=AsyncMock(side_effect=[None, asyncio.CancelledError()]),
+        ),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await app_module._periodic_cleanup()
+
+    cache.cleanup_expired.assert_awaited_once()
+    assert "stale" not in app_module._rate_limit_store
+    assert "fresh" in app_module._rate_limit_store
+
+    error_cache = AsyncMock()
+    error_cache.cleanup_expired = AsyncMock(side_effect=RuntimeError("boom"))
+    with (
+        patch("ideago.api.dependencies.get_cache", return_value=error_cache),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.app.asyncio.sleep",
+            new=AsyncMock(side_effect=[None, asyncio.CancelledError()]),
+        ),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await app_module._periodic_cleanup()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_shutdown_closes_runtime_state_and_sources() -> None:
+    app_module._rate_limit_store["busy"] = [time.monotonic()]
+    fake_settings = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret="test-session-secret-0123456789abcdef",
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
+
+    class _Cache:
+        def __init__(self) -> None:
+            self.close = AsyncMock()
+
+    class _Source:
+        def __init__(self, platform: str, fail: bool = False) -> None:
+            self.platform = type("Platform", (), {"value": platform})()
+            self.close = AsyncMock(side_effect=RuntimeError("boom") if fail else None)
+
+    fake_cache = _Cache()
+    ok_source = _Source("github")
+    bad_source = _Source("reddit", fail=True)
+    fake_orchestrator = type(
+        "Orchestrator",
+        (),
+        {"get_all_sources": lambda self: [ok_source, bad_source, object()]},
+    )()
+
+    async def fake_periodic_cleanup() -> None:
+        await asyncio.sleep(3600)
+
+    with (
+        patch("ideago.api.app._periodic_cleanup", new=fake_periodic_cleanup),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.app._init_sentry"),
+        patch(
+            "ideago.api.dependencies.shutdown_runtime_state",
+            new=AsyncMock(return_value=None),
+        ) as shutdown_state,
+        patch(
+            "ideago.auth.dependencies.close_auth_http_client",
+            new=AsyncMock(return_value=None),
+        ) as close_auth_http,
+        patch(
+            "ideago.auth.supabase_admin.close_supabase_admin_client",
+            new=AsyncMock(return_value=None),
+        ) as close_admin_http,
+        patch(
+            "ideago.observability.audit.close_audit_client",
+            new=AsyncMock(return_value=None),
+        ) as close_audit_client,
+        patch.object(deps, "_cache", fake_cache),
+        patch.object(deps, "_orchestrator", fake_orchestrator),
+    ):
+        async with app_module._lifespan(create_app()):
+            assert app_module._cleanup_task is not None
+
+    shutdown_state.assert_awaited_once()
+    close_auth_http.assert_awaited_once()
+    close_admin_http.assert_awaited_once()
+    close_audit_client.assert_awaited_once()
+    fake_cache.close.assert_awaited_once()
+    ok_source.close.assert_awaited_once()
+    bad_source.close.assert_awaited_once()
+    assert app_module._rate_limit_store == {}
+
+
+def test_sentry_and_exception_handlers_cover_remaining_branches(tmp_path) -> None:
+    fake_sentry = type("SentryModule", (), {"init": Mock()})()
+    sentry_settings = type(
+        "Settings",
+        (),
+        {
+            "sentry_dsn": "https://dsn.example.com/1",
+            "sentry_traces_sample_rate": 0.5,
+            "environment": "production",
+        },
+    )()
+
+    with patch.dict("sys.modules", {"sentry_sdk": fake_sentry}):
+        app_module._init_sentry(sentry_settings)
+    fake_sentry.init.assert_called_once()
+
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    index_path = dist_dir / "index.html"
+    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+    fake_settings = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret="test-session-secret-0123456789abcdef",
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
+
+    with (
+        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
+        patch.object(app_module, "_FRONTEND_INDEX", index_path),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.app._init_sentry"),
+    ):
+        app = create_app()
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "client": ("127.0.0.1", 1234),
+        "scheme": "http",
+    }
+    starlette_request = Request(scope)
+    http_handler = app.exception_handlers[HTTPException]
+    validation_handler = app.exception_handlers[app_module.RequestValidationError]
+
+    app_error_response = asyncio.run(
+        http_handler(
+            starlette_request, AppError(404, app_module.ErrorCode.NOT_FOUND, "x")
+        )
+    )
+    assert app_error_response.status_code == 404
+
+    internal_error_response = asyncio.run(
+        http_handler(starlette_request, HTTPException(status_code=418, detail={"x": 1}))
+    )
+    assert internal_error_response.status_code == 418
+    assert json.loads(internal_error_response.body)["error"]["code"] == "INTERNAL_ERROR"
+
+    class _EmptyValidationError:
+        def errors(self) -> list[dict[str, object]]:
+            return []
+
+    validation_response = asyncio.run(
+        validation_handler(starlette_request, _EmptyValidationError())
+    )
+    assert validation_response.status_code == 422
+    assert "Request validation failed" in validation_response.body.decode()
+
+    with TestClient(app) as local_client:
+        api_fallback = local_client.get("/api/ghost")
+        missing_asset = local_client.get("/missing.js")
+
+    assert api_fallback.status_code == 404
+    assert missing_asset.status_code == 404
+
+
 class _AdminFakeResponse:
     def __init__(self, status_code: int, *, payload=None, text: str = "") -> None:
         self.status_code = status_code
@@ -1649,13 +1846,16 @@ def _make_supabase_auth_settings(**overrides: object) -> object:
 def test_extract_token_subject_with_ideago_jwt() -> None:
     token = jwt.encode(
         {"sub": "user-123", "aud": "ideago-auth"},
-        "test-secret",
+        "test-secret-test-secret-0123456789",
         algorithm="HS256",
     )
     fake_settings = type(
         "Settings",
         (),
-        {"auth_session_secret": "test-secret", "supabase_jwt_secret": ""},
+        {
+            "auth_session_secret": "test-secret-test-secret-0123456789",
+            "supabase_jwt_secret": "",
+        },
     )()
 
     with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
@@ -1669,12 +1869,18 @@ def test_verify_ideago_jwt_invalid_and_extract_helpers() -> None:
             "aud": "ideago-auth",
             "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
         },
-        "test-secret",
+        "test-secret-test-secret-0123456789",
         algorithm="HS256",
     )
 
-    assert auth_deps._verify_ideago_jwt("not-a-jwt", "test-secret") is None
-    assert auth_deps._verify_ideago_jwt(expired, "test-secret") is None
+    assert (
+        auth_deps._verify_ideago_jwt("not-a-jwt", "test-secret-test-secret-0123456789")
+        is None
+    )
+    assert (
+        auth_deps._verify_ideago_jwt(expired, "test-secret-test-secret-0123456789")
+        is None
+    )
     assert auth_deps._extract_user_from_jwt_payload({}) is None
     assert auth_deps._extract_user_from_api_response({}) is None
     assert auth_deps._extract_user_from_ideago_payload({}) is None
@@ -1960,7 +2166,7 @@ async def test_get_jwks_cache_and_signing_key_error_paths() -> None:
             "aud": "authenticated",
             "iss": "https://example.supabase.co/auth/v1",
         },
-        "secret",
+        "secret-secret-secret-secret-012345",
         algorithm="HS256",
         headers={"kid": "kid-1"},
     )
@@ -2607,6 +2813,13 @@ def test_supabase_admin_headers_and_client_lifecycle() -> None:
     assert headers["apikey"] == "srk"
     assert headers["Authorization"] == "Bearer srk"
 
+    first_client = supabase_admin._get_client()
+    second_client = supabase_admin._get_client()
+    assert first_client is second_client
+
+    asyncio.run(supabase_admin.close_supabase_admin_client())
+    assert supabase_admin._http_client is None
+
 
 @pytest.mark.asyncio
 async def test_supabase_admin_list_profiles_quota_update_and_delete_user_data() -> None:
@@ -2677,6 +2890,367 @@ async def test_supabase_admin_delete_user_data_not_configured() -> None:
     with patch("ideago.auth.supabase_admin._is_configured", return_value=False):
         result = await supabase_admin.delete_user_data("uid")
     assert result["error"] == "supabase_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_run_state_callback_and_stream_event_edge_paths(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    callback = analyze_route._RunStateCallback("callback-report")
+    progress_event = PipelineEvent(
+        type=EventType.SOURCE_STARTED,
+        stage="search",
+        message="Searching",
+        data={"step": 1},
+    )
+
+    await callback.on_event(progress_event)
+    callback_state = deps.get_report_run("callback-report")
+    assert callback_state is not None
+    assert callback_state.history[-1].type == EventType.SOURCE_STARTED
+
+    await cache.put_status(
+        "failed-report",
+        "failed",
+        "query",
+        error_code="PIPELINE_FAILURE",
+        message="failed",
+        user_id="owner-1",
+    )
+    await cache.put_status(
+        "processing-report", "processing", "query", user_id="owner-1"
+    )
+
+    with patch("ideago.api.routes.analyze.get_cache", return_value=cache):
+        failed_events = [
+            event async for event in analyze_route._stream_events("failed-report")
+        ]
+        assert failed_events[0]["event"] == EventType.ERROR.value
+
+        with (
+            patch.object(analyze_route, "_STATUS_ONLY_MAX_PINGS", 1),
+            patch(
+                "ideago.api.routes.analyze.asyncio.sleep",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
+            stale_events = [
+                event
+                async for event in analyze_route._stream_events("processing-report")
+            ]
+
+    assert stale_events[0]["event"] == "ping"
+    assert stale_events[1]["event"] == EventType.ERROR.value
+    assert "PIPELINE_PROCESSING_STALE" in stale_events[1]["data"]
+
+
+@pytest.mark.asyncio
+async def test_stream_events_live_queue_and_cancel_not_found_branch() -> None:
+    live_report_id = "live-stream-report"
+    run_state = deps.get_or_create_report_run(live_report_id)
+    await run_state.publish(
+        PipelineEvent(
+            type=EventType.SOURCE_STARTED,
+            stage="search",
+            message="history",
+            data={"report_id": live_report_id},
+        )
+    )
+
+    original_wait_for = asyncio.wait_for
+    timeout_state = {"count": 0}
+
+    async def fake_wait_for(awaitable, timeout):  # type: ignore[no-untyped-def]
+        if timeout_state["count"] == 0:
+            timeout_state["count"] += 1
+            awaitable.close()
+            raise asyncio.TimeoutError
+        return await original_wait_for(awaitable, timeout)
+
+    with (
+        patch("ideago.api.routes.analyze.asyncio.wait_for", side_effect=fake_wait_for),
+        patch("ideago.api.routes.analyze.cleanup_report_runs") as cleanup_runs,
+    ):
+        generator = analyze_route._stream_events(live_report_id)
+        history_item = await anext(generator)
+        ping_item = await anext(generator)
+        await run_state.publish(
+            PipelineEvent(
+                type=EventType.CANCELLED,
+                stage="pipeline",
+                message="done",
+                data={"report_id": live_report_id},
+            )
+        )
+        terminal_item = await anext(generator)
+        with pytest.raises(StopAsyncIteration):
+            await anext(generator)
+
+    assert history_item["event"] == EventType.SOURCE_STARTED.value
+    assert ping_item["event"] == "ping"
+    assert terminal_item["event"] == EventType.CANCELLED.value
+    cleanup_runs.assert_called()
+
+    user = analyze_route.AuthUser(id="owner-1", email="owner@example.com")
+    with (
+        patch("ideago.api.routes.analyze._assert_owner_or_deny", new=AsyncMock()),
+        patch(
+            "ideago.api.routes.analyze.get_pipeline_task_for_report",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "ideago.api.routes.analyze.is_processing_report",
+            new=AsyncMock(return_value=False),
+        ),
+        pytest.raises(AppError) as not_found,
+    ):
+        await analyze_route.cancel_analysis("missing-report", user=user)
+
+    assert not_found.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_supabase_admin_remaining_edge_paths() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(500, text="rpc fail"),
+            RuntimeError("quota network"),
+            RuntimeError("profile upsert"),
+        ]
+    )
+    fake_client.get = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(200, payload=[]),
+            _AdminFakeResponse(200, payload={"not": "a-list"}),
+        ]
+    )
+    fake_client.patch = AsyncMock(
+        side_effect=[
+            _AdminFakeResponse(200, payload=[]),
+            _AdminFakeResponse(200, payload=[]),
+        ]
+    )
+    fake_client.delete = AsyncMock(
+        side_effect=[
+            RuntimeError("reports boom"),
+            _AdminFakeResponse(204),
+            _AdminFakeResponse(204),
+            RuntimeError("profiles boom"),
+            _AdminFakeResponse(204),
+            _AdminFakeResponse(204),
+            _AdminFakeResponse(204),
+            _AdminFakeResponse(500, text="profiles fail"),
+        ]
+    )
+
+    with patch("ideago.auth.supabase_admin._is_configured", return_value=False):
+        not_configured = await supabase_admin.set_user_quota("u1", plan_limit=1)
+    assert not_configured["error"] == "supabase_not_configured"
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+    ):
+        quota_rpc_fail = await supabase_admin.get_quota_info("uid")
+        quota_network_fail = await supabase_admin.get_quota_info("uid")
+        upsert_network_fail = await supabase_admin.ensure_profile_exists("uid")
+        profile_missing = await supabase_admin.get_profile("uid")
+        listed_non_list = await supabase_admin.list_profiles()
+        update_missing = await supabase_admin.update_profile(
+            "uid", display_name="n", bio="b"
+        )
+        quota_user_missing = await supabase_admin.set_user_quota("uid", usage_count=3)
+        partial_exception = await supabase_admin.delete_user_data("uid-ex")
+        partial_status = await supabase_admin.delete_user_data("uid-status")
+
+    assert quota_rpc_fail["error"] == "rpc_failed"
+    assert quota_network_fail["error"] == "network_error"
+    assert upsert_network_fail is False
+    assert profile_missing["error"] == "profile_not_found"
+    assert listed_non_list == []
+    assert update_missing["error"] == "profile_not_found"
+    assert quota_user_missing["error"] == "user_not_found"
+    assert partial_exception["details"] == ["reports: exception", "profiles: exception"]
+    assert partial_status["details"] == ["profiles: 500"]
+
+
+@pytest.mark.asyncio
+async def test_auth_route_remaining_error_branches() -> None:
+    request = type(
+        "Req",
+        (),
+        {
+            "base_url": "https://api.example.com/",
+            "client": type("Client", (), {"host": "127.0.0.1"})(),
+            "url_for": lambda self, name: (
+                "https://api.example.com/api/v1/auth/linuxdo/callback"
+            ),
+            "headers": {},
+        },
+    )()
+
+    assert auth_route._is_safe_redirect("https:///callback") is False
+
+    no_secret_settings = type(
+        "Settings",
+        (),
+        {
+            "frontend_app_url": "https://app.example.com",
+            "auth_session_secret": "",
+            "linuxdo_client_id": "",
+            "linuxdo_client_secret": "",
+            "auth_session_expire_hours": 12,
+        },
+    )()
+    with patch("ideago.api.routes.auth.get_settings", return_value=no_secret_settings):
+        with pytest.raises(HTTPException) as parse_secret_missing:
+            auth_route._parse_state_token("bad")
+        with pytest.raises(HTTPException) as exchange_not_configured:
+            await auth_route._exchange_linuxdo_code(
+                code="x",
+                redirect_uri="https://api.example.com/callback",
+            )
+        with pytest.raises(HTTPException) as linuxdo_start_not_configured:
+            await auth_route.linuxdo_start(request, redirect_to=None)
+        with pytest.raises(HTTPException) as refresh_not_configured:
+            await auth_route.refresh_token(request)
+
+    assert parse_secret_missing.value.status_code == 503
+    assert exchange_not_configured.value.status_code == 503
+    assert linuxdo_start_not_configured.value.status_code == 503
+    assert refresh_not_configured.value.status_code == 503
+
+    good_settings = type(
+        "Settings",
+        (),
+        {
+            "frontend_app_url": "https://app.example.com",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
+            "linuxdo_client_id": "ld-client",
+            "linuxdo_client_secret": "ld-secret",
+            "linuxdo_scope": "openid profile email",
+            "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
+            "auth_session_expire_hours": 12,
+        },
+    )()
+    with patch("ideago.api.routes.auth.get_settings", return_value=good_settings):
+        with pytest.raises(HTTPException) as invalid_state:
+            auth_route._parse_state_token("not-a-jwt")
+        with pytest.raises(HTTPException) as invalid_redirect:
+            await auth_route.linuxdo_start(
+                request, redirect_to="ftp://evil.example.com"
+            )
+    assert invalid_state.value.status_code == 400
+    assert invalid_redirect.value.status_code == 400
+
+    state = auth_route._build_state_token(
+        redirect_to="https://app.example.com/auth/callback"
+    )
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            side_effect=HTTPException(status_code=400, detail="bad state"),
+        ),
+    ):
+        bad_state_redirect = await auth_route.linuxdo_callback(
+            request, code="ok", state=state
+        )
+    assert "bad+state" in bad_state_redirect.headers["location"]
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            return_value={"redirect_to": "https://evil.example.com/callback"},
+        ),
+    ):
+        provider_error_redirect = await auth_route.linuxdo_callback(
+            request,
+            code="ok",
+            state=state,
+            error="access_denied",
+            error_description="provider denied",
+        )
+    assert provider_error_redirect.headers["location"].startswith(
+        "https://app.example.com/auth/callback?"
+    )
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            return_value={"redirect_to": "https://app.example.com/auth/callback"},
+        ),
+        patch(
+            "ideago.api.routes.auth._exchange_linuxdo_code",
+            new=AsyncMock(side_effect=HTTPException(status_code=400, detail="boom")),
+        ),
+    ):
+        exchange_error = await auth_route.linuxdo_callback(
+            request, code="ok", state=state, error=None, error_description=None
+        )
+    assert "boom" in exchange_error.headers["location"]
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            return_value={"redirect_to": "https://app.example.com/auth/callback"},
+        ),
+        patch(
+            "ideago.api.routes.auth._exchange_linuxdo_code",
+            new=AsyncMock(side_effect=RuntimeError("unexpected")),
+        ),
+    ):
+        unexpected_error = await auth_route.linuxdo_callback(
+            request, code="ok", state=state, error=None, error_description=None
+        )
+    assert "Authentication+failed" in unexpected_error.headers["location"]
+
+    bad_payload = jwt.encode(
+        {"email": "u@example.com", "aud": "ideago-auth"},
+        good_settings.auth_session_secret,
+        algorithm="HS256",
+    )
+    bad_refresh_request = type(
+        "Req",
+        (),
+        {"headers": {"Authorization": f"Bearer {bad_payload}"}},
+    )()
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        pytest.raises(HTTPException) as invalid_payload,
+    ):
+        await auth_route.refresh_token(bad_refresh_request)
+    assert invalid_payload.value.status_code == 401
+
+    user = auth_route.AuthUser(id="uid", email="u@example.com")
+    with (
+        patch(
+            "ideago.api.routes.auth.ensure_profile_exists",
+            new=AsyncMock(return_value=True),
+        ),
+        patch(
+            "ideago.api.routes.auth.update_profile",
+            new=AsyncMock(return_value={"error": "profile_update_failed"}),
+        ),
+        pytest.raises(HTTPException) as profile_update_error,
+    ):
+        await auth_route.update_my_profile(
+            auth_route.ProfileUpdatePayload(display_name="n", bio="b"),
+            user,
+        )
+    assert profile_update_error.value.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -2808,6 +3382,145 @@ async def test_billing_validate_redirect_and_service_paths() -> None:
         assert stripe_service.is_configured() is False
         with pytest.raises(RuntimeError):
             await stripe_service.get_or_create_customer("uid", "u@example.com")
+
+
+@pytest.mark.asyncio
+async def test_billing_and_reports_remaining_success_and_error_branches(
+    tmp_path,
+) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "frontend_app_url": "https://app.example.com",
+            "stripe_pro_price_id": "price_123",
+        },
+    )()
+    user = billing_route.AuthUser(id="uid", email="u@example.com")
+
+    with (
+        patch("ideago.api.routes.billing.is_configured", return_value=True),
+        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.billing.get_or_create_customer",
+            new=AsyncMock(return_value="cus_123"),
+        ),
+        patch(
+            "ideago.api.routes.billing.create_checkout_session",
+            new=AsyncMock(return_value="https://checkout.example.com"),
+        ),
+    ):
+        checkout = await billing_route.create_checkout(
+            billing_route.CheckoutRequest(
+                success_url="https://app.example.com/success",
+                cancel_url="https://app.example.com/cancel",
+            ),
+            user,
+        )
+    assert checkout.url == "https://checkout.example.com"
+
+    with patch("ideago.api.routes.billing.is_configured", return_value=False):
+        with pytest.raises(AppError) as portal_not_configured:
+            await billing_route.create_portal(
+                billing_route.PortalRequest(
+                    return_url="https://app.example.com/profile"
+                ),
+                user,
+            )
+        with pytest.raises(AppError) as webhook_not_configured:
+            await billing_route.stripe_webhook(
+                type(
+                    "Req",
+                    (),
+                    {"headers": {}, "body": AsyncMock(return_value=b"{}")},
+                )()
+            )
+
+    with (
+        patch("ideago.api.routes.billing.is_configured", return_value=True),
+        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.billing.get_or_create_customer",
+            new=AsyncMock(
+                side_effect=AppError(
+                    400, app_module.ErrorCode.VALIDATION_ERROR, "bad customer"
+                )
+            ),
+        ),
+        pytest.raises(AppError) as portal_reraise,
+    ):
+        await billing_route.create_portal(
+            billing_route.PortalRequest(return_url="https://app.example.com/profile"),
+            user,
+        )
+
+    assert portal_not_configured.value.status_code == 503
+    assert webhook_not_configured.value.status_code == 503
+    assert portal_reraise.value.status_code == 400
+
+    with (
+        patch("ideago.api.routes.billing.is_configured", return_value=True),
+        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.billing.get_or_create_customer",
+            new=AsyncMock(return_value="cus_123"),
+        ),
+        patch(
+            "ideago.api.routes.billing.create_portal_session",
+            new=AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+        pytest.raises(AppError) as portal_internal_error,
+    ):
+        await billing_route.create_portal(
+            billing_route.PortalRequest(return_url="https://app.example.com/profile"),
+            user,
+        )
+    assert portal_internal_error.value.status_code == 500
+
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report = _make_test_report()
+    await cache.put(report, user_id="uid")
+    await cache.put_status(
+        "processing-from-status", "processing", "query", user_id="uid"
+    )
+    report_user = auth_route.AuthUser(id="uid", email="u@example.com")
+
+    assert reports_route._parse_status_updated_at(None) is None
+    assert reports_route._parse_status_updated_at("not-a-date") is None
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        processing_response = await reports_route.get_report(
+            "processing-from-status",
+            user=report_user,
+        )
+        deleted = await reports_route.delete_report(report.id, user=report_user)
+
+    assert processing_response.status_code == 202
+    assert deleted == {"status": "deleted"}
+
+    with (
+        patch("ideago.api.routes.reports.get_cache", return_value=cache),
+        pytest.raises(AppError) as export_missing,
+    ):
+        await reports_route.export_report("missing-report", user=report_user)
+
+    rich_report = _make_test_report()
+    rich_report.go_no_go = "Go build it"
+    rich_report.market_summary = "Big market"
+    rich_report.differentiation_angles = ["Faster onboarding"]
+    rich_report.competitors[0].features = ["AI"]
+    rich_report.competitors[0].pricing = "$10"
+    rich_report.competitors[0].strengths = ["Speed"]
+    rich_report.competitors[0].weaknesses = ["Breadth"]
+    markdown = reports_route._report_to_markdown(rich_report)
+
+    assert export_missing.value.status_code == 404
+    assert "Recommendation" in markdown
+    assert "Features" in markdown
+    assert "Pricing" in markdown
+    assert "Strengths" in markdown
+    assert "Weaknesses" in markdown
+    assert "Differentiation Opportunities" in markdown
 
 
 @pytest.mark.asyncio

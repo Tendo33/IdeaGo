@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Button'
+import { Button, buttonVariants } from '@/components/ui/Button'
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -177,9 +177,9 @@ export function LoginPage() {
       <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-8"
+          className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8 bg-card" })}
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 mr-2" />
           {t('nav.home', 'Home')}
         </Link>
 

@@ -125,8 +125,8 @@ export function HomePage() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen px-4 pb-16 pt-12 sm:pt-20 bg-background text-foreground">
-      <div className="app-shell grid items-start gap-16 lg:grid-cols-[1fr_400px]">
+    <div className="app-shell pt-8 pb-16 sm:pt-12">
+      <div className="grid items-start gap-16 lg:grid-cols-[1fr_400px]">
 
         {showWelcome && (
           <div className="lg:col-span-2">
