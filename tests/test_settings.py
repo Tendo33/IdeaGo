@@ -94,3 +94,71 @@ def test_supabase_jwks_urls_are_derived_from_supabase_url() -> None:
     assert (
         settings.get_supabase_jwt_issuer() == "https://demo-project.supabase.co/auth/v1"
     )
+
+
+def test_settings_path_and_origin_helpers(tmp_path: Path) -> None:
+    relative = Settings(
+        log_file="logs/test.log", cors_allow_origins=" https://a.com, https://b.com "
+    )
+    absolute = Settings(log_file=str(tmp_path / "app.log"), cors_allow_origins="")
+
+    assert relative.get_project_root().name == "IdeaGo"
+    assert relative.get_log_file_path().name == "test.log"
+    assert absolute.get_log_file_path() == tmp_path / "app.log"
+    assert relative.get_cors_allow_origins() == ["https://a.com", "https://b.com"]
+    assert absolute.get_cors_allow_origins() == ["*"]
+    assert Settings(cors_allow_origins="*").get_cors_allow_origins() == ["*"]
+
+
+def test_openai_fallback_endpoints_parser() -> None:
+    settings = Settings(
+        openai_fallback_endpoints=(
+            '[{"name":"a","base_url":"https://x","api_key":"k","model":"m","timeout":30},'
+            '"skip",{"name":"b"}]'
+        )
+    )
+
+    assert settings.get_openai_fallback_endpoints() == [
+        {
+            "name": "a",
+            "base_url": "https://x",
+            "api_key": "k",
+            "model": "m",
+            "timeout": 30,
+        },
+        {
+            "name": "b",
+            "base_url": None,
+            "api_key": None,
+            "model": None,
+            "timeout": None,
+        },
+    ]
+    assert (
+        Settings(openai_fallback_endpoints="not-json").get_openai_fallback_endpoints()
+        == []
+    )
+    assert (
+        Settings(openai_fallback_endpoints='{"x":1}').get_openai_fallback_endpoints()
+        == []
+    )
+
+
+def test_production_settings_require_critical_fields() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            environment="production",
+            auth_session_secret="",
+            supabase_url="",
+            supabase_service_role_key="",
+            frontend_app_url="",
+        )
+
+    settings = Settings(
+        environment="production",
+        auth_session_secret="test-session-secret-0123456789abcdef",
+        supabase_url="https://example.supabase.co",
+        supabase_service_role_key="srk",
+        frontend_app_url="https://app.example.com",
+    )
+    assert settings.environment == "production"

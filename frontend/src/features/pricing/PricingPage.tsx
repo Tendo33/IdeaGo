@@ -81,7 +81,7 @@ export function PricingPage() {
   ]
 
   return (
-    <div className="app-shell px-4 max-w-4xl">
+    <div className="app-shell px-4 py-12 md:py-24 max-w-4xl mx-auto">
       <Link
         to="/"
         className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-8"

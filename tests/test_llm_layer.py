@@ -6,11 +6,27 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from openai import APIStatusError
 
-from ideago.llm.chat_model import ChatModelClient
+from ideago.llm.chat_model import (
+    ChatModelClient,
+    LlmEndpointConfig,
+    _backoff_delay_seconds,
+    _build_ordered_endpoint_indexes,
+    _classify_exception,
+    _empty_call_metadata,
+    _extract_content_text,
+    _extract_status_code,
+    _extract_token_usage,
+    _merge_call_metadata,
+    _next_start_endpoint_index,
+    _parse_fallback_endpoints,
+    _safe_non_negative_int,
+)
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, Intent, Platform, RawResult
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.exceptions import AggregationError, IntentParsingError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.merger import merge_competitors
@@ -294,6 +310,122 @@ def test_chat_model_client_treats_blank_base_url_as_none(
     assert captured["base_url"] is None
 
 
+def test_chat_model_helpers_cover_metadata_and_parsing_paths() -> None:
+    metadata = _empty_call_metadata()
+    assert metadata["llm_calls"] == 0
+
+    merged = _merge_call_metadata(
+        {
+            "llm_calls": "2",
+            "endpoint_failovers": 1,
+            "tokens_prompt": 3.0,
+            "tokens_completion": True,
+            "fallback_used": False,
+            "endpoints_tried": ["primary", ""],
+            "endpoint_used": "",
+            "last_error_class": "old",
+        },
+        {
+            "llm_calls": 1,
+            "endpoint_failovers": "2",
+            "tokens_prompt": "4",
+            "tokens_completion": 5,
+            "fallback_used": True,
+            "endpoints_tried": ["fallback-1", "primary"],
+            "endpoint_used": "fallback-1",
+            "last_error_class": "timeout_error",
+        },
+    )
+    assert merged["llm_calls"] == 3
+    assert merged["llm_retries"] == 2
+    assert merged["endpoint_failovers"] == 3
+    assert merged["tokens_prompt"] == 7
+    assert merged["tokens_completion"] == 6
+    assert merged["fallback_used"] is True
+    assert merged["endpoints_tried"] == ["primary", "fallback-1"]
+    assert merged["endpoint_used"] == "fallback-1"
+    assert merged["last_error_class"] == "timeout_error"
+
+    assert _safe_non_negative_int(True) == 1
+    assert _safe_non_negative_int(-4) == 0
+    assert _safe_non_negative_int(3.7) == 3
+    assert _safe_non_negative_int(" 5 ") == 5
+    assert _safe_non_negative_int("bad") == 0
+
+    assert _build_ordered_endpoint_indexes(3, 1) == [1, 2, 0]
+    assert _build_ordered_endpoint_indexes(0, 1) == []
+    assert (
+        _next_start_endpoint_index(
+            current_endpoint_name="fallback-1",
+            endpoint_configs=[
+                LlmEndpointConfig("primary", "k", "m", None, 60),
+                LlmEndpointConfig("fallback-1", "k2", "m2", None, 60),
+            ],
+            model_count=2,
+        )
+        == 0
+    )
+
+    endpoints = _parse_fallback_endpoints(
+        [
+            {"api_key": " ", "model": "m"},
+            {
+                "api_key": "k1",
+                "model": "m1",
+                "name": " fb ",
+                "base_url": " https://x ",
+                "timeout": 30,
+            },
+            {"api_key": "k2", "model": "m2"},
+            "bad",
+        ]
+    )
+    assert [endpoint.name for endpoint in endpoints] == ["fb", "fallback-3"]
+    assert endpoints[0].base_url == "https://x"
+    assert endpoints[1].timeout == 60
+
+    assert _extract_content_text("hello") == "hello"
+    assert _extract_content_text(["a", {"text": "b"}, {"bad": "x"}]) == "ab"
+    assert _extract_content_text(123) == "123"
+
+    response = MagicMock()
+    response.content = "{}"
+    response.usage_metadata = {"input_tokens": 3, "output_tokens": 4}
+    response.response_metadata = {"token_usage": {"prompt_tokens": 5}}
+    response.additional_kwargs = {"usage": {"completion_tokens": 6}}
+    assert _extract_token_usage(response) == (5, 6)
+
+
+def test_chat_model_exception_classification_helpers() -> None:
+    response = MagicMock()
+    response.status_code = 404
+    api_error = APIStatusError.__new__(APIStatusError)
+    api_error.response = response
+    api_error.status_code = 404
+    assert _classify_exception(api_error) == "model_unavailable"
+
+    class StatusExc(Exception):
+        def __init__(self, status_code: int, message: str) -> None:
+            super().__init__(message)
+            self.status_code = status_code
+
+    assert _classify_exception(StatusExc(401, "forbidden")) == "auth_error"
+    assert _classify_exception(StatusExc(429, "too many requests")) == "retryable_http"
+    assert (
+        _classify_exception(RuntimeError("network connection dropped"))
+        == "network_error"
+    )
+    assert _classify_exception(RuntimeError("request timed out")) == "timeout_error"
+    assert _classify_exception(RuntimeError("other")) == "unknown_error"
+    assert _extract_status_code(StatusExc(500, "boom")) == 500
+    assert _extract_status_code(RuntimeError("boom")) is None
+
+
+def test_backoff_delay_is_non_negative() -> None:
+    delay = _backoff_delay_seconds(0.5, 2)
+    assert delay >= 2.0
+
+
 # ---------- IntentParser ----------
 
 MOCK_INTENT_LLM_RESPONSE = {
@@ -335,6 +467,20 @@ async def test_intent_parser_returns_intent() -> None:
     assert intent.app_type == "browser-extension"
     assert len(intent.search_queries) == 5
     assert len(intent.cache_key) == 16
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_error_and_metrics_paths() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(side_effect=IntentParsingError("bad prompt"))
+    parser = IntentParser(llm)
+
+    with pytest.raises(IntentParsingError):
+        await parser.parse("bad query")
+
+    parser._store_metrics_for_current_task({"llm_calls": 1})
+    assert parser.pop_llm_metrics_for_current_task() == {"llm_calls": 1}
+    assert parser.pop_llm_metrics_for_current_task() == {}
 
 
 # ---------- Extractor ----------
@@ -589,6 +735,39 @@ async def test_aggregator_empty_competitors() -> None:
         or "unexplored" in result.go_no_go.lower()
     )
     llm.invoke_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_aggregator_error_and_metrics_paths() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(side_effect=RuntimeError("boom"))
+    agg = Aggregator(llm)
+
+    competitor = Competitor(
+        name="One",
+        links=["https://example.com"],
+        one_liner="one",
+        source_platforms=[Platform.TAVILY],
+        source_urls=["https://example.com"],
+    )
+
+    with pytest.raises(AggregationError):
+        await agg.analyze([competitor], "query")
+
+    agg._store_metrics_for_current_task({"llm_calls": 2})
+    assert agg.pop_llm_metrics_for_current_task() == {"llm_calls": 2}
+    assert agg.pop_llm_metrics_for_current_task() == {}
+
+
+def test_aggregator_infers_recommendation_type_fallback() -> None:
+    from ideago.models.research import RecommendationType
+    from ideago.pipeline.aggregator import _infer_recommendation_type
+
+    assert _infer_recommendation_type("No-go for now") == RecommendationType.NO_GO
+    assert (
+        _infer_recommendation_type("Proceed with caution") == RecommendationType.CAUTION
+    )
+    assert _infer_recommendation_type("Go build it") == RecommendationType.GO
 
 
 def test_fuse_competitors_merges_cross_source_duplicates() -> None:

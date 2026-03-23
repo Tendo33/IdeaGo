@@ -128,7 +128,7 @@ export function LoginPage() {
 
   if (resetSent) {
     return (
-      <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
+      <div className="app-shell px-4 py-12 md:py-24 min-h-[85vh] flex items-center justify-center">
         <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg text-center">
           <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
@@ -150,7 +150,7 @@ export function LoginPage() {
 
   if (confirmSent) {
     return (
-      <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
+      <div className="app-shell px-4 py-12 md:py-24 min-h-[85vh] flex items-center justify-center">
         <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg text-center">
           <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
@@ -173,7 +173,7 @@ export function LoginPage() {
   const anyLoading = loading || oauthLoading !== null
 
   return (
-    <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
+    <div className="app-shell px-4 py-12 md:py-24 min-h-[85vh] flex items-center justify-center">
       <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg">
         <Link
           to="/"

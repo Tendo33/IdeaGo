@@ -10,6 +10,7 @@ from ideago.observability.log_config import (
     get_logger,
     setup_logging,
 )
+from ideago.observability.metrics import _Metrics
 
 
 def test_setup_logging_writes_to_custom_file(tmp_path: Path) -> None:
@@ -54,3 +55,23 @@ def test_get_default_logger_returns_bound_logger() -> None:
     logger = get_default_logger()
     logger.debug("default-logger-ready")
     assert logger is not None
+
+
+def test_metrics_record_snapshot_and_reset() -> None:
+    metrics = _Metrics()
+    metrics.record("/api/v1/health", 200, 10.5)
+    metrics.record("/api/v1/analyze", 500, 30.0)
+
+    snapshot = metrics.snapshot()
+    assert snapshot["request_count"] == 2
+    assert snapshot["error_count"] == 1
+    assert snapshot["avg_latency_ms"] == 20.25
+    assert snapshot["max_latency_ms"] == 30.0
+    assert snapshot["status_codes"] == {200: 1, 500: 1}
+    assert snapshot["top_paths"]["/api/v1/health"] == 1
+
+    metrics.reset()
+    reset_snapshot = metrics.snapshot()
+    assert reset_snapshot["request_count"] == 0
+    assert reset_snapshot["error_count"] == 0
+    assert reset_snapshot["avg_latency_ms"] == 0

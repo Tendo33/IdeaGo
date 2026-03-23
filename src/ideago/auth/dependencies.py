@@ -89,8 +89,10 @@ async def _fetch_jwks() -> dict[str, Any]:
     resp = await client.get(jwks_url)
     resp.raise_for_status()
     payload = resp.json()
+    if not isinstance(payload, dict):
+        raise RuntimeError("Invalid JWKS response")
     keys = payload.get("keys")
-    if not isinstance(payload, dict) or not isinstance(keys, list):
+    if not isinstance(keys, list):
         raise RuntimeError("Invalid JWKS response")
     return payload
 
