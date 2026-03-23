@@ -29,6 +29,7 @@ MOCK_INTENT = Intent(
     keywords_en=["markdown", "notes"],
     app_type="browser-extension",
     target_scenario="Take markdown notes",
+    output_language="en",
     cache_key="abc123",
 )
 
@@ -394,6 +395,28 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_langgraph_engine_chinese_fallback_content(tmp_path) -> None:
+    zh_intent = Intent(
+        keywords_en=["markdown", "notes"],
+        app_type="browser-extension",
+        target_scenario="用浏览器记录 Markdown 笔记",
+        output_language="zh",
+        cache_key="zh-intent",
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        aggregation_side_effect=AggregationError("aggregation crash"),
+        intent_override=zh_intent,
+    )
+
+    report = await engine.run("帮我做一个 Markdown 笔记插件")
+
+    assert "分析失败" in report.market_summary
+    assert "无法给出明确结论" in report.go_no_go
+    assert "生成" in report.confidence.freshness_hint
+
+
+@pytest.mark.asyncio
 async def test_langgraph_engine_logs_extraction_counts_by_channel(tmp_path) -> None:
     sources = [MockSource(Platform.GITHUB), MockSource(Platform.HACKERNEWS)]
     engine, _, _, _ = _build_engine(tmp_path, sources=sources)
@@ -431,6 +454,7 @@ async def test_langgraph_engine_uses_query_builder_for_github_and_producthunt(
         keywords_en=["api monitoring", "alerting dashboard"],
         app_type="web",
         target_scenario="Track API latency and alert on incidents",
+        output_language="en",
         cache_key="custom-intent",
     )
     engine, _, _, _ = _build_engine(
@@ -582,6 +606,7 @@ async def test_langgraph_engine_adaptive_metrics_isolated_per_run(tmp_path) -> N
         keywords_en=["api", "monitoring", "alerts", "latency"],
         app_type="web",
         target_scenario="Track reliability incidents",
+        output_language="en",
         cache_key="adaptive-intent",
     )
     engine, _, intent_parser, _ = _build_engine(

@@ -35,6 +35,7 @@ _TEST_INTENT = Intent(
     keywords_en=["markdown", "notes"],
     app_type="browser-extension",
     target_scenario="Take markdown notes",
+    output_language="en",
     cache_key="test-key",
 )
 
@@ -45,6 +46,7 @@ def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
     assert "keywords_en" in prompt
+    assert "output_language" in prompt
     assert "app_type" in prompt
     assert "target_scenario" in prompt
     assert "Do not invent product or company names" in prompt
@@ -59,9 +61,11 @@ def test_load_prompt_extractor() -> None:
         keywords="markdown, notes",
         app_type="web",
         target_scenario="Take notes",
+        output_language="en",
     )
     assert "github" in prompt
     assert "markdown, notes" in prompt
+    assert "Output language: en" in prompt
     assert "{platform}" not in prompt
 
 
@@ -70,9 +74,13 @@ def test_load_prompt_extractor_appstore() -> None:
         "extractor_appstore",
         platform="appstore",
         raw_results_json="[]",
-        query_context="test",
+        keywords="notes",
+        app_type="mobile",
+        target_scenario="Capture notes",
+        output_language="zh",
     )
     assert "App Store products" in prompt
+    assert "Output language: zh" in prompt
     assert "{platform}" not in prompt
 
 
@@ -81,8 +89,10 @@ def test_load_prompt_aggregator() -> None:
         "aggregator",
         competitors_json="[]",
         original_query="test idea",
+        output_language="zh",
     )
     assert "test idea" in prompt
+    assert "Output Language" in prompt
 
 
 def test_load_prompt_missing_raises() -> None:
@@ -431,6 +441,7 @@ def test_backoff_delay_is_non_negative() -> None:
 MOCK_INTENT_LLM_RESPONSE = {
     "keywords_en": ["markdown", "notes", "browser extension"],
     "keywords_zh": ["Markdown 笔记", "浏览器插件"],
+    "output_language": "zh",
     "app_type": "browser-extension",
     "target_scenario": "Take markdown notes while browsing web pages",
     "search_queries": [
@@ -465,6 +476,7 @@ async def test_intent_parser_returns_intent() -> None:
 
     assert "markdown" in intent.keywords_en
     assert intent.app_type == "browser-extension"
+    assert intent.output_language == "zh"
     assert len(intent.search_queries) == 5
     assert len(intent.cache_key) == 16
 
@@ -622,6 +634,7 @@ async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
         keywords_en=["focus", "notes"],
         app_type="mobile",
         target_scenario="Focus notes app",
+        output_language="en",
         cache_key="focus-key",
     )
     await extractor.extract(raw, focus_intent)
@@ -629,6 +642,7 @@ async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
     assert "focused on App Store products" in prompt
+    assert "Output language: en" in prompt
     assert "appstore_meta" in prompt
     assert "Capture quick notes and tasks with AI assistance." in prompt
     assert '"price_label": "Free"' in prompt
@@ -659,6 +673,7 @@ async def test_extractor_non_appstore_payload_unchanged() -> None:
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
     assert "Source platform: github" in prompt
+    assert "Output language: en" in prompt
     assert "appstore_meta" not in prompt
     assert "stargazers_count" not in prompt
 
@@ -714,7 +729,11 @@ async def test_aggregator_analyzes_without_modifying_competitors() -> None:
             source_urls=["https://github.com/user/markdownify"],
         ),
     ]
-    result = await agg.analyze(competitors, "markdown notes extension")
+    result = await agg.analyze(
+        competitors,
+        "markdown notes extension",
+        output_language="en",
+    )
     assert isinstance(result, AggregationResult)
     assert len(result.competitors) == 2
     assert "crowded" in result.go_no_go.lower() or "caution" in result.go_no_go.lower()
@@ -728,12 +747,10 @@ async def test_aggregator_analyzes_without_modifying_competitors() -> None:
 async def test_aggregator_empty_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
     agg = Aggregator(llm)
-    result = await agg.aggregate([], "test")
+    result = await agg.aggregate([], "test", output_language="zh")
     assert result.competitors == []
-    assert (
-        "no competitors" in result.market_summary.lower()
-        or "unexplored" in result.go_no_go.lower()
-    )
+    assert "竞品" in result.market_summary
+    assert "探索" in result.go_no_go
     llm.invoke_json.assert_not_called()
 
 
@@ -752,7 +769,7 @@ async def test_aggregator_error_and_metrics_paths() -> None:
     )
 
     with pytest.raises(AggregationError):
-        await agg.analyze([competitor], "query")
+        await agg.analyze([competitor], "query", output_language="en")
 
     agg._store_metrics_for_current_task({"llm_calls": 2})
     assert agg.pop_llm_metrics_for_current_task() == {"llm_calls": 2}

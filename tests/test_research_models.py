@@ -90,12 +90,14 @@ def test_intent_valid() -> None:
         keywords_en=["markdown", "notes", "browser extension"],
         app_type="browser-extension",
         target_scenario="Take markdown notes on web pages",
+        output_language="en",
         search_queries=[
             SearchQuery(platform=Platform.GITHUB, queries=["markdown notes extension"]),
         ],
     )
     assert len(intent.keywords_en) == 3
     assert intent.keywords_zh == []
+    assert intent.output_language == "en"
     assert intent.cache_key == ""
 
 
@@ -105,6 +107,7 @@ def test_intent_requires_at_least_one_keyword() -> None:
             keywords_en=[],
             app_type="web",
             target_scenario="test",
+            output_language="en",
             search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["t"])],
         )
 
@@ -114,6 +117,7 @@ def test_intent_cache_key_deterministic() -> None:
         keywords_en=["notes", "markdown", "browser extension"],
         app_type="browser-extension",
         target_scenario="test",
+        output_language="en",
         search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["test"])],
     )
     key = intent.compute_cache_key()
@@ -123,6 +127,7 @@ def test_intent_cache_key_deterministic() -> None:
         keywords_en=["browser extension", "markdown", "notes"],
         app_type="browser-extension",
         target_scenario="totally different text",
+        output_language="zh",
         search_queries=[SearchQuery(platform=Platform.TAVILY, queries=["other"])],
     )
     assert intent2.compute_cache_key() == key
@@ -210,6 +215,7 @@ def _make_intent() -> Intent:
         keywords_en=["test"],
         app_type="web",
         target_scenario="test scenario",
+        output_language="en",
         search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["test"])],
     )
 

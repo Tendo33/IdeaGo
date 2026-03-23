@@ -63,6 +63,14 @@ export function ReportPage() {
     cancelCurrentAnalysis,
   } = useReportLifecycle(effectiveId, navigate)
 
+  const handleCancel = useCallback(() => {
+    if (isNewAnalysis) {
+      navigate('/', { replace: true })
+      return
+    }
+    cancelCurrentAnalysis()
+  }, [isNewAnalysis, navigate, cancelCurrentAnalysis])
+
   useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
 
 
@@ -113,7 +121,7 @@ export function ReportPage() {
           loadPhase={loadPhase}
           isComplete={isComplete}
           reportId={effectiveId}
-          onCancel={cancelCurrentAnalysis}
+          onCancel={handleCancel}
         />
 
         {quotaExceeded && (

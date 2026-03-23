@@ -50,6 +50,22 @@ _DEGRADE_CONSECUTIVE_FAILURES = 2
 _RECOVERY_SUCCESS_STREAK = 3
 
 
+def _is_zh(output_language: str) -> bool:
+    return output_language == "zh"
+
+
+def _localized_text(output_language: str, zh: str, en: str) -> str:
+    return zh if _is_zh(output_language) else en
+
+
+def _extraction_degraded_message(output_language: str) -> str:
+    return _localized_text(
+        output_language,
+        "结构化提取暂不可用，当前展示原始结果。",
+        _EXTRACTION_DEGRADED_MSG,
+    )
+
+
 async def _emit(
     callback: ProgressCallback | None,
     event_type: EventType,
@@ -501,11 +517,16 @@ class PipelineNodes:
                     platform_name,
                     exc,
                 )
-                degraded = _degrade_raw_to_competitors(raw_results)
+                degraded = _degrade_raw_to_competitors(
+                    raw_results,
+                    output_language=intent.output_language,
+                )
                 for source_result in source_results:
                     if source_result.platform.value == platform_name:
                         source_result.status = SourceStatus.DEGRADED
-                        source_result.error_msg = _EXTRACTION_DEGRADED_MSG
+                        source_result.error_msg = _extraction_degraded_message(
+                            intent.output_language
+                        )
                 logger.info(
                     "Falling back to {} degraded competitors from {}",
                     len(degraded),
@@ -564,6 +585,7 @@ class PipelineNodes:
         """LLM-only market analysis on pre-merged competitors."""
         merged = state.get("merged_competitors", [])
         query = state["query"]
+        output_language = state["intent"].output_language
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
 
         await _emit(
@@ -577,7 +599,11 @@ class PipelineNodes:
         try:
             async with self._llm_semaphore:
                 agg_result = await asyncio.wait_for(
-                    self._aggregator.analyze(merged, query),
+                    self._aggregator.analyze(
+                        merged,
+                        query,
+                        output_language=output_language,
+                    ),
                     timeout=self._extraction_timeout,
                 )
             llm_usage = _merge_llm_usage(
@@ -594,8 +620,16 @@ class PipelineNodes:
             )
             agg_result = AggregationResult(
                 competitors=merged,
-                market_summary="Analysis failed - showing unprocessed results.",
-                go_no_go="Unable to determine - analysis error.",
+                market_summary=_localized_text(
+                    output_language,
+                    "分析失败，当前展示的是未深度加工的结果。",
+                    "Analysis failed - showing unprocessed results.",
+                ),
+                go_no_go=_localized_text(
+                    output_language,
+                    "暂时无法给出明确结论，原因是分析阶段出错。",
+                    "Unable to determine - analysis error.",
+                ),
             )
             llm_usage = _merge_llm_usage(
                 llm_usage,
@@ -631,12 +665,14 @@ class PipelineNodes:
             all_competitors,
             source_results,
             generated_at=datetime.now(timezone.utc),
+            output_language=state["intent"].output_language,
         )
         recommendation_type, go_no_go, quality_warnings = (
             _apply_recommendation_quality_guard(
                 recommendation_type=agg_result.recommendation_type,
                 go_no_go=agg_result.go_no_go,
                 confidence=confidence,
+                output_language=state["intent"].output_language,
             )
         )
         evidence_summary = _build_evidence_summary(agg_result.competitors)
@@ -666,6 +702,7 @@ class PipelineNodes:
         freshness_hint = _build_relative_freshness_hint(
             created_at=report.created_at,
             now=datetime.now(timezone.utc),
+            output_language=state["intent"].output_language,
         )
         report = report.model_copy(
             update={
@@ -696,7 +733,10 @@ class PipelineNodes:
         raise RuntimeError(error_code)
 
 
-def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor]:
+def _degrade_raw_to_competitors(
+    raw_results: list[RawResult],
+    output_language: str = "en",
+) -> list[Competitor]:
     """Convert raw results to minimal Competitor objects when LLM fails.
 
     Enriches degraded competitors with platform-specific metadata to produce
@@ -712,7 +752,11 @@ def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor
         one_liner = (
             normalized_description[:200]
             if normalized_description
-            else "No description available"
+            else _localized_text(
+                output_language,
+                "暂无可用描述",
+                "No description available",
+            )
         )
         relevance = max(0.1, round(_quality_score(raw) * 0.6, 2))
 
@@ -724,7 +768,13 @@ def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor
                 features.append(lang)
             stars = _safe_int(rd.get("stargazers_count", 0))
             if stars:
-                features.append(f"{stars} stars")
+                features.append(
+                    _localized_text(
+                        output_language,
+                        f"{stars} 星标",
+                        f"{stars} stars",
+                    )
+                )
         elif raw.platform == Platform.APPSTORE:
             genre = rd.get("primary_genre_name")
             if genre:
@@ -738,10 +788,22 @@ def _degrade_raw_to_competitors(raw_results: list[RawResult]) -> list[Competitor
                 features.append(f"r/{subreddit}")
             score = _safe_int(rd.get("score", 0))
             if score:
-                features.append(f"{score} upvotes")
+                features.append(
+                    _localized_text(
+                        output_language,
+                        f"{score} 赞同",
+                        f"{score} upvotes",
+                    )
+                )
             comments = _safe_int(rd.get("num_comments", 0))
             if comments:
-                features.append(f"{comments} comments")
+                features.append(
+                    _localized_text(
+                        output_language,
+                        f"{comments} 条评论",
+                        f"{comments} comments",
+                    )
+                )
 
         result.append(
             Competitor(
@@ -843,6 +905,7 @@ def _build_confidence_metrics(
     all_competitors: list[Competitor],
     source_results: list[SourceResult],
     generated_at: datetime | None = None,
+    output_language: str = "en",
 ) -> ConfidenceMetrics:
     sample_size = len(all_competitors)
     total_sources = len(source_results)
@@ -869,12 +932,20 @@ def _build_confidence_metrics(
         sample_size=sample_size,
         source_coverage=source_coverage,
         source_success_rate=round(source_success_rate, 3),
-        freshness_hint=_build_relative_freshness_hint(reference_time, now),
+        freshness_hint=_build_relative_freshness_hint(
+            reference_time,
+            now,
+            output_language=output_language,
+        ),
         score=max(0, min(100, score)),
     )
 
 
-def _build_relative_freshness_hint(created_at: datetime, now: datetime) -> str:
+def _build_relative_freshness_hint(
+    created_at: datetime,
+    now: datetime,
+    output_language: str = "en",
+) -> str:
     created_ts = (
         created_at.replace(tzinfo=timezone.utc)
         if created_at.tzinfo is None
@@ -887,17 +958,33 @@ def _build_relative_freshness_hint(created_at: datetime, now: datetime) -> str:
     )
     delta_seconds = max(0, int((now_ts - created_ts).total_seconds()))
     if delta_seconds < 60:
-        return "Generated just now"
+        return _localized_text(output_language, "刚刚生成", "Generated just now")
     if delta_seconds < 3600:
         minutes = max(1, delta_seconds // 60)
-        return f"Generated {minutes}m ago"
+        return _localized_text(
+            output_language,
+            f"{minutes} 分钟前生成",
+            f"Generated {minutes}m ago",
+        )
     if delta_seconds < 86400:
         hours = max(1, delta_seconds // 3600)
-        return f"Generated {hours}h ago"
+        return _localized_text(
+            output_language,
+            f"{hours} 小时前生成",
+            f"Generated {hours}h ago",
+        )
     if delta_seconds < 7 * 86400:
         days = max(1, delta_seconds // 86400)
-        return f"Generated {days}d ago"
-    return f"Generated on {created_ts.date().isoformat()}"
+        return _localized_text(
+            output_language,
+            f"{days} 天前生成",
+            f"Generated {days}d ago",
+        )
+    return _localized_text(
+        output_language,
+        f"生成于 {created_ts.date().isoformat()}",
+        f"Generated on {created_ts.date().isoformat()}",
+    )
 
 
 def _build_evidence_summary(competitors: list[Competitor]) -> EvidenceSummary:
@@ -967,10 +1054,19 @@ def _apply_recommendation_quality_guard(
     recommendation_type: RecommendationType,
     go_no_go: str,
     confidence: ConfidenceMetrics,
+    output_language: str = "en",
 ) -> tuple[RecommendationType, str, list[str]]:
     warnings: list[str] = []
     adjusted_type = recommendation_type
-    adjusted_text = go_no_go.strip() if go_no_go.strip() else "Recommendation pending."
+    adjusted_text = (
+        go_no_go.strip()
+        if go_no_go.strip()
+        else _localized_text(
+            output_language,
+            "建议待补充。",
+            "Recommendation pending.",
+        )
+    )
 
     low_evidence = (
         confidence.sample_size == 0
@@ -979,24 +1075,37 @@ def _apply_recommendation_quality_guard(
     )
     if low_evidence:
         warnings.append(
-            "Low evidence confidence: recommendation is calibrated conservatively."
+            _localized_text(
+                output_language,
+                "当前证据置信度较低，建议保守解读本次结论。",
+                "Low evidence confidence: recommendation is calibrated conservatively.",
+            )
         )
 
     if low_evidence and recommendation_type == RecommendationType.GO:
         adjusted_type = RecommendationType.CAUTION
         warnings.append(
-            "Recommendation downgraded from GO to CAUTION due to insufficient evidence."
+            _localized_text(
+                output_language,
+                "由于证据不足，建议已从 GO 下调为 CAUTION。",
+                "Recommendation downgraded from GO to CAUTION due to insufficient evidence.",
+            )
         )
     elif low_evidence and recommendation_type == RecommendationType.NO_GO:
         adjusted_type = RecommendationType.CAUTION
         warnings.append(
-            "Recommendation softened from NO_GO to CAUTION due to insufficient evidence."
+            _localized_text(
+                output_language,
+                "由于证据不足，建议已从 NO_GO 放宽为 CAUTION。",
+                "Recommendation softened from NO_GO to CAUTION due to insufficient evidence.",
+            )
         )
 
     if adjusted_type != recommendation_type:
-        guardrail_note = (
-            "This recommendation is adjusted due to insufficient evidence; "
-            "collect more validated competitors before making a final decision."
+        guardrail_note = _localized_text(
+            output_language,
+            "由于当前证据不足，这条建议已做保守调整；在做最终判断前，建议先补充更多已验证竞品。",
+            "This recommendation is adjusted due to insufficient evidence; collect more validated competitors before making a final decision.",
         )
         if guardrail_note not in adjusted_text:
             adjusted_text = f"{adjusted_text} {guardrail_note}".strip()

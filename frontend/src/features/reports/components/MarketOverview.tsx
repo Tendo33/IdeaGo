@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface MarketOverviewProps {
@@ -29,9 +29,9 @@ export function MarketOverview({ summary }: MarketOverviewProps) {
       {isLong && (
         <button
           onClick={() => setExpanded(e => !e)}
-          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1 py-0.5"
         >
-          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out-quint ${expanded ? 'rotate-180' : ''}`} />
           {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
         </button>
       )}

@@ -15,7 +15,7 @@ const cardStagger = {
   visible: (index: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: index * 0.06, duration: 0.4, ease: 'easeOut' as const },
+    transition: { delay: index * 0.06, duration: 0.4, ease: [0.25, 1, 0.5, 1] as const },
   }),
 }
 
@@ -126,7 +126,7 @@ export function ReportCompetitorSection({
             </button>
           ))}
 
-          <div className="interactive-surface flex items-center gap-1 ml-1 rounded-none px-2 py-1">
+          <div className="interactive-surface flex items-center gap-1 ml-1 rounded-none px-2 py-1 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
             <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
             <label htmlFor={sortSelectId} className="sr-only">
               {sortLabel}
@@ -135,7 +135,7 @@ export function ReportCompetitorSection({
               id={sortSelectId}
               value={sortBy}
               onChange={event => setSortBy(event.target.value as SortKey)}
-              className="text-xs bg-transparent text-muted-foreground border-none outline-none cursor-pointer pr-1 focus-visible:ring-2 focus-visible:ring-primary"
+              className="text-xs bg-transparent text-muted-foreground border-none outline-none cursor-pointer appearance-none pr-1 focus:outline-none"
             >
               {SORT_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>

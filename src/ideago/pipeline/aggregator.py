@@ -1,7 +1,7 @@
-"""Aggregator — LLM-only market analysis on pre-merged competitors.
+"""Aggregator - LLM-only market analysis on pre-merged competitors.
 
-Dedup/scoring is now handled by ``merger.py``. This module focuses the LLM
-exclusively on market analysis, go/no-go recommendation, and differentiation.
+Dedup/scoring is handled by ``merger.py``. This module focuses the LLM on
+market analysis, recommendation, and differentiation only.
 """
 
 from __future__ import annotations
@@ -19,6 +19,25 @@ from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import AggregationError
 
 logger = get_logger(__name__)
+
+
+def _fallback_market_summary(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "\u5f53\u524d\u53ef\u7528\u6570\u636e\u6e90\u4e2d"
+            "\u672a\u53d1\u73b0\u660e\u786e\u7ade\u54c1\u3002"
+        )
+    return "No competitors were found across any data source."
+
+
+def _fallback_go_no_go(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "\u53ef\u4ee5\u7ee7\u7eed\u63a2\u7d22\uff0c"
+            "\u76ee\u524d\u6570\u636e\u8868\u660e\u8fd9\u4e2a\u65b9\u5411"
+            "\u4ecd\u6709\u8f83\u5927\u7a7a\u767d\u3002"
+        )
+    return "Go - This appears to be an unexplored space based on available data."
 
 
 @dataclass
@@ -43,20 +62,13 @@ class Aggregator:
         self,
         competitors: list[Competitor],
         original_query: str,
+        output_language: str = "en",
     ) -> AggregationResult:
-        """Generate market analysis on pre-merged competitors.
-
-        Args:
-            competitors: Deduplicated competitor list (from merger.py).
-            original_query: The user's original query text.
-
-        Returns:
-            AggregationResult with analysis fields populated.
-        """
+        """Generate market analysis on pre-merged competitors."""
         if not competitors:
             return AggregationResult(
-                market_summary="No competitors were found across any data source.",
-                go_no_go="Go — This appears to be an unexplored space based on available data.",
+                market_summary=_fallback_market_summary(output_language),
+                go_no_go=_fallback_go_no_go(output_language),
             )
 
         try:
@@ -68,6 +80,7 @@ class Aggregator:
                 "aggregator",
                 competitors_json=competitors_json,
                 original_query=original_query,
+                output_language=output_language,
             )
             data, llm_metrics = await invoke_json_with_optional_meta(
                 llm=self._llm,
@@ -98,9 +111,10 @@ class Aggregator:
         self,
         competitors: list[Competitor],
         original_query: str,
+        output_language: str = "en",
     ) -> AggregationResult:
         """Backward-compatible alias for ``analyze``."""
-        return await self.analyze(competitors, original_query)
+        return await self.analyze(competitors, original_query, output_language)
 
     def pop_llm_metrics_for_current_task(self) -> dict[str, Any]:
         task = asyncio.current_task()

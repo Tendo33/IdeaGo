@@ -64,20 +64,20 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
           <p className="text-lg font-bold text-foreground shrink-0">{score}/100</p>
         </div>
         <div className="h-2 rounded-none bg-secondary overflow-hidden">
-          <div className={`h-2 ${tone.progressClass}`} style={{ width: `${score}%` }} />
+          <div className={`h-2 ${tone.progressClass} transition-all duration-1000 ease-out-expo`} style={{ width: `${score}%` }} />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/30 hover:bg-muted/70 transition-colors duration-200 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.samples')}</p>
           <p className="text-base font-bold text-foreground mt-2">{sampleSize}</p>
         </div>
-        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/30 hover:bg-muted/70 transition-colors duration-200 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.coverage')}</p>
           <p className="text-base font-bold text-foreground mt-2">{sourceCoverage}</p>
         </div>
-        <div className="rounded-none border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
+        <div className="rounded-none border-2 border-border bg-muted/30 hover:bg-muted/70 transition-colors duration-200 p-3 flex flex-col justify-between">
           <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.successRate')}</p>
           <p className="text-base font-bold text-foreground mt-2">{successRate}%</p>
         </div>

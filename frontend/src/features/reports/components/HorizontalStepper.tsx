@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, WifiOff, Clock } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -137,13 +138,18 @@ function StepDot({ status, detail }: { status: Step['status']; detail?: string }
   switch (status) {
     case 'done':
       return (
-        <div className={`${base} bg-cta/20`}>
+        <motion.div
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+          className={`${base} bg-cta/20 shadow-[0_0_8px_rgba(var(--color-cta),0.2)]`}
+        >
           {detail ? (
             <span className="text-[9px] font-bold text-cta">{detail}</span>
           ) : (
             <Check className="w-3.5 h-3.5 text-cta" />
           )}
-        </div>
+        </motion.div>
       )
     case 'active':
       return (
@@ -234,15 +240,22 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
       </div>
 
       {/* Elapsed time */}
-      {!isDone && (
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {t('report.stepper.elapsed', { elapsed })}
-          </span>
-          <span>{t('report.stepper.usually')}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {!isDone && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground"
+          >
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {t('report.stepper.elapsed', { elapsed })}
+            </span>
+            <span>{t('report.stepper.usually')}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

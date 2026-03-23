@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Check, X, AlertTriangle, Clock, ChevronDown, ChevronUp, Users, Target, TrendingUp, Lightbulb } from 'lucide-react'
+import { Check, X, AlertTriangle, Clock, ChevronDown, Users, Target, TrendingUp, Lightbulb } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { ResearchReport, RecommendationType, SourceResult } from '@/lib/types/research'
@@ -110,10 +110,10 @@ function StatCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.1 + index * 0.08, duration: 0.4 }}
-      className={`p-6 sm:p-8 flex flex-col justify-center h-full transition-colors duration-150 hover:bg-muted ${className}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.08, duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+      className={`p-6 sm:p-8 flex flex-col justify-center h-full transition-all duration-200 hover:bg-muted/50 ${className}`}
     >
       {content}
     </motion.div>
@@ -123,6 +123,8 @@ function StatCard({
 export function HeroPanel({ report }: HeroPanelProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const [canExpand, setCanExpand] = useState(false)
+  const verdictBodyRef = useRef<HTMLParagraphElement>(null)
   const reduceMotion = Boolean(useReducedMotion())
   const verdict = getVerdictConfig(report.recommendation_type, t)
 
@@ -134,6 +136,25 @@ export function HeroPanel({ report }: HeroPanelProps) {
     ? Math.min(10, Math.round((report.competitors.filter(c => c.relevance_score >= 0.7).length / competitorCount) * 10))
     : 0
   const angleCount = report.differentiation_angles.length
+
+  useEffect(() => {
+    if (!report.go_no_go) return
+
+    const measureOverflow = () => {
+      const element = verdictBodyRef.current
+      if (!element) return
+      if (expanded) return
+      setCanExpand(element.scrollHeight > element.clientHeight + 1)
+    }
+
+    const frameId = window.requestAnimationFrame(measureOverflow)
+    window.addEventListener('resize', measureOverflow)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.removeEventListener('resize', measureOverflow)
+    }
+  }, [report.go_no_go, expanded])
 
   return (
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -151,15 +172,18 @@ export function HeroPanel({ report }: HeroPanelProps) {
             </h2>
             {report.go_no_go && (
               <div className="relative">
-                <p className={`text-base text-text leading-relaxed break-words ${!expanded ? 'line-clamp-3' : ''}`}>
+                <p
+                  ref={verdictBodyRef}
+                  className={`text-base text-text leading-relaxed break-words ${!expanded ? 'line-clamp-3' : ''}`}
+                >
                   {report.go_no_go}
                 </p>
-                {report.go_no_go.length > 200 && (
+                {(canExpand || expanded) && (
                   <button
                     onClick={() => setExpanded(e => !e)}
-                    className="mt-1 inline-flex items-center gap-1 text-xs text-text-muted hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-cta transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none px-1 py-0.5"
                   >
-                    {expanded ? <ChevronUp className="w-3 h-3" aria-hidden="true" /> : <ChevronDown className="w-3 h-3" aria-hidden="true" />}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out-quint ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
                     {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
                   </button>
                 )}

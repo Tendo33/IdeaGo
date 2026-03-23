@@ -3,6 +3,9 @@ You are a market research analyst. Your task is to analyze a deduplicated list o
 ## Original User Query
 {original_query}
 
+## Output Language
+{output_language}
+
 ## Competitors (already deduplicated and scored)
 {competitors_json}
 
@@ -14,6 +17,9 @@ You are a market research analyst. Your task is to analyze a deduplicated list o
 2. Provide a go_no_go recommendation with 2-3 sentences of reasoning based on the data.
 3. Set recommendation_type to exactly one of: "go", "caution", or "no_go".
 4. List 3-5 differentiation_angles — specific gaps or weaknesses in existing competitors that the user could exploit.
+
+5. Write every natural-language field in the specified output language.
+6. If output_language is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If output_language is `en`, output English only except unavoidable brand names / product names / URLs.
 
 **Do NOT re-list or modify the competitors. Only provide the analysis fields.**
 

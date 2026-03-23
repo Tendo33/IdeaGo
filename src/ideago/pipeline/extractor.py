@@ -66,6 +66,7 @@ class Extractor:
                 keywords=", ".join(intent.keywords_en),
                 app_type=intent.app_type,
                 target_scenario=intent.target_scenario,
+                output_language=intent.output_language,
             )
             data, llm_metrics = await invoke_json_with_optional_meta(
                 llm=self._llm,

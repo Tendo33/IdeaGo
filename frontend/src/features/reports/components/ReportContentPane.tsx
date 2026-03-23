@@ -111,7 +111,7 @@ export function ReportContentPane({
         </div>
       )}
 
-      <div className={`space-y-12 sm:space-y-16 transition-all duration-500 ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className={`space-y-12 sm:space-y-16 transition-all duration-700 ease-out-quart ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         {allFailed && (
           <AllFailedState sources={report.source_results} onRetry={onRetryAnalysis} />
         )}
@@ -122,8 +122,6 @@ export function ReportContentPane({
             <ConfidenceCard confidence={report.confidence} />
             <EvidenceCostCard
               evidenceSummary={report.evidence_summary}
-              costBreakdown={report.cost_breakdown}
-              reportMeta={report.report_meta}
             />
           </section>
         )}
