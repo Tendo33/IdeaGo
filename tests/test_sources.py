@@ -900,8 +900,13 @@ def test_reddit_available_with_credentials() -> None:
     assert src.is_available() is True
 
 
-def test_reddit_not_available_without_credentials() -> None:
+def test_reddit_available_with_public_fallback_enabled_without_credentials() -> None:
     src = RedditSource()
+    assert src.is_available() is True
+
+
+def test_reddit_not_available_without_credentials() -> None:
+    src = RedditSource(enable_public_fallback=False)
     assert src.is_available() is False
     src2 = RedditSource(client_id="id-only")
     assert src2.is_available() is False

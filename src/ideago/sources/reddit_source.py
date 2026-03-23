@@ -79,8 +79,18 @@ class RedditSource:
     def platform(self) -> Platform:
         return Platform.REDDIT
 
-    def is_available(self) -> bool:
+    def _has_oauth_credentials(self) -> bool:
         return bool(self._client_id and self._client_secret)
+
+    def is_available(self) -> bool:
+        return bool(
+            self._has_oauth_credentials()
+            or (
+                not self._client_id
+                and not self._client_secret
+                and self._enable_public_fallback
+            )
+        )
 
     def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
         self._runtime_max_concurrent_queries = max(1, int(value)) if value else None
@@ -111,8 +121,10 @@ class RedditSource:
         }
 
     def _should_use_public_fallback(self) -> tuple[bool, str]:
-        if self.is_available():
+        if self._has_oauth_credentials():
             return False, "none"
+        if self._client_id or self._client_secret:
+            return False, "partial_credentials"
         if not self._enable_public_fallback:
             return False, "disabled_by_config"
         return True, "missing_credentials"
