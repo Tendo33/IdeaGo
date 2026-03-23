@@ -302,7 +302,10 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 | `TAVILY_API_KEY` | Recommended | `""` | Enable Tavily source |
 | `GITHUB_TOKEN` | No | `""` | Higher GitHub rate limit |
 | `PRODUCTHUNT_DEV_TOKEN` | No | `""` | Enable Product Hunt source |
-| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | No | `""` | Enable Reddit source |
+| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | No | `""` | Preferred Reddit OAuth source configuration |
+| `REDDIT_ENABLE_PUBLIC_FALLBACK` | No | `true` | Allow read-only public Reddit fallback when OAuth credentials are missing |
+| `REDDIT_PUBLIC_FALLBACK_LIMIT` | No | `10` | Per-query limit for public Reddit fallback |
+| `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS` | No | `1.5` | Delay between public Reddit fallback requests |
 | `APPSTORE_COUNTRY` | No | `us` | App Store country code |
 | `PRODUCTHUNT_POSTED_AFTER_DAYS` | No | `730` | Product Hunt freshness window (days) |
 | `MAX_RESULTS_PER_SOURCE` | No | `10` | Raw results per source |

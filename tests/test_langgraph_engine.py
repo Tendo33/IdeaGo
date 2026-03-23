@@ -171,6 +171,21 @@ class RecordingSource:
         ]
 
 
+class PublicFallbackSource(MockSource):
+    @property
+    def platform(self) -> Platform:
+        return Platform.REDDIT
+
+    def consume_last_search_diagnostics(self) -> dict:
+        return {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+            "used_public_fallback": True,
+            "fallback_reason": "missing_credentials",
+        }
+
+
 class EmptySource:
     @property
     def platform(self) -> Platform:
@@ -310,6 +325,21 @@ async def test_langgraph_engine_source_failure_partial_result(tmp_path) -> None:
 
     event_types = [e.type for e in collector.events]
     assert EventType.SOURCE_FAILED in event_types
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_marks_public_fallback_source_as_degraded(
+    tmp_path,
+) -> None:
+    engine, _, _, _ = _build_engine(
+        tmp_path, sources=[PublicFallbackSource(Platform.REDDIT)]
+    )
+    report = await engine.run("test idea")
+
+    assert len(report.source_results) == 1
+    assert report.source_results[0].platform == Platform.REDDIT
+    assert report.source_results[0].status.value == "degraded"
+    assert "public Reddit fallback" in (report.source_results[0].error_msg or "")
 
 
 @pytest.mark.asyncio

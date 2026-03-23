@@ -24,31 +24,31 @@
 
 ### 代码层面（已完成）
 
-| 能力 | 状态 |
-|------|------|
+| 能力                                 | 状态   |
+| ------------------------------------ | ------ |
 | 用户认证（Supabase + LinuxDo OAuth） | 已实现 |
-| Stripe 订阅计费 | 已实现 |
-| 配额管理 + 速率限制 | 已实现 |
-| 管理后台 | 已实现 |
-| 安全头 + CSRF + CORS | 已实现 |
-| Sentry 错误监控 | 已集成 |
-| 审计日志 | 已实现 |
-| Docker 镜像 + CI/CD | 已实现 |
-| i18n 双语 | 已实现 |
-| 法律页面（Terms / Privacy） | 已实现 |
+| Stripe 订阅计费                      | 已实现 |
+| 配额管理 + 速率限制                  | 已实现 |
+| 管理后台                             | 已实现 |
+| 安全头 + CSRF + CORS                 | 已实现 |
+| Sentry 错误监控                      | 已集成 |
+| 审计日志                             | 已实现 |
+| Docker 镜像 + CI/CD                  | 已实现 |
+| i18n 双语                            | 已实现 |
+| 法律页面（Terms / Privacy）          | 已实现 |
 
 ### 运维层面（需要你完成）
 
-| 待办 | 说明 |
-|------|------|
-| 购买域名 | 如 `ideago.com` 或 `ideago.cc` |
-| VPS 安装 Docker + Caddy | 反向代理 + 自动 HTTPS |
-| 注册 Supabase | 免费额度足够起步 |
-| 注册 Stripe | 收款必须 |
-| 注册 Sentry | 错误监控（免费额度够用） |
-| 获取 API Keys | OpenAI、Tavily 等 |
-| 配置 DNS A 记录 | 域名指向 VPS IP |
-| 配置 Stripe Webhook | 指向你的域名 |
+| 待办                    | 说明                           |
+| ----------------------- | ------------------------------ |
+| 购买域名                | 如 `ideago.com` 或 `ideago.cc` |
+| VPS 安装 Docker + Caddy | 反向代理 + 自动 HTTPS          |
+| 注册 Supabase           | 免费额度足够起步               |
+| 注册 Stripe             | 收款必须                       |
+| 注册 Sentry             | 错误监控（免费额度够用）       |
+| 获取 API Keys           | OpenAI、Tavily 等              |
+| 配置 DNS A 记录         | 域名指向 VPS IP                |
+| 配置 Stripe Webhook     | 指向你的域名                   |
 
 ---
 
@@ -56,28 +56,28 @@
 
 ### 必须注册
 
-| 平台 | 用途 | 注册地址 | 费用 |
-|------|------|----------|------|
-| **OpenAI** | LLM 分析引擎 | https://platform.openai.com | 按量付费 |
-| **Supabase** | 数据库 + 认证 | https://supabase.com | 免费额度 500MB |
-| **Stripe** | 收款 + 订阅 | https://stripe.com | 交易 2.9%+30¢ |
-| **域名注册商** | 域名 | Cloudflare / Namecheap / 阿里云 | ~$10/年 |
+| 平台           | 用途          | 注册地址                        | 费用           |
+| -------------- | ------------- | ------------------------------- | -------------- |
+| **OpenAI**     | LLM 分析引擎  | https://platform.openai.com     | 按量付费       |
+| **Supabase**   | 数据库 + 认证 | https://supabase.com            | 免费额度 500MB |
+| **Stripe**     | 收款 + 订阅   | https://stripe.com              | 交易 2.9%+30¢  |
+| **域名注册商** | 域名          | Cloudflare / Namecheap / 阿里云 | ~$10/年        |
 
 ### 强烈推荐
 
-| 平台 | 用途 | 注册地址 | 费用 |
-|------|------|----------|------|
-| **Tavily** | 网络搜索数据源 | https://tavily.com | 免费 1000 次/月 |
-| **Sentry** | 错误监控 | https://sentry.io | 免费 5K events/月 |
-| **Docker Hub** | 镜像仓库 | https://hub.docker.com | 免费 |
+| 平台           | 用途           | 注册地址               | 费用              |
+| -------------- | -------------- | ---------------------- | ----------------- |
+| **Tavily**     | 网络搜索数据源 | https://tavily.com     | 免费 1000 次/月   |
+| **Sentry**     | 错误监控       | https://sentry.io      | 免费 5K events/月 |
+| **Docker Hub** | 镜像仓库       | https://hub.docker.com | 免费              |
 
 ### 可选（增强数据源）
 
-| 平台 | 用途 | 注册地址 |
-|------|------|----------|
-| **GitHub** | PAT 提升 API 限额 | https://github.com/settings/tokens |
-| **Product Hunt** | 产品数据源 | https://www.producthunt.com/v2/oauth/applications |
-| **Reddit** | 社区数据源 | https://www.reddit.com/prefs/apps |
+| 平台             | 用途              | 注册地址                                          |
+| ---------------- | ----------------- | ------------------------------------------------- |
+| **GitHub**       | PAT 提升 API 限额 | https://github.com/settings/tokens                |
+| **Product Hunt** | 产品数据源        | https://www.producthunt.com/v2/oauth/applications |
+| **Reddit**       | 社区数据源        | https://www.reddit.com/prefs/apps                 |
 
 ---
 
@@ -160,10 +160,10 @@ sudo systemctl enable caddy
 
 进入 **Project Settings → API**，记录：
 
-| 变量名 | 对应位置 |
-|--------|----------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | `anon` `public` key |
+| 变量名                      | 对应位置                                |
+| --------------------------- | --------------------------------------- |
+| `SUPABASE_URL`              | Project URL                             |
+| `SUPABASE_ANON_KEY`         | `anon` `public` key                     |
 | `SUPABASE_SERVICE_ROLE_KEY` | `service_role` `secret` key（不要泄露） |
 > 新版 Supabase 默认使用 JWT Signing Keys / JWKS。后端会自动通过
 > `/.well-known/jwks.json` 做本地验签，不需要额外查找或填写 `JWT Secret`。
@@ -339,10 +339,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 进入 **Developers → API Keys**，记录：
 
-| 变量名 | 对应位置 |
-|--------|----------|
-| `STRIPE_SECRET_KEY` | Secret key（`sk_test_...` 或 `sk_live_...`） |
-| `STRIPE_PRO_PRICE_ID` | 上一步创建的 Price ID |
+| 变量名                | 对应位置                                     |
+| --------------------- | -------------------------------------------- |
+| `STRIPE_SECRET_KEY`   | Secret key（`sk_test_...` 或 `sk_live_...`） |
+| `STRIPE_PRO_PRICE_ID` | 上一步创建的 Price ID                        |
 
 ### 5.4 配置 Webhook（部署上线后再做）
 

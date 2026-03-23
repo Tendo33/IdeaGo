@@ -53,3 +53,10 @@ print(settings.database_url)
 1. 环境变量（最高）
 2. .env 文件
 3. 默认值（最低）
+
+## Reddit Source Notes
+
+- `REDDIT_CLIENT_ID` 和 `REDDIT_CLIENT_SECRET` 仍然是 Reddit 数据源的首选配置方式。
+- 当这两个 OAuth 凭证缺失时，后端可以根据 `REDDIT_ENABLE_PUBLIC_FALLBACK` 自动退化到公开只读抓取模式。
+- 公开只读 fallback 仅用于有限的公开帖子搜索，结果稳定性和完整性低于 OAuth 模式。
+- 可通过 `REDDIT_PUBLIC_FALLBACK_LIMIT` 和 `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS` 控制 fallback 的结果数和请求节奏。

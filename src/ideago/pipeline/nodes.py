@@ -326,10 +326,15 @@ class PipelineNodes:
                 raw_by_source[platform_name] = results
                 diagnostics = _safe_consume_source_diagnostics(source)
                 has_partial_failure = bool(diagnostics.get("partial_failure", False))
+                used_public_fallback = bool(
+                    diagnostics.get("used_public_fallback", False)
+                )
                 failed_queries = diagnostics.get("failed_queries", [])
                 timed_out_queries = diagnostics.get("timed_out_queries", [])
                 status = (
-                    SourceStatus.DEGRADED if has_partial_failure else SourceStatus.OK
+                    SourceStatus.DEGRADED
+                    if has_partial_failure or used_public_fallback
+                    else SourceStatus.OK
                 )
                 error_msg = None
                 if has_partial_failure:
@@ -343,6 +348,13 @@ class PipelineNodes:
                         platform_name,
                         failed_queries,
                         timed_out_queries,
+                    )
+                elif used_public_fallback:
+                    fallback_reason = str(
+                        diagnostics.get("fallback_reason", "missing_credentials")
+                    )
+                    error_msg = (
+                        f"Using public Reddit fallback (reason={fallback_reason})"
                     )
                 await _emit(
                     self._callback,

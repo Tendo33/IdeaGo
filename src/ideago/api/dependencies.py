@@ -166,6 +166,9 @@ def get_orchestrator() -> LangGraphEngine:
                 client_secret=settings.reddit_client_secret,
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
+                enable_public_fallback=settings.reddit_enable_public_fallback,
+                public_fallback_limit=settings.reddit_public_fallback_limit,
+                public_fallback_delay_seconds=settings.reddit_public_fallback_delay_seconds,
             )
         )
 

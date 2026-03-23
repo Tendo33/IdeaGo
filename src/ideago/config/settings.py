@@ -120,6 +120,22 @@ class Settings(BaseSettings):
         default="",
         description="Reddit OAuth client secret",
     )
+    reddit_enable_public_fallback: bool = Field(
+        default=True,
+        description="Allow public read-only Reddit fallback when OAuth credentials are missing",
+    )
+    reddit_public_fallback_limit: int = Field(
+        default=10,
+        ge=1,
+        le=25,
+        description="Per-query result limit for public Reddit fallback",
+    )
+    reddit_public_fallback_delay_seconds: float = Field(
+        default=1.5,
+        ge=0.0,
+        le=10.0,
+        description="Delay between public Reddit fallback requests in seconds",
+    )
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(

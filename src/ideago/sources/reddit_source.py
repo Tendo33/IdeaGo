@@ -22,6 +22,9 @@ _APP_USER_AGENT = "IdeaGo/0.3 (competitor-research-engine)"
 _TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 _TOKEN_REFRESH_BUFFER = 60
 _INTER_REQUEST_DELAY = 1.0
+_PUBLIC_INTER_REQUEST_DELAY = 1.5
+_PUBLIC_SEARCH_LIMIT_CAP = 10
+_PUBLIC_SEARCH_URL = "https://www.reddit.com/search.json"
 
 
 class RedditSource:
@@ -35,11 +38,22 @@ class RedditSource:
         client_secret: str = "",
         timeout: int = 30,
         max_concurrent_queries: int = 2,
+        enable_public_fallback: bool = True,
+        public_fallback_limit: int = _PUBLIC_SEARCH_LIMIT_CAP,
+        public_fallback_delay_seconds: float = _PUBLIC_INTER_REQUEST_DELAY,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
+        self._enable_public_fallback = enable_public_fallback
+        self._public_fallback_limit = max(1, min(public_fallback_limit, 25))
+        self._public_fallback_delay_seconds = max(0.0, public_fallback_delay_seconds)
         self._client = httpx.AsyncClient(
             base_url=self._BASE_URL,
+            timeout=timeout,
+            headers={"User-Agent": _APP_USER_AGENT},
+            follow_redirects=True,
+        )
+        self._public_client = httpx.AsyncClient(
             timeout=timeout,
             headers={"User-Agent": _APP_USER_AGENT},
             follow_redirects=True,
@@ -57,6 +71,8 @@ class RedditSource:
             "partial_failure": False,
             "failed_queries": [],
             "timed_out_queries": [],
+            "used_public_fallback": False,
+            "fallback_reason": "none",
         }
 
     @property
@@ -75,8 +91,60 @@ class RedditSource:
             "partial_failure": False,
             "failed_queries": [],
             "timed_out_queries": [],
+            "used_public_fallback": False,
+            "fallback_reason": "none",
         }
         return payload
+
+    def _reset_search_diagnostics(
+        self,
+        *,
+        used_public_fallback: bool = False,
+        fallback_reason: str = "none",
+    ) -> None:
+        self._last_search_diagnostics = {
+            "partial_failure": False,
+            "failed_queries": [],
+            "timed_out_queries": [],
+            "used_public_fallback": used_public_fallback,
+            "fallback_reason": fallback_reason,
+        }
+
+    def _should_use_public_fallback(self) -> tuple[bool, str]:
+        if self.is_available():
+            return False, "none"
+        if not self._enable_public_fallback:
+            return False, "disabled_by_config"
+        return True, "missing_credentials"
+
+    def _build_raw_result_from_post(
+        self, post: dict[str, object], *, auth_mode: str
+    ) -> RawResult | None:
+        post_id = str(post.get("id", "") or "")
+        if not post_id:
+            return None
+
+        title = str(post.get("title", "") or "")
+        selftext = decode_entities_and_strip_html(str(post.get("selftext", "") or ""))
+        permalink = str(post.get("permalink", "") or "")
+        url = f"https://www.reddit.com{permalink}" if permalink else ""
+
+        return RawResult(
+            title=title,
+            description=selftext[:500] if selftext else "",
+            url=url,
+            platform=Platform.REDDIT,
+            raw_data={
+                "post_id": post_id,
+                "subreddit": str(post.get("subreddit", "") or ""),
+                "score": post.get("score", 0),
+                "num_comments": post.get("num_comments", 0),
+                "created_utc": post.get("created_utc", 0),
+                "link_url": str(post.get("url", "") or ""),
+                "upvote_ratio": post.get("upvote_ratio", 0),
+                "auth_mode": auth_mode,
+            },
+        )
 
     async def _ensure_token(self) -> str:
         """Obtain or refresh the OAuth2 application-only access token."""
@@ -115,7 +183,9 @@ class RedditSource:
                     self.platform.value, f"OAuth token error: {exc}"
                 ) from exc
 
-    async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+    async def _search_single_query_oauth(
+        self, query: str, limit: int
+    ) -> list[RawResult]:
         token = await self._ensure_token()
         try:
             resp = await self._client.get(
@@ -164,32 +234,9 @@ class RedditSource:
             result: list[RawResult] = []
             for child in children:
                 post = child.get("data", {})
-                post_id = post.get("id", "")
-                if not post_id:
-                    continue
-
-                title = post.get("title", "")
-                selftext = decode_entities_and_strip_html(post.get("selftext", ""))
-                permalink = post.get("permalink", "")
-                url = f"https://www.reddit.com{permalink}" if permalink else ""
-
-                result.append(
-                    RawResult(
-                        title=title,
-                        description=selftext[:500] if selftext else "",
-                        url=url,
-                        platform=Platform.REDDIT,
-                        raw_data={
-                            "post_id": post_id,
-                            "subreddit": post.get("subreddit", ""),
-                            "score": post.get("score", 0),
-                            "num_comments": post.get("num_comments", 0),
-                            "created_utc": post.get("created_utc", 0),
-                            "link_url": post.get("url", ""),
-                            "upvote_ratio": post.get("upvote_ratio", 0),
-                        },
-                    )
-                )
+                built = self._build_raw_result_from_post(post, auth_mode="oauth")
+                if built is not None:
+                    result.append(built)
             return result
         except httpx.HTTPError as exc:
             logger.warning(
@@ -206,29 +253,109 @@ class RedditSource:
                 self.platform.value, "Invalid JSON response"
             ) from exc
 
+    async def _search_single_query_public(
+        self, query: str, limit: int
+    ) -> list[RawResult]:
+        try:
+            resp = await self._public_client.get(
+                _PUBLIC_SEARCH_URL,
+                params={
+                    "q": query,
+                    "limit": min(limit, self._public_fallback_limit),
+                    "sort": "relevance",
+                    "t": "year",
+                    "type": "link",
+                },
+            )
+            if resp.status_code == 429:
+                logger.warning(
+                    "Reddit public fallback rate-limited for query '{query}'",
+                    query=query,
+                )
+                raise SourceSearchError(
+                    self.platform.value,
+                    "Reddit public fallback rate limit exceeded",
+                    status_code=429,
+                )
+            if resp.status_code != 200:
+                logger.warning(
+                    "Reddit public fallback returned {status} for query '{query}'",
+                    status=resp.status_code,
+                    query=query,
+                )
+                raise SourceSearchError(
+                    self.platform.value,
+                    "Reddit public fallback non-200 response",
+                    status_code=resp.status_code,
+                )
+
+            data = resp.json()
+            children = data.get("data", {}).get("children", [])
+            result: list[RawResult] = []
+            for child in children:
+                post = child.get("data", {})
+                built = self._build_raw_result_from_post(
+                    post, auth_mode="public_fallback"
+                )
+                if built is not None:
+                    result.append(built)
+            return result
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "Reddit public fallback failed for '{query}': {exc}",
+                query=query,
+                exc=exc,
+            )
+            raise SourceSearchError(self.platform.value, str(exc)) from exc
+        except ValueError as exc:
+            logger.warning(
+                "Reddit public fallback returned invalid JSON for '{query}': {exc}",
+                query=query,
+                exc=exc,
+            )
+            raise SourceSearchError(
+                self.platform.value, "Invalid JSON response"
+            ) from exc
+
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         """Search Reddit posts for each query and return combined, deduplicated results."""
-        if not queries or not self.is_available():
+        if not queries:
             return []
 
-        self._last_search_diagnostics = {
-            "partial_failure": False,
-            "failed_queries": [],
-            "timed_out_queries": [],
-        }
+        use_public_fallback, fallback_reason = self._should_use_public_fallback()
+        if not self.is_available() and not use_public_fallback:
+            self._reset_search_diagnostics(fallback_reason=fallback_reason)
+            return []
+
+        self._reset_search_diagnostics(
+            used_public_fallback=use_public_fallback,
+            fallback_reason=fallback_reason,
+        )
         seen_ids: set[str] = set()
         max_concurrency = (
-            self._runtime_max_concurrent_queries or self._max_concurrent_queries
+            1
+            if use_public_fallback
+            else (self._runtime_max_concurrent_queries or self._max_concurrent_queries)
         )
         semaphore = asyncio.Semaphore(max_concurrency)
         request_lock = asyncio.Lock()
+        inter_request_delay = (
+            self._public_fallback_delay_seconds
+            if use_public_fallback
+            else _INTER_REQUEST_DELAY
+        )
 
         async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
                 try:
                     async with request_lock:
-                        result = await self._search_single_query(query, limit)
-                        await asyncio.sleep(_INTER_REQUEST_DELAY)
+                        if use_public_fallback:
+                            result = await self._search_single_query_public(
+                                query, limit
+                            )
+                        else:
+                            result = await self._search_single_query_oauth(query, limit)
+                        await asyncio.sleep(inter_request_delay)
                     return query, result
                 except Exception as exc:  # noqa: BLE001
                     return query, exc
@@ -268,6 +395,8 @@ class RedditSource:
                 "partial_failure": True,
                 "failed_queries": failed_queries,
                 "timed_out_queries": timed_out_queries,
+                "used_public_fallback": use_public_fallback,
+                "fallback_reason": fallback_reason,
             }
             return results
         if failed_queries and first_error is not None:
@@ -276,4 +405,5 @@ class RedditSource:
 
     async def close(self) -> None:
         await self._client.aclose()
+        await self._public_client.aclose()
         await self._auth_client.aclose()
