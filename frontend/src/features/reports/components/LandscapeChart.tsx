@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { getCompetitorDomId } from '../competitor'
 import type { Competitor } from '@/lib/types/research'
+import { buttonVariants } from '@/components/ui/Button'
 
 interface LandscapeChartProps {
   competitors: Competitor[]
@@ -84,6 +85,10 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   const handleClick = (d: DataPoint) => {
     const el = document.getElementById(d.domId)
     if (el) {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current)
         highlightTimerRef.current = null
@@ -92,7 +97,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
         highlightedElementRef.current.classList.remove('ring-2', 'ring-primary')
       }
       highlightedElementRef.current = el
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' })
       el.classList.add('ring-2', 'ring-primary')
       highlightTimerRef.current = setTimeout(() => {
         el.classList.remove('ring-2', 'ring-primary')
@@ -162,6 +167,24 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
       <p className="text-[10px] text-muted-foreground text-center mt-2">
         {t('report.chart.clickHint')}
       </p>
+
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {data.map(point => (
+          <button
+            key={point.domId}
+            type="button"
+            onClick={() => handleClick(point)}
+            className={buttonVariants({
+              variant: 'ghost',
+              size: 'sm',
+              className: 'px-2.5 text-xs normal-case tracking-normal',
+            })}
+            aria-label={t('report.accessibility.jumpToCompetitor', { name: point.name })}
+          >
+            {point.name}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

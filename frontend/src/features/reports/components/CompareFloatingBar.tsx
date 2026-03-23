@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { buttonVariants } from '@/components/ui/Button'
 
 export interface CompareFloatingBarProps {
   count: number
@@ -11,26 +12,21 @@ export function CompareFloatingBar({ count, onCompare, onClear }: CompareFloatin
   if (count < 2) return null
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-3.5 rounded-none bg-popover/95 border-2 border-border shadow animate-fade-in no-print">
-      <span className="text-sm text-foreground">
+    <div className="fixed bottom-4 left-1/2 z-40 flex w-[min(calc(100%-1.5rem),32rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 rounded-none border-2 border-border bg-popover/95 px-4 py-3 shadow animate-fade-in no-print sm:bottom-6 sm:w-auto sm:max-w-none sm:flex-nowrap sm:justify-between sm:gap-4 sm:px-6 sm:py-3.5">
+      <span className="text-center text-sm text-foreground sm:text-left">
         <span className="font-semibold text-cta">{count}</span> {t('report.compare.selected')}
       </span>
       <button
         type="button"
-        onClick={() => {
-          onCompare()
-          setTimeout(() => {
-            document.getElementById('compare-panel')?.scrollIntoView({ behavior: 'smooth' })
-          }, 50)
-        }}
-        className="px-5 py-2 text-sm font-semibold rounded-none bg-cta text-primary-foreground cursor-pointer transition-all duration-300 hover:bg-cta-hover hover:shadow hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        onClick={onCompare}
+        className={buttonVariants({ variant: 'primary', size: 'sm', className: 'w-full px-5 sm:w-auto' })}
       >
         {t('report.compare.compareBtn')}
       </button>
       <button
         type="button"
         onClick={onClear}
-        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-none px-1"
+        className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'px-1 text-xs normal-case tracking-normal' })}
       >
         {t('report.compare.clear')}
       </button>

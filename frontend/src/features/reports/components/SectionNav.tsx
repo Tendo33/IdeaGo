@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { buttonVariants } from '@/components/ui/Button'
 import { useEffect, useMemo, useState } from 'react'
 
 interface NavSection {
@@ -12,6 +14,7 @@ interface SectionNavProps {
 }
 
 export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
+  const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? '')
   const [visible, setVisible] = useState(false)
   const stableSectionIdsKey = sectionIdsKey ?? sections.map(section => section.id).join('|')
@@ -69,12 +72,20 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
   return (
     <div className="fixed top-16 left-0 right-0 z-40 no-print animate-fade-in">
       <div className="max-w-5xl mx-auto px-4">
-        <nav className="flex items-center gap-1 px-2 py-1.5 rounded-none bg-popover/95 backdrop-blur-2xl border-2 border-border shadow overflow-x-auto">
+        <nav
+          aria-label={t('report.sections.navigation')}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-none bg-popover/95 backdrop-blur-2xl border-2 border-border shadow overflow-x-auto"
+        >
           {sections.map(s => (
             <button
               key={s.id}
               onClick={() => handleClick(s.id)}
-              className={`filter-chip rounded-none px-3 py-1.5 font-medium whitespace-nowrap ${resolvedActiveId === s.id ? 'filter-chip-active' : ''}`}
+              className={buttonVariants({
+                variant: resolvedActiveId === s.id ? 'primary' : 'ghost',
+                size: 'sm',
+                className: 'whitespace-nowrap px-3 text-xs sm:text-sm font-medium normal-case tracking-normal',
+              })}
+              aria-current={resolvedActiveId === s.id ? 'location' : undefined}
             >
               {s.label}
               {s.count !== undefined && (

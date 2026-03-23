@@ -33,7 +33,7 @@ export function ComparePanelDesktopTable({ competitors, allFeatures, onRemove }:
                       type="button"
                       onClick={() => onRemove(competitorId)}
                       className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger hover:bg-muted/50 transition-colors cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
-                      aria-label={`Remove ${competitor.name}`}
+                      aria-label={t('report.accessibility.removeCompetitor', { name: competitor.name })}
                     >
                       <X className="w-4 h-4" />
                     </button>

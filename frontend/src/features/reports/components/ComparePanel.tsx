@@ -35,6 +35,8 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
   useEffect(() => {
     previousFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const focusable = getFocusableElements()
     const firstFocusable = focusable[0]
     if (firstFocusable) {
@@ -66,6 +68,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', onKeyDown)
       previousFocusedRef.current?.focus()
     }
@@ -75,15 +78,26 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-6"
+      role="presentation"
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div
       id="compare-panel"
-      className="relative z-10 w-full animate-fade-in"
-      role="region"
+      className="relative z-10 flex w-full max-w-6xl animate-fade-in"
+      role="dialog"
+      aria-modal="true"
       aria-labelledby={headingId}
       ref={dialogRef}
+      tabIndex={-1}
     >
       <div
         ref={panelRef}
-        className="w-full bg-card border-2 border-border shadow overflow-hidden flex flex-col my-8"
+        className="flex max-h-[min(88vh,960px)] w-full flex-col overflow-hidden border-2 border-border bg-card shadow"
       >
         <div className="flex items-center justify-between px-6 py-5 border-b-2 border-border shrink-0 bg-muted/45">
           <h3 id={headingId} className="text-lg font-semibold font-heading text-foreground">
@@ -103,6 +117,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
           <ComparePanelMobileView competitors={competitors} allFeatures={allFeatures} onRemove={onRemove} />
           <ComparePanelDesktopTable competitors={competitors} allFeatures={allFeatures} onRemove={onRemove} />
         </div>
+      </div>
       </div>
     </div>
   )

@@ -27,7 +27,7 @@ export function ComparePanelMobileView({ competitors, allFeatures, onRemove }: C
               type="button"
               onClick={() => onRemove(competitorId)}
               className="absolute top-3 right-3 p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-none text-muted-foreground hover:text-danger bg-muted/50 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Remove ${competitor.name}`}
+              aria-label={t('report.accessibility.removeCompetitor', { name: competitor.name })}
             >
               <X className="w-4 h-4" />
             </button>

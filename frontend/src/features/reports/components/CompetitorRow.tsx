@@ -23,7 +23,7 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
   return (
     <div
       id={elementId}
-      className="flex items-center gap-4 px-5 py-4 rounded-none border-2 border-border bg-card transition-all duration-300 hover:border-border hover:shadow-md hover:-translate-y-[2px] group cursor-pointer"
+      className="flex items-center gap-4 px-5 py-4 rounded-none border-2 border-border bg-card transition-all duration-300 group"
     >
       <span className="text-sm font-mono text-muted-foreground w-6 text-right shrink-0">#{rank}</span>
       <RelevanceRing score={competitor.relevance_score} size={32} />
@@ -70,7 +70,7 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
             target="_blank"
             rel="noopener noreferrer"
             className="p-1.5 rounded-none text-muted-foreground hover:text-cta transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-            aria-label={`Open ${competitor.name}`}
+            aria-label={t('report.accessibility.openCompetitor', { name: competitor.name })}
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </a>

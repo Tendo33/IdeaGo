@@ -139,7 +139,8 @@
       "summary": "Overview",
       "landscape": "Market Landscape",
       "competitors": "Competitor Details",
-      "opportunities": "Opportunities"
+      "opportunities": "Opportunities",
+      "navigation": "Report sections"
     },
     "blueOcean": {
       "title": "No Direct Competitors Found",
@@ -306,6 +307,12 @@
       "featureCount": "Feature Density",
       "relevance": "Relevance Match %",
       "clickHint": "Click any dot to view that competitor. Larger dots indicate more available data sources."
+    },
+    "accessibility": {
+      "openCompetitorLink": "Open {{name}} on {{host}}",
+      "openCompetitor": "Open {{name}}",
+      "removeCompetitor": "Remove {{name}}",
+      "jumpToCompetitor": "Jump to competitor {{name}}"
     },
     "header": {
       "newSearch": "Start new search",

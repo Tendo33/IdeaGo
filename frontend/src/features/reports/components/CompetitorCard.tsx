@@ -16,7 +16,7 @@ interface CompetitorCardProps {
   onToggleCompare?: (id: string) => void
 }
 
-function LinkWithHost({ link, name }: { link: string; name: string }) {
+function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; ariaLabel: string }) {
   let hostname = 'link'
   try {
     const u = new URL(link)
@@ -30,7 +30,7 @@ function LinkWithHost({ link, name }: { link: string; name: string }) {
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
       className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-      aria-label={`Open ${name} on ${hostname}`}
+      aria-label={ariaLabel.replace('{{host}}', hostname).replace('{{name}}', name)}
     >
       <ExternalLink className="w-3 h-3" />
       {hostname}
@@ -65,7 +65,7 @@ export const CompetitorCard = memo(function CompetitorCard({
       className={`relative bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
           ? 'border-2 border-border shadow p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
-          : 'border-2 border-border hover:shadow p-5 card-clickable'
+          : 'border-2 border-border p-5'
       }`}
     >
       {/* Featured Accent Line */}
@@ -179,7 +179,12 @@ export const CompetitorCard = memo(function CompetitorCard({
           </div>
           <div className="flex flex-wrap gap-3">
             {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
-              <LinkWithHost key={i} link={link} name={competitor.name} />
+              <LinkWithHost
+                key={i}
+                link={link}
+                name={competitor.name}
+                ariaLabel={t('report.accessibility.openCompetitorLink', { name: '{{name}}', host: '{{host}}' })}
+              />
             ))}
           </div>
         </div>

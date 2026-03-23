@@ -139,7 +139,8 @@
       "summary": "分析概览",
       "landscape": "市场格局",
       "competitors": "竞品详情",
-      "opportunities": "切入机会"
+      "opportunities": "切入机会",
+      "navigation": "报告分段导航"
     },
     "blueOcean": {
       "title": "未发现直接竞品",
@@ -306,6 +307,12 @@
       "featureCount": "功能密集度",
       "relevance": "匹配关联度 %",
       "clickHint": "点击图上的圆点即可查看对应竞品详情。圆点的大小代表该竞品数据来源的数量。"
+    },
+    "accessibility": {
+      "openCompetitorLink": "打开 {{name}} 在 {{host}} 上的页面",
+      "openCompetitor": "打开 {{name}}",
+      "removeCompetitor": "移除 {{name}}",
+      "jumpToCompetitor": "跳转到竞品 {{name}}"
     },
     "header": {
       "newSearch": "发起新搜索",
