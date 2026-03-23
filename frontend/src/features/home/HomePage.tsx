@@ -1,10 +1,8 @@
 import { useEffect, useState, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
 import { SearchBox } from './components/SearchBox'
 import { isRequestAbortError, listReports } from '../../lib/api/client'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../../lib/auth/useAuth'
 import { Alert } from '../../components/ui/Alert'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -46,43 +44,6 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
   )
 })
 
-const WELCOME_DISMISSED_KEY = 'ideago_welcome_dismissed'
-
-function WelcomeBanner() {
-  const { t } = useTranslation()
-  const [visible, setVisible] = useState(() => !localStorage.getItem(WELCOME_DISMISSED_KEY))
-
-  if (!visible) return null
-
-  const dismiss = () => {
-    localStorage.setItem(WELCOME_DISMISSED_KEY, '1')
-    setVisible(false)
-  }
-
-  return (
-    <div className="relative mb-8 border-4 border-primary bg-primary/5 p-6 animate-fade-in">
-      <button
-        onClick={dismiss}
-        className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-        aria-label={t('common.dismiss', 'Dismiss')}
-      >
-        <X className="w-5 h-5" />
-      </button>
-      <h3 className="text-lg font-black uppercase tracking-tight mb-2">
-        {t('welcome.title', 'Welcome to IdeaGo!')}
-      </h3>
-      <p className="text-sm text-muted-foreground font-medium leading-relaxed max-w-xl">
-        {t('welcome.body', 'Describe your startup idea below and we\'ll find competitors, analyze market signals, and generate a research report in minutes.')}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
-        <span>1. {t('welcome.step1', 'Enter your idea')}</span>
-        <span>2. {t('welcome.step2', 'AI researches the market')}</span>
-        <span>3. {t('welcome.step3', 'Read your report')}</span>
-      </div>
-    </div>
-  )
-}
-
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function HomePage() {
@@ -90,10 +51,8 @@ export function HomePage() {
   const { t } = useTranslation()
   useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
 
-  const { user } = useAuth()
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
-  const showWelcome = user && !localStorage.getItem(WELCOME_DISMISSED_KEY)
 
   const handleNavigate = useCallback((id: string) => {
     navigate(`/reports/${id}`)
@@ -127,13 +86,6 @@ export function HomePage() {
   return (
     <div className="app-shell pt-8 pb-16 sm:pt-12">
       <div className="grid items-start gap-16 lg:grid-cols-[1fr_400px]">
-
-        {showWelcome && (
-          <div className="lg:col-span-2">
-            <WelcomeBanner />
-          </div>
-        )}
-
         {/* Main Content Section */}
         <section className="py-12 lg:py-16 text-left animate-fade-in">
           <h1 className="mb-8 font-heading uppercase tracking-tighter leading-[0.9] text-6xl sm:text-8xl md:text-[7rem] break-words">
