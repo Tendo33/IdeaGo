@@ -58,9 +58,9 @@
     "title": "个人资料",
     "saved": "个人资料已更新",
     "memberSince": "加入于",
-    "planAndUsage": "????",
-    "currentPlan": "????",
-    "usageThisMonth": "?????",
+    "planAndUsage": "每日用量",
+    "currentPlan": "配额类型",
+    "usageThisMonth": "今日已用",
     "quotaUsage": "配额用量",
     "resetsOn": "重置日期",
     "editProfile": "编辑资料",
@@ -78,7 +78,7 @@
     "noSubscription": "暂无有效订阅",
     "manageSubscription": "管理订阅",
     "upgradeToPro": "升级到 Pro",
-    "dailyQuotaLabel": "????"
+    "dailyQuotaLabel": "每日限额"
   },
   "common": {
     "cancel": "取消",
@@ -396,9 +396,9 @@
     "proFeature6": "优先技术支持"
   },
   "quota": {
-    "exceeded": "?????????????",
-    "upgradeHint": "????????????????",
-    "upgradeCta": "??"
+    "exceeded": "您已达到今日分析次数上限。",
+    "upgradeHint": "配额将在明天重置后恢复，届时您可以继续发起分析。",
+    "upgradeCta": "明天"
   },
   "welcome": {
     "title": "欢迎使用 IdeaGo！",
@@ -411,7 +411,7 @@
     "rateLimited": "请求过于频繁，请稍后再试。",
     "networkError": "网络错误，请检查您的网络连接后重试。",
     "sessionExpired": "登录已过期，请重新登录。",
-    "quotaExceeded": "???????????",
+    "quotaExceeded": "已达到今日分析次数上限。",
     "unknown": "出现了问题，请重试。"
   },
   "account": {
