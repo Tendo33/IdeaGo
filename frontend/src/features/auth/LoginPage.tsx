@@ -29,6 +29,22 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
+function LinuxDoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <clipPath id="linuxdo-icon-clip">
+          <circle cx="60" cy="60" r="47" />
+        </clipPath>
+      </defs>
+      <circle fill="#F0F0F0" cx="60" cy="60" r="50" />
+      <rect fill="#1C1C1E" clipPath="url(#linuxdo-icon-clip)" x="10" y="10" width="100" height="30" />
+      <rect fill="#F0F0F0" clipPath="url(#linuxdo-icon-clip)" x="10" y="40" width="100" height="40" />
+      <rect fill="#FFB003" clipPath="url(#linuxdo-icon-clip)" x="10" y="80" width="100" height="30" />
+    </svg>
+  )
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
   useDocumentTitle(t('auth.loginTitle', 'Sign In') + ' — IdeaGo')
@@ -243,7 +259,7 @@ export function LoginPage() {
                 {oauthLoading === 'linuxdo' ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <KeyRound className="w-5 h-5" />
+                  <LinuxDoIcon className="w-5 h-5" />
                 )}
                 {t('auth.continueWithLinuxDo', 'Continue with LinuxDo')}
               </button>
