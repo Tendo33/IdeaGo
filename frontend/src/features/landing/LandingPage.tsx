@@ -96,13 +96,6 @@ export function LandingPage() {
             {isChinese ? 'EN' : 'ZH'}
           </button>
           <Link
-            to="/pricing"
-            className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          >
-            <span className="hidden sm:inline">{t('pricing.title', 'Pricing')}</span>
-            <span className="sm:hidden">{t('pricing.title', 'Pricing')}</span>
-          </Link>
-          <Link
             to="/login"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
@@ -343,9 +336,6 @@ export function LandingPage() {
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
           <div className="flex items-center gap-4">
-            <Link to="/pricing" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
-              {t('pricing.title', 'Pricing')}
-            </Link>
             <Link to="/terms" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.termsTitle', 'Terms')}
             </Link>

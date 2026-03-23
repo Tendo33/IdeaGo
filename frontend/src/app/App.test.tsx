@@ -23,6 +23,7 @@ vi.mock('@/lib/auth/AuthProvider', () => ({
 
 vi.mock('@/lib/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AdminRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('@/features/home/HomePage', () => ({
@@ -96,6 +97,14 @@ describe('App landing page', () => {
     authState = { user: mockUser, loading: false }
     render(<App />)
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+  })
+
+  it('does not expose pricing route anymore', async () => {
+    authState = { user: null, loading: false }
+    window.history.pushState({}, '', '/pricing')
+    render(<App />)
+
+    expect(await screen.findByText('404')).toBeInTheDocument()
   })
 })
 

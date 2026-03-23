@@ -3388,94 +3388,40 @@ async def test_billing_validate_redirect_and_service_paths() -> None:
 async def test_billing_and_reports_remaining_success_and_error_branches(
     tmp_path,
 ) -> None:
-    fake_settings = type(
-        "Settings",
-        (),
-        {
-            "frontend_app_url": "https://app.example.com",
-            "stripe_pro_price_id": "price_123",
-        },
-    )()
     user = billing_route.AuthUser(id="uid", email="u@example.com")
 
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(return_value="cus_123"),
-        ),
-        patch(
-            "ideago.api.routes.billing.create_checkout_session",
-            new=AsyncMock(return_value="https://checkout.example.com"),
-        ),
-    ):
-        checkout = await billing_route.create_checkout(
+    with pytest.raises(AppError) as checkout_unavailable:
+        await billing_route.create_checkout(
             billing_route.CheckoutRequest(
                 success_url="https://app.example.com/success",
                 cancel_url="https://app.example.com/cancel",
             ),
             user,
         )
-    assert checkout.url == "https://checkout.example.com"
-
-    with patch("ideago.api.routes.billing.is_configured", return_value=False):
-        with pytest.raises(AppError) as portal_not_configured:
-            await billing_route.create_portal(
-                billing_route.PortalRequest(
-                    return_url="https://app.example.com/profile"
-                ),
-                user,
-            )
-        with pytest.raises(AppError) as webhook_not_configured:
-            await billing_route.stripe_webhook(
-                type(
-                    "Req",
-                    (),
-                    {"headers": {}, "body": AsyncMock(return_value=b"{}")},
-                )()
-            )
 
     with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(
-                side_effect=AppError(
-                    400, app_module.ErrorCode.VALIDATION_ERROR, "bad customer"
-                )
-            ),
-        ),
-        pytest.raises(AppError) as portal_reraise,
+        patch("ideago.api.routes.billing.is_configured", return_value=False),
+        pytest.raises(AppError) as webhook_not_configured,
     ):
+        await billing_route.stripe_webhook(
+            type(
+                "Req",
+                (),
+                {"headers": {}, "body": AsyncMock(return_value=b"{}")},
+            )()
+        )
+
+    with pytest.raises(AppError) as portal_unavailable:
         await billing_route.create_portal(
             billing_route.PortalRequest(return_url="https://app.example.com/profile"),
             user,
         )
 
-    assert portal_not_configured.value.status_code == 503
+    assert checkout_unavailable.value.status_code == 404
+    assert checkout_unavailable.value.code == app_module.ErrorCode.NOT_FOUND
+    assert portal_unavailable.value.status_code == 404
+    assert portal_unavailable.value.code == app_module.ErrorCode.NOT_FOUND
     assert webhook_not_configured.value.status_code == 503
-    assert portal_reraise.value.status_code == 400
-
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(return_value="cus_123"),
-        ),
-        patch(
-            "ideago.api.routes.billing.create_portal_session",
-            new=AsyncMock(side_effect=RuntimeError("boom")),
-        ),
-        pytest.raises(AppError) as portal_internal_error,
-    ):
-        await billing_route.create_portal(
-            billing_route.PortalRequest(return_url="https://app.example.com/profile"),
-            user,
-        )
-    assert portal_internal_error.value.status_code == 500
 
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     report = _make_test_report()
@@ -3521,6 +3467,36 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     assert "Strengths" in markdown
     assert "Weaknesses" in markdown
     assert "Differentiation Opportunities" in markdown
+
+
+@pytest.mark.asyncio
+async def test_billing_user_routes_are_temporarily_unavailable() -> None:
+    user = billing_route.AuthUser(id="uid", email="u@example.com")
+
+    with pytest.raises(AppError) as checkout_error:
+        await billing_route.create_checkout(
+            billing_route.CheckoutRequest(
+                success_url="https://app.example.com/success",
+                cancel_url="https://app.example.com/cancel",
+            ),
+            user,
+        )
+
+    with pytest.raises(AppError) as portal_error:
+        await billing_route.create_portal(
+            billing_route.PortalRequest(return_url="https://app.example.com/profile"),
+            user,
+        )
+
+    with pytest.raises(AppError) as status_error:
+        await billing_route.get_subscription_status(user)
+
+    assert checkout_error.value.status_code == 404
+    assert checkout_error.value.code == app_module.ErrorCode.NOT_FOUND
+    assert portal_error.value.status_code == 404
+    assert portal_error.value.code == app_module.ErrorCode.NOT_FOUND
+    assert status_error.value.status_code == 404
+    assert status_error.value.code == app_module.ErrorCode.NOT_FOUND
 
 
 @pytest.mark.asyncio
@@ -3634,14 +3610,7 @@ async def test_billing_claim_event_handle_webhook_and_routes() -> None:
             user,
         )
 
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch(
-            "ideago.api.routes.billing.get_settings",
-            return_value=type("Settings", (), {"stripe_pro_price_id": ""})(),
-        ),
-        pytest.raises(AppError) as no_price,
-    ):
+    with pytest.raises(AppError) as checkout_unavailable:
         await billing_route.create_checkout(
             billing_route.CheckoutRequest(
                 success_url="https://app.example.com/success",
@@ -3650,70 +3619,11 @@ async def test_billing_claim_event_handle_webhook_and_routes() -> None:
             user,
         )
 
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(return_value="cus_1"),
-        ),
-        patch(
-            "ideago.api.routes.billing.create_checkout_session",
-            new=AsyncMock(return_value=""),
-        ),
-        pytest.raises(AppError) as checkout_failed,
-    ):
-        await billing_route.create_checkout(
-            billing_route.CheckoutRequest(
-                success_url="https://app.example.com/success",
-                cancel_url="https://app.example.com/cancel",
-            ),
-            user,
-        )
+    with pytest.raises(AppError) as status_unavailable:
+        await billing_route.get_subscription_status(user)
 
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(return_value="cus_1"),
-        ),
-        patch(
-            "ideago.api.routes.billing.create_checkout_session",
-            new=AsyncMock(side_effect=RuntimeError("boom")),
-        ),
-        pytest.raises(AppError) as checkout_error,
-    ):
-        await billing_route.create_checkout(
-            billing_route.CheckoutRequest(
-                success_url="https://app.example.com/success",
-                cancel_url="https://app.example.com/cancel",
-            ),
-            user,
-        )
-
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch(
-            "ideago.auth.supabase_admin.get_quota_info",
-            new=AsyncMock(return_value={"plan": "pro"}),
-        ),
-    ):
-        status = await billing_route.get_subscription_status(user)
-
-    with (
-        patch("ideago.api.routes.billing.is_configured", return_value=True),
-        patch(
-            "ideago.api.routes.billing.get_or_create_customer",
-            new=AsyncMock(return_value="cus_1"),
-        ),
-        patch(
-            "ideago.api.routes.billing.create_portal_session",
-            new=AsyncMock(return_value="https://portal.example.com"),
-        ),
-        patch("ideago.api.routes.billing.get_settings", return_value=fake_settings),
-    ):
-        portal = await billing_route.create_portal(
+    with pytest.raises(AppError) as portal_unavailable:
+        await billing_route.create_portal(
             billing_route.PortalRequest(return_url="https://app.example.com/profile"),
             user,
         )
@@ -3755,12 +3665,10 @@ async def test_billing_claim_event_handle_webhook_and_routes() -> None:
     ):
         ok = await billing_route.stripe_webhook(request)
 
-    assert not_configured.value.status_code == 503
-    assert no_price.value.status_code == 503
-    assert checkout_failed.value.status_code == 502
-    assert checkout_error.value.status_code == 500
-    assert status.plan == "pro"
-    assert portal.url == "https://portal.example.com"
+    assert not_configured.value.status_code == 404
+    assert checkout_unavailable.value.status_code == 404
+    assert status_unavailable.value.status_code == 404
+    assert portal_unavailable.value.status_code == 404
     assert invalid_sig.value.status_code == 400
     assert webhook_error.value.status_code == 500
     assert ok == {"received": True}

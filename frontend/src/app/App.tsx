@@ -44,11 +44,6 @@ const HistoryPage = lazy(async () => {
   return { default: page.HistoryPage }
 })
 
-const PricingPage = lazy(async () => {
-  const page = await import('@/features/pricing/PricingPage')
-  return { default: page.PricingPage }
-})
-
 const AdminPage = lazy(async () => {
   const page = await import('@/features/admin/AdminPage')
   return { default: page.AdminPage }
@@ -392,7 +387,6 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-            <Route path="/pricing" element={<PricingPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />

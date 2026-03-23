@@ -8,14 +8,11 @@ import {
   getMyProfile,
   getQuotaInfo,
   updateMyProfile,
-  getSubscriptionStatus,
-  createPortalSession,
   deleteAccount,
   type QuotaInfo,
   type UserProfile,
-  type SubscriptionStatus,
 } from '@/lib/api/client'
-import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, CreditCard, Crown, ExternalLink, Trash2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, Trash2, AlertTriangle } from 'lucide-react'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -32,8 +29,6 @@ export function ProfilePage() {
 
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
-  const [portalLoading, setPortalLoading] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -44,10 +39,9 @@ export function ProfilePage() {
     let cancelled = false
 
     async function load() {
-      const [profileResult, quotaResult, subResult] = await Promise.allSettled([
+      const [profileResult, quotaResult] = await Promise.allSettled([
         getMyProfile(),
         getQuotaInfo(),
-        getSubscriptionStatus(),
       ])
 
       if (cancelled) return
@@ -64,10 +58,6 @@ export function ProfilePage() {
 
       if (quotaResult.status === 'fulfilled') {
         setQuota(quotaResult.value)
-      }
-
-      if (subResult.status === 'fulfilled') {
-        setSubscription(subResult.value)
       }
 
       setLoading(false)
@@ -222,67 +212,6 @@ export function ProfilePage() {
           </div>
         )}
       </div>
-
-      {/* Subscription management */}
-      {subscription?.stripe_configured && (
-        <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
-          <h3 className="text-lg font-black uppercase tracking-wider mb-4 flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            {t('profile.subscription', 'Subscription')}
-          </h3>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {subscription.plan === 'pro' ? (
-                <Crown className="w-6 h-6 text-primary" />
-              ) : null}
-              <div>
-                <p className="font-black uppercase text-lg">
-                  {subscription.plan === 'pro'
-                    ? t('profile.proPlan', 'Pro Plan')
-                    : t('profile.freePlan', 'Free Plan')}
-                </p>
-                <p className="text-sm text-muted-foreground font-bold">
-                  {subscription.has_subscription
-                    ? t('profile.activeSubscription', 'Active subscription')
-                    : t('profile.noSubscription', 'No active subscription')}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {subscription.has_subscription ? (
-              <Button
-                variant="outline"
-                disabled={portalLoading}
-                onClick={async () => {
-                  setPortalLoading(true)
-                  try {
-                    const url = await createPortalSession(window.location.href)
-                    window.location.href = url
-                  } catch {
-                    setPortalLoading(false)
-                  }
-                }}
-              >
-                {portalLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                )}
-                {t('profile.manageSubscription', 'Manage Subscription')}
-              </Button>
-            ) : (
-              <Link
-                to="/pricing"
-                className="inline-flex items-center justify-center gap-2 min-h-[44px] border-2 border-border bg-primary text-primary-foreground px-4 py-2 text-sm font-bold uppercase tracking-wider shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-              >
-                <Crown className="w-4 h-4" />
-                {t('profile.upgradeToPro', 'Upgrade to Pro')}
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Edit form */}
       <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">

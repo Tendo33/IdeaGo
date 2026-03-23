@@ -396,7 +396,7 @@
   },
   "quota": {
     "exceeded": "您已达到本月分析次数上限。",
-    "upgradeHint": "升级到专业版可获得更多分析次数。",
+    "upgradeHint": "更多分析次数会在后续版本开放。",
     "upgradeCta": "升级"
   },
   "welcome": {
@@ -410,7 +410,7 @@
     "rateLimited": "请求过于频繁，请稍后再试。",
     "networkError": "网络错误，请检查您的网络连接后重试。",
     "sessionExpired": "登录已过期，请重新登录。",
-    "quotaExceeded": "本月分析次数已用完，请升级您的套餐。",
+    "quotaExceeded": "本月分析次数已用完。",
     "unknown": "出现了问题，请重试。"
   },
   "account": {

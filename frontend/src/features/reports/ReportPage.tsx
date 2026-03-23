@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Crown } from 'lucide-react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
 import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
@@ -121,19 +120,12 @@ export function ReportPage() {
           <Alert variant="warning" className="mb-6 items-center">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-warning">
-                {t('quota.exceeded', 'You\'ve reached your monthly analysis limit.')}
+                {t('quota.exceeded', 'You have reached your monthly analysis limit.')}
               </p>
               <p className="text-xs text-warning/80 mt-1">
-                {t('quota.upgradeHint', 'Upgrade to Pro for 100 analyses per month.')}
+                {t('quota.upgradeHint', 'More analyses per month will return in a later release.')}
               </p>
             </div>
-            <Link
-              to="/pricing"
-              className="ml-3 inline-flex items-center justify-center gap-2 border-2 border-border bg-primary text-primary-foreground px-3 py-1.5 text-sm font-bold uppercase tracking-wider shadow-sm transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-            >
-              <Crown className="w-4 h-4" />
-              {t('quota.upgradeCta', 'Upgrade')}
-            </Link>
           </Alert>
         )}
 

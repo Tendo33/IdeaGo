@@ -6,8 +6,26 @@ import { getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '@/li
 import { useSSE } from '@/lib/api/useSSE'
 import i18n from '@/lib/i18n/i18n'
 import type { ResearchReport } from '@/lib/types/research'
+import { ApiError } from '@/lib/api/client'
 
 vi.mock('@/lib/api/client', () => ({
+  ApiError: class ApiError extends Error {
+    statusCode: number
+    code: string
+
+    constructor(message: string, statusCode: number, code = '') {
+      super(message)
+      this.name = 'ApiError'
+      this.statusCode = statusCode
+      this.code = code
+    }
+
+    is(errorCode: string) {
+      return this.code === errorCode
+    }
+  },
+  isApiError: (error: unknown) => error instanceof Error && error.name === 'ApiError',
+  isRequestAbortError: (error: unknown) => error instanceof Error && error.name === 'AbortError',
   getReportWithStatus: vi.fn(),
   getReportRuntimeStatus: vi.fn(),
   cancelAnalysis: vi.fn(),
@@ -381,5 +399,24 @@ describe('ReportPage', () => {
 
     expect(startAnalysis).toHaveBeenCalledTimes(1)
     expect(broadenButton).toBeDisabled()
+  })
+
+  it('shows quota warning without upgrade entry when limit is exceeded', async () => {
+    vi.mocked(startAnalysis).mockRejectedValue(
+      new ApiError('Analysis failed: limit reached', 429, 'QUOTA_EXCEEDED'),
+    )
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/reports/new', state: { query: 'test idea' } }]}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/monthly analysis limit/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('link', { name: /upgrade/i })).not.toBeInTheDocument()
   })
 })

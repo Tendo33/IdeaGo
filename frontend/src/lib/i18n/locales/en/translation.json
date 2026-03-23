@@ -396,7 +396,7 @@
   },
   "quota": {
     "exceeded": "You have reached your monthly analysis limit.",
-    "upgradeHint": "Upgrade to Pro for more analyses per month.",
+    "upgradeHint": "More analyses per month will return in a later release.",
     "upgradeCta": "Upgrade"
   },
   "welcome": {
@@ -410,7 +410,7 @@
     "rateLimited": "Too many requests. Please wait a moment and try again.",
     "networkError": "Network error. Check your connection and retry.",
     "sessionExpired": "Session expired. Please sign in again.",
-    "quotaExceeded": "Monthly analysis limit reached. Upgrade your plan.",
+    "quotaExceeded": "Monthly analysis limit reached.",
     "unknown": "Something went wrong. Please try again."
   },
   "account": {

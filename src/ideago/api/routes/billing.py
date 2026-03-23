@@ -23,6 +23,11 @@ router = APIRouter(tags=["billing"])
 logger = get_logger(__name__)
 
 
+def _raise_temporarily_unavailable() -> None:
+    """Hide user-facing billing flows until pricing is re-enabled."""
+    raise AppError(404, ErrorCode.NOT_FOUND, "Billing is temporarily unavailable")
+
+
 def _validate_redirect_url(url: str, label: str) -> None:
     """Reject redirect URLs that don't match the configured frontend origin."""
     from urllib.parse import urlparse
@@ -88,6 +93,7 @@ async def create_checkout(
     user: AuthUser = Depends(get_current_user),
 ) -> CheckoutResponse:
     """Create a Stripe Checkout Session for upgrading to Pro."""
+    _raise_temporarily_unavailable()
     if not is_configured():
         raise AppError(503, ErrorCode.BILLING_NOT_CONFIGURED, "Billing not configured")
 
@@ -128,6 +134,7 @@ async def create_portal(
     user: AuthUser = Depends(get_current_user),
 ) -> PortalResponse:
     """Create a Stripe Customer Portal session for managing subscription."""
+    _raise_temporarily_unavailable()
     if not is_configured():
         raise AppError(503, ErrorCode.BILLING_NOT_CONFIGURED, "Billing not configured")
 
@@ -154,6 +161,7 @@ async def get_subscription_status(
     user: AuthUser = Depends(get_current_user),
 ) -> SubscriptionStatus:
     """Return the user's current plan and subscription status."""
+    _raise_temporarily_unavailable()
     from ideago.auth.supabase_admin import get_quota_info
 
     quota = await get_quota_info(user.id)
