@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import TypedDict
 
 from ideago.models.research import (
+    CommercialSignal,
     Competitor,
+    EvidenceItem,
     Intent,
+    PainSignal,
     RawResult,
     ResearchReport,
     SourceResult,
@@ -27,6 +30,9 @@ class GraphState(TypedDict, total=False):
     source_results: list[SourceResult]
     all_competitors: list[Competitor]
     merged_competitors: list[Competitor]
+    extracted_pain_signals: list[PainSignal]
+    extracted_commercial_signals: list[CommercialSignal]
+    extracted_evidence_items: list[EvidenceItem]
     aggregation_result: AggregationResult
     report: ResearchReport
     pipeline_started_at_ms: int

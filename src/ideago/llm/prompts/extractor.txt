@@ -1,4 +1,4 @@
-You are a competitor analysis expert. Your task is to extract structured competitor information from raw search results.
+You are a competitor analysis expert. Your task is to extract structured competitor information plus decision signals from raw search results.
 
 ## User Intent
 - Keywords: {keywords}
@@ -19,8 +19,15 @@ You are a competitor analysis expert. Your task is to extract structured competi
    - How closely it matches the user's intent keywords and target scenario (0.8-1.0 = direct competitor)
    - Popularity signals (stars, points, comments) if available
    - Completeness of the product (0.2-0.4 = abandoned/minimal project)
-6. Write all natural-language fields (`one_liner`, `features`, `pricing`, `strengths`, `weaknesses`) in the specified `output_language`.
-7. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
+6. Also extract signal fields:
+   - `pain_signals`: recurring user pain, with intensity/frequency and supporting evidence URLs.
+   - `commercial_signals`: willingness-to-pay / demand / budget intent clues.
+   - `migration_signals`: switch intent, replacement motivation, churn triggers.
+   - `evidence_items`: inspectable evidence snippets with category labels.
+7. `evidence_items[].category` must be one of:
+   - `competitor`, `pain`, `commercial`, `migration`, `whitespace`, `market`
+8. Write all natural-language fields in the specified `output_language`.
+9. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
 
 ## Output Format
 Return a JSON object:
@@ -37,6 +44,50 @@ Return a JSON object:
       "relevance_score": 0.8,
       "source_platforms": ["{platform}"],
       "source_urls": ["https://exact-url-from-data"]
+    }
+  ],
+  "pain_signals": [
+    {
+      "theme": "Onboarding is too complex",
+      "summary": "Users repeatedly report setup friction.",
+      "intensity": 0.8,
+      "frequency": 0.7,
+      "evidence_urls": ["https://exact-url-from-data"],
+      "source_platforms": ["{platform}"]
+    }
+  ],
+  "commercial_signals": [
+    {
+      "theme": "Willingness to pay for faster workflow",
+      "summary": "Users compare paid tools for speed and reliability.",
+      "intent_strength": 0.75,
+      "monetization_hint": "Team plan for automation",
+      "evidence_urls": ["https://exact-url-from-data"],
+      "source_platforms": ["{platform}"]
+    }
+  ],
+  "migration_signals": [
+    {
+      "title": "Migration intent signal",
+      "url": "https://exact-url-from-data",
+      "platform": "{platform}",
+      "snippet": "Users explicitly discuss switching from incumbent tools.",
+      "category": "migration",
+      "freshness_hint": "Optional short freshness note",
+      "matched_query": "The query that matched this migration signal",
+      "query_family": "migration_discovery"
+    }
+  ],
+  "evidence_items": [
+    {
+      "title": "Evidence title",
+      "url": "https://exact-url-from-data",
+      "platform": "{platform}",
+      "snippet": "Short evidence snippet",
+      "category": "pain",
+      "freshness_hint": "Optional short freshness note",
+      "matched_query": "The query that matched this evidence",
+      "query_family": "pain_discovery"
     }
   ]
 }

@@ -139,6 +139,8 @@ describe('useSSE', () => {
 
     await act(async () => {
       await flushMicrotasks()
+      vi.advanceTimersByTime(300)
+      await flushMicrotasks()
     })
     expect(result.current.events).toHaveLength(1)
   })
@@ -207,9 +209,13 @@ describe('useSSE', () => {
       })
     })
 
-    await act(async () => {
-      await flushMicrotasks()
-    })
+    for (let i = 0; i < 5 && result.current.events.length === 0; i += 1) {
+      await act(async () => {
+        await flushMicrotasks()
+        vi.advanceTimersByTime(300)
+        await flushMicrotasks()
+      })
+    }
     expect(result.current.events).toHaveLength(1)
     expect(result.current.events[0]?.stage).toBe('tavily_search')
   })

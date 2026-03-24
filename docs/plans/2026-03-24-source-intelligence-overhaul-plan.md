@@ -65,15 +65,25 @@ Keep the sources unchanged, but assign explicit responsibilities:
 
 The end-state flow should look like this:
 
-1. Parse user intent
-2. Generate multiple research-intent query families
-3. Orchestrate existing sources according to source roles and budget
-4. Preserve provenance for each raw result
-5. Rank by opportunity, not popularity
-6. Extract competitors plus pain/commercial/evidence signals
-7. Synthesize whitespace and entry wedges
-8. Compute confidence from source diversity and evidence density
-9. Present a decision-first report UI
+1. Stabilize typed report, state, and aggregation contracts first
+2. Parse user intent
+3. Generate multiple research-intent query families
+4. Orchestrate existing sources according to source roles and budget
+5. Preserve provenance for each raw result
+6. Rank by opportunity, not popularity
+7. Extract competitors plus pain/commercial/evidence signals
+8. Synthesize whitespace and entry wedges in the aggregator layer
+9. Compute confidence from source diversity and evidence density
+10. Expose explicit report detail/export contracts
+11. Present a decision-first report UI
+
+## Hard Boundaries
+
+- `merger.py` stays a deterministic competitor dedupe layer. It must not absorb whitespace, entry-wedge, or trust synthesis responsibilities.
+- Whitespace synthesis, entry-wedge synthesis, and evidence-backed recommendation assembly live in `aggregator.py`.
+- LangGraph shared state and aggregation handoff must stay typed; V2 signal flow should not depend on ad hoc dict payloads.
+- `/api/v1/reports/{report_id}` and report export are real contract boundaries and must not drift via implicit `model_dump()` behavior.
+- Frontend report types must track the explicit backend report detail contract.
 
 ## Success Criteria
 
@@ -89,24 +99,33 @@ V2 is successful when:
 
 Implement V2 in six major phases:
 
-1. Domain and report contract redesign
+1. Domain, state, and report contract redesign
 2. Query and orchestration redesign
 3. Opportunity ranking and evidence provenance
 4. Extraction and aggregation redesign
-5. Report API and front-end redesign
+5. Report API, export, and front-end redesign
 6. Observability, verification, and documentation
+
+Execution rule:
+
+- contract-first sequencing is mandatory: finish model/state/report boundaries before retrieval, extraction, synthesis, and UI behavior work
+- if a later phase needs richer evidence or signal fields, extend the typed contract first instead of introducing temporary dict-based side channels
 
 ---
 
-### Task 1: Redesign Domain Models For Decision-First Reports
+### Task 1: Redesign Domain Models And Shared Pipeline State For Decision-First Reports
 
 **Files:**
 - Modify: `src/ideago/models/research.py`
+- Modify: `src/ideago/models/__init__.py`
+- Modify: `src/ideago/pipeline/graph_state.py`
+- Modify: `src/ideago/pipeline/aggregator.py`
 - Test: `tests/test_research_models.py`
+- Test: `tests/test_langgraph_engine.py`
 
 **Step 1: Write the failing tests**
 
-Add tests for new report structures and backward compatibility.
+Add tests for new report structures, typed pipeline state, and backward compatibility.
 
 Required new models:
 
@@ -125,18 +144,25 @@ Required new report fields:
 - `opportunity_score`
 - richer `evidence_summary`
 
+Required shared-state / carrier fields:
+
+- typed extracted signal collections in `GraphState`
+- a richer `AggregationResult` carrier for whitespace, evidence, and recommendation inputs
+
 Cover:
 
 - default values
 - validation bounds
 - additive compatibility with older cached reports
+- exports from `src/ideago/models/__init__.py`
+- typed state flow without anonymous dict payloads
 
 **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```bash
-uv run pytest tests/test_research_models.py -v
+uv run pytest tests/test_research_models.py tests/test_langgraph_engine.py -v
 ```
 
 Expected:
@@ -152,14 +178,18 @@ Update `src/ideago/models/research.py` to make report structure support:
 - whitespace suggestions
 - richer opportunity scoring
 
-Keep the competitor structures intact, but make them one part of a larger report.
+Update `src/ideago/models/__init__.py` to export the new public models.
+
+Update `src/ideago/pipeline/graph_state.py` and the `AggregationResult` carrier in `src/ideago/pipeline/aggregator.py` so later pipeline tasks can move signal-rich data through typed fields instead of ad hoc dicts.
+
+Keep the competitor structures intact, but make them one part of a larger report and state contract.
 
 **Step 4: Run tests to verify they pass**
 
 Run:
 
 ```bash
-uv run pytest tests/test_research_models.py -v
+uv run pytest tests/test_research_models.py tests/test_langgraph_engine.py -v
 ```
 
 Expected:
@@ -169,8 +199,8 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add src/ideago/models/research.py tests/test_research_models.py
-git commit -m "feat: redesign report models for source intelligence v2"
+git add src/ideago/models/research.py src/ideago/models/__init__.py src/ideago/pipeline/graph_state.py src/ideago/pipeline/aggregator.py tests/test_research_models.py tests/test_langgraph_engine.py
+git commit -m "feat: redesign source intelligence v2 model and state contracts"
 ```
 
 ---
@@ -446,6 +476,8 @@ git commit -m "feat: rank source evidence by opportunity score"
 **Files:**
 - Modify: `src/ideago/pipeline/extractor.py`
 - Modify: `src/ideago/pipeline/nodes.py`
+- Modify: `src/ideago/llm/prompts/extractor.txt`
+- Modify: `src/ideago/llm/prompts/extractor_appstore.txt`
 - Test: `tests/test_langgraph_engine.py`
 
 **Step 1: Write the failing tests**
@@ -485,6 +517,8 @@ Update `src/ideago/pipeline/extractor.py` so extraction distinguishes:
 - migration evidence
 - supporting snippets
 
+Update `src/ideago/llm/prompts/extractor.txt` and `src/ideago/llm/prompts/extractor_appstore.txt` so the LLM output schema matches the new typed extraction contract.
+
 Update `src/ideago/pipeline/nodes.py` to pass richer extracted state forward.
 
 **Step 4: Run tests to verify they pass**
@@ -502,7 +536,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add src/ideago/pipeline/extractor.py src/ideago/pipeline/nodes.py tests/test_langgraph_engine.py
+git add src/ideago/pipeline/extractor.py src/ideago/pipeline/nodes.py src/ideago/llm/prompts/extractor.txt src/ideago/llm/prompts/extractor_appstore.txt tests/test_langgraph_engine.py
 git commit -m "feat: redesign extraction around actionable signals"
 ```
 
@@ -512,10 +546,9 @@ git commit -m "feat: redesign extraction around actionable signals"
 
 **Files:**
 - Modify: `src/ideago/pipeline/aggregator.py`
-- Modify: `src/ideago/pipeline/merger.py`
 - Modify: `src/ideago/pipeline/nodes.py`
+- Modify: `src/ideago/llm/prompts/aggregator.txt`
 - Test: `tests/test_langgraph_engine.py`
-- Test: `tests/test_merger.py`
 
 **Step 1: Write the failing tests**
 
@@ -538,7 +571,7 @@ Add scenarios such as:
 Run:
 
 ```bash
-uv run pytest tests/test_langgraph_engine.py tests/test_merger.py -v
+uv run pytest tests/test_langgraph_engine.py -v
 ```
 
 Expected:
@@ -552,7 +585,10 @@ Refactor `src/ideago/pipeline/aggregator.py` so it performs actual synthesis:
 - consolidate cross-source pain signals
 - identify underserved segments
 - derive one or more entry wedges
-- keep competitor merge logic intact where useful, but make it secondary to the decision layer
+
+Update `src/ideago/llm/prompts/aggregator.txt` so the synthesizer prompt requests whitespace, wedge, and evidence-backed recommendation outputs that match the typed aggregation carrier.
+
+Keep competitor merge logic intact in `src/ideago/pipeline/merger.py`; do not move whitespace synthesis into the merger layer.
 
 Update `src/ideago/pipeline/nodes.py` so final report assembly reflects this V2 structure.
 
@@ -561,7 +597,7 @@ Update `src/ideago/pipeline/nodes.py` so final report assembly reflects this V2 
 Run:
 
 ```bash
-uv run pytest tests/test_langgraph_engine.py tests/test_merger.py -v
+uv run pytest tests/test_langgraph_engine.py -v
 ```
 
 Expected:
@@ -571,7 +607,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add src/ideago/pipeline/aggregator.py src/ideago/pipeline/merger.py src/ideago/pipeline/nodes.py tests/test_langgraph_engine.py tests/test_merger.py
+git add src/ideago/pipeline/aggregator.py src/ideago/pipeline/nodes.py src/ideago/llm/prompts/aggregator.txt tests/test_langgraph_engine.py
 git commit -m "feat: redesign aggregation for whitespace and entry wedges"
 ```
 
@@ -649,17 +685,21 @@ git commit -m "feat: strengthen decision confidence and evidence transparency"
 
 **Files:**
 - Modify: `src/ideago/api/schemas.py`
+- Modify: `src/ideago/api/routes/reports.py`
+- Modify: `frontend/src/lib/types/research.ts`
 - Test: `tests/test_api.py`
 
 **Step 1: Write the failing tests**
 
-Add schema tests for:
+Add API contract tests for:
 
 - pain signals
 - commercial signals
 - whitespace opportunities
 - opportunity score
 - richer evidence summary
+- report detail payload shape from `/api/v1/reports/{report_id}`
+- export output that reflects the V2 report sections
 
 **Step 2: Run tests to verify they fail**
 
@@ -675,7 +715,11 @@ Expected:
 
 **Step 3: Write the minimal implementation**
 
-Update `src/ideago/api/schemas.py` so the V2 report sections serialize cleanly and remain additive.
+Update `src/ideago/api/schemas.py` where shared request/response models still matter.
+
+Update `src/ideago/api/routes/reports.py` so the real detail and export surfaces expose the V2 report structure instead of relying on implicit `model_dump()` drift.
+
+Update `frontend/src/lib/types/research.ts` so the frontend consumes the same additive V2 report shape the backend actually returns.
 
 **Step 4: Run tests to verify they pass**
 
@@ -692,7 +736,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add src/ideago/api/schemas.py tests/test_api.py
+git add src/ideago/api/schemas.py src/ideago/api/routes/reports.py frontend/src/lib/types/research.ts tests/test_api.py
 git commit -m "feat: expose source intelligence v2 report contracts"
 ```
 
@@ -706,9 +750,9 @@ git commit -m "feat: expose source intelligence v2 report contracts"
 - Modify: `frontend/src/features/reports/components/MarketOverview.tsx`
 - Modify: `frontend/src/features/reports/components/ConfidenceCard.tsx`
 - Modify: `frontend/src/features/reports/components/EvidenceCostCard.tsx`
-- Modify: `frontend/src/features/reports/components\SectionNav.tsx`
-- Modify: `frontend/src/features/reports/components\InsightCard.tsx`
-- Modify: `frontend/src/features/reports/components\ReportHeader.tsx`
+- Modify: `frontend/src/features/reports/components/SectionNav.tsx`
+- Modify: `frontend/src/features/reports/components/InsightCard.tsx`
+- Modify: `frontend/src/features/reports/components/ReportHeader.tsx`
 - Create: `frontend/src/features/reports/components/WhitespaceOpportunityCard.tsx`
 - Create: `frontend/src/features/reports/components/PainSignalsCard.tsx`
 - Create: `frontend/src/features/reports/components/CommercialSignalsCard.tsx`
@@ -895,26 +939,27 @@ git commit -m "docs: align project docs with source intelligence v2"
 
 For best leverage, execute in this order:
 
-1. Task 2
-2. Task 3
-3. Task 4
-4. Task 5
-5. Task 6
-6. Task 7
-7. Task 8
-8. Task 1
-9. Task 9
+1. Task 1
+2. Task 9
+3. Task 2
+4. Task 3
+5. Task 4
+6. Task 5
+7. Task 6
+8. Task 7
+9. Task 8
 10. Task 10
 11. Task 11
 12. Task 12
 
 Why this order:
 
-- first improve what gets searched
-- then improve how sources are budgeted
-- then improve what evidence survives
-- then improve how the system reasons over that evidence
-- then expose the new structure through API and UI
+- first stabilize the model, state, and aggregation carrier contracts
+- then stabilize the real report contract boundary before backend/frontend consumers lock onto a drifting payload
+- then improve what gets searched and how sources are budgeted
+- then improve what evidence survives and how it is typed
+- then improve how the system synthesizes and scores that evidence, keeping merger and aggregator responsibilities separate
+- then finish the remaining export and UI consumers against the stabilized contract
 
 ## Risks And Mitigations
 
@@ -944,11 +989,3 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-Plan complete and saved to `docs/plans/2026-03-24-source-intelligence-overhaul-plan.md`. Two execution options:
-
-**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
-
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
-
-**Which approach?**

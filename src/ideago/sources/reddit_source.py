@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import datetime, timezone
+from typing import NamedTuple
 
 import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 from ideago.utils.text_utils import decode_entities_and_strip_html
 
@@ -25,6 +28,45 @@ _INTER_REQUEST_DELAY = 1.0
 _PUBLIC_INTER_REQUEST_DELAY = 1.5
 _PUBLIC_SEARCH_LIMIT_CAP = 10
 _PUBLIC_SEARCH_URL = "https://www.reddit.com/search.json"
+
+
+class _ResolvedQuery(NamedTuple):
+    text: str
+    family: str
+
+
+def _to_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int | float):
+        return int(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return int(float(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _to_iso_datetime_from_unix(value: object) -> str | None:
+    if isinstance(value, bool):
+        return None
+    timestamp: float | None
+    if isinstance(value, int | float):
+        timestamp = float(value)
+    elif isinstance(value, str) and value.strip():
+        try:
+            timestamp = float(value.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+    try:
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 class RedditSource:
@@ -130,7 +172,11 @@ class RedditSource:
         return True, "missing_credentials"
 
     def _build_raw_result_from_post(
-        self, post: dict[str, object], *, auth_mode: str
+        self,
+        post: dict[str, object],
+        *,
+        resolved_query: _ResolvedQuery,
+        auth_mode: str,
     ) -> RawResult | None:
         post_id = str(post.get("id", "") or "")
         if not post_id:
@@ -140,6 +186,9 @@ class RedditSource:
         selftext = decode_entities_and_strip_html(str(post.get("selftext", "") or ""))
         permalink = str(post.get("permalink", "") or "")
         url = f"https://www.reddit.com{permalink}" if permalink else ""
+        score = post.get("score", 0)
+        num_comments = post.get("num_comments", 0)
+        created_utc = post.get("created_utc", 0)
 
         return RawResult(
             title=title,
@@ -147,11 +196,16 @@ class RedditSource:
             url=url,
             platform=Platform.REDDIT,
             raw_data={
+                "matched_query": resolved_query.text,
+                "query_family": resolved_query.family,
+                "source_native_score": score,
+                "engagement_proxy": _to_int(score) + _to_int(num_comments),
+                "freshness_timestamp": _to_iso_datetime_from_unix(created_utc),
                 "post_id": post_id,
                 "subreddit": str(post.get("subreddit", "") or ""),
-                "score": post.get("score", 0),
-                "num_comments": post.get("num_comments", 0),
-                "created_utc": post.get("created_utc", 0),
+                "score": score,
+                "num_comments": num_comments,
+                "created_utc": created_utc,
                 "link_url": str(post.get("url", "") or ""),
                 "upvote_ratio": post.get("upvote_ratio", 0),
                 "auth_mode": auth_mode,
@@ -196,8 +250,11 @@ class RedditSource:
                 ) from exc
 
     async def _search_single_query_oauth(
-        self, query: str, limit: int
+        self,
+        resolved_query: _ResolvedQuery,
+        limit: int,
     ) -> list[RawResult]:
+        query = resolved_query.text
         token = await self._ensure_token()
         try:
             resp = await self._client.get(
@@ -246,7 +303,11 @@ class RedditSource:
             result: list[RawResult] = []
             for child in children:
                 post = child.get("data", {})
-                built = self._build_raw_result_from_post(post, auth_mode="oauth")
+                built = self._build_raw_result_from_post(
+                    post,
+                    resolved_query=resolved_query,
+                    auth_mode="oauth",
+                )
                 if built is not None:
                     result.append(built)
             return result
@@ -266,8 +327,11 @@ class RedditSource:
             ) from exc
 
     async def _search_single_query_public(
-        self, query: str, limit: int
+        self,
+        resolved_query: _ResolvedQuery,
+        limit: int,
     ) -> list[RawResult]:
+        query = resolved_query.text
         try:
             resp = await self._public_client.get(
                 _PUBLIC_SEARCH_URL,
@@ -307,7 +371,9 @@ class RedditSource:
             for child in children:
                 post = child.get("data", {})
                 built = self._build_raw_result_from_post(
-                    post, auth_mode="public_fallback"
+                    post,
+                    resolved_query=resolved_query,
+                    auth_mode="public_fallback",
                 )
                 if built is not None:
                     result.append(built)
@@ -333,6 +399,13 @@ class RedditSource:
         """Search Reddit posts for each query and return combined, deduplicated results."""
         if not queries:
             return []
+        resolved_queries = [
+            resolved_query
+            for query in queries
+            if (resolved_query := _resolve_query(query)).text
+        ]
+        if not resolved_queries:
+            return []
 
         use_public_fallback, fallback_reason = self._should_use_public_fallback()
         if not self.is_available() and not use_public_fallback:
@@ -357,23 +430,29 @@ class RedditSource:
             else _INTER_REQUEST_DELAY
         )
 
-        async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
+        async def run_query(
+            resolved_query: _ResolvedQuery,
+        ) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
                 try:
                     async with request_lock:
                         if use_public_fallback:
                             result = await self._search_single_query_public(
-                                query, limit
+                                resolved_query,
+                                limit,
                             )
                         else:
-                            result = await self._search_single_query_oauth(query, limit)
+                            result = await self._search_single_query_oauth(
+                                resolved_query,
+                                limit,
+                            )
                         await asyncio.sleep(inter_request_delay)
-                    return query, result
+                    return resolved_query.text, result
                 except Exception as exc:  # noqa: BLE001
-                    return query, exc
+                    return resolved_query.text, exc
 
         grouped_results = await asyncio.gather(
-            *(run_query(query) for query in queries),
+            *(run_query(query) for query in resolved_queries),
             return_exceptions=False,
         )
         results: list[RawResult] = []
@@ -419,3 +498,35 @@ class RedditSource:
         await self._client.aclose()
         await self._public_client.aclose()
         await self._auth_client.aclose()
+
+
+def _resolve_query(query: object) -> _ResolvedQuery:
+    text = _extract_query_text(query)
+    if not text:
+        return _ResolvedQuery("", "competitor_discovery")
+    family = _extract_query_family(query)
+    return _ResolvedQuery(text, family or infer_query_family(text))
+
+
+def _extract_query_text(query: object) -> str:
+    if isinstance(query, str):
+        return query.strip()
+    if isinstance(query, dict):
+        for key in ("query", "text", "value"):
+            value = query.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for attr in ("query", "text", "value"):
+        value = getattr(query, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _extract_query_family(query: object) -> str:
+    if isinstance(query, dict):
+        value = query.get("query_family") or query.get("family")
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+    value = getattr(query, "query_family", None) or getattr(query, "family", None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""

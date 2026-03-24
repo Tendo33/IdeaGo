@@ -13,6 +13,24 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const PAGE_SIZE = 20
 
+function openDialogElement(dialog: HTMLDialogElement | null) {
+  if (!dialog) return
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal()
+    return
+  }
+  dialog.setAttribute('open', '')
+}
+
+function closeDialogElement(dialog: HTMLDialogElement | null) {
+  if (!dialog) return
+  if (typeof dialog.close === 'function') {
+    dialog.close()
+    return
+  }
+  dialog.removeAttribute('open')
+}
+
 interface HistoryReportCardProps {
   report: ReportListItem;
   isDeleting: boolean;
@@ -73,9 +91,9 @@ export function HistoryPage() {
 
   useEffect(() => {
     if (reportToDelete) {
-      dialogRef.current?.showModal()
+      openDialogElement(dialogRef.current)
     } else {
-      dialogRef.current?.close()
+      closeDialogElement(dialogRef.current)
     }
   }, [reportToDelete])
   const [pageIndex, setPageIndex] = useState(0)

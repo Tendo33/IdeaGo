@@ -79,6 +79,55 @@ def test_source_global_concurrency_default_and_bounds() -> None:
         Settings(source_global_concurrency=9)
 
 
+def test_source_query_caps_defaults_and_overrides() -> None:
+    defaults = Settings().get_source_query_caps()
+    assert defaults["github"] >= 1
+    assert defaults["tavily"] >= 1
+
+    overridden = Settings(
+        source_query_caps='{"github": 2, "tavily": "4", "reddit": 0, "unknown": 9}'
+    ).get_source_query_caps()
+    assert overridden["github"] == 2
+    assert overridden["tavily"] == 4
+    assert overridden["reddit"] == defaults["reddit"]
+    assert "unknown" not in overridden
+
+
+def test_query_family_weights_defaults_and_overrides() -> None:
+    defaults = Settings().get_query_family_default_weights()
+    assert defaults["competitor_discovery"] > 0
+    assert defaults["pain_discovery"] > 0
+
+    overridden = Settings(
+        query_family_default_weights=(
+            '{"pain_discovery": 1.6, "commercial_discovery": "0.5", "bad": "x"}'
+        )
+    ).get_query_family_default_weights()
+    assert overridden["pain_discovery"] == pytest.approx(1.6)
+    assert overridden["commercial_discovery"] == pytest.approx(0.5)
+    assert "bad" not in overridden
+
+
+def test_orchestration_profiles_defaults_and_overrides() -> None:
+    defaults = Settings().get_orchestration_profiles()
+    assert "default" in defaults
+    assert defaults["default"]["role_query_budgets"]
+
+    overridden = Settings(
+        app_type_orchestration_profiles=(
+            '{"mobile":{"role_query_budgets":{"user_feedback":6},'
+            '"family_weight_overrides":{"pain_discovery":1.5},'
+            '"family_trim_threshold":0.75}}'
+        )
+    ).get_orchestration_profiles()
+    mobile_profile = overridden["mobile"]
+    assert mobile_profile["role_query_budgets"]["user_feedback"] == 6
+    assert mobile_profile["family_weight_overrides"]["pain_discovery"] == pytest.approx(
+        1.5
+    )
+    assert mobile_profile["family_trim_threshold"] == pytest.approx(0.75)
+
+
 def test_supabase_jwks_settings_defaults() -> None:
     settings = Settings()
     assert settings.supabase_jwt_audience == "authenticated"

@@ -11,6 +11,7 @@ import {
   getStreamUrl,
 } from '../client'
 
+const NativeURL = globalThis.URL
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
@@ -234,5 +235,57 @@ describe('URL helpers', () => {
 
   it('getStreamUrl builds correct URL', () => {
     expect(getStreamUrl('abc')).toContain('/api/v1/reports/abc/stream')
+  })
+})
+
+describe('supabase fallback client', () => {
+  it('provides safe auth callbacks when Supabase env is missing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    vi.resetModules()
+    vi.stubEnv('VITE_SUPABASE_URL', '')
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
+    vi.stubGlobal('URL', NativeURL)
+
+    try {
+      const { supabase } = await import('../../supabase/client')
+
+      await expect(supabase.auth.signOut()).resolves.toEqual({ error: null })
+      await expect(supabase.auth.getSession()).resolves.toEqual({
+        data: { session: null },
+        error: null,
+      })
+
+      const authState = supabase.auth.onAuthStateChange(() => {})
+      expect(authState.data.subscription.unsubscribe).toEqual(expect.any(Function))
+
+      const oauthResult = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      } as never)
+      expect(oauthResult.error).toBeInstanceOf(Error)
+
+      const passwordResult = await supabase.auth.signInWithPassword({
+        email: 'user@example.com',
+        password: 'password',
+      })
+      expect(passwordResult.error).toBeInstanceOf(Error)
+
+      const signUpResult = await supabase.auth.signUp({
+        email: 'user@example.com',
+        password: 'password',
+      })
+      expect(signUpResult.error).toBeInstanceOf(Error)
+
+      const resetResult = await supabase.auth.resetPasswordForEmail('user@example.com')
+      expect(resetResult.error).toBeInstanceOf(Error)
+
+      expect(warn).toHaveBeenCalledWith(
+        'Supabase URL or anon key is missing — auth will not work.',
+      )
+    } finally {
+      warn.mockRestore()
+      vi.unstubAllEnvs()
+      vi.resetModules()
+    }
   })
 })

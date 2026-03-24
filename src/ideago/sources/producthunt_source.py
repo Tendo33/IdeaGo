@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
@@ -20,6 +21,12 @@ _TOPIC_FALLBACK_SLUGS = [
     "artificial-intelligence",
     "saas",
 ]
+
+
+class _ResolvedQuery(NamedTuple):
+    text: str
+    family: str
+
 
 _TOPICS_QUERY = """
 query Topics($q: String!, $first: Int!) {
@@ -213,9 +220,16 @@ class ProductHuntSource:
             "timed_out_queries": [],
         }
 
-        normalized_queries = [query.strip() for query in queries if query.strip()]
-        if not normalized_queries:
+        resolved_queries = [
+            resolved_query
+            for query in queries
+            if (resolved_query := _resolve_query(query)).text
+        ]
+        if not resolved_queries:
             return []
+        normalized_queries = [
+            resolved_query.text for resolved_query in resolved_queries
+        ]
 
         max_concurrency = (
             self._runtime_max_concurrent_queries or self._max_concurrent_queries
@@ -223,18 +237,24 @@ class ProductHuntSource:
         query_semaphore = asyncio.Semaphore(max_concurrency)
         unique_slugs: list[str] = []
         seen_slugs: set[str] = set()
+        slug_origin_queries: dict[str, list[_ResolvedQuery]] = {}
         failed_queries: list[str] = []
         first_error: Exception | None = None
 
-        async def discover_slugs(query: str) -> tuple[str, list[str] | Exception]:
+        async def discover_slugs(
+            resolved_query: _ResolvedQuery,
+        ) -> tuple[str, list[str] | Exception]:
             async with query_semaphore:
                 try:
-                    return query, await self._find_topic_slugs(query=query, first=5)
+                    return resolved_query.text, await self._find_topic_slugs(
+                        query=resolved_query.text,
+                        first=5,
+                    )
                 except Exception as exc:  # noqa: BLE001
-                    return query, exc
+                    return resolved_query.text, exc
 
         query_slug_results = await asyncio.gather(
-            *(discover_slugs(query) for query in normalized_queries),
+            *(discover_slugs(query) for query in resolved_queries),
             return_exceptions=False,
         )
         for query, slug_result in query_slug_results:
@@ -250,6 +270,17 @@ class ProductHuntSource:
                 )
                 continue
             for slug in slug_result:
+                matched_query = next(
+                    (
+                        resolved_query
+                        for resolved_query in resolved_queries
+                        if resolved_query.text == query
+                    ),
+                    _ResolvedQuery(query, infer_query_family(query)),
+                )
+                slug_origin_queries.setdefault(slug, [])
+                if matched_query not in slug_origin_queries[slug]:
+                    slug_origin_queries[slug].append(matched_query)
                 if slug in seen_slugs:
                     continue
                 seen_slugs.add(slug)
@@ -316,12 +347,24 @@ class ProductHuntSource:
 
             votes_count = _safe_int(post.get("votesCount"))
             created_at = _safe_str(post.get("createdAt"))
+            matched_query = _select_best_query_provenance(
+                post,
+                slug_origin_queries.get(
+                    _safe_str(post.get("topic_slug")),
+                    resolved_queries,
+                ),
+            )
             raw_result = RawResult(
                 title=name,
                 description=tagline,
                 url=post_url,
                 platform=Platform.PRODUCT_HUNT,
                 raw_data={
+                    "matched_query": matched_query.text,
+                    "query_family": matched_query.family,
+                    "source_native_score": votes_count,
+                    "engagement_proxy": votes_count,
+                    "freshness_timestamp": _normalize_iso8601(created_at),
                     "post_id": post.get("id"),
                     "votes_count": votes_count,
                     "created_at": created_at,
@@ -377,8 +420,102 @@ def _extract_query_tokens(queries: list[str]) -> set[str]:
     return tokens
 
 
+def _resolve_query(query: object) -> _ResolvedQuery:
+    text = _extract_query_text(query)
+    if not text:
+        return _ResolvedQuery("", "competitor_discovery")
+    family = _extract_query_family(query)
+    return _ResolvedQuery(text, family or infer_query_family(text))
+
+
+def _extract_query_text(query: object) -> str:
+    if isinstance(query, str):
+        return query.strip()
+    if isinstance(query, dict):
+        for key in ("query", "text", "value"):
+            value = query.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for attr in ("query", "text", "value"):
+        value = getattr(query, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _extract_query_family(query: object) -> str:
+    if isinstance(query, dict):
+        value = query.get("query_family") or query.get("family")
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+    value = getattr(query, "query_family", None) or getattr(query, "family", None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""
+
+
+def _normalize_iso8601(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _fallback_topic_slugs() -> list[str]:
     return list(_TOPIC_FALLBACK_SLUGS)
+
+
+def _select_best_query_provenance(
+    post: dict[str, Any],
+    candidate_queries: list[_ResolvedQuery],
+) -> _ResolvedQuery:
+    if not candidate_queries:
+        return _ResolvedQuery("", "competitor_discovery")
+    if len(candidate_queries) == 1:
+        return candidate_queries[0]
+
+    text_blob = _build_post_text_blob(post)
+    best_query = candidate_queries[0]
+    best_score = _score_query_against_post(best_query, text_blob)
+    for candidate_query in candidate_queries[1:]:
+        candidate_score = _score_query_against_post(candidate_query, text_blob)
+        if candidate_score > best_score:
+            best_query = candidate_query
+            best_score = candidate_score
+    return best_query
+
+
+def _build_post_text_blob(post: dict[str, Any]) -> str:
+    segments = [
+        _safe_str(post.get("name")),
+        _safe_str(post.get("tagline")),
+        _safe_str(post.get("website")),
+        _safe_str(post.get("topic_slug")),
+    ]
+    return " ".join(segment.lower() for segment in segments if segment)
+
+
+def _score_query_against_post(
+    candidate_query: _ResolvedQuery,
+    text_blob: str,
+) -> tuple[int, int, int]:
+    normalized_query = _strip_search_qualifiers(candidate_query.text.lower()).strip()
+    phrase_match = int(bool(normalized_query) and normalized_query in text_blob)
+    matched_tokens = [
+        token
+        for token in _extract_query_tokens([candidate_query.text])
+        if token in text_blob
+    ]
+    return (
+        phrase_match,
+        len(matched_tokens),
+        sum(len(token) for token in matched_tokens),
+    )
 
 
 def _strip_search_qualifiers(query: str) -> str:

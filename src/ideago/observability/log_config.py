@@ -133,6 +133,35 @@ def configure_json_logging(
     logger.configure(extra=extra_fields or {})
 
 
+def emit_observability_event(
+    logger_instance: Any,
+    event_name: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    level: str = "info",
+) -> None:
+    """Emit a bounded structured observability event.
+
+    This helper keeps event logs consistent across pipeline modules:
+    one event name + one payload object per emission.
+    """
+    normalized_event = event_name.strip()
+    if not normalized_event:
+        return
+    normalized_payload = payload if isinstance(payload, dict) else {}
+
+    method = getattr(logger_instance, level.lower(), None)
+    if not callable(method):
+        method = getattr(logger_instance, "info", None)
+    if not callable(method):
+        return
+    method(
+        "observability_event={} payload={}",
+        normalized_event,
+        normalized_payload,
+    )
+
+
 # 延迟初始化标志
 _logging_initialized = False
 

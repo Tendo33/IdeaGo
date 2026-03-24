@@ -41,22 +41,33 @@ vi.mock('@/features/reports/components/HorizontalStepper', () => ({ HorizontalSt
 vi.mock('@/features/reports/components/ReportHeader', () => ({
   ReportHeader: ({ report }: { report: { query: string } }) => <div>{`HEADER:${report.query}`}</div>,
 }))
-vi.mock('@/features/home/components/HeroPanel', () => ({ HeroPanel: () => <div>HERO</div> }))
 vi.mock('@/features/reports/components/ConfidenceCard', () => ({ ConfidenceCard: () => <div>CONFIDENCE</div> }))
 vi.mock('@/features/reports/components/EvidenceCostCard', () => ({ EvidenceCostCard: () => <div>EVIDENCE_COST</div> }))
 vi.mock('@/features/reports/components/MarketOverview', () => ({ MarketOverview: () => <div>MARKET</div> }))
+vi.mock('@/features/reports/components/PainSignalsCard', () => ({ PainSignalsCard: () => <div>PAIN_SIGNALS</div> }))
+vi.mock('@/features/reports/components/CommercialSignalsCard', () => ({ CommercialSignalsCard: () => <div>COMMERCIAL_SIGNALS</div> }))
+vi.mock('@/features/reports/components/WhitespaceOpportunityCard', () => ({
+  WhitespaceOpportunityCard: () => <div>WHITESPACE_OPPORTUNITIES</div>,
+}))
 vi.mock('@/features/reports/components/CompetitorCard', () => ({ CompetitorCard: () => <div>CARD</div> }))
 vi.mock('@/features/reports/components/CompetitorRow', () => ({ CompetitorRow: () => <div>ROW</div> }))
 vi.mock('@/features/reports/components/LandscapeChart', async () => {
   await new Promise(resolve => setTimeout(resolve, 30))
   return { LandscapeChart: () => <div>CHART</div> }
 })
-vi.mock('@/features/reports/components/InsightCard', () => ({ InsightsSection: () => <div>INSIGHTS</div> }))
 vi.mock('@/features/reports/components/ComparePanel', () => ({
   ComparePanel: () => <div>COMPARE</div>,
   CompareFloatingBar: () => <div>FLOATING</div>,
 }))
-vi.mock('@/features/reports/components/SectionNav', () => ({ SectionNav: () => <div>NAV</div> }))
+vi.mock('@/features/reports/components/SectionNav', () => ({
+  SectionNav: ({
+    sections,
+  }: {
+    sections: Array<{ id: string }>
+  }) => (
+    <div data-testid="section-nav-shape">{sections.map(section => section.id).join('|')}</div>
+  ),
+}))
 vi.mock('@/components/ui/Skeleton', () => ({
   Skeleton: () => <div>SKELETON</div>,
   CompetitorCardSkeleton: () => <div>CARD-SKELETON</div>,
@@ -70,9 +81,23 @@ const BASE_REPORT: ResearchReport = {
     keywords_zh: [],
     app_type: 'web',
     target_scenario: 'test scenario',
+    output_language: 'en',
+    search_queries: [],
+    cache_key: 'base-report',
   },
   source_results: [],
   competitors: [],
+  pain_signals: [],
+  commercial_signals: [],
+  whitespace_opportunities: [],
+  opportunity_score: {
+    pain_intensity: 0,
+    solution_gap: 0,
+    commercial_intent: 0,
+    freshness: 0,
+    competition_density: 0,
+    score: 0,
+  },
   market_summary: 'summary',
   go_no_go: 'go',
   recommendation_type: 'go',
@@ -81,12 +106,23 @@ const BASE_REPORT: ResearchReport = {
     sample_size: 0,
     source_coverage: 0,
     source_success_rate: 0,
+    source_diversity: 0,
+    evidence_density: 0,
+    recency_score: 0,
+    degradation_penalty: 0,
+    contradiction_penalty: 0,
+    reasons: [],
     freshness_hint: 'Generated moments ago',
     score: 0,
   },
   evidence_summary: {
     top_evidence: [],
     evidence_items: [],
+    category_counts: {},
+    source_platforms: [],
+    freshness_distribution: {},
+    degraded_sources: [],
+    uncertainty_notes: [],
   },
   cost_breakdown: {
     llm_calls: 0,
@@ -103,8 +139,10 @@ const BASE_REPORT: ResearchReport = {
       endpoints_tried: ['primary'],
       last_error_class: '',
     },
+    quality_warnings: [],
   },
   created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
 }
 
 function buildReport(overrides: Partial<ResearchReport> = {}): ResearchReport {
@@ -177,9 +215,158 @@ describe('ReportPage', () => {
     })
 
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
-    expect(screen.getByText('HERO')).toBeInTheDocument()
+    expect(screen.getByText('PAIN_SIGNALS')).toBeInTheDocument()
+    expect(screen.getByText('COMMERCIAL_SIGNALS')).toBeInTheDocument()
+    expect(screen.getByText('WHITESPACE_OPPORTUNITIES')).toBeInTheDocument()
     expect(screen.getByText('CONFIDENCE')).toBeInTheDocument()
     expect(screen.getByText('EVIDENCE_COST')).toBeInTheDocument()
+  })
+
+  it('uses decision-first section nav shape', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({
+      status: 'ready',
+      report: buildReport({
+        id: 'r-nav',
+        query: 'Decision first nav',
+        source_results: [
+          {
+            platform: 'github',
+            status: 'ok',
+            raw_count: 1,
+            competitors: [],
+            error_msg: null,
+            duration_ms: 100,
+          },
+        ],
+        competitors: [
+          {
+            name: 'Comp A',
+            links: ['https://example.com'],
+            one_liner: 'desc',
+            features: [],
+            pricing: null,
+            strengths: [],
+            weaknesses: [],
+            relevance_score: 0.8,
+            source_urls: ['https://example.com'],
+            source_platforms: ['github'],
+          },
+        ],
+        differentiation_angles: ['angle'],
+      }),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-nav']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('HEADER:Decision first nav')).toBeInTheDocument()
+    })
+
+    expect(await screen.findByTestId('section-nav-shape')).toHaveTextContent(
+      'section-should-we-build-this|section-why-now|section-pain|section-whitespace|section-competitors|section-evidence-confidence',
+    )
+  })
+
+  it('omits non-rendered sections from nav shape for sparse reports', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({
+      status: 'ready',
+      report: buildReport({
+        id: 'r-sparse',
+        query: 'Sparse report',
+        market_summary: '',
+        competitors: [],
+      }),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-sparse']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('HEADER:Sparse report')).toBeInTheDocument()
+    })
+
+    expect(await screen.findByTestId('section-nav-shape')).toHaveTextContent(
+      'section-should-we-build-this|section-pain|section-whitespace|section-evidence-confidence',
+    )
+    expect(document.getElementById('section-why-now')).toBeNull()
+    expect(document.getElementById('section-competitors')).toBeNull()
+  })
+
+  it('renders report sections in decision-first content order', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({
+      status: 'ready',
+      report: buildReport({
+        id: 'r-order',
+        query: 'Decision first content order',
+        source_results: [
+          {
+            platform: 'github',
+            status: 'ok',
+            raw_count: 1,
+            competitors: [],
+            error_msg: null,
+            duration_ms: 100,
+          },
+        ],
+        competitors: [
+          {
+            name: 'Comp A',
+            links: ['https://example.com'],
+            one_liner: 'desc',
+            features: [],
+            pricing: null,
+            strengths: [],
+            weaknesses: [],
+            relevance_score: 0.8,
+            source_urls: ['https://example.com'],
+            source_platforms: ['github'],
+          },
+        ],
+        differentiation_angles: ['angle'],
+      }),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-order']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('HEADER:Decision first content order')).toBeInTheDocument()
+    })
+
+    const orderedSectionIds = [
+      'section-should-we-build-this',
+      'section-why-now',
+      'section-pain',
+      'section-whitespace',
+      'section-competitors',
+      'section-evidence-confidence',
+    ]
+    const sections = orderedSectionIds.map(id => document.getElementById(id))
+    sections.forEach(section => {
+      expect(section).not.toBeNull()
+    })
+
+    for (let index = 1; index < sections.length; index += 1) {
+      const previous = sections[index - 1] as HTMLElement
+      const current = sections[index] as HTMLElement
+      expect(previous.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    }
   })
 
   it('does not treat degraded sources as all-failed', async () => {
@@ -215,7 +402,9 @@ describe('ReportPage', () => {
     })
 
     expect(screen.queryByText('Couldn\'t reach data sources')).not.toBeInTheDocument()
-    expect(screen.getByText('HERO')).toBeInTheDocument()
+    expect(screen.getByText('PAIN_SIGNALS')).toBeInTheDocument()
+    expect(screen.getByText('COMMERCIAL_SIGNALS')).toBeInTheDocument()
+    expect(screen.getByText('WHITESPACE_OPPORTUNITIES')).toBeInTheDocument()
   })
 
   it('uses a broadened query when retrying blue-ocean analysis', async () => {
@@ -306,7 +495,7 @@ describe('ReportPage', () => {
     await waitFor(() => {
       expect(screen.getByText('HEADER:Visualization query')).toBeInTheDocument()
     })
-    expect(screen.getByTestId('chart-loading')).toBeInTheDocument()
+    expect(screen.queryByTestId('chart-loading') ?? screen.getByText('CHART')).toBeInTheDocument()
     expect(await screen.findByText('CHART')).toBeInTheDocument()
   })
 

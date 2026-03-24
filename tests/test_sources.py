@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from ideago.models.research import Platform, RawResult
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
@@ -58,6 +59,7 @@ MOCK_HN_RESPONSE = {
             "objectID": "12345",
             "points": 150,
             "num_comments": 42,
+            "created_at_i": 1706745600,
             "story_text": "",
             "author": "user1",
         },
@@ -67,6 +69,7 @@ MOCK_HN_RESPONSE = {
             "objectID": "67890",
             "points": 80,
             "num_comments": 65,
+            "created_at_i": 1706832000,
             "story_text": "Looking for recommendations...",
             "author": "user2",
         },
@@ -238,9 +241,38 @@ async def test_github_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown notes extension"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.GITHUB
-    assert "github.com" in results[0].url
-    assert results[0].raw_data["stargazers_count"] == 1200
+    first = results[0]
+    assert first.platform == Platform.GITHUB
+    assert "github.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown notes extension"
+    assert first.raw_data["query_family"] == infer_query_family(
+        "markdown notes extension"
+    )
+    assert first.raw_data["source_native_score"] == 1200
+    assert first.raw_data["engagement_proxy"] == 1250
+    assert first.raw_data["freshness_timestamp"] == "2026-01-01T00:00:00Z"
+    assert first.raw_data["stargazers_count"] == 1200
+
+
+@pytest.mark.asyncio
+async def test_github_search_prefers_carried_query_family_metadata() -> None:
+    src = GitHubSource(token="test-token")
+    mock_response = httpx.Response(200, json=MOCK_GITHUB_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown notes extension",
+                    "query_family": "migration_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown notes extension"
+    assert results[0].raw_data["query_family"] == "migration_discovery"
 
 
 @pytest.mark.asyncio
@@ -475,8 +507,46 @@ async def test_tavily_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown browser extension"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.TAVILY
-    assert "chromewebstore" in results[0].url
+    first = results[0]
+    assert first.platform == Platform.TAVILY
+    assert "chromewebstore" in first.url
+    assert first.raw_data["matched_query"] == "markdown browser extension"
+    assert first.raw_data["query_family"] == infer_query_family(
+        "markdown browser extension"
+    )
+    assert first.raw_data["source_native_score"] == pytest.approx(0.95)
+    assert first.raw_data["engagement_proxy"] == pytest.approx(0.95)
+    assert first.raw_data["freshness_timestamp"] is None
+
+
+@pytest.mark.asyncio
+async def test_tavily_search_prefers_carried_query_family_metadata() -> None:
+    src = TavilySource(api_key="tvly-test")
+    mock_tavily_response = {
+        "results": [
+            {
+                "title": "Markdownify - Chrome Extension",
+                "url": "https://chromewebstore.google.com/detail/markdownify",
+                "content": "Convert any webpage to markdown with one click...",
+                "score": 0.95,
+            }
+        ]
+    }
+    with patch.object(
+        src._client, "search", new_callable=AsyncMock, return_value=mock_tavily_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown browser extension",
+                    "query_family": "commercial_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown browser extension"
+    assert results[0].raw_data["query_family"] == "commercial_discovery"
 
 
 @pytest.mark.asyncio
@@ -571,10 +641,37 @@ async def test_hn_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown web clipper"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.HACKERNEWS
-    assert "example.com" in results[0].url
+    first = results[0]
+    assert first.platform == Platform.HACKERNEWS
+    assert "example.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown web clipper"
+    assert first.raw_data["query_family"] == infer_query_family("markdown web clipper")
+    assert first.raw_data["source_native_score"] == 150
+    assert first.raw_data["engagement_proxy"] == 192
+    assert first.raw_data["freshness_timestamp"] == "2024-02-01T00:00:00Z"
     # HN posts without URL get the HN discussion URL
     assert "ycombinator" in results[1].url
+
+
+@pytest.mark.asyncio
+async def test_hn_search_prefers_carried_query_family_metadata() -> None:
+    src = HackerNewsSource()
+    mock_response = httpx.Response(200, json=MOCK_HN_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown web clipper",
+                    "query_family": "positioning_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown web clipper"
+    assert results[0].raw_data["query_family"] == "positioning_discovery"
 
 
 @pytest.mark.asyncio
@@ -670,10 +767,32 @@ async def test_appstore_search_returns_raw_results() -> None:
         results = await src.search(["focus notes"], limit=10)
 
     assert len(results) == 2
-    assert results[0].platform == Platform.APPSTORE
-    assert "apps.apple.com" in results[0].url
-    assert results[0].raw_data["track_id"] == 1001
-    assert results[0].description == "Capture quick notes"
+    first = results[0]
+    assert first.platform == Platform.APPSTORE
+    assert "apps.apple.com" in first.url
+    assert first.raw_data["matched_query"] == "focus notes"
+    assert first.raw_data["query_family"] == infer_query_family("focus notes")
+    assert first.raw_data["source_native_score"] == pytest.approx(4.8)
+    assert first.raw_data["engagement_proxy"] == 9021
+    assert first.raw_data["freshness_timestamp"] == "2025-12-01T00:00:00Z"
+    assert first.raw_data["track_id"] == 1001
+    assert first.description == "Capture quick notes"
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_prefers_carried_query_family_metadata() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(200, json=MOCK_APPSTORE_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [{"query": "focus notes", "query_family": "workflow_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "focus notes"
+    assert results[0].raw_data["query_family"] == "workflow_discovery"
 
 
 @pytest.mark.asyncio
@@ -782,11 +901,34 @@ async def test_producthunt_search_returns_raw_results() -> None:
     assert first.description == "Convert html to markdown in seconds"
     assert first.url == "https://www.producthunt.com/posts/markdown-rocket"
     assert first.platform == Platform.PRODUCT_HUNT
+    assert first.raw_data["matched_query"] == "html to markdown"
+    assert first.raw_data["query_family"] == infer_query_family("html to markdown")
+    assert first.raw_data["source_native_score"] == 320
+    assert first.raw_data["engagement_proxy"] == 320
+    assert first.raw_data["freshness_timestamp"] == "2026-01-10T00:00:00Z"
     assert first.raw_data["post_id"] == "post-1"
     assert first.raw_data["votes_count"] == 320
     assert first.raw_data["created_at"] == "2026-01-10T00:00:00Z"
     assert first.raw_data["website"] == "https://markdown-rocket.example.com"
     assert first.raw_data["topic_slug"] in {"developer-tools", "productivity"}
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_prefers_carried_query_family_metadata() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+        ]
+        results = await src.search(
+            [{"query": "html to markdown", "query_family": "launch_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "html to markdown"
+    assert results[0].raw_data["query_family"] == "launch_discovery"
 
 
 @pytest.mark.asyncio
@@ -861,6 +1003,108 @@ async def test_producthunt_search_deduplicates_posts_across_topics() -> None:
 
     assert len(results) == 1
     assert results[0].raw_data["post_id"] == "post-1"
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_preserves_provenance_for_shared_topics() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    shared_topic_response = {
+        "data": {
+            "topics": {
+                "nodes": [
+                    {
+                        "name": "Developer Tools",
+                        "slug": "developer-tools",
+                        "postsCount": 100,
+                        "url": "https://www.producthunt.com/topics/developer-tools",
+                    }
+                ]
+            }
+        }
+    }
+    shared_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [
+                    {
+                        "id": "post-writer",
+                        "name": "Writer Helper",
+                        "tagline": "AI writing helper for docs",
+                        "votesCount": 180,
+                        "createdAt": "2026-01-11T00:00:00Z",
+                        "url": "https://www.producthunt.com/posts/writer-helper",
+                        "website": "https://writer-helper.example.com",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    queries = [
+        {"query": "markdown", "query_family": "competitor_discovery"},
+        {"query": "writer helper", "query_family": "commercial_discovery"},
+    ]
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=shared_topic_response),
+            httpx.Response(200, json=shared_topic_response),
+            httpx.Response(200, json=shared_posts_response),
+        ]
+        results = await src.search(queries, limit=10)
+
+    assert len(results) == 1
+    assert results[0].raw_data["matched_query"] == "writer helper"
+    assert results[0].raw_data["query_family"] == "commercial_discovery"
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_preserves_provenance_for_fallback_topics() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    empty_topics = {"data": {"topics": {"nodes": []}}}
+    matching_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [
+                    {
+                        "id": "post-focus",
+                        "name": "Focus Notes",
+                        "tagline": "Focus notes app for makers",
+                        "votesCount": 220,
+                        "createdAt": "2026-01-12T00:00:00Z",
+                        "url": "https://www.producthunt.com/posts/focus-notes",
+                        "website": "https://focus-notes.example.com",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    empty_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    queries = [
+        {"query": "markdown", "query_family": "competitor_discovery"},
+        {"query": "focus notes", "query_family": "workflow_discovery"},
+    ]
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=empty_topics),
+            httpx.Response(200, json=empty_topics),
+            httpx.Response(200, json=matching_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+        ]
+        results = await src.search(queries, limit=10)
+
+    assert len(results) == 1
+    assert results[0].raw_data["matched_query"] == "focus notes"
+    assert results[0].raw_data["query_family"] == "workflow_discovery"
 
 
 @pytest.mark.asyncio
@@ -1014,12 +1258,37 @@ async def test_reddit_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown editor"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.REDDIT
-    assert "reddit.com" in results[0].url
-    assert results[0].raw_data["score"] == 245
-    assert results[0].raw_data["num_comments"] == 87
-    assert results[0].raw_data["subreddit"] == "software"
-    assert results[0].raw_data["auth_mode"] == "oauth"
+    first = results[0]
+    assert first.platform == Platform.REDDIT
+    assert "reddit.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown editor"
+    assert first.raw_data["query_family"] == infer_query_family("markdown editor")
+    assert first.raw_data["source_native_score"] == 245
+    assert first.raw_data["engagement_proxy"] == 332
+    assert first.raw_data["freshness_timestamp"] == "2024-02-01T00:00:00Z"
+    assert first.raw_data["score"] == 245
+    assert first.raw_data["num_comments"] == 87
+    assert first.raw_data["subreddit"] == "software"
+    assert first.raw_data["auth_mode"] == "oauth"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_prefers_carried_query_family_metadata() -> None:
+    src = _make_reddit()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+    ):
+        results = await src.search(
+            [{"query": "markdown editor", "query_family": "alternative_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown editor"
+    assert results[0].raw_data["query_family"] == "alternative_discovery"
 
 
 @pytest.mark.asyncio

@@ -49,6 +49,17 @@ Use this file as the default project contract for Claude Code.
 
 ## Current Project Shape
 
+### Source Intelligence V2
+
+- The product is now an idea-validation system, not just a competitor lookup flow.
+- Persisted reports are decision-first: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, then evidence and confidence.
+- Competitor discovery remains required, but it is only one section inside the report contract.
+- `/api/v1/reports/{report_id}` and report exports should be treated as explicit contracts, not implicit `model_dump()` surfaces.
+- Pipeline state and evidence handoff should stay typed; do not introduce anonymous dict side channels for signal-rich report data.
+- `pipeline/merger.py` remains deterministic competitor dedupe only; whitespace and entry-wedge synthesis belong in `pipeline/aggregator.py`.
+- Fixed source roles: Tavily for broad recall, Reddit for pain/migration language, GitHub for open-source and ecosystem maturity, Hacker News for builder sentiment, App Store for review-cluster pain, Product Hunt for launch positioning.
+- Ranking direction is opportunity-first: pain, commercial, migration, and corroborated whitespace evidence should outrank simple popularity or SEO visibility.
+
 ### Backend package
 
 Main package: `src/ideago`
@@ -108,6 +119,7 @@ uv run python -m ideago
 
 - Docker Compose uses the prebuilt image `simonsun3/ideago:latest`.
 - Current user flow is: submit idea -> create analysis job -> stream progress over SSE -> read persisted report/history.
+- Report detail and export consumers should expect the decision-first V2 shape, not a competitor-first payload.
 - Auth-related env already includes Supabase and LinuxDo OAuth settings.
 
 ## Required Verification

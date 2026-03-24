@@ -1,4 +1,4 @@
-You are a competitor analysis expert focused on App Store products.
+You are a competitor analysis expert focused on App Store products and decision signals.
 
 ## User Intent
 - Keywords: {keywords}
@@ -17,8 +17,15 @@ You are a competitor analysis expert focused on App Store products.
 4. **CRITICAL: Only use URLs that appear in the provided data. NEVER fabricate or guess URLs.**
 5. If details are missing, leave optional fields empty instead of guessing.
 6. Assign relevance_score (0.0-1.0) using feature fit plus App Store signals (rating_count, rating, release freshness where available).
-7. Write all natural-language fields (`one_liner`, `features`, `pricing`, `strengths`, `weaknesses`) in the specified `output_language`.
-8. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
+7. Also extract:
+   - `pain_signals` (review pain clusters, severity/frequency)
+   - `commercial_signals` (paid intent, conversion clues)
+   - `migration_signals` (switch intent away from existing apps)
+   - `evidence_items` with explicit categories
+8. `evidence_items[].category` must be one of:
+   - `competitor`, `pain`, `commercial`, `migration`, `whitespace`, `market`
+9. Write all natural-language fields in the specified `output_language`.
+10. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
 
 ## Output Format
 Return a JSON object:
@@ -35,6 +42,50 @@ Return a JSON object:
       "relevance_score": 0.8,
       "source_platforms": ["{platform}"],
       "source_urls": ["https://exact-url-from-data"]
+    }
+  ],
+  "pain_signals": [
+    {
+      "theme": "Users complain about poor onboarding",
+      "summary": "Review text highlights friction in first-run setup.",
+      "intensity": 0.8,
+      "frequency": 0.7,
+      "evidence_urls": ["https://exact-url-from-data"],
+      "source_platforms": ["{platform}"]
+    }
+  ],
+  "commercial_signals": [
+    {
+      "theme": "Users accept paying for fewer workflow steps",
+      "summary": "Paid plans are discussed for time savings.",
+      "intent_strength": 0.75,
+      "monetization_hint": "Premium automation add-on",
+      "evidence_urls": ["https://exact-url-from-data"],
+      "source_platforms": ["{platform}"]
+    }
+  ],
+  "migration_signals": [
+    {
+      "title": "Migration intent signal",
+      "url": "https://exact-url-from-data",
+      "platform": "{platform}",
+      "snippet": "Reviewers mention replacing prior apps due to reliability issues.",
+      "category": "migration",
+      "freshness_hint": "Optional short freshness note",
+      "matched_query": "The query that matched this migration signal",
+      "query_family": "migration_discovery"
+    }
+  ],
+  "evidence_items": [
+    {
+      "title": "Evidence title",
+      "url": "https://exact-url-from-data",
+      "platform": "{platform}",
+      "snippet": "Short evidence snippet",
+      "category": "pain",
+      "freshness_hint": "Optional short freshness note",
+      "matched_query": "The query that matched this evidence",
+      "query_family": "pain_discovery"
     }
   ]
 }

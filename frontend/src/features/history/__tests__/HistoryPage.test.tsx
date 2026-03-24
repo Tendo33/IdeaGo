@@ -166,4 +166,77 @@ describe('HistoryPage', () => {
     expect(screen.queryByText('Report 21')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled()
   })
+
+  it('falls back to open attribute when dialog methods are unavailable', async () => {
+    vi.mocked(listReports).mockResolvedValueOnce(
+      paginated([
+        {
+          id: 'report-1',
+          query: 'AI meeting notes',
+          created_at: new Date().toISOString(),
+          competitor_count: 3,
+        },
+      ]),
+    )
+
+    const showModalDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLDialogElement.prototype,
+      'showModal',
+    )
+    const closeDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLDialogElement.prototype,
+      'close',
+    )
+
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+      configurable: true,
+      value: undefined,
+    })
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value: undefined,
+    })
+
+    try {
+      render(
+        <MemoryRouter initialEntries={['/history']}>
+          <Routes>
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('AI meeting notes')).toBeInTheDocument()
+      })
+
+      const dialog = document.querySelector('dialog')
+      expect(dialog).not.toBeNull()
+      expect(dialog).not.toHaveAttribute('open')
+
+      fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
+
+      await waitFor(() => {
+        expect(dialog).toHaveAttribute('open')
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+      await waitFor(() => {
+        expect(dialog).not.toHaveAttribute('open')
+      })
+    } finally {
+      if (showModalDescriptor) {
+        Object.defineProperty(HTMLDialogElement.prototype, 'showModal', showModalDescriptor)
+      } else {
+        delete (HTMLDialogElement.prototype as { showModal?: unknown }).showModal
+      }
+      if (closeDescriptor) {
+        Object.defineProperty(HTMLDialogElement.prototype, 'close', closeDescriptor)
+      } else {
+        delete (HTMLDialogElement.prototype as { close?: unknown }).close
+      }
+    }
+  })
 })

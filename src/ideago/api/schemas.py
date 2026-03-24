@@ -12,6 +12,20 @@ from typing import Literal
 from pydantic import Field, field_validator
 
 from ideago.models.base import BaseModel
+from ideago.models.research import (
+    CommercialSignal,
+    Competitor,
+    ConfidenceMetrics,
+    CostBreakdown,
+    EvidenceSummary,
+    Intent,
+    OpportunityScoreBreakdown,
+    PainSignal,
+    RecommendationType,
+    ReportMeta,
+    SourceResult,
+    WhitespaceOpportunity,
+)
 
 
 class AnalyzeRequest(BaseModel):
@@ -74,3 +88,63 @@ class ReportRuntimeStatus(BaseModel):
     message: str | None = None
     updated_at: datetime | None = None
     query: str | None = None
+
+
+class ReportDetailV2(BaseModel):
+    """Explicit API contract for report detail payloads."""
+
+    id: str = Field(description="Unique report ID")
+    query: str = Field(description="Original user query")
+    intent: Intent = Field(description="Parsed research intent")
+    source_results: list[SourceResult] = Field(
+        default_factory=list,
+        description="Per-source execution status and extraction results",
+    )
+    competitors: list[Competitor] = Field(
+        default_factory=list,
+        description="Deduplicated competitors in the final report",
+    )
+    pain_signals: list[PainSignal] = Field(
+        default_factory=list,
+        description="Decision-first pain signals",
+    )
+    commercial_signals: list[CommercialSignal] = Field(
+        default_factory=list,
+        description="Decision-first commercial signals",
+    )
+    whitespace_opportunities: list[WhitespaceOpportunity] = Field(
+        default_factory=list,
+        description="Whitespace opportunities and entry wedges",
+    )
+    opportunity_score: OpportunityScoreBreakdown = Field(
+        default_factory=OpportunityScoreBreakdown,
+        description="Deterministic opportunity score breakdown",
+    )
+    market_summary: str = Field(default="", description="Market synthesis summary")
+    go_no_go: str = Field(default="", description="Recommendation narrative")
+    recommendation_type: RecommendationType = Field(
+        default=RecommendationType.GO,
+        description="Structured recommendation outcome",
+    )
+    differentiation_angles: list[str] = Field(
+        default_factory=list,
+        description="Suggested differentiation angles",
+    )
+    confidence: ConfidenceMetrics = Field(
+        default_factory=ConfidenceMetrics,
+        description="Trust/confidence metrics for the report",
+    )
+    evidence_summary: EvidenceSummary = Field(
+        default_factory=EvidenceSummary,
+        description="Evidence summary with trust-oriented UI fields",
+    )
+    cost_breakdown: CostBreakdown = Field(
+        default_factory=CostBreakdown,
+        description="Pipeline/runtime cost breakdown",
+    )
+    report_meta: ReportMeta = Field(
+        default_factory=ReportMeta,
+        description="Supplemental report metadata",
+    )
+    created_at: datetime = Field(description="Report creation timestamp")
+    updated_at: datetime = Field(description="Report last update timestamp")

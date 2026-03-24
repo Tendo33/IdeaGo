@@ -7,15 +7,23 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import datetime, timezone
+from typing import NamedTuple
 
 import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
 _DEFAULT_MIN_STARS = 50
+
+
+class _ResolvedQuery(NamedTuple):
+    text: str
+    family: str
 
 
 class GitHubSource:
@@ -66,7 +74,12 @@ class GitHubSource:
         }
         return payload
 
-    async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+    async def _search_single_query(
+        self,
+        resolved_query: _ResolvedQuery,
+        limit: int,
+    ) -> list[RawResult]:
+        query = resolved_query.text
         normalized_query = _normalize_github_query(query)
         try:
             resp = await self._client.get(
@@ -93,6 +106,14 @@ class GitHubSource:
                     url=item.get("html_url", ""),
                     platform=Platform.GITHUB,
                     raw_data={
+                        "matched_query": query,
+                        "query_family": resolved_query.family,
+                        "source_native_score": item.get("stargazers_count", 0),
+                        "engagement_proxy": int(item.get("stargazers_count", 0) or 0)
+                        + int(item.get("forks_count", 0) or 0),
+                        "freshness_timestamp": _normalize_iso8601(
+                            item.get("pushed_at") or item.get("updated_at")
+                        ),
                         "stargazers_count": item.get("stargazers_count", 0),
                         "language": item.get("language"),
                         "topics": item.get("topics", []),
@@ -117,6 +138,13 @@ class GitHubSource:
         """Search GitHub repos for each query and return combined results."""
         if not queries:
             return []
+        resolved_queries = [
+            resolved_query
+            for query in queries
+            if (resolved_query := _resolve_query(query)).text
+        ]
+        if not resolved_queries:
+            return []
 
         self._last_search_diagnostics = {
             "partial_failure": False,
@@ -129,15 +157,20 @@ class GitHubSource:
         )
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
+        async def run_query(
+            resolved_query: _ResolvedQuery,
+        ) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
                 try:
-                    return query, await self._search_single_query(query, limit)
+                    return resolved_query.text, await self._search_single_query(
+                        resolved_query,
+                        limit,
+                    )
                 except Exception as exc:  # noqa: BLE001
-                    return query, exc
+                    return resolved_query.text, exc
 
         grouped_results = await asyncio.gather(
-            *(run_query(query) for query in queries),
+            *(run_query(query) for query in resolved_queries),
             return_exceptions=False,
         )
         results: list[RawResult] = []
@@ -200,7 +233,66 @@ def _normalize_github_query(query: str) -> str:
 
 def _is_non_empty_repository(item: dict[str, object]) -> bool:
     """Filter obvious placeholder repos with no actual repository contents."""
-    size = int(item.get("size", 0) or 0)
+    raw_size = item.get("size", 0)
+    if isinstance(raw_size, bool):
+        size = int(raw_size)
+    elif isinstance(raw_size, int):
+        size = raw_size
+    elif isinstance(raw_size, float):
+        size = int(raw_size)
+    elif isinstance(raw_size, str):
+        try:
+            size = int(raw_size.strip() or "0")
+        except ValueError:
+            size = 0
+    else:
+        size = 0
     if size > 0:
         return True
     return bool(item.get("pushed_at"))
+
+
+def _resolve_query(query: object) -> _ResolvedQuery:
+    text = _extract_query_text(query)
+    if not text:
+        return _ResolvedQuery("", "competitor_discovery")
+    family = _extract_query_family(query)
+    return _ResolvedQuery(text, family or infer_query_family(text))
+
+
+def _extract_query_text(query: object) -> str:
+    if isinstance(query, str):
+        return query.strip()
+    if isinstance(query, dict):
+        for key in ("query", "text", "value"):
+            value = query.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for attr in ("query", "text", "value"):
+        value = getattr(query, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _extract_query_family(query: object) -> str:
+    if isinstance(query, dict):
+        value = query.get("query_family") or query.get("family")
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+    value = getattr(query, "query_family", None) or getattr(query, "family", None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""
+
+
+def _normalize_iso8601(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")

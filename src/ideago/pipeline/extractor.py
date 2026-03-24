@@ -10,14 +10,36 @@ import json
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from pydantic import Field
+
 from ideago.llm.chat_model import ChatModelClient
 from ideago.llm.invoke_helpers import invoke_json_with_optional_meta
 from ideago.llm.prompt_loader import load_prompt
-from ideago.models.research import Competitor, Intent, Platform, RawResult
+from ideago.models.base import BaseModel
+from ideago.models.research import (
+    CommercialSignal,
+    Competitor,
+    EvidenceCategory,
+    EvidenceItem,
+    Intent,
+    PainSignal,
+    Platform,
+    RawResult,
+)
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.exceptions import ExtractionError
 
 logger = get_logger(__name__)
+
+
+class ExtractionOutput(BaseModel):
+    """Typed extraction output for competitor and evidence signals."""
+
+    competitors: list[Competitor] = Field(default_factory=list)
+    pain_signals: list[PainSignal] = Field(default_factory=list)
+    commercial_signals: list[CommercialSignal] = Field(default_factory=list)
+    migration_signals: list[EvidenceItem] = Field(default_factory=list)
+    evidence_items: list[EvidenceItem] = Field(default_factory=list)
 
 
 class Extractor:
@@ -26,6 +48,8 @@ class Extractor:
     def __init__(self, llm: ChatModelClient) -> None:
         self._llm = llm
         self._llm_metrics_by_task: dict[int, dict[str, Any]] = {}
+        self._structured_output_by_task: dict[int, ExtractionOutput] = {}
+        self._latest_structured_output = ExtractionOutput()
 
     async def extract(
         self,
@@ -41,8 +65,17 @@ class Extractor:
         Returns:
             List of extracted Competitor objects. Invalid entries are skipped.
         """
+        structured = await self.extract_structured(raw_results, intent)
+        return structured.competitors
+
+    async def extract_structured(
+        self,
+        raw_results: list[RawResult],
+        intent: Intent,
+    ) -> ExtractionOutput:
+        """Extract typed competitors + signals + evidence from one source payload."""
         if not raw_results:
-            return []
+            return ExtractionOutput()
 
         try:
             platform = raw_results[0].platform
@@ -74,49 +107,24 @@ class Extractor:
                 system="You are a competitor analysis expert. Return only valid JSON.",
             )
             self._store_metrics_for_current_task(llm_metrics)
-            logger.debug(
-                "Extractor LLM response for {}: {} items",
-                platform.value,
-                len(data.get("competitors", [])),
+            structured = self._parse_structured_output(
+                payload=data,
+                allowed_urls=allowed_urls,
             )
-
-            result: list[Competitor] = []
-            for entry in data.get("competitors", []):
-                try:
-                    comp = Competitor.model_validate(entry)
-                    filtered_links = [
-                        link
-                        for link in comp.links
-                        if _normalize_url(link) in allowed_urls
-                    ]
-                    filtered_source_urls = [
-                        url
-                        for url in comp.source_urls
-                        if _normalize_url(url) in allowed_urls
-                    ]
-                    if not filtered_links:
-                        logger.warning(
-                            "Dropping competitor '{}' due to unverifiable links",
-                            comp.name,
-                        )
-                        continue
-                    if len(filtered_links) < len(comp.links):
-                        logger.info(
-                            "Filtered {} fabricated links for competitor '{}'",
-                            len(comp.links) - len(filtered_links),
-                            comp.name,
-                        )
-                    result.append(
-                        comp.model_copy(
-                            update={
-                                "links": filtered_links,
-                                "source_urls": filtered_source_urls or filtered_links,
-                            }
-                        )
-                    )
-                except Exception:
-                    logger.warning("Skipping invalid competitor entry: {}", entry)
-            return result
+            self._store_structured_output_for_current_task(structured)
+            logger.debug(
+                (
+                    "Extractor LLM response for {}: competitors={}, pain={}, "
+                    "commercial={}, migration={}, evidence={}"
+                ),
+                platform.value,
+                len(structured.competitors),
+                len(structured.pain_signals),
+                len(structured.commercial_signals),
+                len(structured.migration_signals),
+                len(structured.evidence_items),
+            )
+            return structured
         except ExtractionError:
             raise
         except Exception as exc:
@@ -133,6 +141,250 @@ class Extractor:
         if task is None:
             return
         self._llm_metrics_by_task[id(task)] = metrics
+
+    def pop_structured_output_for_current_task(self) -> ExtractionOutput:
+        task = asyncio.current_task()
+        if task is None:
+            return ExtractionOutput()
+        return self._structured_output_by_task.pop(id(task), ExtractionOutput())
+
+    def _store_structured_output_for_current_task(
+        self,
+        output: ExtractionOutput,
+    ) -> None:
+        task = asyncio.current_task()
+        self._latest_structured_output = output
+        if task is None:
+            return
+        self._structured_output_by_task[id(task)] = output
+
+    def get_last_structured_output(self) -> ExtractionOutput:
+        """Return latest typed extraction output snapshot."""
+        return self._latest_structured_output
+
+    def _parse_structured_output(
+        self,
+        *,
+        payload: object,
+        allowed_urls: set[str],
+    ) -> ExtractionOutput:
+        if not isinstance(payload, dict):
+            raise ExtractionError("Extractor response payload must be a JSON object")
+
+        competitors = self._parse_competitors(
+            raw_items=payload.get("competitors"),
+            allowed_urls=allowed_urls,
+        )
+        pain_signals = self._parse_pain_signals(
+            raw_items=payload.get("pain_signals"),
+            allowed_urls=allowed_urls,
+        )
+        commercial_signals = self._parse_commercial_signals(
+            raw_items=payload.get("commercial_signals"),
+            allowed_urls=allowed_urls,
+        )
+        migration_signals = self._parse_migration_signals(
+            raw_items=payload.get("migration_signals"),
+            allowed_urls=allowed_urls,
+        )
+        evidence_items = self._parse_evidence_items(
+            raw_items=payload.get("evidence_items"),
+            allowed_urls=allowed_urls,
+        )
+        return ExtractionOutput(
+            competitors=competitors,
+            pain_signals=pain_signals,
+            commercial_signals=commercial_signals,
+            migration_signals=migration_signals,
+            evidence_items=evidence_items,
+        )
+
+    def _parse_competitors(
+        self,
+        *,
+        raw_items: object,
+        allowed_urls: set[str],
+    ) -> list[Competitor]:
+        if not isinstance(raw_items, list):
+            return []
+        result: list[Competitor] = []
+        for entry in raw_items:
+            try:
+                comp = Competitor.model_validate(entry)
+            except Exception:
+                logger.warning("Skipping invalid competitor entry: {}", entry)
+                continue
+            filtered_links = [
+                link for link in comp.links if _normalize_url(link) in allowed_urls
+            ]
+            filtered_source_urls = [
+                url for url in comp.source_urls if _normalize_url(url) in allowed_urls
+            ]
+            if not filtered_links:
+                logger.warning(
+                    "Dropping competitor '{}' due to unverifiable links",
+                    comp.name,
+                )
+                continue
+            if len(filtered_links) < len(comp.links):
+                logger.info(
+                    "Filtered {} fabricated links for competitor '{}'",
+                    len(comp.links) - len(filtered_links),
+                    comp.name,
+                )
+            result.append(
+                comp.model_copy(
+                    update={
+                        "links": filtered_links,
+                        "source_urls": filtered_source_urls or filtered_links,
+                    }
+                )
+            )
+        return result
+
+    def _parse_pain_signals(
+        self,
+        *,
+        raw_items: object,
+        allowed_urls: set[str],
+    ) -> list[PainSignal]:
+        if not isinstance(raw_items, list):
+            return []
+        signals: list[PainSignal] = []
+        for entry in raw_items:
+            try:
+                signal = PainSignal.model_validate(entry)
+            except Exception:
+                logger.warning("Skipping invalid pain signal: {}", entry)
+                continue
+            filtered_evidence_urls = _filter_allowed_urls(
+                signal.evidence_urls, allowed_urls
+            )
+            if not filtered_evidence_urls:
+                logger.warning(
+                    "Dropping pain signal '{}' due to unverifiable evidence urls",
+                    signal.theme,
+                )
+                continue
+            signals.append(
+                signal.model_copy(update={"evidence_urls": filtered_evidence_urls})
+            )
+        return signals
+
+    def _parse_commercial_signals(
+        self,
+        *,
+        raw_items: object,
+        allowed_urls: set[str],
+    ) -> list[CommercialSignal]:
+        if not isinstance(raw_items, list):
+            return []
+        signals: list[CommercialSignal] = []
+        for entry in raw_items:
+            try:
+                signal = CommercialSignal.model_validate(entry)
+            except Exception:
+                logger.warning("Skipping invalid commercial signal: {}", entry)
+                continue
+            filtered_evidence_urls = _filter_allowed_urls(
+                signal.evidence_urls, allowed_urls
+            )
+            if not filtered_evidence_urls:
+                logger.warning(
+                    "Dropping commercial signal '{}' due to unverifiable evidence urls",
+                    signal.theme,
+                )
+                continue
+            signals.append(
+                signal.model_copy(update={"evidence_urls": filtered_evidence_urls})
+            )
+        return signals
+
+    def _parse_migration_signals(
+        self,
+        *,
+        raw_items: object,
+        allowed_urls: set[str],
+    ) -> list[EvidenceItem]:
+        if not isinstance(raw_items, list):
+            return []
+        signals: list[EvidenceItem] = []
+        for entry in raw_items:
+            candidate = self._normalize_migration_entry(entry)
+            if candidate is None:
+                logger.warning("Skipping invalid migration signal: {}", entry)
+                continue
+            try:
+                signal = EvidenceItem.model_validate(candidate)
+            except Exception:
+                logger.warning("Skipping invalid migration signal: {}", entry)
+                continue
+            normalized_url = _normalize_url(signal.url)
+            if not normalized_url or normalized_url not in allowed_urls:
+                logger.warning(
+                    "Dropping migration signal '{}' due to unverifiable evidence url",
+                    signal.title,
+                )
+                continue
+            signals.append(
+                signal.model_copy(update={"category": EvidenceCategory.MIGRATION})
+            )
+        return signals
+
+    def _parse_evidence_items(
+        self,
+        *,
+        raw_items: object,
+        allowed_urls: set[str],
+    ) -> list[EvidenceItem]:
+        if not isinstance(raw_items, list):
+            return []
+        evidence_items: list[EvidenceItem] = []
+        for entry in raw_items:
+            try:
+                evidence = EvidenceItem.model_validate(entry)
+            except Exception:
+                logger.warning("Skipping invalid evidence item: {}", entry)
+                continue
+            if evidence.url and _normalize_url(evidence.url) not in allowed_urls:
+                logger.warning(
+                    "Dropping evidence '{}' due to unverifiable url",
+                    evidence.title,
+                )
+                continue
+            evidence_items.append(evidence)
+        return evidence_items
+
+    @staticmethod
+    def _normalize_migration_entry(entry: object) -> dict[str, Any] | None:
+        if not isinstance(entry, dict):
+            return None
+        raw_urls = entry.get("evidence_urls")
+        url = entry.get("url")
+        if (not isinstance(url, str) or not url.strip()) and isinstance(raw_urls, list):
+            first_url = next(
+                (item for item in raw_urls if isinstance(item, str) and item.strip()),
+                "",
+            )
+            url = first_url
+        platform_value = entry.get("platform")
+        if not platform_value:
+            source_platforms = entry.get("source_platforms")
+            if isinstance(source_platforms, list) and source_platforms:
+                platform_value = source_platforms[0]
+        return {
+            "title": entry.get("title") or entry.get("theme") or "Migration signal",
+            "url": url or "",
+            "platform": platform_value,
+            "snippet": entry.get("snippet")
+            or entry.get("summary")
+            or entry.get("switch_trigger")
+            or "",
+            "category": "migration",
+            "freshness_hint": entry.get("freshness_hint") or "",
+            "matched_query": entry.get("matched_query") or "",
+            "query_family": entry.get("query_family") or "migration_discovery",
+        }
 
 
 def _normalize_url(url: str) -> str:
@@ -155,6 +407,10 @@ def _normalize_url(url: str) -> str:
             "",
         )
     )
+
+
+def _filter_allowed_urls(urls: list[str], allowed_urls: set[str]) -> list[str]:
+    return [url for url in urls if _normalize_url(url) in allowed_urls]
 
 
 def _serialize_raw_for_extraction(raw: RawResult) -> dict[str, Any]:

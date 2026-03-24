@@ -6,10 +6,10 @@
 import hashlib
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ideago.models.base import BaseModel, TimestampMixin
 
@@ -134,6 +134,17 @@ class RecommendationType(str, Enum):
     NO_GO = "no_go"
 
 
+class EvidenceCategory(str, Enum):
+    """Evidence category used in decision-first report sections."""
+
+    COMPETITOR = "competitor"
+    PAIN = "pain"
+    COMMERCIAL = "commercial"
+    MIGRATION = "migration"
+    WHITESPACE = "whitespace"
+    MARKET = "market"
+
+
 class SourceStatus(str, Enum):
     """Status of a data source query / 数据源查询状态。"""
 
@@ -161,30 +172,267 @@ class SourceResult(BaseModel):
     )
 
 
+class PainSignal(BaseModel):
+    """Signal describing recurring user pain and severity."""
+
+    theme: str = Field(description="Pain theme label")
+    summary: str = Field(
+        default="",
+        description="Short summary of the pain context",
+    )
+    intensity: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Pain intensity score (0-1)",
+    )
+    frequency: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="How frequently this pain appears across evidence (0-1)",
+    )
+    evidence_urls: list[str] = Field(
+        default_factory=list,
+        description="Supporting evidence URLs",
+    )
+    source_platforms: list[Platform] = Field(
+        default_factory=list,
+        description="Platforms where the pain signal was observed",
+    )
+
+
+class CommercialSignal(BaseModel):
+    """Signal indicating monetizable demand or willingness to pay."""
+
+    theme: str = Field(description="Commercial intent theme label")
+    summary: str = Field(
+        default="",
+        description="Short summary of demand/commercial context",
+    )
+    intent_strength: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Commercial intent strength score (0-1)",
+    )
+    monetization_hint: str = Field(
+        default="",
+        description="Potential monetization angle",
+    )
+    evidence_urls: list[str] = Field(
+        default_factory=list,
+        description="Supporting evidence URLs",
+    )
+    source_platforms: list[Platform] = Field(
+        default_factory=list,
+        description="Platforms where the commercial signal was observed",
+    )
+
+
+class WhitespaceOpportunity(BaseModel):
+    """Potential underserved wedge inferred from evidence."""
+
+    title: str = Field(description="Opportunity title")
+    description: str = Field(
+        default="",
+        description="Opportunity details and rationale",
+    )
+    target_segment: str = Field(
+        default="",
+        description="Target user segment for this wedge",
+    )
+    wedge: str = Field(
+        default="",
+        description="Concrete entry wedge suggestion",
+    )
+    potential_score: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Potential value score for this opportunity (0-1)",
+    )
+    confidence: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in this opportunity (0-1)",
+    )
+    supporting_evidence: list[str] = Field(
+        default_factory=list,
+        description="Evidence URLs or IDs supporting the opportunity",
+    )
+
+
+class OpportunityScoreBreakdown(BaseModel):
+    """Deterministic opportunity score components."""
+
+    pain_intensity: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Weighted pain intensity component (0-1)",
+    )
+    solution_gap: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Weighted solution gap component (0-1)",
+    )
+    commercial_intent: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Weighted commercial intent component (0-1)",
+    )
+    freshness: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Weighted freshness component (0-1)",
+    )
+    competition_density: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Weighted competition density component (0-1)",
+    )
+    score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Final opportunity score (0-1)",
+    )
+
+
 class ConfidenceMetrics(BaseModel):
     """Confidence metrics for report quality and source reliability."""
 
-    sample_size: int = Field(default=0, ge=0)
-    source_coverage: int = Field(default=0, ge=0)
-    source_success_rate: float = Field(default=0.0, ge=0.0, le=1.0)
-    freshness_hint: str = Field(default="Generated moments ago")
-    score: int = Field(default=0, ge=0, le=100)
+    sample_size: int = Field(default=0, ge=0, description="Evidence sample size")
+    source_coverage: int = Field(
+        default=0,
+        ge=0,
+        description="Number of sources that returned usable results",
+    )
+    source_success_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Effective source success rate after degraded-source discounting",
+    )
+    source_diversity: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct supporting source platforms represented in evidence",
+    )
+    evidence_density: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Density of usable evidence and corroborating signals (0-1)",
+    )
+    recency_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Freshness score derived from evidence timestamps (0-1)",
+    )
+    degradation_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Penalty from degraded, failed, or timed-out sources (0-1)",
+    )
+    contradiction_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Penalty from explicit uncertainty or conflicting evidence (0-1)",
+    )
+    reasons: list[str] = Field(
+        default_factory=list,
+        description="Human-readable confidence drivers and penalties",
+    )
+    freshness_hint: str = Field(
+        default="Generated moments ago",
+        description="Relative report freshness text for UI display",
+    )
+    score: int = Field(default=0, ge=0, le=100, description="Overall confidence 0-100")
 
 
 class EvidenceItem(BaseModel):
     """Single evidence item attached to report conclusion."""
 
-    title: str = Field(default="")
-    url: str = Field(default="")
-    platform: str = Field(default="")
-    snippet: str = Field(default="")
+    title: str = Field(default="", description="Evidence title")
+    url: str = Field(default="", description="Evidence URL")
+    platform: Platform | None = Field(
+        default=None,
+        description="Source platform enum, optional for legacy payloads",
+    )
+    snippet: str = Field(default="", description="Evidence snippet")
+    category: EvidenceCategory = Field(
+        default=EvidenceCategory.MARKET,
+        description="Evidence category",
+    )
+    freshness_hint: str = Field(
+        default="",
+        description="Optional freshness hint for this evidence",
+    )
+    matched_query: str = Field(
+        default="",
+        description="Query string that matched this evidence",
+    )
+    query_family: str = Field(
+        default="",
+        description="Research intent family that produced this evidence",
+    )
+
+    @field_validator("platform", mode="before")
+    @classmethod
+    def _normalize_platform(cls, value: object) -> Platform | None:
+        """Allow legacy empty-string platform payloads without failing validation."""
+        if value in ("", None):
+            return None
+        if isinstance(value, Platform):
+            return value
+        if isinstance(value, str):
+            return Platform(value)
+        # Keep unknown payloads on the normal Pydantic validation path so callers
+        # consistently receive ValidationError instead of raw exceptions.
+        return cast(Platform | None, value)
 
 
 class EvidenceSummary(BaseModel):
     """Evidence summary section for transparency."""
 
-    top_evidence: list[str] = Field(default_factory=list)
-    evidence_items: list[EvidenceItem] = Field(default_factory=list)
+    top_evidence: list[str] = Field(
+        default_factory=list,
+        description="Human-readable top evidence highlights",
+    )
+    evidence_items: list[EvidenceItem] = Field(
+        default_factory=list,
+        description="Structured evidence items used by report sections",
+    )
+    category_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Evidence counts grouped by category key",
+    )
+    source_platforms: list[Platform] = Field(
+        default_factory=list,
+        description="Distinct source platforms represented in evidence items",
+    )
+    freshness_distribution: dict[str, int] = Field(
+        default_factory=dict,
+        description="Evidence freshness counts grouped into summary buckets",
+    )
+    degraded_sources: list[Platform] = Field(
+        default_factory=list,
+        description="Sources that were degraded, failed, or timed out during retrieval",
+    )
+    uncertainty_notes: list[str] = Field(
+        default_factory=list,
+        description="Explicit uncertainty notes for weak/contradicting evidence",
+    )
 
 
 class CostBreakdown(BaseModel):
@@ -234,6 +482,22 @@ class ResearchReport(TimestampMixin):
     competitors: list[Competitor] = Field(
         default_factory=list,
         description="Globally deduplicated competitor list / 全局去重竞品列表",
+    )
+    pain_signals: list[PainSignal] = Field(
+        default_factory=list,
+        description="Aggregated user pain signals extracted from evidence",
+    )
+    commercial_signals: list[CommercialSignal] = Field(
+        default_factory=list,
+        description="Aggregated commercial intent signals from evidence",
+    )
+    whitespace_opportunities: list[WhitespaceOpportunity] = Field(
+        default_factory=list,
+        description="Whitespace opportunities and entry wedges",
+    )
+    opportunity_score: OpportunityScoreBreakdown = Field(
+        default_factory=OpportunityScoreBreakdown,
+        description="Deterministic opportunity score breakdown",
     )
     market_summary: str = Field(
         default="",

@@ -5,12 +5,18 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+import ideago.models as exported_models
 from ideago.models.research import (
+    CommercialSignal,
     Competitor,
     ConfidenceMetrics,
     CostBreakdown,
+    EvidenceCategory,
+    EvidenceItem,
     EvidenceSummary,
     Intent,
+    OpportunityScoreBreakdown,
+    PainSignal,
     Platform,
     RawResult,
     RecommendationType,
@@ -19,6 +25,7 @@ from ideago.models.research import (
     SearchQuery,
     SourceResult,
     SourceStatus,
+    WhitespaceOpportunity,
 )
 
 # --- Platform ---
@@ -228,6 +235,10 @@ def test_report_auto_generates_id() -> None:
     assert r.go_no_go == ""
     assert r.confidence == ConfidenceMetrics()
     assert r.evidence_summary == EvidenceSummary()
+    assert r.pain_signals == []
+    assert r.commercial_signals == []
+    assert r.whitespace_opportunities == []
+    assert r.opportunity_score == OpportunityScoreBreakdown()
     assert r.cost_breakdown == CostBreakdown()
     assert r.report_meta == ReportMeta()
 
@@ -257,6 +268,188 @@ def test_recommendation_type_enum_values() -> None:
 def test_report_default_recommendation_type() -> None:
     r = ResearchReport(query="test", intent=_make_intent())
     assert r.recommendation_type == RecommendationType.GO
+
+
+def test_evidence_category_enum_values() -> None:
+    assert EvidenceCategory.COMPETITOR == "competitor"
+    assert EvidenceCategory.PAIN == "pain"
+    assert EvidenceCategory.COMMERCIAL == "commercial"
+    assert EvidenceCategory.MIGRATION == "migration"
+    assert EvidenceCategory.WHITESPACE == "whitespace"
+    assert EvidenceCategory.MARKET == "market"
+
+
+def test_pain_signal_validation_bounds() -> None:
+    with pytest.raises(ValidationError):
+        PainSignal(theme="onboarding friction", intensity=1.1)
+    with pytest.raises(ValidationError):
+        PainSignal(theme="onboarding friction", frequency=-0.1)
+
+
+def test_commercial_signal_validation_bounds() -> None:
+    with pytest.raises(ValidationError):
+        CommercialSignal(theme="high intent", intent_strength=1.5)
+
+
+def test_whitespace_opportunity_validation_bounds() -> None:
+    with pytest.raises(ValidationError):
+        WhitespaceOpportunity(
+            title="SMB workflow wedge",
+            potential_score=-0.01,
+        )
+    with pytest.raises(ValidationError):
+        WhitespaceOpportunity(
+            title="SMB workflow wedge",
+            confidence=1.01,
+        )
+
+
+def test_opportunity_score_breakdown_validation_bounds() -> None:
+    with pytest.raises(ValidationError):
+        OpportunityScoreBreakdown(solution_gap=2.0)
+    with pytest.raises(ValidationError):
+        OpportunityScoreBreakdown(score=-0.1)
+
+
+def test_opportunity_score_breakdown_roundtrip_payload() -> None:
+    breakdown = OpportunityScoreBreakdown(
+        pain_intensity=0.72,
+        solution_gap=0.64,
+        commercial_intent=0.51,
+        freshness=0.88,
+        competition_density=0.27,
+        score=0.69,
+    )
+
+    payload = breakdown.model_dump(mode="json")
+    restored = OpportunityScoreBreakdown.model_validate(payload)
+
+    assert restored == breakdown
+
+
+def test_richer_evidence_item_defaults() -> None:
+    item = EvidenceItem()
+    assert item.title == ""
+    assert item.url == ""
+    assert item.platform is None
+    assert item.snippet == ""
+    assert item.category == EvidenceCategory.MARKET
+    assert item.freshness_hint == ""
+    assert item.matched_query == ""
+    assert item.query_family == ""
+
+
+def test_richer_evidence_summary_defaults() -> None:
+    summary = EvidenceSummary()
+    assert summary.top_evidence == []
+    assert summary.evidence_items == []
+    assert summary.category_counts == {}
+    assert summary.source_platforms == []
+    assert summary.freshness_distribution == {}
+    assert summary.degraded_sources == []
+    assert summary.uncertainty_notes == []
+
+
+def test_richer_confidence_metrics_defaults() -> None:
+    metrics = ConfidenceMetrics()
+    assert metrics.sample_size == 0
+    assert metrics.source_coverage == 0
+    assert metrics.source_success_rate == 0.0
+    assert metrics.source_diversity == 0
+    assert metrics.evidence_density == 0.0
+    assert metrics.recency_score == 0.0
+    assert metrics.degradation_penalty == 0.0
+    assert metrics.contradiction_penalty == 0.0
+    assert metrics.reasons == []
+    assert metrics.score == 0
+
+
+def test_research_report_additive_compatibility_with_legacy_payload() -> None:
+    report = ResearchReport(query="legacy payload", intent=_make_intent())
+    payload = report.model_dump(mode="json")
+
+    payload.pop("pain_signals", None)
+    payload.pop("commercial_signals", None)
+    payload.pop("whitespace_opportunities", None)
+    payload.pop("opportunity_score", None)
+
+    confidence = payload.get("confidence", {})
+    confidence.pop("source_diversity", None)
+    confidence.pop("evidence_density", None)
+    confidence.pop("recency_score", None)
+    confidence.pop("degradation_penalty", None)
+    confidence.pop("contradiction_penalty", None)
+    confidence.pop("reasons", None)
+    payload["confidence"] = confidence
+
+    evidence_summary = payload.get("evidence_summary", {})
+    evidence_summary.pop("category_counts", None)
+    evidence_summary.pop("source_platforms", None)
+    evidence_summary.pop("freshness_distribution", None)
+    evidence_summary.pop("degraded_sources", None)
+    evidence_summary.pop("uncertainty_notes", None)
+    payload["evidence_summary"] = evidence_summary
+
+    restored = ResearchReport.model_validate(payload)
+    assert restored.pain_signals == []
+    assert restored.commercial_signals == []
+    assert restored.whitespace_opportunities == []
+    assert restored.opportunity_score == OpportunityScoreBreakdown()
+    assert restored.confidence.source_diversity == 0
+    assert restored.confidence.evidence_density == 0.0
+    assert restored.confidence.recency_score == 0.0
+    assert restored.confidence.degradation_penalty == 0.0
+    assert restored.confidence.contradiction_penalty == 0.0
+    assert restored.confidence.reasons == []
+    assert restored.evidence_summary.category_counts == {}
+    assert restored.evidence_summary.source_platforms == []
+    assert restored.evidence_summary.freshness_distribution == {}
+    assert restored.evidence_summary.degraded_sources == []
+    assert restored.evidence_summary.uncertainty_notes == []
+
+
+def test_legacy_nested_evidence_items_payload_compatibility() -> None:
+    payload = ResearchReport(query="legacy evidence", intent=_make_intent()).model_dump(
+        mode="json"
+    )
+    payload["evidence_summary"] = {
+        "top_evidence": ["legacy item"],
+        "evidence_items": [
+            {
+                "title": "GitHub discussion",
+                "url": "https://github.com/org/repo/issues/1",
+                "platform": "github",
+                "snippet": "users complain about onboarding",
+            },
+            {
+                "title": "Legacy no-platform evidence",
+                "url": "https://example.com/thread",
+                "platform": "",
+                "snippet": "legacy exporter omitted normalized platform",
+            },
+        ],
+    }
+
+    restored = ResearchReport.model_validate(payload)
+    assert len(restored.evidence_summary.evidence_items) == 2
+    assert restored.evidence_summary.evidence_items[0].platform == Platform.GITHUB
+    assert restored.evidence_summary.evidence_items[1].platform is None
+    assert (
+        restored.evidence_summary.evidence_items[0].category == EvidenceCategory.MARKET
+    )
+    assert restored.evidence_summary.category_counts == {}
+    assert restored.evidence_summary.source_platforms == []
+    assert restored.evidence_summary.freshness_distribution == {}
+    assert restored.evidence_summary.degraded_sources == []
+    assert restored.evidence_summary.uncertainty_notes == []
+
+
+def test_new_models_exported_from_models_package() -> None:
+    assert exported_models.PainSignal is PainSignal
+    assert exported_models.CommercialSignal is CommercialSignal
+    assert exported_models.WhitespaceOpportunity is WhitespaceOpportunity
+    assert exported_models.OpportunityScoreBreakdown is OpportunityScoreBreakdown
+    assert exported_models.EvidenceCategory is EvidenceCategory
 
 
 def test_report_with_explicit_recommendation_type() -> None:

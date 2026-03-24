@@ -1,16 +1,16 @@
 import { Suspense, lazy, useMemo } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
+import { CommercialSignalsCard } from '@/features/reports/components/CommercialSignalsCard'
 import { CompareFloatingBar, ComparePanel } from '@/features/reports/components/ComparePanel'
 import { ConfidenceCard } from '@/features/reports/components/ConfidenceCard'
 import { EvidenceCostCard } from '@/features/reports/components/EvidenceCostCard'
-import { HeroPanel } from '@/features/home/components/HeroPanel'
-import { InsightsSection } from '@/features/reports/components/InsightCard'
 import { MarketOverview } from '@/features/reports/components/MarketOverview'
+import { PainSignalsCard } from '@/features/reports/components/PainSignalsCard'
 import { ReportHeader } from '@/features/reports/components/ReportHeader'
 import { ReportCompetitorSection } from '@/features/reports/components/ReportCompetitorSection'
 import { SectionNav } from '@/features/reports/components/SectionNav'
+import { WhitespaceOpportunityCard } from '@/features/reports/components/WhitespaceOpportunityCard'
 import { AllFailedState, BlueOceanState } from '@/features/reports/components/ReportStatusStates'
 import { getCompetitorId } from '@/features/reports/competitor'
 import type { Platform, ResearchReport } from '@/lib/types/research'
@@ -21,14 +21,6 @@ const LandscapeChart = lazy(async () => {
   const chartModule = await import('@/features/reports/components/LandscapeChart')
   return { default: chartModule.LandscapeChart }
 })
-
-const SECTION_NAV_ITEMS = (count: number, t: TFunction) => [
-  { id: 'section-summary', label: t('report.sections.summary') },
-  { id: 'section-landscape', label: t('report.sections.landscape') },
-  { id: 'section-competitors', label: t('report.sections.competitors'), count },
-  { id: 'section-opportunities', label: t('report.sections.opportunities') },
-]
-const SECTION_IDS_KEY = 'section-summary|section-landscape|section-competitors|section-opportunities'
 
 interface ReportContentPaneProps {
   report: ResearchReport
@@ -50,6 +42,12 @@ interface ReportContentPaneProps {
   setViewMode: (mode: ViewMode) => void
   toggleCompare: (competitorId: string) => void
   cancelledMessage: string | null
+}
+
+type SectionNavItem = {
+  id: string
+  label: string
+  count?: number
 }
 
 export function ReportContentPane({
@@ -83,17 +81,58 @@ export function ReportContentPane({
     return map
   }, [report.competitors])
 
-  const sectionNavItems = useMemo(
-    () => SECTION_NAV_ITEMS(report.competitors.length, t),
-    [report.competitors.length, t],
+  const hasWhyNowSection = report.market_summary.length > 0 || report.competitors.length > 0
+  const hasCompetitorSection = report.competitors.length > 0
+
+  const sectionNavItems = useMemo(() => {
+    const items: SectionNavItem[] = [
+      {
+        id: 'section-should-we-build-this',
+        label: t('report.sections.shouldWeBuildThis', 'Should we build this?'),
+      },
+    ]
+
+    if (hasWhyNowSection) {
+      items.push({
+        id: 'section-why-now',
+        label: t('report.sections.whyNow', 'Why now'),
+      })
+    }
+
+    items.push(
+      { id: 'section-pain', label: t('report.sections.pain', 'Pain') },
+      { id: 'section-whitespace', label: t('report.sections.whitespace', 'Whitespace') },
+    )
+
+    if (hasCompetitorSection) {
+      items.push({
+        id: 'section-competitors',
+        label: t('report.sections.competitors'),
+        count: report.competitors.length,
+      })
+    }
+
+    items.push({
+      id: 'section-evidence-confidence',
+      label: t('report.sections.evidenceConfidence', 'Evidence & confidence'),
+    })
+
+    return items
+  }, [hasCompetitorSection, hasWhyNowSection, report.competitors.length, t])
+
+  const sectionIdsKey = useMemo(
+    () => sectionNavItems.map(section => section.id).join('|'),
+    [sectionNavItems],
   )
 
   return (
     <>
-      <ReportHeader report={report} />
+      <section id="section-should-we-build-this">
+        <ReportHeader report={report} />
+      </section>
 
       {showReport && !allFailed && (
-        <SectionNav sections={sectionNavItems} sectionIdsKey={SECTION_IDS_KEY} />
+        <SectionNav sections={sectionNavItems} sectionIdsKey={sectionIdsKey} />
       )}
 
       {cancelledMessage && (
@@ -116,20 +155,10 @@ export function ReportContentPane({
           <AllFailedState sources={report.source_results} onRetry={onRetryAnalysis} />
         )}
 
-        {!allFailed && <HeroPanel report={report} />}
-        {!allFailed && (
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ConfidenceCard confidence={report.confidence} />
-            <EvidenceCostCard
-              evidenceSummary={report.evidence_summary}
-            />
-          </section>
-        )}
-
-        {!allFailed && (report.market_summary || report.competitors.length > 0) && (
-          <section id="section-landscape" className="space-y-6">
+        {!allFailed && hasWhyNowSection && (
+          <section id="section-why-now" className="space-y-6">
             <MarketOverview summary={report.market_summary} />
-            {report.competitors.length > 0 && (
+            {hasCompetitorSection && (
               <Suspense fallback={<div data-testid="chart-loading" className="h-64 rounded-none border-2 border-border bg-card animate-pulse" />}>
                 <LandscapeChart competitors={report.competitors} />
               </Suspense>
@@ -137,7 +166,41 @@ export function ReportContentPane({
           </section>
         )}
 
-        {report.competitors.length > 0 && (
+        {!allFailed && (
+          <section id="section-pain" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <PainSignalsCard signals={report.pain_signals} />
+            <CommercialSignalsCard signals={report.commercial_signals} />
+            {report.pain_signals.length === 0 && report.commercial_signals.length === 0 ? (
+              <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground lg:col-span-2">
+                {t(
+                  'report.sections.painPlaceholder',
+                  'Pain and commercial signal analysis will appear here when available.',
+                )}
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {!allFailed && (
+          <section id="section-whitespace" className="space-y-4">
+            <WhitespaceOpportunityCard
+              opportunities={report.whitespace_opportunities}
+              opportunityScore={report.opportunity_score}
+              differentiationAngles={report.differentiation_angles}
+            />
+            {report.whitespace_opportunities.length === 0 &&
+            report.differentiation_angles.length === 0 ? (
+              <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground">
+                {t(
+                  'report.sections.whitespacePlaceholder',
+                  'Whitespace opportunities and differentiation angles will appear here when available.',
+                )}
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {hasCompetitorSection && (
           <ReportCompetitorSection
             allCompetitors={report.competitors}
             filteredCompetitors={filteredCompetitors}
@@ -154,10 +217,13 @@ export function ReportContentPane({
         )}
 
         {!allFailed && (
-          <InsightsSection angles={report.differentiation_angles} />
+          <section id="section-evidence-confidence" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ConfidenceCard confidence={report.confidence} />
+            <EvidenceCostCard evidenceSummary={report.evidence_summary} />
+          </section>
         )}
 
-        {report.competitors.length === 0 && !allFailed && (
+        {!hasCompetitorSection && !allFailed && (
           <BlueOceanState query={report.query} />
         )}
       </div>

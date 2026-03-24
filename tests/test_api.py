@@ -18,6 +18,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException, Request
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
@@ -31,6 +32,7 @@ from ideago.api.routes import auth as auth_route
 from ideago.api.routes import billing as billing_route
 from ideago.api.routes import health as health_route
 from ideago.api.routes import reports as reports_route
+from ideago.api.schemas import ReportDetailV2, ReportRuntimeStatus
 from ideago.auth import dependencies as auth_deps
 from ideago.auth import supabase_admin
 from ideago.billing import stripe_service
@@ -38,11 +40,19 @@ from ideago.cache.base import ReportIndex
 from ideago.cache.file_cache import FileCache
 from ideago.config.settings import Settings
 from ideago.models.research import (
+    CommercialSignal,
     Competitor,
+    ConfidenceMetrics,
+    EvidenceCategory,
+    EvidenceItem,
+    EvidenceSummary,
     Intent,
+    OpportunityScoreBreakdown,
+    PainSignal,
     Platform,
     ResearchReport,
     SearchQuery,
+    WhitespaceOpportunity,
 )
 from ideago.notifications import service as notification_service
 from ideago.pipeline.events import EventType, PipelineEvent
@@ -243,8 +253,79 @@ def _make_test_report() -> ResearchReport:
                 relevance_score=0.8,
             )
         ],
+        pain_signals=[
+            PainSignal(
+                theme="Slow onboarding",
+                summary="Users repeatedly report setup friction.",
+                intensity=0.81,
+                frequency=0.72,
+                evidence_urls=["https://test.com/evidence/pain"],
+                source_platforms=[Platform.GITHUB],
+            )
+        ],
+        commercial_signals=[
+            CommercialSignal(
+                theme="Budgeted demand",
+                summary="Teams compare paid options for reliability.",
+                intent_strength=0.74,
+                monetization_hint="Team plan",
+                evidence_urls=["https://test.com/evidence/commercial"],
+                source_platforms=[Platform.GITHUB],
+            )
+        ],
+        whitespace_opportunities=[
+            WhitespaceOpportunity(
+                title="SMB onboarding wedge",
+                description="Focus on fast first-run activation.",
+                target_segment="SMB teams",
+                wedge="Guided setup in minutes",
+                potential_score=0.77,
+                confidence=0.68,
+                supporting_evidence=["https://test.com/evidence/pain"],
+            )
+        ],
+        opportunity_score=OpportunityScoreBreakdown(
+            pain_intensity=0.8,
+            solution_gap=0.73,
+            commercial_intent=0.71,
+            freshness=0.66,
+            competition_density=0.42,
+            score=0.72,
+        ),
         market_summary="Test market summary.",
         go_no_go="Go",
+        confidence=ConfidenceMetrics(
+            sample_size=3,
+            source_coverage=1,
+            source_success_rate=1.0,
+            source_diversity=1,
+            evidence_density=0.6,
+            recency_score=0.7,
+            degradation_penalty=0.0,
+            contradiction_penalty=0.0,
+            reasons=["Evidence is concentrated but consistent."],
+            score=71,
+        ),
+        evidence_summary=EvidenceSummary(
+            top_evidence=["Users complain about onboarding friction."],
+            evidence_items=[
+                EvidenceItem(
+                    title="Pain thread",
+                    url="https://test.com/evidence/pain",
+                    platform=Platform.GITHUB,
+                    snippet="Setup still takes too long.",
+                    category=EvidenceCategory.PAIN,
+                    freshness_hint="2026-03-20T00:00:00+00:00",
+                    matched_query="onboarding pain",
+                    query_family="pain_discovery",
+                )
+            ],
+            category_counts={"pain": 1},
+            source_platforms=[Platform.GITHUB],
+            freshness_distribution={"recent": 1},
+            degraded_sources=[],
+            uncertainty_notes=["Evidence is concentrated in early adopters."],
+        ),
     )
 
 
@@ -265,6 +346,46 @@ def test_get_report_found(client, tmp_path) -> None:
     data = response.json()
     assert data["query"] == "test idea"
     assert len(data["competitors"]) == 1
+    assert data["pain_signals"][0]["theme"] == "Slow onboarding"
+    assert data["commercial_signals"][0]["theme"] == "Budgeted demand"
+    assert data["whitespace_opportunities"][0]["wedge"] == "Guided setup in minutes"
+    assert data["opportunity_score"]["score"] == pytest.approx(0.72)
+    assert data["evidence_summary"]["category_counts"]["pain"] == 1
+    assert data["confidence"]["source_diversity"] == 1
+    assert data["confidence"]["reasons"] == ["Evidence is concentrated but consistent."]
+
+
+def test_get_report_route_uses_explicit_v2_response_model() -> None:
+    route = next(
+        route
+        for route in reports_route.router.routes
+        if isinstance(route, APIRoute) and route.path == "/reports/{report_id}"
+    )
+
+    assert route.response_model is ReportDetailV2
+    assert route.responses[202]["model"] is ReportRuntimeStatus
+
+
+def test_get_report_processing_returns_202_runtime_status(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "processing-report-detail"
+    asyncio.run(
+        cache.put_status(
+            report_id,
+            "processing",
+            "query text",
+            user_id="test-user-id",
+        )
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get(f"/api/v1/reports/{report_id}")
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["status"] == "processing"
+    assert payload["report_id"] == report_id
+    assert payload["query"] == "query text"
 
 
 def test_get_report_not_found(client) -> None:
@@ -473,7 +594,12 @@ def test_export_report(client, tmp_path) -> None:
         response = client.get(f"/api/v1/reports/{report.id}/export")
     assert response.status_code == 200
     assert "text/markdown" in response.headers["content-type"]
-    assert "Competitor Research Report" in response.text
+    assert "Source Intelligence Report" in response.text
+    assert "Should We Build This?" in response.text
+    assert "Pain Signals" in response.text
+    assert "Commercial Signals" in response.text
+    assert "Whitespace Opportunities" in response.text
+    assert "Evidence And Confidence" in response.text
     assert "TestProduct" in response.text
 
 
@@ -3185,9 +3311,7 @@ async def test_auth_route_remaining_error_branches() -> None:
     assert invalid_state.value.status_code == 400
     assert invalid_redirect.value.status_code == 400
 
-    state = auth_route._build_state_token(
-        redirect_to="https://app.example.com/auth/callback"
-    )
+    state = "signed-state-token"
     with (
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         patch(
@@ -3494,12 +3618,15 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     markdown = reports_route._report_to_markdown(rich_report)
 
     assert export_missing.value.status_code == 404
-    assert "Recommendation" in markdown
+    assert "Should We Build This?" in markdown
+    assert "Pain Signals" in markdown
+    assert "Commercial Signals" in markdown
+    assert "Whitespace Opportunities" in markdown
     assert "Features" in markdown
     assert "Pricing" in markdown
     assert "Strengths" in markdown
     assert "Weaknesses" in markdown
-    assert "Differentiation Opportunities" in markdown
+    assert "Evidence And Confidence" in markdown
 
 
 @pytest.mark.asyncio

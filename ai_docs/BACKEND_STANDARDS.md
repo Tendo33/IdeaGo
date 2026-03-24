@@ -32,15 +32,28 @@ Rules:
 - Keep Supabase/file I/O details in cache layer.
 - Use `AppError(status, ErrorCode, message)` for all API errors — returns `{"error": {"code": "...", "message": "..."}}`.
 - Billing service should be testable without HTTP bootstrapping.
+- Keep `pipeline/merger.py` limited to deterministic competitor dedupe.
+- Keep whitespace, entry-wedge, and trust synthesis in `pipeline/aggregator.py`.
+- Keep V2 pipeline state and aggregation carriers typed; do not add anonymous dict side channels for extracted signals or evidence.
 
 ## API Conventions
 
 - Use versioned API prefix `/api/v1`.
 - Use Pydantic models for all request/response contracts.
+- Treat report detail and export payloads as explicit contracts; do not rely on implicit `model_dump()` drift at route boundaries.
+- Keep backend report schemas aligned with frontend shared report types when the decision-first V2 payload changes.
 - Return structured error payloads via `AppError` with `ErrorCode` enum (see `api/errors.py`).
 - All list endpoints return paginated responses (`PaginatedReportList` pattern: `items`, `total`, `limit`, `offset`).
 - CSRF protection via `X-Requested-With` header on state-changing requests (webhook endpoints are exempt).
 - Rate limiting is configurable per-endpoint (analyze and reports).
+
+## Source Intelligence V2
+
+- Default report structure is decision-first: recommendation, pain signals, commercial signals, whitespace opportunities, competitors, then evidence and confidence.
+- Confidence and evidence-summary fields should be assembled from deterministic trust inputs such as source diversity, evidence density, recency, degradation, and explicit uncertainty/conflict signals.
+- Competitor discovery remains important, but it is one section of a broader idea-validation contract.
+- Keep the six-source role split explicit in backend orchestration and docs: Tavily for broad recall, Reddit for pain/migration language, GitHub for open-source maturity, Hacker News for builder sentiment, App Store for review-cluster pain, Product Hunt for launch positioning.
+- Ranking and pre-filtering should be opportunity-first: stronger pain, commercial, migration, and whitespace evidence should beat simple popularity when the signals conflict.
 
 ## Configuration and Secrets
 

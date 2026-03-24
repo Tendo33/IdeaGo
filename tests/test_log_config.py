@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from ideago.observability.log_config import (
     configure_json_logging,
+    emit_observability_event,
     get_default_logger,
     get_logger,
     setup_logging,
@@ -55,6 +57,22 @@ def test_get_default_logger_returns_bound_logger() -> None:
     logger = get_default_logger()
     logger.debug("default-logger-ready")
     assert logger is not None
+
+
+def test_emit_observability_event_emits_structured_payload() -> None:
+    logger = MagicMock()
+    payload = {
+        "query_family_coverage": {"pain_discovery": 2},
+        "degraded_ratio": 0.5,
+    }
+
+    emit_observability_event(logger, "retrieval_orchestration_summary", payload)
+
+    logger.info.assert_called_once_with(
+        "observability_event={} payload={}",
+        "retrieval_orchestration_summary",
+        payload,
+    )
 
 
 def test_metrics_record_snapshot_and_reset() -> None:
