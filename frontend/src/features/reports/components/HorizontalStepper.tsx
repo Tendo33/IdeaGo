@@ -129,6 +129,10 @@ function deriveSteps(events: PipelineEvent[], t: TFunction): Step[] {
     }
   }
 
+  if (events.length === 0) {
+    steps[0].status = 'active'
+  }
+
   return steps
 }
 

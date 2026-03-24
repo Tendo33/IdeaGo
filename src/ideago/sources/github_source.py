@@ -15,6 +15,7 @@ from ideago.observability.log_config import get_logger
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
+_DEFAULT_MIN_STARS = 50
 
 
 class GitHubSource:
@@ -27,6 +28,7 @@ class GitHubSource:
         token: str = "",
         timeout: int = 30,
         max_concurrent_queries: int = 2,
+        min_stars: int = _DEFAULT_MIN_STARS,
     ) -> None:
         headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
         if token:
@@ -37,6 +39,7 @@ class GitHubSource:
             timeout=timeout,
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
+        self._min_stars = max(0, min_stars)
         self._runtime_max_concurrent_queries: int | None = None
         self._last_search_diagnostics: dict[str, object] = {
             "partial_failure": False,
@@ -94,11 +97,15 @@ class GitHubSource:
                         "language": item.get("language"),
                         "topics": item.get("topics", []),
                         "forks_count": item.get("forks_count", 0),
+                        "size": item.get("size", 0),
+                        "pushed_at": item.get("pushed_at"),
                         "updated_at": item.get("updated_at"),
                     },
                 )
                 for item in data.get("items", [])
                 if item.get("html_url")
+                and int(item.get("stargazers_count", 0) or 0) >= self._min_stars
+                and _is_non_empty_repository(item)
             ]
         except httpx.HTTPError as exc:
             logger.warning(
@@ -189,3 +196,11 @@ def _normalize_github_query(query: str) -> str:
     if not tokens:
         return stripped
     return " ".join(tokens[:8])
+
+
+def _is_non_empty_repository(item: dict[str, object]) -> bool:
+    """Filter obvious placeholder repos with no actual repository contents."""
+    size = int(item.get("size", 0) or 0)
+    if size > 0:
+        return True
+    return bool(item.get("pushed_at"))

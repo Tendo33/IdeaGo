@@ -29,7 +29,7 @@ function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; a
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[32px] px-2 py-1 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
       aria-label={ariaLabel.replace('{{host}}', hostname).replace('{{name}}', name)}
     >
       <ExternalLink className="w-3 h-3" />
@@ -177,7 +177,7 @@ export const CompetitorCard = memo(function CompetitorCard({
               )
             })}
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
             {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
               <LinkWithHost
                 key={i}

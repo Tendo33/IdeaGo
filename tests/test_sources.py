@@ -31,6 +31,8 @@ MOCK_GITHUB_RESPONSE = {
             "language": "TypeScript",
             "topics": ["markdown", "browser-extension"],
             "forks_count": 50,
+            "size": 1024,
+            "pushed_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z",
         },
         {
@@ -41,6 +43,8 @@ MOCK_GITHUB_RESPONSE = {
             "language": "JavaScript",
             "topics": [],
             "forks_count": 10,
+            "size": 512,
+            "pushed_at": "2025-12-01T00:00:00Z",
             "updated_at": "2025-12-01T00:00:00Z",
         },
     ],
@@ -240,6 +244,62 @@ async def test_github_search_returns_raw_results() -> None:
 
 
 @pytest.mark.asyncio
+async def test_github_search_filters_repositories_below_min_stars() -> None:
+    src = GitHubSource(token="", min_stars=500)
+    mock_response = httpx.Response(200, json=MOCK_GITHUB_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["markdown notes extension"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "user/markdown-clipper"
+
+
+@pytest.mark.asyncio
+async def test_github_search_filters_empty_repositories() -> None:
+    src = GitHubSource(token="", min_stars=50)
+    mock_response = httpx.Response(
+        200,
+        json={
+            "items": [
+                {
+                    "full_name": "user/active-repo",
+                    "description": "Has real content",
+                    "html_url": "https://github.com/user/active-repo",
+                    "stargazers_count": 500,
+                    "language": "Python",
+                    "topics": [],
+                    "forks_count": 20,
+                    "size": 256,
+                    "pushed_at": "2026-02-01T00:00:00Z",
+                    "updated_at": "2026-02-01T00:00:00Z",
+                },
+                {
+                    "full_name": "user/empty-repo",
+                    "description": "Empty shell repo",
+                    "html_url": "https://github.com/user/empty-repo",
+                    "stargazers_count": 500,
+                    "language": None,
+                    "topics": [],
+                    "forks_count": 0,
+                    "size": 0,
+                    "pushed_at": None,
+                    "updated_at": "2026-02-01T00:00:00Z",
+                },
+            ]
+        },
+    )
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["markdown notes extension"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "user/active-repo"
+
+
+@pytest.mark.asyncio
 async def test_github_search_handles_api_error() -> None:
     src = GitHubSource(token="")
     mock_response = httpx.Response(403, json={"message": "rate limit"})
@@ -330,10 +390,12 @@ async def test_github_search_partial_failure_returns_partial_results() -> None:
                         "full_name": f"user/{query}",
                         "description": "ok",
                         "html_url": f"https://github.com/user/{query}",
-                        "stargazers_count": 1,
+                        "stargazers_count": 100,
                         "language": "Python",
                         "topics": [],
                         "forks_count": 0,
+                        "size": 64,
+                        "pushed_at": "2026-01-01T00:00:00Z",
                         "updated_at": "2026-01-01T00:00:00Z",
                     }
                 ]

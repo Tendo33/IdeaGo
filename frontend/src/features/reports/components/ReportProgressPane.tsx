@@ -57,7 +57,7 @@ function ProgressPreview({ events }: { events: PipelineEvent[] }) {
           className="rounded-none border-2 border-border border-dashed bg-card/50 p-8 flex flex-col items-center justify-center text-center space-y-4"
         >
           <div className="w-6 h-6 rounded-full border-2 border-border border-t-cta animate-spin" />
-          <p className="text-xs text-muted-foreground">{t('report.progress.initializing', 'Connecting to analysis engine...')}</p>
+          <p className="text-xs text-muted-foreground">{t('report.progress.ideaProfile', 'Analyzing Your Idea')}</p>
         </motion.div>
       </div>
     )
