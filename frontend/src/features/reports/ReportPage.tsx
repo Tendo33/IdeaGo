@@ -22,29 +22,45 @@ export function ReportPage() {
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
+  const createQuery = (location.state as { query?: string } | null)?.query
+
+  const startQueuedAnalysis = useCallback(
+    async (query: string | undefined, signal?: AbortSignal) => {
+      if (!query) {
+        navigate('/', { replace: true })
+        return
+      }
+
+      setCreateError(null)
+      setQuotaExceeded(false)
+
+      try {
+        const { report_id } = await startAnalysis(query, signal ? { signal } : undefined)
+        navigate(`/reports/${report_id}`, { replace: true })
+      } catch (error) {
+        if (isRequestAbortError(error)) return
+        if (isApiError(error) && error.is('QUOTA_EXCEEDED')) {
+          setQuotaExceeded(true)
+        }
+        const message = error instanceof Error ? error.message : ''
+        setCreateError(message || t('home.errorStartAnalysis'))
+      }
+    },
+    [navigate, t],
+  )
 
   useEffect(() => {
     if (!isNewAnalysis) return
-    const query = (location.state as { query?: string } | null)?.query
-    if (!query) {
-      navigate('/', { replace: true })
-      return
-    }
     const controller = new AbortController()
-    startAnalysis(query, { signal: controller.signal })
-      .then(({ report_id }) => {
-        navigate(`/reports/${report_id}`, { replace: true })
-      })
-      .catch(e => {
-        if (isRequestAbortError(e)) return
-        if (isApiError(e) && e.is('QUOTA_EXCEEDED')) {
-          setQuotaExceeded(true)
-        }
-        const msg = e instanceof Error ? e.message : ''
-        setCreateError(msg || t('home.errorStartAnalysis'))
-      })
-    return () => controller.abort()
-  }, [isNewAnalysis, location.state, navigate, t])
+    const timer = window.setTimeout(() => {
+      void startQueuedAnalysis(createQuery, controller.signal)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [createQuery, isNewAnalysis, startQueuedAnalysis])
 
   const {
     loadPhase,
@@ -71,10 +87,26 @@ export function ReportPage() {
     cancelCurrentAnalysis()
   }, [isNewAnalysis, navigate, cancelCurrentAnalysis])
 
+  const handleCreateErrorAction = useCallback(() => {
+    void startQueuedAnalysis(createQuery)
+  }, [createQuery, startQueuedAnalysis])
+
   useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
 
 
   const loadError = (isNewAnalysis ? createError : null) || lifecycleError
+  const hasRecoverableCreateQuery = Boolean(createQuery)
+  const usesHomeFallbackCta =
+    (isNewAnalysis && createError && !hasRecoverableCreateQuery) ||
+    (!isNewAnalysis &&
+      runtimeStatus !== null &&
+      !runtimeStatus.query &&
+      (runtimeStatus.status === 'not_found' ||
+        runtimeStatus.status === 'failed' ||
+        runtimeStatus.status === 'cancelled' ||
+        runtimeStatus.status === 'complete'))
+  const errorActionLabel = usesHomeFallbackCta ? t('error.backToHome') : undefined
+  const errorActionHandler = isNewAnalysis && createError ? handleCreateErrorAction : retryErrorState
 
   const {
     sortBy,
@@ -140,9 +172,10 @@ export function ReportPage() {
         {!quotaExceeded && (sseError || loadError) && (
           <ReportErrorBanner
             message={sseError || loadError || t('report.error.unknown')}
-            onRetry={retryErrorState}
+            onRetry={errorActionHandler}
             errorKind={sseError ? 'system' : (loadErrorKind ?? 'system')}
             runtimeStatus={runtimeStatus}
+            actionLabel={errorActionLabel}
           />
         )}
 

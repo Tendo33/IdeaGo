@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
 import { saveCustomAuthSession, setAccessToken } from '@/lib/auth/token'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { buttonVariants } from '@/components/ui/Button'
 
 export function AuthCallback() {
   const navigate = useNavigate()
@@ -67,11 +67,9 @@ export function AuthCallback() {
             {t('auth.callbackError')}
           </h2>
           <p className="text-sm text-muted-foreground font-bold mb-6">{error}</p>
-          <Link to="/login">
-            <Button>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t('auth.backToLogin')}
-            </Button>
+          <Link to="/login" className={buttonVariants()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t('auth.backToLogin')}
           </Link>
         </div>
       </div>

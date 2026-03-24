@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/Button'
+import { buttonVariants } from '@/components/ui/Button'
+import { ThemeModeMenu, type ThemeMode } from '@/app/ThemeModeMenu'
+import { PRICING_ENABLED } from '@/lib/featureFlags'
 import {
   ArrowRight,
   Search,
@@ -11,6 +13,7 @@ import {
   Globe,
   Smartphone,
   Rocket,
+  MessageCircle,
   ChevronDown,
   LogIn,
 } from 'lucide-react'
@@ -63,21 +66,48 @@ function StaggerReveal({ children, delay = 0, className = '' }: {
 }
 
 const DATA_SOURCES = [
-  { icon: Github, label: 'GitHub', color: 'var(--foreground)' },
-  { icon: Globe, label: 'Web', color: 'var(--primary)' },
-  { icon: HackerNewsIcon, label: 'Hacker News', color: 'var(--warning)' },
-  { icon: Smartphone, label: 'App Store', color: 'var(--primary)' },
-  { icon: Rocket, label: 'Product Hunt', color: 'var(--destructive)' },
+  { icon: Github, labelKey: 'landing.sourceNames.github', color: 'var(--foreground)' },
+  { icon: Globe, labelKey: 'landing.sourceNames.tavily', color: 'var(--primary)' },
+  { icon: HackerNewsIcon, labelKey: 'landing.sourceNames.hackernews', color: 'var(--warning)' },
+  { icon: Smartphone, labelKey: 'landing.sourceNames.appstore', color: 'var(--primary)' },
+  { icon: Rocket, labelKey: 'landing.sourceNames.producthunt', color: 'var(--destructive)' },
+  { icon: MessageCircle, labelKey: 'landing.sourceNames.reddit', color: 'var(--foreground)' },
 ] as const
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
-export function LandingPage() {
+function resolveLanguageCode(language: string | undefined): string {
+  if (!language) return 'en'
+  const [normalized] = language.split('-')
+  return normalized || 'en'
+}
+
+function getLanguageDisplayName(language: string, uiLanguage: string): string {
+  const normalizedLanguage = resolveLanguageCode(language)
+  const normalizedUiLanguage = resolveLanguageCode(uiLanguage)
+
+  try {
+    const displayNames = new Intl.DisplayNames([normalizedUiLanguage], { type: 'language' })
+    return displayNames.of(normalizedLanguage) ?? normalizedLanguage.toUpperCase()
+  } catch {
+    return normalizedLanguage.toUpperCase()
+  }
+}
+
+export function LandingPage({
+  themeMode,
+  onSelectThemeMode,
+}: {
+  themeMode: ThemeMode
+  onSelectThemeMode: (mode: ThemeMode) => void
+}) {
   const { t, i18n } = useTranslation()
   useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
 
   const currentLang = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLang.startsWith('zh')
+  const nextLanguage = isChinese ? 'en' : 'zh'
+  const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLang)
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -87,14 +117,22 @@ export function LandingPage() {
           {t('app.title')} {t('app.titleHighlight')}
         </Link>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <ThemeModeMenu themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
           <button
-            onClick={() => i18n.changeLanguage(isChinese ? 'en' : 'zh')}
+            onClick={() => i18n.changeLanguage(nextLanguage)}
             className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-            aria-label={isChinese ? 'Switch to English' : '切换到中文'}
-            aria-pressed={isChinese}
+            aria-label={t('app.switchToLanguage', { language: languageToggleLabel })}
           >
             {isChinese ? 'EN' : 'ZH'}
           </button>
+          {PRICING_ENABLED && (
+            <Link
+              to="/pricing"
+              className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            >
+              <span>{t('pricing.title', 'Pricing')}</span>
+            </Link>
+          )}
           <Link
             to="/login"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
@@ -125,11 +163,15 @@ export function LandingPage() {
                 {t('landing.heroDesc')}
               </p>
               <div className="flex flex-wrap gap-6 items-center">
-                <Link to="/login">
-                  <Button size="lg" className="text-xl px-12 py-6 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-xl transition-all">
-                    {t('landing.cta')}
-                    <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
-                  </Button>
+                <Link
+                  to="/login"
+                  className={buttonVariants({
+                    size: 'lg',
+                    className: 'text-xl px-12 py-6 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-xl transition-all',
+                  })}
+                >
+                  {t('landing.cta')}
+                  <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
                 </Link>
                 <a
                   href="#how-it-works"
@@ -158,7 +200,7 @@ export function LandingPage() {
                   {[
                     { val: '12', label: t('landing.mockCompetitors') },
                     { val: '87%', label: t('landing.mockRelevance') },
-                    { val: '5', label: t('landing.mockSources') },
+                    { val: '6', label: t('landing.mockSources') },
                     { val: '4m', label: t('landing.mockTime') },
                   ].map(stat => (
                     <div key={stat.label} className="w-1/2 flex flex-col pr-4 group cursor-default">
@@ -201,14 +243,17 @@ export function LandingPage() {
             {t('landing.sourcesLabel')}
           </p>
           <div className="flex flex-wrap justify-center gap-8 sm:gap-16 overflow-hidden">
-            {DATA_SOURCES.map(({ icon: Icon, label, color }, i) => (
-              <StaggerReveal key={label} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default">
-                <div className="p-3 border-4 border-border bg-background shadow group-hover:-translate-y-2 group-hover:shadow-lg transition-all duration-300" style={{ color }}>
-                  <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
-                </div>
-                <span className="text-lg sm:text-xl font-black uppercase tracking-widest truncate group-hover:text-primary transition-colors">{label}</span>
-              </StaggerReveal>
-            ))}
+            {DATA_SOURCES.map(({ icon: Icon, labelKey, color }, i) => {
+              const label = t(labelKey)
+              return (
+                <StaggerReveal key={labelKey} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default">
+                  <div className="p-3 border-4 border-border bg-background shadow group-hover:-translate-y-2 group-hover:shadow-lg transition-all duration-300" style={{ color }}>
+                    <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
+                  </div>
+                  <span className="text-lg sm:text-xl font-black uppercase tracking-widest truncate group-hover:text-primary transition-colors">{label}</span>
+                </StaggerReveal>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -318,11 +363,15 @@ export function LandingPage() {
               <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 line-clamp-3 min-w-0 break-words leading-relaxed">
                 {t('landing.ctaDesc')}
               </p>
-              <Link to="/login">
-                <Button size="lg" className="text-2xl px-16 py-8 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-2xl transition-all group">
-                  {t('landing.ctaButton')}
-                  <ArrowRight className="w-8 h-8 ml-4 group-hover:translate-x-2 transition-transform" aria-hidden="true" />
-                </Button>
+              <Link
+                to="/login"
+                className={buttonVariants({
+                  size: 'lg',
+                  className: 'text-2xl px-16 py-8 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-2xl transition-all group',
+                })}
+              >
+                {t('landing.ctaButton')}
+                <ArrowRight className="w-8 h-8 ml-4 group-hover:translate-x-2 transition-transform" aria-hidden="true" />
               </Link>
             </div>
           </StaggerReveal>

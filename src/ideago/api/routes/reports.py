@@ -135,7 +135,15 @@ async def get_report_status(
 ) -> ReportRuntimeStatus:
     """Get report runtime status for processing/failed/cancelled/complete/not_found."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
+    owner_id = await cache.get_report_user_id(report_id)
+    if not owner_id:
+        status_payload = await cache.get_status(report_id)
+        if status_payload:
+            owner_id = status_payload.get("user_id", "") or ""
+    if not owner_id:
+        return ReportRuntimeStatus(status="not_found", report_id=report_id)
+    if owner_id != user.id:
+        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
 
     report = await cache.get_by_id(report_id, user_id=user.id)
     if report is not None:

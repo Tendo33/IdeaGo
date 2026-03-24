@@ -1,13 +1,15 @@
 import { Button } from '@/components/ui/Button'
-import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode, type ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Component, Suspense, lazy, useEffect, useState, type ReactNode, type ErrorInfo } from 'react'
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
-import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
+import { History, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth/AuthProvider'
 import { ProtectedRoute, AdminRoute } from '@/lib/auth/ProtectedRoute'
 import { useAuth } from '@/lib/auth/useAuth'
+import { PRICING_ENABLED } from '@/lib/featureFlags'
 import { UserMenu } from '@/features/auth/components/UserMenu'
+import { ThemeModeMenu, type ThemeMode } from './ThemeModeMenu'
 
 const HomePage = lazy(async () => {
   const page = await import('@/features/home/HomePage')
@@ -32,6 +34,11 @@ const AuthCallback = lazy(async () => {
 const ProfilePage = lazy(async () => {
   const page = await import('@/features/profile/ProfilePage')
   return { default: page.ProfilePage }
+})
+
+const PricingPage = lazy(async () => {
+  const page = await import('@/features/pricing/PricingPage')
+  return { default: page.PricingPage }
 })
 
 const ReportPage = lazy(async () => {
@@ -68,8 +75,6 @@ interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode
 }
 
-type ThemeMode = 'system' | 'light' | 'dark'
-
 const THEME_MODE_STORAGE_KEY = 'ideago-theme-mode'
 const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
 
@@ -97,6 +102,33 @@ function applyTheme(mode: ThemeMode, systemPrefersDark: boolean) {
   const shouldUseDark = mode === 'dark' || (mode === 'system' && systemPrefersDark)
   root.classList.toggle('dark', shouldUseDark)
   root.style.colorScheme = shouldUseDark ? 'dark' : 'light'
+}
+
+function resolveDocumentLanguage(language: string | undefined): string {
+  if (!language) return 'en'
+  const [normalized] = language.split('-')
+  return normalized || 'en'
+}
+
+function getLanguageDisplayName(language: string, uiLanguage: string): string {
+  const normalizedLanguage = resolveDocumentLanguage(language)
+  const normalizedUiLanguage = resolveDocumentLanguage(uiLanguage)
+
+  try {
+    const displayNames = new Intl.DisplayNames([normalizedUiLanguage], { type: 'language' })
+    return displayNames.of(normalizedLanguage) ?? normalizedLanguage.toUpperCase()
+  } catch {
+    return normalizedLanguage.toUpperCase()
+  }
+}
+
+function useDocumentLanguageSync() {
+  const { i18n } = useTranslation()
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language
+
+  useEffect(() => {
+    document.documentElement.lang = resolveDocumentLanguage(currentLanguage)
+  }, [currentLanguage])
 }
 
 function useThemeMode() {
@@ -127,104 +159,6 @@ function useThemeMode() {
     themeMode,
     selectThemeMode: (mode: ThemeMode) => setThemeMode(mode),
   }
-}
-
-const THEME_OPTIONS: Array<{
-  mode: ThemeMode
-  labelKey: string
-  shortLabelKey: string
-  Icon: typeof Monitor
-}> = [
-  { mode: 'system', labelKey: 'theme.system', shortLabelKey: 'theme.systemShort', Icon: Monitor },
-  { mode: 'dark', labelKey: 'theme.dark', shortLabelKey: 'theme.darkShort', Icon: Moon },
-  { mode: 'light', labelKey: 'theme.light', shortLabelKey: 'theme.lightShort', Icon: Sun },
-]
-
-function ThemeModeMenu({
-  themeMode,
-  onSelectThemeMode,
-}: {
-  themeMode: ThemeMode
-  onSelectThemeMode: (mode: ThemeMode) => void
-}) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const activeTheme = THEME_OPTIONS.find(option => option.mode === themeMode) ?? THEME_OPTIONS[0]
-  const ActiveIcon = activeTheme.Icon
-
-  useEffect(() => {
-    if (!open) return
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(previous => !previous)}
-        className="topbar-action focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label={t('theme.toggle')}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <ActiveIcon className="h-5 w-5" aria-hidden="true" />
-        <span className="hidden sm:inline">{t(activeTheme.shortLabelKey)}</span>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label={t('theme.options')}
-          className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow z-50"
-        >
-          {THEME_OPTIONS.map(option => {
-            const OptionIcon = option.Icon
-            const selected = option.mode === themeMode
-            return (
-              <button
-                key={option.mode}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                onClick={() => {
-                  onSelectThemeMode(option.mode)
-                  setOpen(false)
-                }}
-                className={`w-full inline-flex items-center justify-between px-3 py-2 text-sm font-bold uppercase tracking-wider transition-all cursor-pointer border-2 border-transparent ${
-                  selected
-                    ? 'bg-primary text-primary-foreground border-border shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted hover:border-border hover:shadow-sm hover:text-foreground'
-                }`}
-              >
-                <span className="inline-flex items-center gap-3">
-                  <OptionIcon className="h-4 w-4" aria-hidden="true" />
-                  {t(option.labelKey)}
-                </span>
-                {selected && <Check className="h-4 w-4" aria-hidden="true" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
 }
 
 class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -301,16 +235,14 @@ function NavBar({
   onSelectThemeMode: (mode: ThemeMode) => void
 }) {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
-
-  useEffect(() => {
-    document.documentElement.lang = currentLanguage
-  }, [currentLanguage])
+  const nextLanguage = isChinese ? 'en' : 'zh'
+  const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLanguage)
 
   const toggleLanguage = () => {
-    const newLang = isChinese ? 'en' : 'zh'
-    i18n.changeLanguage(newLang)
+    i18n.changeLanguage(nextLanguage)
   }
 
   return (
@@ -326,19 +258,28 @@ function NavBar({
         <button
           onClick={toggleLanguage}
           className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          aria-label={isChinese ? 'Switch to English' : '切换到中文'}
-          aria-pressed={isChinese}
+          aria-label={t('app.switchToLanguage', { language: languageToggleLabel })}
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
-        <Link
-          to="/reports"
-          className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          aria-label={t('app.history')}
-        >
-          <History className="w-5 h-5 shrink-0" aria-hidden="true" />
-          <span className="hidden sm:inline">{t('app.history')}</span>
-        </Link>
+        {PRICING_ENABLED && (
+          <Link
+            to="/pricing"
+            className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            <span>{t('pricing.title')}</span>
+          </Link>
+        )}
+        {user && (
+          <Link
+            to="/reports"
+            className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            aria-label={t('app.history')}
+          >
+            <History className="w-5 h-5 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('app.history')}</span>
+          </Link>
+        )}
         <UserMenu />
       </div>
     </nav>
@@ -357,16 +298,23 @@ function RouteLoading() {
   )
 }
 
-function HomeOrLanding() {
+function HomeOrLanding({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (mode: ThemeMode) => void }) {
   const { user, loading } = useAuth()
   if (loading) return <RouteLoading />
-  return user ? <HomePage /> : <LandingPage />
+  return user ? <HomePage /> : <LandingPage themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
 }
 
 function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (m: ThemeMode) => void }) {
   const { t } = useTranslation()
   const { user, loading } = useAuth()
-  const showNav = !loading && user !== null
+  const { pathname } = useLocation()
+  const showNavForSignedOutPublicRoute =
+    pathname === '/login' ||
+    pathname === '/terms' ||
+    pathname === '/privacy' ||
+    (PRICING_ENABLED && pathname === '/pricing')
+  const showNav = !loading && (user !== null || showNavForSignedOutPublicRoute)
+  useDocumentLanguageSync()
 
   return (
     <>
@@ -382,7 +330,8 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/" element={<HomeOrLanding />} />
+            <Route path="/" element={<HomeOrLanding themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />} />
+            {PRICING_ENABLED && <Route path="/pricing" element={<PricingPage />} />}
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />

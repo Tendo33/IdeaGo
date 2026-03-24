@@ -208,7 +208,7 @@ export const CompetitorCard = memo(function CompetitorCard({
               onClick={() => setIsExpanded(prev => !prev)}
               className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none group"
             >
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out-quint ${isExpanded ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
               {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}
             </button>
           )}

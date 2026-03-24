@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useCallback } from 'react'
 import i18n from '../i18n/i18n'
-import type { PipelineEvent } from '../types/research'
+import { parsePipelineEvent, type PipelineEvent } from '../types/research'
 import { getStreamUrl } from "./client";
 import { clearCustomAuthSession, getAccessToken, setAccessToken } from "../auth/token";
 import { supabase } from "../supabase/client";
@@ -256,16 +256,18 @@ export function useSSE(reportId: string | null): UseSSEResult {
 						buffer = buffer.slice(lastBoundary);
 
 						for (const { eventType, data } of parseSseChunk(toProcess)) {
-							if (eventType === "ping") {
+								if (eventType === "ping") {
 								attemptRef.current = 0;
 								dispatch({ type: "connected" });
 								continue;
 							}
-							if (!STREAM_EVENT_TYPES.has(eventType)) continue;
-							try {
-								const event: PipelineEvent = JSON.parse(data);
-								attemptRef.current = 0;
-								dispatch({ type: "event", event });
+								if (!STREAM_EVENT_TYPES.has(eventType)) continue;
+								try {
+									const parsed = parsePipelineEvent(JSON.parse(data), eventType as PipelineEvent['type']);
+									if (!parsed) continue;
+									const event: PipelineEvent = parsed;
+									attemptRef.current = 0;
+									dispatch({ type: "event", event });
 								if (event.type === "report_ready") {
 									dispatch({ type: "complete" });
 									return;

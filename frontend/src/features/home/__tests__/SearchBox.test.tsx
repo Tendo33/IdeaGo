@@ -6,6 +6,9 @@ import i18n from '@/lib/i18n/i18n'
 const inputLabel = i18n.t('search.placeholder')
 const submitLabel = i18n.t('search.button')
 const defaultHint = i18n.t('search.example')
+const missingLettersHint = 'Please include letters so we can understand the idea you want analyzed.'
+const lowSignalHint = 'Please add a bit more meaningful detail instead of short fragments or IDs.'
+const symbolHeavyHint = 'Please remove most symbols and describe the idea in words.'
 
 describe('SearchBox', () => {
   it('renders input and submit button', () => {
@@ -69,6 +72,48 @@ describe('SearchBox', () => {
 
     expect(onSubmit).not.toHaveBeenCalled()
     expect(screen.getByLabelText(submitLabel)).toBeDisabled()
+  })
+
+  it('shows direct feedback and blocks numeric-only queries', () => {
+    const onSubmit = vi.fn()
+    render(<SearchBox onSubmit={onSubmit} />)
+
+    const input = screen.getByLabelText(inputLabel)
+    fireEvent.change(input, { target: { value: '12345' } })
+    fireEvent.submit(input.closest('form')!)
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(submitLabel)).toBeDisabled()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(missingLettersHint)).toBeInTheDocument()
+  })
+
+  it('shows direct feedback and blocks low-signal fragments', () => {
+    const onSubmit = vi.fn()
+    render(<SearchBox onSubmit={onSubmit} />)
+
+    const input = screen.getByLabelText(inputLabel)
+    fireEvent.change(input, { target: { value: 'a!!!?' } })
+    fireEvent.submit(input.closest('form')!)
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(submitLabel)).toBeDisabled()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(lowSignalHint)).toBeInTheDocument()
+  })
+
+  it('shows direct feedback and blocks symbol-heavy queries', () => {
+    const onSubmit = vi.fn()
+    render(<SearchBox onSubmit={onSubmit} />)
+
+    const input = screen.getByLabelText(inputLabel)
+    fireEvent.change(input, { target: { value: '----idea----' } })
+    fireEvent.submit(input.closest('form')!)
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(submitLabel)).toBeDisabled()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(symbolHeavyHint)).toBeInTheDocument()
   })
 
   it('shows loading state', () => {

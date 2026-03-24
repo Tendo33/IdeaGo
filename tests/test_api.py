@@ -449,7 +449,24 @@ def test_get_report_status_not_found(client, tmp_path) -> None:
     with patch("ideago.api.routes.reports.get_cache", return_value=cache):
         response = client.get("/api/v1/reports/nonexistent-id/status")
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_found"
+    assert payload["report_id"] == "nonexistent-id"
+
+
+def test_get_report_status_not_found_when_status_has_no_owner(client, tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "status-without-owner"
+    asyncio.run(cache.put_status(report_id, "processing", "query text", user_id=""))
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
+        response = client.get(f"/api/v1/reports/{report_id}/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_found"
+    assert payload["report_id"] == report_id
 
 
 def test_get_report_status_processing_from_runtime_map(client, tmp_path) -> None:

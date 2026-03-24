@@ -1,4 +1,5 @@
 import { Compass, Sparkles, Target } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { InsightCard } from '@/features/reports/components/InsightCard'
 import type { OpportunityScoreBreakdown, WhitespaceOpportunity } from '@/lib/types/research'
 
@@ -20,13 +21,14 @@ export function WhitespaceOpportunityCard({
   opportunityScore,
   differentiationAngles = [],
 }: WhitespaceOpportunityCardProps) {
+  const { t } = useTranslation()
   const visibleOpportunities = opportunities.slice(0, 2)
   const fallbackAngles = differentiationAngles
     .filter(Boolean)
     .slice(0, 2)
     .map((angle, index) => ({
       title: angle,
-      description: 'Differentiation path surfaced even when whitespace synthesis is still sparse.',
+      description: t('report.whitespace.fallback.description'),
       key: `angle-${index}-${angle}`,
     }))
 
@@ -42,15 +44,15 @@ export function WhitespaceOpportunityCard({
         <div>
           <div className="inline-flex items-center gap-2 border border-border bg-background px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             <Compass className="h-3.5 w-3.5 text-cta" />
-            Whitespace opportunities
+            {t('report.whitespace.badge')}
           </div>
           <h3 className="mt-3 text-lg font-bold font-heading text-foreground">
-            Where the market still looks under-served
+            {t('report.whitespace.title')}
           </h3>
         </div>
         <div className="border border-border bg-muted/40 px-3 py-2 text-right">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-            Opportunity score
+            {t('report.whitespace.opportunityScore')}
           </p>
           <p className="mt-1 text-lg font-bold text-foreground">{score}%</p>
         </div>
@@ -61,20 +63,22 @@ export function WhitespaceOpportunityCard({
           <InsightCard
             key={`${opportunity.title}-${index}`}
             index={index}
-            eyebrow={opportunity.target_segment || 'Whitespace wedge'}
+            eyebrow={opportunity.target_segment || t('report.whitespace.wedge')}
             title={opportunity.title || opportunity.wedge}
             description={opportunity.description || opportunity.wedge}
             supportingPoints={[
-              opportunity.wedge ? `Entry wedge: ${opportunity.wedge}` : '',
+              opportunity.wedge
+                ? t('report.whitespace.supporting.entryWedge', { value: opportunity.wedge })
+                : '',
               opportunity.target_segment
-                ? `Target segment: ${opportunity.target_segment}`
+                ? t('report.whitespace.supporting.targetSegment', { value: opportunity.target_segment })
                 : '',
               opportunity.supporting_evidence.length > 0
-                ? `${opportunity.supporting_evidence.length} supporting references`
+                ? t('report.whitespace.supporting.references', { count: opportunity.supporting_evidence.length })
                 : '',
             ]}
             score={opportunity.potential_score}
-            scoreLabel="Potential"
+            scoreLabel={t('report.whitespace.potential')}
             icon={Target}
             tone="success"
           />
@@ -85,10 +89,10 @@ export function WhitespaceOpportunityCard({
               <InsightCard
                 key={angle.key}
                 index={index}
-                eyebrow="Fallback wedge"
+                eyebrow={t('report.whitespace.fallback.eyebrow')}
                 title={angle.title}
                 description={angle.description}
-                supportingPoints={['Use this as the first sharp entry point.']}
+                supportingPoints={[t('report.whitespace.fallback.supportingPoint')]}
                 icon={Sparkles}
                 tone="default"
               />

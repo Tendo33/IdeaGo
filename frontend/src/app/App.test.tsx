@@ -34,6 +34,14 @@ vi.mock('@/features/landing/LandingPage', () => ({
   LandingPage: () => <div>LANDING PAGE</div>,
 }))
 
+vi.mock('@/features/auth/LoginPage', () => ({
+  LoginPage: () => <div>LOGIN PAGE</div>,
+}))
+
+vi.mock('@/features/pricing/PricingPage', () => ({
+  PricingPage: () => <div>PRICING PAGE</div>,
+}))
+
 vi.mock('@/features/reports/ReportPage', async () => {
   await new Promise(resolve => setTimeout(resolve, 30))
   return {
@@ -99,12 +107,44 @@ describe('App landing page', () => {
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
   })
 
-  it('does not expose pricing route anymore', async () => {
+  it('hides pricing route behind not found', async () => {
     authState = { user: null, loading: false }
     window.history.pushState({}, '', '/pricing')
     render(<App />)
 
     expect(await screen.findByText('404')).toBeInTheDocument()
+  })
+})
+
+describe('App signed-out navigation', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    authState = { user: null, loading: false }
+    window.history.pushState({}, '', '/login')
+  })
+
+  it('does not show pricing entry on login', async () => {
+    render(<App />)
+    expect(await screen.findByText('LOGIN PAGE')).toBeInTheDocument()
+
+    expect(screen.queryByRole('link', { name: /pricing|choose your plan/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('App user menu', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    authState = { user: mockUser, loading: false }
+    window.history.pushState({}, '', '/')
+  })
+
+  it('does not show upgrade entry in the user menu', async () => {
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /user menu/i }))
+
+    expect(screen.queryByRole('menuitem', { name: /upgrade to pro/i })).not.toBeInTheDocument()
   })
 })
 

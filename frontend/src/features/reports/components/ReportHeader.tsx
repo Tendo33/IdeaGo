@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next'
 import type { RecommendationType, ResearchReport } from '@/lib/types/research'
 import { exportReport } from '@/lib/api/client'
 import { buttonVariants } from '@/components/ui/Button'
+import { formatAppDateTime } from '@/lib/utils/dateLocale'
 
 interface ReportHeaderProps {
   report: ResearchReport
@@ -75,7 +76,7 @@ function Dropdown({
       >
         <span className="inline-flex min-w-0 items-center gap-1.5">{trigger}</span>
         <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out-quint ${open ? 'rotate-180' : ''}`}
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
         />
       </button>
@@ -83,7 +84,7 @@ function Dropdown({
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 overflow-hidden rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-in fade-in slide-in-from-top-2 duration-200 ease-out-quint"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 overflow-hidden rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-fade-in"
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
               setOpen(false)
@@ -142,6 +143,7 @@ function toPercent(value: number | undefined): number {
 
 function getDecisionTone(
   recommendationType: RecommendationType,
+  t: (key: string, options?: Record<string, unknown>) => string,
 ): {
   badgeLabel: string
   badgeClass: string
@@ -152,45 +154,50 @@ function getDecisionTone(
 } {
   if (recommendationType === 'no_go') {
     return {
-      badgeLabel: 'No-go',
+      badgeLabel: t('report.header.decision.badge.noGo'),
       badgeClass: 'border-danger/30 bg-danger/10 text-danger',
       panelClass: 'border-danger/20 bg-linear-to-br from-danger/10 via-card to-card',
       icon: CircleSlash,
-      title: 'Should we build this? Probably not yet.',
-      subtitle: 'The current evidence suggests the opportunity is weak or poorly timed.',
+      title: t('report.header.decision.title.noGo'),
+      subtitle: t('report.header.decision.subtitle.noGo'),
     }
   }
   if (recommendationType === 'caution') {
     return {
-      badgeLabel: 'Caution',
+      badgeLabel: t('report.header.decision.badge.caution'),
       badgeClass: 'border-warning/30 bg-warning/10 text-warning',
       panelClass: 'border-warning/20 bg-linear-to-br from-warning/10 via-card to-card',
       icon: TriangleAlert,
-      title: 'Should we build this? Only with a narrow wedge.',
-      subtitle: 'There is signal here, but the entry point needs to be disciplined.',
+      title: t('report.header.decision.title.caution'),
+      subtitle: t('report.header.decision.subtitle.caution'),
     }
   }
   return {
-    badgeLabel: 'Go',
+    badgeLabel: t('report.header.decision.badge.go'),
     badgeClass: 'border-cta/30 bg-cta/10 text-cta',
     panelClass: 'border-cta/20 bg-linear-to-br from-cta/10 via-card to-card',
     icon: TrendingUp,
-    title: 'Should we build this? Yes, if we stay focused.',
-    subtitle: 'The opportunity looks real enough to justify moving forward with a sharp wedge.',
+    title: t('report.header.decision.title.go'),
+    subtitle: t('report.header.decision.subtitle.go'),
   }
 }
 
-function buildSummaryBullets(report: ResearchReport): string[] {
+function buildSummaryBullets(
+  report: ResearchReport,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string[] {
   const bullets = [
     report.whitespace_opportunities[0]?.wedge
-      ? `Best entry wedge: ${report.whitespace_opportunities[0].wedge}`
+      ? t('report.header.summary.bestEntryWedge', { value: report.whitespace_opportunities[0].wedge })
       : '',
-    report.pain_signals[0]?.theme ? `Main pain: ${report.pain_signals[0].theme}` : '',
+    report.pain_signals[0]?.theme
+      ? t('report.header.summary.mainPain', { value: report.pain_signals[0].theme })
+      : '',
     report.commercial_signals[0]?.theme
-      ? `Commercial cue: ${report.commercial_signals[0].theme}`
+      ? t('report.header.summary.commercialCue', { value: report.commercial_signals[0].theme })
       : '',
     report.differentiation_angles[0]
-      ? `Execution angle: ${report.differentiation_angles[0]}`
+      ? t('report.header.summary.executionAngle', { value: report.differentiation_angles[0] })
       : '',
   ]
 
@@ -198,7 +205,7 @@ function buildSummaryBullets(report: ResearchReport): string[] {
 }
 
 export function ReportHeader({ report }: ReportHeaderProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -213,12 +220,27 @@ export function ReportHeader({ report }: ReportHeaderProps) {
   )
 
   const decisionTone = useMemo(
-    () => getDecisionTone(report.recommendation_type),
-    [report.recommendation_type],
+    () => getDecisionTone(report.recommendation_type, t),
+    [report.recommendation_type, t],
   )
   const DecisionIcon = decisionTone.icon
   const opportunityPercent = toPercent(report.opportunity_score?.score)
-  const summaryBullets = useMemo(() => buildSummaryBullets(report), [report])
+  const summaryBullets = useMemo(() => buildSummaryBullets(report, t), [report, t])
+  const language = i18n.resolvedLanguage ?? i18n.language
+  const keywordText = useMemo(() => {
+    const normalizeLanguage = (value: string | undefined): string =>
+      value?.toLowerCase().trim() ?? ''
+    const uiLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language)
+    const prefersChinese = uiLanguage.startsWith('zh')
+
+    const zhKeywords = report.intent.keywords_zh.filter(Boolean)
+    const enKeywords = report.intent.keywords_en.filter(Boolean)
+    const preferredKeywords = prefersChinese ? zhKeywords : enKeywords
+    const fallbackKeywords = prefersChinese ? enKeywords : zhKeywords
+
+    const selected = preferredKeywords.length > 0 ? preferredKeywords : fallbackKeywords
+    return selected.join(', ')
+  }, [i18n.language, i18n.resolvedLanguage, report.intent.keywords_en, report.intent.keywords_zh])
 
   const handleCopyLink = async () => {
     if (feedbackTimerRef.current) {
@@ -263,7 +285,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             {t('report.header.newSearch')}
           </Link>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            Decision-first research report
+            {t('report.header.chromeLabel')}
           </p>
           <h1 className="mt-2 break-words text-3xl font-bold font-heading text-foreground">
             {report.query}
@@ -271,7 +293,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
           <p className="mt-2 break-words text-sm leading-relaxed text-muted-foreground">
             {report.intent.app_type} · {report.intent.target_scenario} ·{' '}
             <span className="whitespace-nowrap">
-              {new Date(report.created_at).toLocaleString()}
+              {formatAppDateTime(report.created_at, language)}
             </span>
           </p>
         </div>
@@ -327,14 +349,14 @@ export function ReportHeader({ report }: ReportHeaderProps) {
               </span>
               <span className="inline-flex items-center gap-2 border border-border bg-background/85 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-cta" />
-                Opportunity score {opportunityPercent}%
+                {t('report.header.opportunityScore', { value: opportunityPercent })}
               </span>
             </div>
 
             <div className="space-y-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                  Should we build this?
+                  {t('report.sections.shouldWeBuildThis')}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold font-heading text-foreground">
                   {decisionTone.title}
@@ -351,7 +373,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="border-2 border-border bg-background/80 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                  Pain themes
+                  {t('report.header.metrics.painThemes')}
                 </p>
                 <p className="mt-2 text-2xl font-bold text-foreground">
                   {report.pain_signals.length}
@@ -359,7 +381,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
               </div>
               <div className="border-2 border-border bg-background/80 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                  Commercial cues
+                  {t('report.header.metrics.commercialCues')}
                 </p>
                 <p className="mt-2 text-2xl font-bold text-foreground">
                   {report.commercial_signals.length}
@@ -367,7 +389,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
               </div>
               <div className="border-2 border-border bg-background/80 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                  Whitespace wedges
+                  {t('report.header.metrics.whitespaceWedges')}
                 </p>
                 <p className="mt-2 text-2xl font-bold text-foreground">
                   {report.whitespace_opportunities.length}
@@ -379,7 +401,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
           <div className="flex flex-col justify-between border-2 border-border bg-background/75 p-5">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                Why this call
+                {t('report.header.whyThisCall')}
               </p>
               <div className="mt-4 space-y-3">
                 {summaryBullets.length > 0 ? (
@@ -393,16 +415,15 @@ export function ReportHeader({ report }: ReportHeaderProps) {
                   ))
                 ) : (
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Signal extraction is still sparse, so use the recommendation
-                    with extra caution.
+                    {t('report.header.summary.sparse')}
                   </p>
                 )}
               </div>
             </div>
             <div className="mt-5 border-t-2 border-border pt-4 text-sm text-muted-foreground">
-              <p className="font-semibold text-foreground">Context keywords</p>
+              <p className="font-semibold text-foreground">{t('report.header.contextKeywords')}</p>
               <p className="mt-2 leading-relaxed break-words">
-                {report.intent.keywords_en.join(', ')}
+                {keywordText}
               </p>
             </div>
           </div>

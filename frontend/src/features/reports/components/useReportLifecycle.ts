@@ -254,7 +254,10 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
 
   const retryWithQuery = useCallback(
     (query: string | undefined) => {
-      if (!query) return
+      if (!query) {
+        navigate('/', { replace: true })
+        return
+      }
 
       setLoadError(null)
       setLoadErrorKind(null)
@@ -274,7 +277,12 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
   }, [report?.query, retryQuery, retryWithQuery, runtimeStatus?.query])
 
   const retryErrorState = useCallback(() => {
-    if (runtimeStatus?.status === 'failed' || runtimeStatus?.status === 'cancelled') {
+    if (
+      runtimeStatus?.status === 'failed' ||
+      runtimeStatus?.status === 'cancelled' ||
+      runtimeStatus?.status === 'not_found' ||
+      runtimeStatus?.status === 'complete'
+    ) {
       retryCurrentQuery()
       return
     }

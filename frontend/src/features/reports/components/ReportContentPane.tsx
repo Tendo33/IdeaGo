@@ -3,7 +3,6 @@ import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CommercialSignalsCard } from '@/features/reports/components/CommercialSignalsCard'
 import { CompareFloatingBar, ComparePanel } from '@/features/reports/components/ComparePanel'
-import { ConfidenceCard } from '@/features/reports/components/ConfidenceCard'
 import { EvidenceCostCard } from '@/features/reports/components/EvidenceCostCard'
 import { MarketOverview } from '@/features/reports/components/MarketOverview'
 import { PainSignalsCard } from '@/features/reports/components/PainSignalsCard'
@@ -88,20 +87,20 @@ export function ReportContentPane({
     const items: SectionNavItem[] = [
       {
         id: 'section-should-we-build-this',
-        label: t('report.sections.shouldWeBuildThis', 'Should we build this?'),
+        label: t('report.sections.shouldWeBuildThis'),
       },
     ]
 
     if (hasWhyNowSection) {
       items.push({
         id: 'section-why-now',
-        label: t('report.sections.whyNow', 'Why now'),
+        label: t('report.sections.whyNow'),
       })
     }
 
     items.push(
-      { id: 'section-pain', label: t('report.sections.pain', 'Pain') },
-      { id: 'section-whitespace', label: t('report.sections.whitespace', 'Whitespace') },
+      { id: 'section-pain', label: t('report.sections.pain') },
+      { id: 'section-whitespace', label: t('report.sections.whitespace') },
     )
 
     if (hasCompetitorSection) {
@@ -114,7 +113,7 @@ export function ReportContentPane({
 
     items.push({
       id: 'section-evidence-confidence',
-      label: t('report.sections.evidenceConfidence', 'Evidence & confidence'),
+      label: t('report.sections.evidenceConfidence'),
     })
 
     return items
@@ -150,7 +149,7 @@ export function ReportContentPane({
         </div>
       )}
 
-      <div className={`space-y-12 sm:space-y-16 transition-all duration-700 ease-out-quart ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+      <div className={`space-y-12 sm:space-y-16 transition-all duration-700 ease-out ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         {allFailed && (
           <AllFailedState sources={report.source_results} onRetry={onRetryAnalysis} />
         )}
@@ -174,7 +173,6 @@ export function ReportContentPane({
               <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground lg:col-span-2">
                 {t(
                   'report.sections.painPlaceholder',
-                  'Pain and commercial signal analysis will appear here when available.',
                 )}
               </div>
             ) : null}
@@ -193,7 +191,6 @@ export function ReportContentPane({
               <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground">
                 {t(
                   'report.sections.whitespacePlaceholder',
-                  'Whitespace opportunities and differentiation angles will appear here when available.',
                 )}
               </div>
             ) : null}
@@ -217,8 +214,7 @@ export function ReportContentPane({
         )}
 
         {!allFailed && (
-          <section id="section-evidence-confidence" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ConfidenceCard confidence={report.confidence} />
+          <section id="section-evidence-confidence" className="space-y-4">
             <EvidenceCostCard evidenceSummary={report.evidence_summary} />
           </section>
         )}

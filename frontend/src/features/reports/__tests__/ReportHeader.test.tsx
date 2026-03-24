@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { ReportHeader } from '@/features/reports/components/ReportHeader'
+import i18n from '@/lib/i18n/i18n'
 import type { ResearchReport } from '@/lib/types/research'
 
 const report: ResearchReport = {
@@ -78,6 +79,7 @@ const report: ResearchReport = {
 
 describe('ReportHeader dropdown accessibility', () => {
   beforeEach(() => {
+    void i18n.changeLanguage('en')
     vi.stubGlobal('navigator', {
       ...navigator,
       clipboard: {
@@ -127,5 +129,27 @@ describe('ReportHeader dropdown accessibility', () => {
     await waitFor(() => {
       expect(screen.getByText("We couldn't copy the link. Please copy it manually from your address bar.")).toBeInTheDocument()
     })
+  })
+
+  it('prefers english keywords in english UI even if output language is zh', async () => {
+    await i18n.changeLanguage('en')
+    const reportWithBothKeywordLists: ResearchReport = {
+      ...report,
+      intent: {
+        ...report.intent,
+        keywords_en: ['english-keyword', 'market-fit'],
+        keywords_zh: ['中文关键词', '市场契合'],
+        output_language: 'zh',
+      },
+    }
+
+    render(
+      <MemoryRouter>
+        <ReportHeader report={reportWithBothKeywordLists} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('english-keyword, market-fit')).toBeInTheDocument()
+    expect(screen.queryByText('中文关键词, 市场契合')).not.toBeInTheDocument()
   })
 })

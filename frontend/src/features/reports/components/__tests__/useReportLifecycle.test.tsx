@@ -152,6 +152,30 @@ describe('useReportLifecycle', () => {
     })
   })
 
+  it('falls back to the home route when restart is requested without a recoverable query', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'failed',
+      report_id: 'r-failed-no-query',
+      error_code: 'PIPELINE_FAILURE',
+      message: 'Pipeline failed.',
+      query: null,
+    })
+
+    const { result } = renderHook(() => useReportLifecycle('r-failed-no-query', navigate))
+
+    await waitFor(() => {
+      expect(result.current.runtimeStatus?.status).toBe('failed')
+    })
+
+    act(() => {
+      result.current.retryCurrentQuery()
+    })
+
+    expect(startAnalysis).not.toHaveBeenCalled()
+    expect(navigate).toHaveBeenCalledWith('/', { replace: true })
+  })
+
   it('polls runtime status when stream completes but report is still missing', async () => {
     vi.mocked(useSSE).mockReturnValue({
       events: [],
@@ -186,6 +210,56 @@ describe('useReportLifecycle', () => {
     })
 
     expect(getReportRuntimeStatus).toHaveBeenCalledTimes(2)
+  })
+
+  it('marks complete-but-unavailable reports as terminal and restartable', async () => {
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: null,
+      cancelled: null,
+      retry: vi.fn(),
+    })
+
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockResolvedValueOnce({ status: 'missing' })
+      .mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus)
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-unavailable',
+        query: 'AI assistant for dentists',
+      })
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-unavailable',
+        query: 'AI assistant for dentists',
+      })
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-unavailable',
+        query: 'AI assistant for dentists',
+      })
+    vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-regenerated' })
+
+    const { result } = renderHook(() => useReportLifecycle('r-unavailable', navigate))
+
+    await waitFor(() => {
+      expect(result.current.loadPhase).toBe('ready')
+      expect(result.current.runtimeStatus?.status).toBe('complete')
+      expect(result.current.loadErrorKind).toBe('system')
+    })
+
+    act(() => {
+      result.current.retryErrorState()
+    })
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('AI assistant for dentists')
+      expect(navigate).toHaveBeenCalledWith('/reports/r-regenerated')
+    })
   })
 
   it('keeps connection errors separate from runtime-status errors', async () => {

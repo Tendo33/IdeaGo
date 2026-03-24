@@ -13,25 +13,39 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function PricingPage() {
   const { t } = useTranslation()
-  useDocumentTitle(t('pricing.title', 'Choose Your Plan') + ' — IdeaGo')
+  useDocumentTitle(t('pricing.title') + ' — IdeaGo')
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [currentPlan, setCurrentPlan] = useState('free')
-  const [stripeConfigured, setStripeConfigured] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null)
+  const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null)
+  const [statusReloadToken, setStatusReloadToken] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const resolvedCurrentPlan = user ? currentPlan : 'free'
 
   useEffect(() => {
     if (!user) return
-    getSubscriptionStatus()
-      .then(status => {
+    let cancelled = false
+
+    async function loadStatus() {
+      setError(null)
+      setCurrentPlan(null)
+      setStripeConfigured(null)
+      try {
+        const status = await getSubscriptionStatus()
+        if (cancelled) return
         setCurrentPlan(status.plan)
         setStripeConfigured(status.stripe_configured)
-      })
-      .catch(err => {
-        console.error('Failed to get subscription status', err)
-        setError(t('pricing.loadError', 'Could not verify your current subscription status.'))
-      })
-  }, [user, t])
+      } catch {
+        if (cancelled) return
+        setError(t('pricing.loadError'))
+      }
+    }
+
+    void loadStatus()
+    return () => {
+      cancelled = true
+    }
+  }, [user, t, statusReloadToken])
 
   const handleUpgrade = async () => {
     if (!user) return
@@ -43,38 +57,38 @@ export function PricingPage() {
       )
       window.location.href = url
     } catch {
-      toast.error(t('pricing.upgradeError', 'Failed to start checkout. Please try again.'))
+      toast.error(t('pricing.upgradeError'))
       setLoading(false)
     }
   }
 
   const plans = [
     {
-      name: 'Free',
+      name: t('admin.values.plans.free'),
       price: '$0',
-      period: t('pricing.perMonth', '/month'),
+      period: t('pricing.perMonth'),
       features: [
-        t('pricing.freeFeature1', '5 analyses per month'),
-        t('pricing.freeFeature2', 'Basic competitor reports'),
-        t('pricing.freeFeature3', '6 data sources'),
-        t('pricing.freeFeature4', 'Report export (Markdown)'),
+        t('pricing.freeFeature1'),
+        t('pricing.freeFeature2'),
+        t('pricing.freeFeature3'),
+        t('pricing.freeFeature4'),
       ],
-      current: currentPlan === 'free',
+      current: resolvedCurrentPlan === 'free',
       icon: Zap,
     },
     {
-      name: 'Pro',
+      name: t('admin.values.plans.pro'),
       price: '$9',
-      period: t('pricing.perMonth', '/month'),
+      period: t('pricing.perMonth'),
       features: [
-        t('pricing.proFeature1', '100 analyses per month'),
-        t('pricing.proFeature2', 'Advanced competitor insights'),
-        t('pricing.proFeature3', '6 data sources + priority'),
-        t('pricing.proFeature4', 'Report export (Markdown)'),
-        t('pricing.proFeature5', 'Reports never expire'),
-        t('pricing.proFeature6', 'Priority support'),
+        t('pricing.proFeature1'),
+        t('pricing.proFeature2'),
+        t('pricing.proFeature3'),
+        t('pricing.proFeature4'),
+        t('pricing.proFeature5'),
+        t('pricing.proFeature6'),
       ],
-      current: currentPlan === 'pro',
+      current: resolvedCurrentPlan === 'pro',
       highlighted: true,
       icon: Crown,
     },
@@ -87,18 +101,18 @@ export function PricingPage() {
         className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8 bg-card" })}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
-        {t('nav.home', 'Home')}
+        {t('nav.home')}
       </Link>
 
       <div className="border-4 border-border bg-card p-8 md:p-12 mb-12 shadow-lg relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 group-hover:opacity-40 transition-opacity" />
         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 relative z-10">
-          {t('pricing.title', 'Choose Your Plan')}
+          {t('pricing.title')}
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground font-bold max-w-xl mb-6 relative z-10 border-l-4 border-primary pl-4">
-          {t('pricing.subtitle', 'Start free, upgrade when you need more power.')}
+          {t('pricing.subtitle')}
         </p>
-        {error && (
+        {user && error && (
           <Alert variant="warning" className="max-w-xl text-left relative z-10">
             <span className="font-bold">{error}</span>
           </Alert>
@@ -141,9 +155,35 @@ export function PricingPage() {
 
               {plan.current ? (
                 <Button variant="outline" size="lg" className="w-full" disabled>
-                  {t('pricing.currentPlan', 'Current Plan')}
+                  {t('pricing.currentPlan')}
                 </Button>
-              ) : plan.highlighted && stripeConfigured && user ? (
+              ) : plan.highlighted && !user ? (
+                <Link
+                  to="/login"
+                  className={buttonVariants({ size: 'lg', className: 'w-full gap-2' })}
+                >
+                  <LogIn className="w-5 h-5" />
+                  {t('pricing.signInToUpgrade')}
+                </Link>
+              ) : plan.highlighted && user && error && stripeConfigured === null ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setStatusReloadToken(previous => previous + 1)}
+                >
+                  {t('report.failed.retryShort')}
+                </Button>
+              ) : plan.highlighted && user && stripeConfigured === false ? (
+                <Button variant="outline" size="lg" className="w-full" disabled>
+                  {t('pricing.comingSoon')}
+                </Button>
+              ) : plan.highlighted && user && stripeConfigured === null ? (
+                <Button variant="outline" size="lg" className="w-full" disabled>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  {t('loading.page')}
+                </Button>
+              ) : plan.highlighted && user ? (
                 <Button
                   size="lg"
                   className="w-full"
@@ -155,19 +195,7 @@ export function PricingPage() {
                   ) : (
                     <Crown className="w-5 h-5 mr-2" />
                   )}
-                  {t('pricing.upgrade', 'Upgrade to Pro')}
-                </Button>
-              ) : plan.highlighted && stripeConfigured && !user ? (
-                <Link
-                  to="/login"
-                  className="w-full inline-flex items-center justify-center gap-2 min-h-[48px] border-2 border-border bg-primary text-primary-foreground px-6 py-3 text-base font-bold uppercase tracking-wider shadow transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-                >
-                  <LogIn className="w-5 h-5" />
-                  {t('pricing.signInToUpgrade', 'Sign in to Upgrade')}
-                </Link>
-              ) : plan.highlighted && !stripeConfigured ? (
-                <Button variant="outline" size="lg" className="w-full" disabled>
-                  {t('pricing.comingSoon', 'Coming Soon')}
+                  {t('pricing.upgrade')}
                 </Button>
               ) : null}
             </div>

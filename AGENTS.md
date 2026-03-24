@@ -95,6 +95,7 @@ Main package: `src/ideago`
 - `frontend/src/lib/supabase`: Supabase client
 - `frontend/src/lib/types`, `frontend/src/lib/utils`: shared types and utilities
 - `frontend/src/styles`: global styles
+- Pricing and upgrade UI entry points are intentionally hidden until billing is re-enabled; avoid exposing `/pricing` or upgrade CTAs unless the task explicitly restores them.
 
 ## Runtime Notes
 

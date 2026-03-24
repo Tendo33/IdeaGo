@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Users, FileText, Loader2, Activity, Save } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/Badge'
 import { Alert } from '@/components/ui/Alert'
+import { Button } from '@/components/ui/Button'
 import {
   adminGetStats,
   adminListUsers,
@@ -12,6 +14,27 @@ import {
   type AdminStats,
   type AdminUser,
 } from '@/lib/api/client'
+import { formatAppDate } from '@/lib/utils/dateLocale'
+
+function getAdminRoleLabel(role: string, t: TFunction): string {
+  if (role === 'admin') return t('admin.values.roles.admin')
+  if (role === 'user') return t('admin.values.roles.user')
+  return role
+}
+
+function getAdminPlanLabel(plan: string, t: TFunction): string {
+  if (plan === 'free') return t('admin.values.plans.free')
+  if (plan === 'pro') return t('admin.values.plans.pro')
+  return plan
+}
+
+function getAdminProviderLabel(provider: string, t: TFunction): string {
+  if (provider === 'github') return t('admin.values.providers.github')
+  if (provider === 'google') return t('admin.values.providers.google')
+  if (provider === 'linuxdo') return t('admin.values.providers.linuxdo')
+  if (provider === 'supabase') return t('admin.values.providers.supabase')
+  return provider
+}
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: typeof Users }) {
   return (
@@ -25,12 +48,15 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
   )
 }
 
-function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => void }) {
+function UserRow({ user, onQuotaSaved, language }: { user: AdminUser; onQuotaSaved: () => void; language: string }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [limit, setLimit] = useState(String(user.plan_limit))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [imgError, setImgError] = useState(false)
+  const displayName = user.display_name || t('admin.userFallbackName')
+  const quotaTargetName = user.display_name || user.id.slice(0, 8)
 
   const save = async () => {
     setSaving(true)
@@ -38,10 +64,10 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
     try {
       await adminSetQuota(user.id, { plan_limit: Number(limit) })
       setEditing(false)
-      toast.success(`Quota updated for ${user.display_name || user.id.slice(0, 8)}`)
+      toast.success(t('admin.messages.quotaUpdated', { name: quotaTargetName }))
       onQuotaSaved()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed'
+      const msg = e instanceof Error ? e.message : t('admin.messages.unknownError')
       setError(msg)
       toast.error(msg)
     } finally {
@@ -61,18 +87,18 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-bold truncate">{user.display_name || '(unnamed)'}</p>
+            <p className="text-sm font-bold truncate">{displayName}</p>
             <p className="text-xs text-muted-foreground truncate">{user.id.slice(0, 12)}...</p>
           </div>
         </div>
       </td>
       <td className="py-3 px-4">
         <Badge variant={user.role === 'admin' ? 'primary' : 'secondary'} className="text-[10px]">
-          {user.role}
+          {getAdminRoleLabel(user.role, t)}
         </Badge>
       </td>
-      <td className="py-3 px-4 text-sm font-mono">{user.plan}</td>
-      <td className="py-3 px-4 text-sm font-mono">{user.auth_provider}</td>
+      <td className="py-3 px-4 text-sm font-mono">{getAdminPlanLabel(user.plan, t)}</td>
+      <td className="py-3 px-4 text-sm font-mono">{getAdminProviderLabel(user.auth_provider, t)}</td>
       <td className="py-3 px-4 text-sm font-mono">{user.usage_count}</td>
       <td className="py-3 px-4">
         {editing ? (
@@ -83,35 +109,40 @@ function UserRow({ user, onQuotaSaved }: { user: AdminUser; onQuotaSaved: () => 
               onChange={e => setLimit(e.target.value)}
               className="input w-20 py-1 px-2 text-sm"
               min={0}
+              aria-label={t('admin.actions.editQuotaFor', { name: quotaTargetName })}
             />
-            <button
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
               onClick={save}
               disabled={saving}
-              className="text-primary hover:text-foreground transition-colors cursor-pointer"
-              aria-label="Save"
+              className="h-9 w-9 text-primary"
+              aria-label={t('admin.actions.saveQuotaFor', { name: quotaTargetName })}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            </button>
+            </Button>
             {error && <span className="text-xs text-destructive">{error}</span>}
           </div>
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer underline underline-offset-2"
+            className="text-sm font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             {user.plan_limit}
           </button>
         )}
       </td>
       <td className="py-3 px-4 text-xs text-muted-foreground">
-        {new Date(user.created_at).toLocaleDateString()}
+        {formatAppDate(user.created_at, language)}
       </td>
     </tr>
   )
 }
 
 export function AdminPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage ?? i18n.language
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,11 +156,11 @@ export function AdminPage() {
       setStats(s)
       setUsers(u)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load admin data')
+      setError(e instanceof Error ? e.message : t('admin.messages.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => { load() }, [load])
 
@@ -141,11 +172,11 @@ export function AdminPage() {
           className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          {t('nav.home', 'Home')}
+          {t('nav.home')}
         </Link>
 
         <h1 className="text-4xl font-black uppercase tracking-tight mb-8 border-b-4 border-border pb-4">
-          {t('admin.title', 'Admin Dashboard')}
+          {t('admin.title')}
         </h1>
 
         {error && (
@@ -163,36 +194,36 @@ export function AdminPage() {
         {!loading && stats && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-              <StatCard label={t('admin.totalUsers', 'Users')} value={stats.total_users} icon={Users} />
-              <StatCard label={t('admin.totalReports', 'Reports')} value={stats.total_reports} icon={FileText} />
-              <StatCard label={t('admin.activeProcessing', 'Processing')} value={stats.active_processing} icon={Activity} />
+              <StatCard label={t('admin.totalUsers')} value={stats.total_users} icon={Users} />
+              <StatCard label={t('admin.totalReports')} value={stats.total_reports} icon={FileText} />
+              <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
               <StatCard
-                label={t('admin.planBreakdown', 'Plans')}
-                value={Object.entries(stats.plan_breakdown).map(([k, v]) => `${k}:${v}`).join(' ')}
+                label={t('admin.planBreakdown')}
+                value={Object.entries(stats.plan_breakdown).map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`).join(' · ')}
                 icon={Users}
               />
             </div>
 
             <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
-              {t('admin.usersTitle', 'Users')}
+              {t('admin.usersTitle')}
             </h2>
 
             <div className="overflow-x-auto border-4 border-border">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b-4 border-border bg-muted">
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.user', 'User')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.role', 'Role')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.plan', 'Plan')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.provider', 'Provider')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.usage', 'Usage')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.limit', 'Limit')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.joined', 'Joined')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.user')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.role')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.plan')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.provider')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.usage')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.limit')}</th>
+                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.joined')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map(user => (
-                    <UserRow key={user.id} user={user} onQuotaSaved={load} />
+                    <UserRow key={user.id} user={user} onQuotaSaved={load} language={language} />
                   ))}
                 </tbody>
               </table>
@@ -200,7 +231,7 @@ export function AdminPage() {
 
             {users.length === 0 && (
               <p className="text-center text-muted-foreground py-8 font-bold">
-                {t('admin.noUsers', 'No users found.')}
+                {t('admin.noUsers')}
               </p>
             )}
           </>

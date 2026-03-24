@@ -17,7 +17,7 @@ export interface InsightCardProps {
 
 const TONE_STYLES: Record<NonNullable<InsightCardProps['tone']>, string> = {
   default: 'border-cta/20 bg-cta/5 hover:border-cta/40 hover:bg-cta/8',
-  success: 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40 hover:bg-emerald-500/10',
+  success: 'border-success/25 bg-success/8 hover:border-success/45 hover:bg-success/12',
   warning: 'border-warning/25 bg-warning/8 hover:border-warning/45 hover:bg-warning/12',
 }
 

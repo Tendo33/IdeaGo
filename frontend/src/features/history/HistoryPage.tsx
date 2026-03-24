@@ -8,6 +8,7 @@ import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import type { ReportListItem } from '@/lib/types/research'
+import { formatAppDate } from '@/lib/utils/dateLocale'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -37,9 +38,10 @@ interface HistoryReportCardProps {
   onNavigate: (id: string) => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
   t: (key: string) => string;
+  language: string;
 }
 
-const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, onDelete, t }: HistoryReportCardProps) {
+const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, onDelete, t, language }: HistoryReportCardProps) {
   return (
     <div className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between border-2 border-border bg-card p-5 shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-sm transition-all duration-150 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
       <div className="mr-6 min-w-0 flex-1 mb-4 sm:mb-0">
@@ -53,7 +55,7 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
         <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 relative z-10 pointer-events-none">
           <Badge variant="secondary">
             <Clock className="h-3.5 w-3.5" />
-            {new Date(report.created_at).toLocaleDateString()}
+            {formatAppDate(report.created_at, language)}
           </Badge>
           <Badge variant="accent">
             <Users className="h-3.5 w-3.5" />
@@ -79,7 +81,8 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
 
 export function HistoryPage() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage ?? i18n.language
   useDocumentTitle(t('history.title') + ' — IdeaGo')
   const [reports, setReports] = useState<ReportListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -266,6 +269,7 @@ export function HistoryPage() {
                 onNavigate={handleNavigate}
                 onDelete={handleDeleteClick}
                 t={t}
+                language={language}
               />
             ))}
           </div>

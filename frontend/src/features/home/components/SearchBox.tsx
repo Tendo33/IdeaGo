@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { Search, Loader2, ArrowRight } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 interface SearchBoxProps {
@@ -10,20 +11,113 @@ interface SearchBoxProps {
 const MIN_QUERY_LENGTH = 5
 const MAX_QUERY_LENGTH = 1000
 
-export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
+const MIN_MEANINGFUL_CHARACTERS = 3
+const MAX_SYMBOL_RATIO = 0.5
+
+const LETTER_CHARACTER = /\p{L}/u
+const ALPHANUMERIC_CHARACTER = /[\p{L}\p{N}]/u
+const WHITESPACE_CHARACTER = /\s/u
+
+type SearchValidationCode =
+  | 'empty'
+  | 'too_short'
+  | 'too_long'
+  | 'missing_letters'
+  | 'low_signal'
+  | 'too_many_symbols'
+  | 'valid'
+
+interface SearchQueryValidationResult {
+  code: SearchValidationCode
+  isValid: boolean
+  normalizedQuery: string
+  trimmedLength: number
+}
+
+function countCharacters(value: string, predicate: (character: string) => boolean): number {
+  return Array.from(value).filter(predicate).length
+}
+
+function validateSearchQuery(query: string): SearchQueryValidationResult {
+  const normalizedQuery = query.trim()
+  const trimmedLength = normalizedQuery.length
+
+  if (trimmedLength === 0) {
+    return { code: 'empty', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  if (trimmedLength < MIN_QUERY_LENGTH) {
+    return { code: 'too_short', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  if (trimmedLength > MAX_QUERY_LENGTH) {
+    return { code: 'too_long', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  const nonWhitespaceCharacters = Array.from(normalizedQuery).filter(
+    character => !WHITESPACE_CHARACTER.test(character),
+  )
+  const meaningfulCharacterCount = countCharacters(
+    nonWhitespaceCharacters.join(''),
+    character => ALPHANUMERIC_CHARACTER.test(character),
+  )
+  const hasLetterCharacter = nonWhitespaceCharacters.some(character => LETTER_CHARACTER.test(character))
+  const symbolCharacterCount = nonWhitespaceCharacters.length - meaningfulCharacterCount
+  const symbolRatio = nonWhitespaceCharacters.length === 0
+    ? 0
+    : symbolCharacterCount / nonWhitespaceCharacters.length
+
+  if (!hasLetterCharacter) {
+    return { code: 'missing_letters', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  if (meaningfulCharacterCount < MIN_MEANINGFUL_CHARACTERS) {
+    return { code: 'low_signal', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  if (symbolRatio > MAX_SYMBOL_RATIO) {
+    return { code: 'too_many_symbols', isValid: false, normalizedQuery, trimmedLength }
+  }
+
+  return { code: 'valid', isValid: true, normalizedQuery, trimmedLength }
+}
+
+function getSearchHelperText(
+  validation: SearchQueryValidationResult,
+  t: TFunction,
+): string {
+  switch (validation.code) {
+    case 'empty':
+      return t('search.example')
+    case 'too_short':
+      return t('search.tooShort', { min: MIN_QUERY_LENGTH, current: validation.trimmedLength })
+    case 'too_long':
+      return t('search.tooLong', { max: MAX_QUERY_LENGTH })
+    case 'valid':
+      return t('search.lengthCount', { current: validation.trimmedLength, max: MAX_QUERY_LENGTH })
+    case 'missing_letters':
+      return t('search.validation.missingLetters')
+    case 'low_signal':
+      return t('search.validation.lowSignal')
+    case 'too_many_symbols':
+      return t('search.validation.tooManySymbols')
+    default:
+      return t('search.example')
+  }
+}
+
+function SearchBoxComponent({ onSubmit, isLoading = false }: SearchBoxProps) {
   const [query, setQuery] = useState('')
   const inputId = useId()
   const { t } = useTranslation()
-  const trimmedLength = query.trim().length
-  const isQueryTooShort = trimmedLength < MIN_QUERY_LENGTH
-  const isQueryTooLong = trimmedLength > MAX_QUERY_LENGTH
-  const isSubmitDisabled = isLoading || isQueryTooShort || isQueryTooLong
+  const validation = validateSearchQuery(query)
+  const hasValidationError = validation.code !== 'valid' && validation.code !== 'empty'
+  const isSubmitDisabled = isLoading || !validation.isValid
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = query.trim()
-    if (trimmed.length >= MIN_QUERY_LENGTH && trimmed.length <= MAX_QUERY_LENGTH) {
-      onSubmit(trimmed)
+    if (validation.isValid) {
+      onSubmit(validation.normalizedQuery)
     }
   }
 
@@ -44,8 +138,8 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
             maxLength={MAX_QUERY_LENGTH}
             disabled={isLoading}
             aria-disabled={isLoading}
-            aria-invalid={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? true : undefined}
-            aria-errormessage={isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? `${inputId}-error` : undefined}
+            aria-invalid={hasValidationError ? true : undefined}
+            aria-errormessage={hasValidationError ? `${inputId}-error` : undefined}
             className="w-full h-16 border-2 border-border bg-background px-6 py-4 text-xl font-bold text-foreground placeholder:text-muted-foreground/40 transition-all duration-150 outline-none focus:ring-0 focus:border-primary focus:shadow focus:shadow-primary disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus:shadow aria-invalid:focus:shadow-destructive"
             aria-label={t('search.placeholder')}
           />
@@ -72,21 +166,19 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
         </button>
       </div>
 
-      <div className="mt-4 flex items-center justify-between px-2">
-        <p id={`${inputId}-error`} className={`text-xs font-mono font-bold uppercase tracking-wider ${isQueryTooLong || (isQueryTooShort && trimmedLength > 0) ? 'text-destructive' : 'text-muted-foreground'}`} aria-live="polite">
+      <div className="mt-4 flex items-start justify-between gap-4 px-2">
+        <p
+          id={`${inputId}-error`}
+          className={`min-w-0 flex-1 text-sm font-medium leading-5 ${hasValidationError ? 'text-destructive' : 'text-muted-foreground'}`}
+          aria-live="polite"
+        >
           {isLoading
             ? t('search.submittingHint')
-            : isQueryTooLong
-              ? t('search.tooLong', { max: MAX_QUERY_LENGTH })
-              : isQueryTooShort && trimmedLength > 0
-                ? t('search.tooShort', { min: MIN_QUERY_LENGTH, current: trimmedLength })
-                : trimmedLength > 0
-                  ? t('search.lengthCount', { current: trimmedLength, max: MAX_QUERY_LENGTH })
-                  : t('search.example')}
+            : getSearchHelperText(validation, t)}
         </p>
 
         {/* Visual brutalist decorative element */}
-        <div className="hidden sm:flex gap-1">
+        <div className="hidden shrink-0 sm:flex gap-1">
           <div className="w-2 h-2 bg-primary border border-border"></div>
           <div className="w-2 h-2 bg-foreground border border-border"></div>
           <div className="w-2 h-2 bg-muted border border-border"></div>
@@ -95,3 +187,11 @@ export function SearchBox({ onSubmit, isLoading = false }: SearchBoxProps) {
     </form>
   )
 }
+
+type SearchBoxComponentType = typeof SearchBoxComponent & {
+  validateQuery: typeof validateSearchQuery
+}
+
+export const SearchBox = SearchBoxComponent as SearchBoxComponentType
+
+SearchBox.validateQuery = validateSearchQuery

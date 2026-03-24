@@ -2,7 +2,7 @@ import { Navigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldOff, ArrowLeft } from 'lucide-react'
 import { useAuth } from './useAuth'
-import { Button } from '@/components/ui/Button'
+import { buttonVariants } from '@/components/ui/Button'
 
 function RouteLoadingSpinner() {
   const { t } = useTranslation()
@@ -41,16 +41,14 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
         <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-16 shadow-lg text-center">
           <ShieldOff className="w-16 h-16 text-destructive mx-auto mb-6" aria-hidden="true" />
           <h1 className="text-3xl font-black uppercase tracking-tight mb-4 text-destructive">
-            {t('admin.forbidden', 'Access Denied')}
+            {t('admin.forbidden')}
           </h1>
           <p className="text-lg font-bold text-destructive/80 mb-8">
-            {t('admin.forbiddenMessage', 'You do not have permission to access this page.')}
+            {t('admin.forbiddenMessage')}
           </p>
-          <Link to="/">
-            <Button variant="destructive" size="lg">
-              <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
-              {t('error.backToHome')}
-            </Button>
+          <Link to="/" className={buttonVariants({ variant: 'destructive', size: 'lg' })}>
+            <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
+            {t('error.backToHome')}
           </Link>
         </div>
       </div>

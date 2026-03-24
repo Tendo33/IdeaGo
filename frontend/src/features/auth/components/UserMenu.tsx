@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth/useAuth'
-import { LogIn, LogOut, UserCog, ShieldCheck } from 'lucide-react'
+import { PRICING_ENABLED } from '@/lib/featureFlags'
+import { LogIn, LogOut, UserCog, ShieldCheck, Crown } from 'lucide-react'
 
 export function UserMenu() {
   const { t } = useTranslation()
@@ -85,6 +86,18 @@ export function UserMenu() {
             {t('profile.title')}
           </Link>
 
+          {PRICING_ENABLED && (
+            <Link
+              to="/pricing"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-primary border-2 border-transparent transition-all cursor-pointer hover:bg-primary/10 hover:border-primary"
+            >
+              <Crown className="w-4 h-4" />
+              {t('pricing.upgrade')}
+            </Link>
+          )}
+
           {role === 'admin' && (
             <Link
               to="/admin"
@@ -93,7 +106,7 @@ export function UserMenu() {
               className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
             >
               <ShieldCheck className="w-4 h-4" />
-              {t('admin.title', 'Admin')}
+              {t('admin.menuLabel')}
             </Link>
           )}
 

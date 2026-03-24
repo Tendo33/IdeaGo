@@ -218,7 +218,7 @@ describe('ReportPage', () => {
     expect(screen.getByText('PAIN_SIGNALS')).toBeInTheDocument()
     expect(screen.getByText('COMMERCIAL_SIGNALS')).toBeInTheDocument()
     expect(screen.getByText('WHITESPACE_OPPORTUNITIES')).toBeInTheDocument()
-    expect(screen.getByText('CONFIDENCE')).toBeInTheDocument()
+    expect(screen.queryByText('CONFIDENCE')).not.toBeInTheDocument()
     expect(screen.getByText('EVIDENCE_COST')).toBeInTheDocument()
   })
 
@@ -538,6 +538,7 @@ describe('ReportPage', () => {
       <MemoryRouter initialEntries={['/reports/r-missing']}>
         <Routes>
           <Route path="/reports/:id" element={<ReportPage />} />
+          <Route path="/" element={<div>HOME</div>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -547,7 +548,91 @@ describe('ReportPage', () => {
         screen.getByText('Report not found or expired. Please start a new analysis.'),
       ).toBeInTheDocument()
     })
+    expect(screen.getByRole('button', { name: i18n.t('error.backToHome') })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('report.failed.startAgain') })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('error.backToHome') }))
+
+    await waitFor(() => {
+      expect(screen.getByText('HOME')).toBeInTheDocument()
+    })
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+  })
+
+  it('retries failed report creation from /reports/new with the original query', async () => {
+    vi.mocked(startAnalysis)
+      .mockRejectedValueOnce(new Error('Analysis failed: temporary outage'))
+      .mockResolvedValueOnce({ report_id: 'r-created-retry' })
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'processing' })
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/reports/new', state: { query: 'retryable idea' } }]}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Analysis failed: temporary outage')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('report.failed.retryShort') }))
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenNthCalledWith(1, 'retryable idea', expect.any(Object))
+      expect(startAnalysis).toHaveBeenNthCalledWith(2, 'retryable idea', undefined)
+    })
+  })
+
+  it('restarts analysis when a completed report never becomes available', async () => {
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: null,
+      cancelled: null,
+      retry: vi.fn(),
+    })
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockResolvedValueOnce({ status: 'missing' })
+      .mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus)
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-complete-missing',
+        query: 'AI CRM for recruiters',
+      })
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-complete-missing',
+        query: 'AI CRM for recruiters',
+      })
+      .mockResolvedValueOnce({
+        status: 'complete',
+        report_id: 'r-complete-missing',
+        query: 'AI CRM for recruiters',
+      })
+    vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-regenerated' })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-complete-missing']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') }))
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('AI CRM for recruiters')
+    })
   })
 
   it('prevents duplicate broaden submissions while request is pending', async () => {

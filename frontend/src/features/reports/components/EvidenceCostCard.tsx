@@ -29,7 +29,7 @@ export function EvidenceCostCard({ evidenceSummary }: EvidenceCostCardProps) {
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-none px-1 py-0.5 text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-cta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronDown
-              className={`h-3.5 w-3.5 transition-transform duration-300 ease-out-quint ${expanded ? 'rotate-180' : ''}`}
+              className={`h-3.5 w-3.5 transition-transform duration-300 ease-out ${expanded ? 'rotate-180' : ''}`}
             />
             {expanded ? t('report.hero.showLess') : t('report.hero.readMore')}
           </button>

@@ -88,14 +88,14 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
     { label: t('report.transparency.confidence.samples'), value: String(sampleSize) },
     { label: t('report.transparency.confidence.coverage'), value: String(sourceCoverage) },
     { label: t('report.transparency.confidence.successRate'), value: `${successRate}%` },
-    { label: 'Source diversity', value: String(sourceDiversity) },
-    { label: 'Evidence density', value: `${evidenceDensity}%` },
-    { label: 'Recency', value: `${recencyScore}%` },
+    { label: t('report.transparency.confidence.sourceDiversity'), value: String(sourceDiversity) },
+    { label: t('report.transparency.confidence.evidenceDensity'), value: `${evidenceDensity}%` },
+    { label: t('report.transparency.confidence.recency'), value: `${recencyScore}%` },
   ]
 
   const penaltyMetrics: MetricRow[] = [
-    { label: 'Degradation penalty', value: `${degradationPenalty}%` },
-    { label: 'Contradiction penalty', value: `${contradictionPenalty}%` },
+    { label: t('report.transparency.confidence.degradationPenalty'), value: `${degradationPenalty}%` },
+    { label: t('report.transparency.confidence.contradictionPenalty'), value: `${contradictionPenalty}%` },
   ]
   const hasPenalty = degradationPenalty > 0 || contradictionPenalty > 0
 
@@ -120,7 +120,7 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
         </div>
         <div className="h-2 overflow-hidden rounded-none bg-secondary">
           <div
-            className={`h-2 transition-all duration-1000 ease-out-expo ${tone.progressClass}`}
+            className={`h-2 transition-[width] duration-700 ease-out ${tone.progressClass}`}
             style={{ width: `${score}%` }}
           />
         </div>
@@ -139,22 +139,24 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
       </div>
 
       <div className="rounded-none border-2 border-border bg-muted/55 p-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Freshness</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          {t('report.transparency.confidence.freshness')}
+        </p>
         <p className="mt-2 text-sm text-foreground break-words">{freshnessHint}</p>
       </div>
 
       <div className="space-y-3 rounded-none border-2 border-border bg-background p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            Trust Drivers
+            {t('report.transparency.confidence.trustDrivers')}
           </p>
           {hasPenalty ? (
             <span className="rounded-none border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-warning">
-              Penalties Applied
+              {t('report.transparency.confidence.penaltiesApplied')}
             </span>
           ) : (
             <span className="rounded-none border border-cta/30 bg-cta/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cta">
-              No Major Penalties
+              {t('report.transparency.confidence.noMajorPenalties')}
             </span>
           )}
         </div>
@@ -174,7 +176,9 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Why this score</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            {t('report.transparency.confidence.whyThisScore')}
+          </p>
           {reasons.length > 0 ? (
             <ul className="space-y-2">
               {reasons.map(reason => (
@@ -189,7 +193,7 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No specific confidence reasons were provided for this report.
+              {t('report.transparency.confidence.reasonsFallback')}
             </p>
           )}
         </div>

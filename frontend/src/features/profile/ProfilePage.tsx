@@ -13,11 +13,13 @@ import {
   type UserProfile,
 } from '@/lib/api/client'
 import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, Trash2, AlertTriangle } from 'lucide-react'
+import { formatAppDate, formatAppDateTime } from '@/lib/utils/dateLocale'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function ProfilePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage ?? i18n.language
   useDocumentTitle(t('profile.title', 'Profile') + ' — IdeaGo')
   const { user, signOut } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -105,7 +107,7 @@ export function ProfilePage() {
 
   const avatarInitial = (displayName || user?.email || 'U').charAt(0).toUpperCase()
   const memberSince = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+    ? formatAppDate(profile.created_at, language, { year: 'numeric', month: 'long' })
     : ''
 
   const usagePercent = quota && quota.plan_limit > 0
@@ -206,7 +208,7 @@ export function ProfilePage() {
             </div>
             {quota.reset_at && (
               <p className="text-xs text-muted-foreground mt-1.5">
-                {t('profile.resetsOn', 'Resets on')} {new Date(quota.reset_at).toLocaleString()}
+                {t('profile.resetsOn', 'Resets on')} {formatAppDateTime(quota.reset_at, language)}
               </p>
             )}
           </div>

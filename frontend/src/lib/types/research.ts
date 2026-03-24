@@ -1,4 +1,4 @@
-export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'reddit' | 'google_trends'
+export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'reddit'
 
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 
@@ -16,12 +16,160 @@ export type EventType =
   | 'cancelled'
   | 'error'
 
+export interface PipelineEventData {
+  app_type?: string
+  keywords?: string[]
+  target_scenario?: string
+  platform?: string
+  count?: number
+}
+
 export interface PipelineEvent {
   type: EventType
   stage: string
   message: string
-  data: Record<string, unknown>
+  data: PipelineEventData
   timestamp: string
+}
+
+export interface ProgressIntentData {
+  appType?: string
+  keywords: string[]
+  targetScenario?: string
+}
+
+export interface ProgressSourceCompletedData {
+  platform?: string
+  count?: number
+}
+
+export interface ProgressExtractionCompletedData {
+  count?: number
+}
+
+const PIPELINE_EVENT_TYPES: EventType[] = [
+  'intent_started',
+  'intent_parsed',
+  'source_started',
+  'source_completed',
+  'source_failed',
+  'extraction_started',
+  'extraction_completed',
+  'aggregation_started',
+  'aggregation_completed',
+  'report_ready',
+  'cancelled',
+  'error',
+]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isEventType(value: unknown): value is EventType {
+  return typeof value === 'string' && PIPELINE_EVENT_TYPES.includes(value as EventType)
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function readCount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return undefined
+}
+
+export function parseIntentProgressData(raw: unknown): ProgressIntentData {
+  if (!isRecord(raw)) {
+    return { keywords: [] }
+  }
+
+  return {
+    appType: readString(raw.app_type),
+    keywords: readStringList(raw.keywords),
+    targetScenario: readString(raw.target_scenario),
+  }
+}
+
+export function parseSourceCompletedProgressData(raw: unknown): ProgressSourceCompletedData {
+  if (!isRecord(raw)) {
+    return {}
+  }
+
+  return {
+    platform: readString(raw.platform),
+    count: readCount(raw.count),
+  }
+}
+
+export function parseExtractionCompletedProgressData(raw: unknown): ProgressExtractionCompletedData {
+  if (!isRecord(raw)) {
+    return {}
+  }
+
+  return {
+    count: readCount(raw.count),
+  }
+}
+
+export function normalizePipelineEventData(type: EventType, raw: unknown): PipelineEventData {
+  if (type === 'intent_parsed') {
+    const parsed = parseIntentProgressData(raw)
+    return {
+      ...(parsed.appType ? { app_type: parsed.appType } : {}),
+      ...(parsed.keywords.length > 0 ? { keywords: parsed.keywords } : {}),
+      ...(parsed.targetScenario ? { target_scenario: parsed.targetScenario } : {}),
+    }
+  }
+
+  if (type === 'source_completed') {
+    const parsed = parseSourceCompletedProgressData(raw)
+    return {
+      ...(parsed.platform ? { platform: parsed.platform } : {}),
+      ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+    }
+  }
+
+  if (type === 'extraction_completed') {
+    const parsed = parseExtractionCompletedProgressData(raw)
+    return {
+      ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+    }
+  }
+
+  return {}
+}
+
+export function parsePipelineEvent(raw: unknown, fallbackType?: EventType): PipelineEvent | null {
+  if (!isRecord(raw)) {
+    return null
+  }
+
+  const type = isEventType(raw.type) ? raw.type : fallbackType
+  if (!type) {
+    return null
+  }
+
+  return {
+    type,
+    stage: readString(raw.stage) ?? '',
+    message: readString(raw.message) ?? '',
+    data: normalizePipelineEventData(type, raw.data),
+    timestamp: readString(raw.timestamp) ?? '',
+  }
 }
 
 export interface Competitor {

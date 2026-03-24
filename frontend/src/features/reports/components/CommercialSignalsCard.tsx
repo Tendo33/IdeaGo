@@ -1,4 +1,5 @@
 import { BanknoteArrowUp, Wallet } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { CommercialSignal } from '@/lib/types/research'
 
 export interface CommercialSignalsCardProps {
@@ -11,6 +12,7 @@ function toPercent(value: number): number {
 }
 
 export function CommercialSignalsCard({ signals }: CommercialSignalsCardProps) {
+  const { t } = useTranslation()
   if (signals.length === 0) return null
 
   return (
@@ -19,15 +21,15 @@ export function CommercialSignalsCard({ signals }: CommercialSignalsCardProps) {
         <div>
           <div className="inline-flex items-center gap-2 border border-border bg-background px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             <Wallet className="h-3.5 w-3.5 text-cta" />
-            Commercial signals
+            {t('report.commercial.badge')}
           </div>
           <h3 className="mt-3 text-lg font-bold font-heading text-foreground">
-            Demand cues that suggest paid intent
+            {t('report.commercial.title')}
           </h3>
         </div>
         <div className="border border-border bg-muted/40 px-3 py-2 text-right">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-            Signals
+            {t('report.commercial.signals')}
           </p>
           <p className="mt-1 text-lg font-bold text-foreground">{signals.length}</p>
         </div>
@@ -51,13 +53,13 @@ export function CommercialSignalsCard({ signals }: CommercialSignalsCardProps) {
                   ) : null}
                 </div>
                 <span className="shrink-0 border border-cta/25 bg-cta/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cta">
-                  {intent}% intent
+                  {t('report.commercial.intent', { value: intent })}
                 </span>
               </div>
 
               <div className="mt-4">
                 <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  <span>Commercial strength</span>
+                  <span>{t('report.commercial.strength')}</span>
                   <span>{intent}%</span>
                 </div>
                 <div className="h-2 bg-background">
@@ -71,10 +73,10 @@ export function CommercialSignalsCard({ signals }: CommercialSignalsCardProps) {
               <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <div className="min-w-0">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    Monetization hint
+                    {t('report.commercial.monetizationHint')}
                   </p>
                   <p className="mt-1 text-sm text-foreground break-words">
-                    {signal.monetization_hint || 'Commercial demand is visible, but packaging is still undefined.'}
+                    {signal.monetization_hint || t('report.commercial.monetizationFallback')}
                   </p>
                 </div>
                 {signal.source_platforms.length > 0 ? (

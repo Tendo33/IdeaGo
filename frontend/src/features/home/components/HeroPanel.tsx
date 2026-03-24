@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Check, X, AlertTriangle, Clock, ChevronDown, Users, Target, TrendingUp, Lightbulb } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { ResearchReport, RecommendationType, SourceResult } from '@/lib/types/research'
+import type { Platform, ResearchReport, RecommendationType, SourceResult } from '@/lib/types/research'
 import { normalizeSourceErrorMessage } from '@/lib/utils/sourceErrorMessage'
 
 interface HeroPanelProps {
@@ -41,11 +41,13 @@ const SOURCE_STATUS_COLOR: Record<string, string> = {
   cached: 'text-chart-2',
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
+const PLATFORM_LABELS: Record<Platform, string> = {
   github: 'GitHub',
-  tavily: 'Web',
+  tavily: 'Tavily',
   hackernews: 'HN',
   appstore: 'App Store',
+  producthunt: 'Product Hunt',
+  reddit: 'Reddit',
 }
 
 function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
@@ -57,7 +59,7 @@ function SourceStatusInline({ sources }: { sources: SourceResult[] }) {
         return (
           <span key={sr.platform} className={`inline-flex items-center gap-1.5 ${color}`}>
             <Icon className="w-3 h-3" aria-hidden="true" />
-            <span>{PLATFORM_LABELS[sr.platform] ?? sr.platform}</span>
+            <span>{PLATFORM_LABELS[sr.platform]}</span>
             {sr.status === 'ok' && (
               <span className="text-text-dim">
                 {sr.raw_count} ({(sr.duration_ms / 1000).toFixed(1)}s)

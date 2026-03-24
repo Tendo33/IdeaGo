@@ -9,7 +9,7 @@ describe('SectionNav', () => {
     { id: 'section-pain', label: 'Pain' },
     { id: 'section-whitespace', label: 'Whitespace' },
     { id: 'section-competitors', label: 'Competitors', count: 8 },
-    { id: 'section-evidence-confidence', label: 'Evidence & confidence' },
+    { id: 'section-evidence-confidence', label: 'Evidence' },
   ]
 
   it('announces navigation label and active section state', () => {
@@ -47,7 +47,7 @@ describe('SectionNav', () => {
       'Pain',
       'Whitespace',
       'Competitors(8)',
-      'Evidence & confidence',
+      'Evidence',
     ])
     expect(buttons[0]).toHaveAttribute('aria-current', 'location')
 

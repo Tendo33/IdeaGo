@@ -7,18 +7,17 @@ import { Alert } from '../../components/ui/Alert'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { ReportListItem } from '../../lib/types/research'
-
-const MIN_QUERY_LENGTH = 5
-const MAX_QUERY_LENGTH = 1000
+import { formatAppDate } from '@/lib/utils/dateLocale'
 
 interface RecentReportItemProps {
   report: ReportListItem;
   idx: number;
   onNavigate: (id: string) => void;
   t: (key: string) => string;
+  language: string;
 }
 
-const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigate, t }: RecentReportItemProps) {
+const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigate, t, language }: RecentReportItemProps) {
   return (
     <button
       onClick={() => onNavigate(report.id)}
@@ -32,7 +31,7 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
             <Badge variant="secondary" className="text-[10px] sm:text-xs">
-              {new Date(report.created_at).toLocaleDateString()}
+              {formatAppDate(report.created_at, language)}
             </Badge>
             <Badge variant="primary" className="text-[10px] sm:text-xs">
               {report.competitor_count} {t('home.competitors')}
@@ -48,7 +47,8 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage ?? i18n.language
   useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
 
   const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
@@ -73,14 +73,11 @@ export function HomePage() {
   }, [t])
 
   const handleSubmit = useCallback((query: string) => {
-    const normalizedQuery = query.trim()
-    if (
-      normalizedQuery.length < MIN_QUERY_LENGTH ||
-      normalizedQuery.length > MAX_QUERY_LENGTH
-    ) {
+    const validation = SearchBox.validateQuery(query)
+    if (!validation.isValid) {
       return
     }
-    navigate('/reports/new', { state: { query: normalizedQuery } })
+    navigate('/reports/new', { state: { query: validation.normalizedQuery } })
   }, [navigate])
 
   return (
@@ -144,6 +141,7 @@ export function HomePage() {
                   idx={idx}
                   onNavigate={handleNavigate}
                   t={t}
+                  language={language}
                 />
               ))}
             </div>
