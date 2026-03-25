@@ -17,13 +17,65 @@ function useElapsed(running: boolean) {
   return elapsed
 }
 
+function ElapsedTime({ elapsed }: { elapsed: number }) {
+  const { t } = useTranslation()
+  return (
+    <span className="flex items-center gap-1.5">
+      <Clock className="h-3.5 w-3.5" />
+      {t('report.stepper.elapsed', { elapsed })}
+    </span>
+  )
+}
+
+function ElapsedTimeContainer({ elapsed }: { elapsed: number }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <ElapsedTime elapsed={elapsed} />
+      <span>{t('report.stepper.usually')}</span>
+    </div>
+  )
+}
+
+function AnimatedElapsedTimeContainer({ isDone }: { isDone: boolean }) {
+  const elapsed = useElapsed(!isDone)
+  return (
+    <>
+      <AnimatePresence mode="wait">
+        {!isDone && (
+          <motion.div
+            key="runtime"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <ElapsedTimeContainer elapsed={elapsed} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {!isDone && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="sr-only"
+          >
+            <ElapsedTime elapsed={elapsed} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
 interface HorizontalStepperProps {
   events: PipelineEvent[]
   isReconnecting?: boolean
 }
 
 function StepDot({ status, detail }: { status: ProgressStepStatus; detail?: string }) {
-  const base = 'relative flex h-11 w-11 shrink-0 items-center justify-center border border-border/70 bg-background/85 backdrop-blur-none'
+  const base = 'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-background'
 
   if (status === 'done') {
     return (
@@ -31,13 +83,12 @@ function StepDot({ status, detail }: { status: ProgressStepStatus; detail?: stri
         initial={{ scale: 0.92, opacity: 0.7 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className={`${base} text-primary shadow-[4px_4px_0_0_color-mix(in_oklab,var(--color-primary)_20%,transparent)]`}
+        className={`${base} bg-muted/50 border-transparent`}
       >
-        <span className="absolute inset-0 bg-primary/8" />
         {detail ? (
           <span className="relative text-[11px] font-black">{detail}</span>
         ) : (
-          <Check className="relative h-4 w-4" />
+          <Check className="relative h-4 w-4" aria-label="Completed" />
         )}
       </motion.div>
     )
@@ -48,32 +99,25 @@ function StepDot({ status, detail }: { status: ProgressStepStatus; detail?: stri
       <motion.div
         animate={{ opacity: [0.75, 1, 0.75] }}
         transition={{ duration: 1.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
-        className={`${base} text-primary`}
+        className={`${base} text-primary border-primary/30`}
       >
-        <motion.span
-          animate={{ scale: [1, 1.08, 1] }}
-          transition={{ duration: 1.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
-          className="absolute inset-0 border border-primary/35"
-        />
-        <LoaderCircle className="relative h-4 w-4 animate-spin" />
+        <LoaderCircle className="relative h-4 w-4 animate-spin" aria-label="Loading" />
       </motion.div>
     )
   }
 
   if (status === 'failed') {
     return (
-      <div className={`${base} text-danger`}>
-        <span className="absolute inset-0 bg-danger/10" />
-        <AlertTriangle className="relative h-4 w-4" />
+      <div className={`${base} text-danger border-danger/30 bg-danger/5`}>
+        <AlertTriangle className="relative h-4 w-4" aria-label="Failed" />
       </div>
     )
   }
 
   if (status === 'cancelled') {
     return (
-      <div className={`${base} text-muted-foreground`}>
-        <span className="absolute inset-0 bg-muted/60" />
-        <Pause className="relative h-4 w-4" />
+      <div className={`${base} text-muted-foreground bg-muted/20 border-transparent`}>
+        <Pause className="relative h-4 w-4" aria-label="Cancelled" />
       </div>
     )
   }
@@ -89,7 +133,6 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
   const { t } = useTranslation()
   const { steps } = deriveProgressModel(events, t)
   const isDone = ['done', 'failed', 'cancelled'].includes(steps.at(-1)?.status ?? '')
-  const elapsed = useElapsed(!isDone)
   const activeIndex = steps.findIndex(step => step.status === 'active')
   const progressIndex = activeIndex >= 0
     ? activeIndex
@@ -102,13 +145,13 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
   return (
     <div className="w-full">
       {isReconnecting && (
-        <div className="mb-4 flex max-w-md items-center gap-2 border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-warning">
-          <WifiOff className="w-3.5 h-3.5 shrink-0" />
+        <div className="mb-4 flex max-w-md items-center gap-2 border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-warning" role="alert">
+          <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           {t('report.stepper.reconnecting')}
         </div>
       )}
 
-      <div className="relative overflow-hidden border border-border/70 bg-background/70 px-4 py-5 sm:px-5">
+      <div className="relative overflow-hidden border border-border bg-card px-4 py-5 sm:px-5">
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground">
@@ -119,39 +162,23 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
             </p>
           </div>
 
-          <AnimatePresence mode="wait">
-            {!isDone && (
-              <motion.div
-                key="runtime"
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" />
-                  {t('report.stepper.elapsed', { elapsed })}
-                </span>
-                <span>{t('report.stepper.usually')}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <AnimatedElapsedTimeContainer isDone={isDone} />
         </div>
 
-        <div className="relative overflow-x-auto pb-2">
-          <div className="absolute left-0 right-0 top-5 h-px bg-border/30" />
+        <div className="relative overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="absolute left-[calc(10%)] right-[calc(10%)] sm:left-[calc(5%)] sm:right-[calc(5%)] top-[20px] h-[1px] bg-border z-0" />
           <motion.div
-            className="absolute left-0 right-0 top-5 h-px origin-left bg-primary/70"
+            className="absolute left-[calc(10%)] right-[calc(10%)] sm:left-[calc(5%)] sm:right-[calc(5%)] top-[20px] h-[1px] origin-left bg-primary z-0"
             animate={{ scaleX: progressScale }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           />
-          <div className="relative flex min-w-[860px] items-start justify-between gap-3">
+          <div className="relative z-10 flex min-w-max items-start justify-between gap-3">
             {steps.map(step => (
-              <div key={step.id} className="flex max-w-[92px] min-w-[76px] flex-1 flex-col items-center gap-3 text-center">
+              <div key={step.id} className="flex min-w-[100px] max-w-[120px] flex-1 flex-col items-center gap-3 text-center">
                 <StepDot status={step.status} detail={step.detail} />
                 <div className="space-y-1">
                   <p
-                    className={`text-[11px] font-semibold leading-tight transition-colors ${
+                    className={`text-[13px] font-semibold leading-tight transition-colors ${
                       step.status === 'active'
                         ? 'text-primary'
                         : step.status === 'done'
@@ -165,26 +192,13 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
                   >
                     {step.shortLabel}
                   </p>
-                  <p className="text-[10px] leading-tight text-muted-foreground/85">{step.label}</p>
+                  <p className="text-[11px] leading-tight text-muted-foreground/85 mt-1">{step.label}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-
-      <AnimatePresence>
-        {!isDone && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="sr-only"
-          >
-            {t('report.stepper.elapsed', { elapsed })}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

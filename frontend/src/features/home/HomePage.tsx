@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { ReportListItem } from '../../lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
+import { readHistoryCache } from '@/features/history/historyCache'
 
 interface RecentReportItemProps {
   report: ReportListItem;
@@ -49,9 +50,13 @@ export function HomePage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
+  const [cachedRecentReports] = useState<ReportListItem[] | null>(
+    () => readHistoryCache()?.reports.slice(0, 5) ?? null,
+  )
   useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
 
-  const [recentReports, setRecentReports] = useState<ReportListItem[]>([])
+  const [recentReports, setRecentReports] = useState<ReportListItem[]>(() => cachedRecentReports ?? [])
+  const [recentReportsLoading, setRecentReportsLoading] = useState(() => cachedRecentReports === null)
   const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
 
   const handleNavigate = useCallback((id: string) => {
@@ -69,8 +74,13 @@ export function HomePage() {
         if (isRequestAbortError(error)) return
         setRecentReportsError(t('home.errorLoadRecent'))
       })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setRecentReportsLoading(false)
+        }
+      })
     return () => controller.abort()
-  }, [t])
+  }, [cachedRecentReports, t])
 
   const handleSubmit = useCallback((query: string) => {
     const validation = SearchBox.validateQuery(query)
@@ -132,6 +142,17 @@ export function HomePage() {
             </Alert>
           )}
 
+          {!recentReportsError && recentReportsLoading && recentReports.length === 0 && (
+            <div className="space-y-3" aria-label={t('loading.page')}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-20 border-2 border-border bg-background/60 animate-pulse"
+                />
+              ))}
+            </div>
+          )}
+
           {recentReports.length > 0 && (
             <div className="space-y-0">
               {recentReports.map((report, idx) => (
@@ -147,7 +168,7 @@ export function HomePage() {
             </div>
           )}
 
-          {!recentReportsError && recentReports.length === 0 && (
+          {!recentReportsError && !recentReportsLoading && recentReports.length === 0 && (
             <div className="py-12 px-6 text-center border-2 border-dashed border-border">
               <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 {t('history.emptyState')}

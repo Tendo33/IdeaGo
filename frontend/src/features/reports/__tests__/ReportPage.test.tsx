@@ -175,6 +175,16 @@ function buildReport(overrides: Partial<ResearchReport> = {}): ResearchReport {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 describe('ReportPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -220,6 +230,34 @@ describe('ReportPage', () => {
     expect(screen.getByText('WHITESPACE_OPPORTUNITIES')).toBeInTheDocument()
     expect(screen.queryByText('CONFIDENCE')).not.toBeInTheDocument()
     expect(screen.getByText('EVIDENCE_COST')).toBeInTheDocument()
+  })
+
+  it('does not show the processing pane while loading an existing report', async () => {
+    const pendingReport = deferred<Awaited<ReturnType<typeof getReportWithStatus>>>()
+    vi.mocked(getReportWithStatus).mockReturnValueOnce(pendingReport.promise)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-loading']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+    expect(screen.queryByText('正在拆解您的想法')).not.toBeInTheDocument()
+
+    pendingReport.resolve({
+      status: 'ready',
+      report: buildReport({
+        id: 'r-loading',
+        query: 'Loaded report',
+      }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('HEADER:Loaded report')).toBeInTheDocument()
+    })
   })
 
   it('uses decision-first section nav shape', async () => {

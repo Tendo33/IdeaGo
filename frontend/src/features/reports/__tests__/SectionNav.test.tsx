@@ -46,10 +46,11 @@ describe('SectionNav', () => {
       'Why now',
       'Pain',
       'Whitespace',
-      'Competitors(8)',
+      'Competitors8',
       'Evidence',
     ])
     expect(buttons[0]).toHaveAttribute('aria-current', 'location')
+    expect(screen.getByText('8')).toBeInTheDocument()
 
     sectionElements.forEach(section => section.remove())
   })

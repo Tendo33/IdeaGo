@@ -202,7 +202,7 @@ class SupabaseReportRepository:
             },
             params=params,
         )
-        if resp.status_code != 200:
+        if resp.status_code not in (200, 206):
             logger.warning("Supabase list_reports failed: {}", resp.status_code)
             return [], 0
 

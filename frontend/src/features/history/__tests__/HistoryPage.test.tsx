@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deleteReport, listReports } from '@/lib/api/client'
 import { HistoryPage } from '../HistoryPage'
 
+const HISTORY_CACHE_STORAGE_KEY = 'ideago-history-cache'
+
 vi.mock('@/lib/api/client', () => ({
   deleteReport: vi.fn(),
   isRequestAbortError: vi.fn(() => false),
@@ -18,6 +20,7 @@ describe('HistoryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
+    window.sessionStorage.clear()
   })
 
   it('shows deleting state and prevents duplicate delete clicks', async () => {
@@ -238,5 +241,38 @@ describe('HistoryPage', () => {
         delete (HTMLDialogElement.prototype as { close?: unknown }).close
       }
     }
+  })
+
+  it('renders cached history immediately while refreshing in the background', async () => {
+    window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify({
+      pageIndex: 0,
+      hasNextPage: false,
+      reports: [
+        {
+          id: 'cached-report',
+          query: 'Cached report',
+          created_at: new Date().toISOString(),
+          competitor_count: 5,
+        },
+      ],
+    }))
+
+    vi.mocked(listReports).mockImplementation(
+      () =>
+        new Promise(() => {
+          // keep request pending so the test only observes initial paint
+        }),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Cached report')).toBeInTheDocument()
   })
 })

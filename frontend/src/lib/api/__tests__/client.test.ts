@@ -10,6 +10,7 @@ import {
   exportReport,
   getStreamUrl,
 } from '../client'
+import { saveCustomAuthSession, setAccessToken } from '@/lib/auth/token'
 
 const NativeURL = globalThis.URL
 const mockFetch = vi.fn()
@@ -17,6 +18,8 @@ vi.stubGlobal('fetch', mockFetch)
 
 beforeEach(() => {
   mockFetch.mockReset()
+  localStorage.clear()
+  setAccessToken(null)
 })
 
 describe('startAnalysis', () => {
@@ -165,6 +168,30 @@ describe('listReports', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/v1\/reports\?limit=5&offset=20$/),
       expect.objectContaining({ signal: expect.anything() }),
+    )
+  })
+
+  it('falls back to the stored custom auth session when the in-memory token is not initialized yet', async () => {
+    saveCustomAuthSession({
+      access_token: 'stored-token',
+      provider: 'linuxdo',
+      user: { id: 'u1', email: 'user@example.com' },
+    })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 0 }),
+    })
+
+    await listReports({ limit: 5, offset: 0 })
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/v1\/reports\?limit=5&offset=0$/),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer stored-token',
+        }),
+      }),
     )
   })
 })

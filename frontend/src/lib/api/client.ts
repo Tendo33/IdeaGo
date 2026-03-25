@@ -2,6 +2,7 @@ import type { PaginatedReportList, ReportRuntimeStatus, ResearchReport } from '.
 import {
   clearCustomAuthSession,
   getAccessToken,
+  readCustomAuthSession,
   setAccessToken,
 } from '../auth/token'
 import { supabase } from '../supabase/client'
@@ -31,7 +32,7 @@ export function isApiError(error: unknown): error is ApiError {
 }
 
 function authHeaders(): Record<string, string> {
-  const token = getAccessToken()
+  const token = getAccessToken() ?? readCustomAuthSession()?.access_token ?? null
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 

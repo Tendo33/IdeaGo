@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button, buttonVariants } from '@/components/ui/Button'
 import type { ReportListItem } from '@/lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
+import { readHistoryCache, writeHistoryCache, type HistoryCacheSnapshot } from '@/features/history/historyCache'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -83,14 +84,16 @@ export function HistoryPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
+  const [initialCache] = useState<HistoryCacheSnapshot | null>(() => readHistoryCache())
   useDocumentTitle(t('history.title') + ' — IdeaGo')
-  const [reports, setReports] = useState<ReportListItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [reports, setReports] = useState<ReportListItem[]>(() => initialCache?.reports ?? [])
+  const [loading, setLoading] = useState(() => initialCache === null)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [reportToDelete, setReportToDelete] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const initialCacheUsedRef = useRef(false)
 
   useEffect(() => {
     if (reportToDelete) {
@@ -99,8 +102,8 @@ export function HistoryPage() {
       closeDialogElement(dialogRef.current)
     }
   }, [reportToDelete])
-  const [pageIndex, setPageIndex] = useState(0)
-  const [hasNextPage, setHasNextPage] = useState(false)
+  const [pageIndex, setPageIndex] = useState(() => initialCache?.pageIndex ?? 0)
+  const [hasNextPage, setHasNextPage] = useState(() => initialCache?.hasNextPage ?? false)
 
   const loadPage = useCallback(async (targetPage: number, signal?: AbortSignal) => {
     const { items, total } = await listReports({
@@ -122,7 +125,16 @@ export function HistoryPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    setLoading(true)
+    const canHydrateFromCache =
+      !initialCacheUsedRef.current &&
+      initialCache !== null &&
+      initialCache.pageIndex === pageIndex
+
+    initialCacheUsedRef.current = true
+    if (!canHydrateFromCache) {
+      setLoading(true)
+    }
+
     loadPage(pageIndex, controller.signal)
       .then(({ reports: nextReports, hasNext }) => {
         if (!controller.signal.aborted && nextReports.length === 0 && pageIndex > 0) {
@@ -132,6 +144,11 @@ export function HistoryPage() {
         setReports(nextReports)
         setHasNextPage(hasNext)
         setError(null)
+        writeHistoryCache({
+          pageIndex,
+          hasNextPage: hasNext,
+          reports: nextReports,
+        })
       })
       .catch(error => {
         if (isRequestAbortError(error)) return
@@ -143,7 +160,7 @@ export function HistoryPage() {
         }
       })
     return () => controller.abort()
-  }, [loadPage, pageIndex, t])
+  }, [initialCache, loadPage, pageIndex, t])
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -179,6 +196,11 @@ export function HistoryPage() {
       }
       setReports(refreshed)
       setHasNextPage(hasNext)
+      writeHistoryCache({
+        pageIndex: targetPage,
+        hasNextPage: hasNext,
+        reports: refreshed,
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('history.errorDelete')
       setError(msg)

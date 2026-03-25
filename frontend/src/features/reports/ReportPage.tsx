@@ -137,8 +137,9 @@ export function ReportPage() {
   }, [setCompareSet, setShowCompare])
 
   const hasBlockingError = Boolean(sseError || loadError)
+  const showExistingReportLoading = !isNewAnalysis && !hasBlockingError && loadPhase === 'loading' && !report
   const showProgress =
-    !hasBlockingError && (loadPhase === 'processing' || (loadPhase === 'loading' && !report))
+    !hasBlockingError && (loadPhase === 'processing' || (isNewAnalysis && loadPhase === 'loading' && !report))
   const allFailed = report
     ? report.source_results.length > 0 &&
       report.source_results.every(source => source.status === 'failed' || source.status === 'timeout')
@@ -201,6 +202,28 @@ export function ReportPage() {
             toggleCompare={toggleCompare}
             cancelledMessage={cancelled}
           />
+        )}
+
+        {showExistingReportLoading && (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-4 border-2 border-border bg-card p-5">
+                <Skeleton className="h-5 w-1/4" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+              <div className="space-y-4 border-2 border-border bg-card p-5">
+                <Skeleton className="h-5 w-1/3" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-5/6" />
+              </div>
+            </div>
+          </div>
         )}
 
         {showProgress && isComplete && !report && !sseError && !cancelled && !loadError && (

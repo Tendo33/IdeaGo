@@ -482,6 +482,43 @@ async def test_supabase_repo_put_list_and_delete() -> None:
 
 
 @pytest.mark.asyncio
+async def test_supabase_repo_list_reports_accepts_partial_content() -> None:
+    report = _make_report("cache-key-206", "query-206")
+    fake_client = AsyncMock()
+    fake_client.get = AsyncMock(
+        return_value=_FakeResponse(
+            206,
+            payload=[
+                {
+                    "id": report.id,
+                    "query": report.query,
+                    "cache_key": report.intent.cache_key,
+                    "created_at": report.created_at.isoformat(),
+                    "competitor_count": 0,
+                    "user_id": "user-1",
+                }
+            ],
+            headers={"content-range": "0-0/6"},
+        )
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        rows, total = await repo.list_reports(limit=5, offset=0, user_id="user-1")
+        assert len(rows) == 1
+        assert total == 6
+
+
+@pytest.mark.asyncio
 async def test_supabase_repo_put_list_and_delete_error_paths() -> None:
     report = _make_report("cache-key-3", "query-3")
     fake_client = AsyncMock()
