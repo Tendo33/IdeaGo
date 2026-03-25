@@ -1,6 +1,6 @@
 """Abstract report repository interface.
 
-所有报告存储后端（文件系统、Supabase PostgreSQL）都实现此协议。
+所有报告存储后端都实现此协议；`main` 当前使用本地文件缓存。
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from ideago.models.research import ResearchReport
 
 
 class ReportIndex(BaseModel):
-    """Summary entry used for report listing across all backends."""
+    """Summary entry used for report listing."""
 
     report_id: str
     query: str

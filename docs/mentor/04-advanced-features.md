@@ -107,30 +107,30 @@ pnpm --prefix frontend test
 
 - Network 中 `/stream` 是否出现 `ping`
 - 是否能收到 `report_ready`、`error`、`cancelled`
-- 若没有终态，去看 `.cache/ideago` 或对应 Supabase 状态
+- 若没有终态，去看 `.cache/ideago` 下的状态文件与 checkpoint
 
-## 4) 双持久化实现：FileCache 与 SupabaseRepository
+## 4) 持久化实现：FileCache 与本地 SQLite checkpoint
 
 实现位置：
 
 - `src/ideago/cache/file_cache.py`
-- `src/ideago/cache/supabase_cache.py`
 - `src/ideago/api/dependencies.py:get_cache()`
+- `src/ideago/pipeline/langgraph_engine.py`
 
 它解决的问题：
 
-- 本地开发可以零门槛跑起来
-- 生产环境可以用 Supabase 做多用户隔离与持久化
+- 本地个人部署可以零门槛跑起来
+- 报告内容、运行状态和 pipeline checkpoint 都能在单机模式下恢复
 
 你需要理解的是：
 
 - 业务代码尽量依赖 `ReportRepository` 抽象
-- `status` 不只是“附属信息”，它是恢复运行态和做权限判定的重要依据
+- `status` 不只是“附属信息”，它是恢复运行态和 SSE 历史的重要依据
 
 常见误区：
 
 - 假设所有环境都有本地状态文件
-- 修改状态写入逻辑时忘记带 `user_id`，导致 owner check 被破坏
+- 修改状态写入逻辑时忘记兼容匿名报告恢复语义
 
 ## 5) 报告页体验：状态协调与大列表虚拟化
 

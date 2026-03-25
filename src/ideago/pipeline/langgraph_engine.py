@@ -1,8 +1,4 @@
-"""LangGraph-based pipeline engine.
-
-Supports PostgreSQL checkpointer (via Supabase DB) for production and
-falls back to SQLite for local dev when no DB URL is configured.
-"""
+"""LangGraph-based pipeline engine with local SQLite checkpointing."""
 
 from __future__ import annotations
 
@@ -31,10 +27,8 @@ logger = get_logger(__name__)
 class LangGraphEngine:
     """Coordinates the full research pipeline via LangGraph.
 
-    When *checkpoint_db_url* (a PostgreSQL connection string) is provided the
-    engine uses ``AsyncPostgresSaver`` for durable, multi-worker-safe
-    checkpointing.  Otherwise it falls back to ``AsyncSqliteSaver`` using a
-    local file at *checkpoint_db_path*.
+    ``main`` persists pipeline checkpoints through ``AsyncSqliteSaver`` using
+    the configured local file at *checkpoint_db_path*.
     """
 
     def __init__(
@@ -50,7 +44,6 @@ class LangGraphEngine:
         max_results_per_source: int = 10,
         max_concurrent_llm: int = 3,
         source_global_concurrency: int = 3,
-        checkpoint_db_url: str = "",
     ) -> None:
         self._intent_parser = intent_parser
         self._extractor = extractor
@@ -58,7 +51,6 @@ class LangGraphEngine:
         self._registry = registry
         self._cache = cache
 
-        self._checkpoint_db_url = checkpoint_db_url.strip()
         checkpoint_path = Path(checkpoint_db_path)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         self._checkpoint_db_path = str(checkpoint_path)
@@ -69,10 +61,7 @@ class LangGraphEngine:
         self._max_concurrent_llm = max_concurrent_llm
         self._source_global_concurrency = max(1, source_global_concurrency)
 
-        if self._checkpoint_db_url:
-            logger.info("Checkpoint backend: PostgreSQL")
-        else:
-            logger.info("Checkpoint backend: SQLite ({})", self._checkpoint_db_path)
+        logger.info("Checkpoint backend: SQLite ({})", self._checkpoint_db_path)
 
     def get_all_sources(self) -> list[DataSource]:
         """Return all registered source plugins."""
@@ -141,28 +130,8 @@ class LangGraphEngine:
         return report
 
     async def _open_checkpoint_saver(self) -> tuple[Any, Any]:
-        """Open the appropriate checkpoint saver.
-
-        PostgreSQL when *checkpoint_db_url* is configured, SQLite otherwise.
-        Both are opened as async context managers with cancellation safety.
-        """
-        if self._checkpoint_db_url:
-            return await self._open_postgres_saver()
+        """Open the SQLite checkpoint saver with cancellation safety."""
         return await self._open_sqlite_saver()
-
-    async def _open_postgres_saver(self) -> tuple[Any, Any]:
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-        saver_cm = AsyncPostgresSaver.from_conn_string(self._checkpoint_db_url)
-        enter_task = asyncio.create_task(saver_cm.__aenter__())
-        try:
-            saver = await asyncio.shield(enter_task)
-        except asyncio.CancelledError:
-            with contextlib.suppress(Exception):
-                await enter_task
-                await asyncio.shield(saver_cm.__aexit__(None, None, None))
-            raise
-        return saver_cm, saver
 
     async def _open_sqlite_saver(self) -> tuple[Any, Any]:
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver

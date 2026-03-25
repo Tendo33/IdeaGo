@@ -9,7 +9,6 @@
 - `frontend/src/`：前端主代码
 - `tests/`：后端 pytest 测试，很多设计意图都写在这里
 - `docs/`：设计文档、带教文档、项目资料
-- `supabase/`：SQL 迁移和 Supabase 相关资源
 - `scripts/`：发布和维护脚本
 
 可以先忽略：
@@ -29,25 +28,21 @@
   - `create_app()`：FastAPI 应用工厂
   - 统一装配 CORS、CSRF、防护头、限流、trace id、异常处理、SPA fallback
 - `src/ideago/api/routes/analyze.py`
-  - `start_analysis()`：校验配额，创建任务，返回 `report_id`
+  - `start_analysis()`：匿名分析入口，创建任务，返回 `report_id`
   - `_run_pipeline()`：后台跑完整分析流程
   - `stream_progress()` / `_stream_events()`：SSE 推送与历史重放
   - `cancel_analysis()`：取消运行中分析
 - `src/ideago/api/routes/reports.py`
   - 列表、详情、状态、导出、删除
-- `src/ideago/api/routes/auth.py`
-  - LinuxDo OAuth、profile、quota、token refresh、账号删除
-- `src/ideago/api/routes/billing.py`
-  - Stripe checkout、portal、webhook
-- `src/ideago/api/routes/admin.py`
-  - 管理后台统计、用户、健康检查
+- `src/ideago/api/routes/health.py`
+  - 健康检查和 source availability 概览
 
 ### B. 依赖装配与运行态层
 
 - `src/ideago/api/dependencies.py`
-  - `get_cache()`：按配置选择 `FileCache` 或 Supabase 实现
+  - `get_cache()`：装配本地 `FileCache`
   - `get_orchestrator()`：装配 LLM、source registry、pipeline 组件
-  - `reserve_processing_report()`：按用户维度做并发去重
+  - `reserve_processing_report()`：按查询做并发去重
   - `ReportRunState`：SSE 历史、订阅者、终态内存管理
 
 ### C. Pipeline 核心层
@@ -85,9 +80,7 @@
 - `src/ideago/cache/base.py`
   - `ReportRepository` 抽象
 - `src/ideago/cache/file_cache.py`
-  - 本地开发用缓存与状态文件
-- `src/ideago/cache/supabase_cache.py`
-  - 生产/多用户场景的持久化实现
+  - `main` 的本地缓存与状态文件实现
 - `src/ideago/models/research.py`
   - `ResearchReport`、`Competitor`、`Intent` 等核心模型
 
@@ -96,14 +89,14 @@
 ### A. 应用壳层
 
 - `frontend/src/app/App.tsx`
-  - 路由、主题模式、语言切换、ErrorBoundary、AuthProvider
+  - 匿名主路由、主题模式、语言切换、ErrorBoundary
 - `frontend/src/app/main.tsx`
   - React 挂载入口
 
 ### B. 业务 feature 层
 
 - `frontend/src/features/home/HomePage.tsx`
-  - 登录后首页，发起分析
+  - 匿名首页，发起分析
 - `frontend/src/features/reports/ReportPage.tsx`
   - 报告页容器
 - `frontend/src/features/reports/components/useReportLifecycle.ts`
@@ -116,17 +109,13 @@
   - 大列表虚拟化
 - `frontend/src/features/history/HistoryPage.tsx`
   - 报告历史
-- `frontend/src/features/profile/ProfilePage.tsx`
-  - 资料和订阅管理
 
 ### C. 前端基础设施层
 
 - `frontend/src/lib/api/client.ts`
   - 统一 API 客户端
 - `frontend/src/lib/api/useSSE.ts`
-  - SSE 连接、解析、重连、401 处理
-- `frontend/src/lib/auth/*`
-  - token、context、受保护路由
+  - SSE 连接、解析、重连
 - `frontend/src/lib/types/research.ts`
   - 前端报告类型
 
@@ -137,17 +126,17 @@ flowchart LR
   U["用户提交 Idea"] --> FE1["HomePage / SearchBox"]
   FE1 --> API1["POST /api/v1/analyze"]
   API1 --> A1["start_analysis"]
-  A1 --> A2["quota 校验 + 去重"]
+  A1 --> A2["去重 + 任务登记"]
   A2 --> BG["_run_pipeline"]
   BG --> G1["LangGraphEngine.run"]
   G1 --> N1["parse_intent"]
   N1 --> N2["cache_lookup"]
   N2 -->|miss| N3["fetch_sources"]
   N3 --> N4["extract_map"]
-  N4 --> N5["aggregate"]
+  N4 --> N5["analyze"]
   N5 --> N6["assemble_report"]
   N6 --> N7["persist_report"]
-  N7 --> C1["FileCache / Supabase"]
+  N7 --> C1["FileCache + SQLite checkpoints"]
   BG --> SSE["GET /reports/{id}/stream"]
   SSE --> FE2["useSSE"]
   FE2 --> FE3["useReportLifecycle"]

@@ -705,8 +705,7 @@
       "providers": {
         "github": "GitHub",
         "google": "Google",
-        "linuxdo": "LinuxDo",
-        "supabase": "Email"
+        "linuxdo": "LinuxDo"
       }
     },
     "col": {

@@ -705,8 +705,7 @@
       "providers": {
         "github": "GitHub",
         "google": "Google",
-        "linuxdo": "LinuxDo",
-        "supabase": "邮箱"
+        "linuxdo": "LinuxDo"
       }
     },
     "col": {

@@ -29,6 +29,8 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
+        env:
+          UV_DEFAULT_INDEX: https://pypi.org/simple
         run: uv sync --all-extras
 
       - name: Ruff lint
@@ -41,7 +43,11 @@ jobs:
         run: uv run mypy src
 
       - name: Security audit (pip-audit)
-        run: uvx pip-audit --strict --desc
+        env:
+          UV_DEFAULT_INDEX: https://pypi.org/simple
+        run: |
+          uv export --format requirements-txt --no-dev --no-header --no-hashes --no-emit-project > requirements.audit.txt
+          uvx pip-audit --strict --desc -r requirements.audit.txt
 
       - name: Pytest
         run: uv run pytest

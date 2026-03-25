@@ -40,7 +40,6 @@ export default defineConfig({
 					}
 
 					if (
-						id.includes("node_modules/@supabase/") ||
 						id.includes("node_modules/@sentry/")
 					) {
 						return "service-vendor"
