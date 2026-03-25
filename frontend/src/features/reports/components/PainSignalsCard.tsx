@@ -87,7 +87,7 @@ export function PainSignalsCard({ signals }: PainSignalsCardProps) {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap items-start gap-2">
                 {signal.source_platforms.slice(0, 3).map(platform => (
                   <span
                     key={`${signal.theme}-${platform}`}
