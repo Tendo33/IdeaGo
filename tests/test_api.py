@@ -1,664 +1,137 @@
-"""Tests for FastAPI application and routes."""
+"""Personal-mode API tests."""
 
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
-import contextlib
-import hashlib
-import json
-import threading
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 
-from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
-from ideago.api.routes import analyze as analyze_route
-from ideago.cache.file_cache import FileCache, ReportIndex
-from ideago.models.research import (
-    Competitor,
-    Intent,
-    Platform,
-    ResearchReport,
-    SearchQuery,
-)
-from ideago.pipeline.events import EventType, PipelineEvent
+from ideago.cache.file_cache import FileCache
+from ideago.config.settings import get_settings, reload_settings
+from ideago.models.research import Intent, Platform, ResearchReport, SearchQuery
 
 
-@pytest.fixture(autouse=True)
-def reset_runtime_state() -> None:
-    app_module._rate_limit_store.clear()
-    asyncio.run(deps.shutdown_runtime_state())
-    yield
-    app_module._rate_limit_store.clear()
-    asyncio.run(deps.shutdown_runtime_state())
-
-
-@pytest.fixture
-def client():
-    app = create_app()
-    with TestClient(app) as test_client:
-        yield test_client
-
-
-@pytest.mark.asyncio
-async def test_shutdown_runtime_state_cancels_tasks_and_clears_maps() -> None:
-    async def never_finishes() -> None:
-        await asyncio.sleep(10)
-
-    task = asyncio.create_task(never_finishes())
-    deps.set_pipeline_task("shutdown-report", task)
-    deps.get_processing_reports()["shutdown-query"] = "shutdown-report"
-    deps.get_or_create_report_run("shutdown-report")
-
-    await deps.shutdown_runtime_state()
-
-    assert "shutdown-report" not in deps._pipeline_tasks
-    assert "shutdown-query" not in deps.get_processing_reports()
-    assert deps.get_report_run("shutdown-report") is None
-    assert task.cancelled() or task.done()
-
-
-def test_shutdown_runtime_state_handles_tasks_from_different_event_loop() -> None:
-    async def never_finishes() -> None:
-        await asyncio.sleep(10)
-
-    foreign_loop = asyncio.new_event_loop()
-    task = foreign_loop.create_task(never_finishes())
-    foreign_loop.run_until_complete(asyncio.sleep(0))
-    deps.set_pipeline_task("foreign-loop-report", task)
-
-    try:
-        asyncio.run(deps.shutdown_runtime_state())
-    finally:
-        deps._pipeline_tasks.clear()
-        deps.get_processing_reports().clear()
-        deps._report_runs.clear()
-        if not task.done():
-            task.cancel()
-            foreign_loop.run_until_complete(
-                asyncio.gather(task, return_exceptions=True)
-            )
-        foreign_loop.close()
-
-    assert "foreign-loop-report" not in deps._pipeline_tasks
-
-
-def test_health_endpoint(client) -> None:
-    response = client.get("/api/v1/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ok"
-    assert "sources" in data
-    assert "producthunt" in data["sources"]
-    assert data["sources"]["hackernews"] is True
-    assert data["sources"]["appstore"] is True
-
-
-def test_health_endpoint_returns_degraded_when_orchestrator_unavailable(client) -> None:
-    with patch(
-        "ideago.api.routes.health.get_orchestrator",
-        side_effect=RuntimeError("dependency init failed"),
-    ):
-        response = client.get("/api/v1/health")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "degraded"
-    assert data["sources"] == {}
-
-
-def test_analyze_endpoint_returns_report_id(client) -> None:
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "I want to build a markdown notes extension"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "report_id" in data
-    assert len(data["report_id"]) > 0
-
-
-def test_analyze_endpoint_validates_short_query(client) -> None:
-    response = client.post("/api/v1/analyze", json={"query": "hi"})
-    assert response.status_code == 422
-
-
-def test_analyze_endpoint_rejects_garbage_query(client) -> None:
-    response = client.post("/api/v1/analyze", json={"query": "12345 67890 !!!"})
-    assert response.status_code == 422
-
-
-def test_analyze_endpoint_normalizes_whitespace(client) -> None:
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "I  want   to  build   a   markdown   notes   tool"},
-    )
-    assert response.status_code == 200
-
-
-def test_analyze_endpoint_accepts_non_latin_query(client) -> None:
-    response = client.post(
-        "/api/v1/analyze",
-        json={"query": "一个可以自动整理会议纪要的AI工具"},
-    )
-    assert response.status_code == 200
-
-
-def test_analyze_endpoint_deduplicates_concurrent_same_query(client) -> None:
-    query = "I want to build a markdown notes extension for teams"
-    start_barrier = threading.Barrier(parties=8)
-
-    async def fake_run_pipeline(_query: str, _report_id: str) -> None:
-        await asyncio.sleep(1)
-
-    with patch("ideago.api.routes.analyze._run_pipeline", new=fake_run_pipeline):
-
-        def send_request() -> str:
-            with contextlib.suppress(threading.BrokenBarrierError):
-                start_barrier.wait(timeout=0.5)
-            response = client.post("/api/v1/analyze", json={"query": query})
-            assert response.status_code == 200
-            return response.json()["report_id"]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            report_ids = list(pool.map(lambda _i: send_request(), range(8)))
-
-    assert len(set(report_ids)) == 1
-
-
-def test_cancel_analysis_not_found(client) -> None:
-    response = client.delete("/api/v1/reports/nonexistent-id/cancel")
-    assert response.status_code == 404
-
-
-def _make_test_report() -> ResearchReport:
+def _make_report(
+    cache_key: str = "test_key", query: str = "test idea"
+) -> ResearchReport:
     intent = Intent(
         keywords_en=["test"],
         app_type="web",
         target_scenario="test",
         search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["test"])],
-        cache_key="test_cache_key",
+        cache_key=cache_key,
     )
-    return ResearchReport(
-        query="test idea",
-        intent=intent,
-        competitors=[
-            Competitor(
-                name="TestProduct",
-                links=["https://test.com"],
-                one_liner="A test product",
-                source_platforms=[Platform.GITHUB],
-                source_urls=["https://github.com/test/test"],
-                relevance_score=0.8,
-            )
-        ],
-        market_summary="Test market summary.",
-        go_no_go="Go",
+    return ResearchReport(query=query, intent=intent)
+
+
+@pytest.fixture
+def personal_runtime(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Iterator[FileCache]:
+    cache_dir = tmp_path / "cache"
+    checkpoint_path = tmp_path / "langgraph-checkpoints.db"
+    monkeypatch.setenv("CACHE_DIR", str(cache_dir))
+    monkeypatch.setenv("LANGGRAPH_CHECKPOINT_DB_PATH", str(checkpoint_path))
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    reload_settings()
+    deps._cache = None
+    deps._orchestrator = None
+
+    cache = FileCache(
+        str(cache_dir), ttl_hours=get_settings().anonymous_cache_ttl_hours
     )
+    deps._cache = cache
+
+    yield cache
+
+    deps._cache = None
+    deps._orchestrator = None
+    get_settings.cache_clear()
 
 
-def test_get_report_found(client, tmp_path) -> None:
-    report = _make_test_report()
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+def test_health_endpoint_returns_ok(personal_runtime: FileCache) -> None:
+    app = create_app()
 
-    import asyncio
-
-    asyncio.run(cache.put(report))
-
-    with (
-        patch("ideago.api.dependencies._cache", cache),
-        patch("ideago.api.dependencies.get_cache", return_value=cache),
-    ):
-        response = client.get(f"/api/v1/reports/{report.id}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["query"] == "test idea"
-    assert len(data["competitors"]) == 1
-
-
-def test_get_report_not_found(client) -> None:
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_by_id = AsyncMock(return_value=None)
-    mock_cache.get_status = AsyncMock(return_value=None)
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
-        response = client.get("/api/v1/reports/nonexistent-id")
-    assert response.status_code == 404
-
-
-def test_get_report_status_complete(client, tmp_path) -> None:
-    report = _make_test_report()
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    asyncio.run(cache.put(report))
-
-    with (
-        patch("ideago.api.dependencies._cache", cache),
-        patch("ideago.api.dependencies.get_cache", return_value=cache),
-    ):
-        response = client.get(f"/api/v1/reports/{report.id}/status")
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health")
 
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "complete"
-    assert payload["report_id"] == report.id
-    assert payload["query"] == report.query
+    assert response.json() == {"status": "ok"}
 
 
-def test_get_report_status_reads_runtime_status_payload(client, tmp_path) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    report_id = "report-failed-status"
-    asyncio.run(
-        cache.put_status(
-            report_id,
-            "failed",
-            "query text",
-            error_code="PIPELINE_FAILURE",
-            message="Pipeline failed. Please retry.",
+def test_reports_endpoints_are_anonymous(personal_runtime: FileCache) -> None:
+    report = _make_report("report-key", "personal deployment idea")
+
+    app = create_app()
+    with TestClient(app) as client:
+        personal_runtime._put_sync(report)
+
+        list_response = client.get("/api/v1/reports")
+        detail_response = client.get(f"/api/v1/reports/{report.id}")
+        status_response = client.get(f"/api/v1/reports/{report.id}/status")
+        export_response = client.get(f"/api/v1/reports/{report.id}/export")
+        delete_response = client.delete(
+            f"/api/v1/reports/{report.id}",
+            headers={"X-Requested-With": "IdeaGo"},
         )
-    )
 
-    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
-        response = client.get(f"/api/v1/reports/{report_id}/status")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "failed"
-    assert payload["report_id"] == report_id
-    assert payload["error_code"] == "PIPELINE_FAILURE"
-    assert payload["message"] == "Pipeline failed. Please retry."
-    assert payload["query"] == "query text"
-
-
-def test_get_report_status_not_found(client, tmp_path) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
-        response = client.get("/api/v1/reports/nonexistent-id/status")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "not_found"
-    assert payload["report_id"] == "nonexistent-id"
+    assert list_response.status_code == 200
+    assert list_response.json()["items"][0]["id"] == report.id
+    assert detail_response.status_code == 200
+    assert detail_response.json()["id"] == report.id
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "complete"
+    assert export_response.status_code == 200
+    assert export_response.text.startswith("# Source Intelligence Report")
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"status": "deleted"}
 
 
-def test_get_report_status_processing_from_runtime_map(client, tmp_path) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    report_id = "processing-report"
-    deps.get_processing_reports()["query-hash"] = report_id
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
-        response = client.get(f"/api/v1/reports/{report_id}/status")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "processing"
-    assert payload["report_id"] == report_id
-
-
-def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    report_id = "cancelled-report"
-    asyncio.run(
-        cache.put_status(
-            report_id,
-            "cancelled",
-            "query text",
-            error_code="PIPELINE_CANCELLED",
-            message="Analysis cancelled by user",
-        )
-    )
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
-        response = client.get(f"/api/v1/reports/{report_id}/status")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "cancelled"
-    assert payload["report_id"] == report_id
-    assert payload["error_code"] == "PIPELINE_CANCELLED"
-
-
-def test_list_reports(client) -> None:
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.list_reports = AsyncMock(
-        return_value=[
-            ReportIndex(
-                report_id="abc",
-                query="test idea",
-                cache_key="k",
-                created_at=datetime.now(timezone.utc),
-                competitor_count=3,
-            )
-        ]
-    )
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
-        response = client.get("/api/v1/reports")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["query"] == "test idea"
-    mock_cache.list_reports.assert_awaited_once_with(limit=None, offset=0)
-
-
-def test_list_reports_with_pagination_query_params(client) -> None:
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.list_reports = AsyncMock(
-        return_value=[
-            ReportIndex(
-                report_id="paginated-id",
-                query="paged idea",
-                cache_key="k",
-                created_at=datetime.now(timezone.utc),
-                competitor_count=1,
-            )
-        ]
-    )
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
-        response = client.get("/api/v1/reports?limit=1&offset=20")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["id"] == "paginated-id"
-    mock_cache.list_reports.assert_awaited_once_with(limit=1, offset=20)
-
-
-def test_delete_report(client) -> None:
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.delete = AsyncMock(return_value=True)
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
-        response = client.delete("/api/v1/reports/some-id")
-    assert response.status_code == 200
-
-
-def test_delete_report_not_found(client) -> None:
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.delete = AsyncMock(return_value=False)
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
-        response = client.delete("/api/v1/reports/nonexistent")
-    assert response.status_code == 404
-
-
-def test_export_report(client, tmp_path) -> None:
-    report = _make_test_report()
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-
-    import asyncio
-
-    asyncio.run(cache.put(report))
-
-    with patch("ideago.api.routes.reports.get_cache", return_value=cache):
-        response = client.get(f"/api/v1/reports/{report.id}/export")
-    assert response.status_code == 200
-    assert "text/markdown" in response.headers["content-type"]
-    assert "Competitor Research Report" in response.text
-    assert "TestProduct" in response.text
-
-
-@pytest.mark.asyncio
-async def test_stream_reconnect_replays_history_and_terminal_event() -> None:
-    report_id = "report-reconnect"
-    run_state = deps.get_or_create_report_run(report_id)
-    await run_state.publish(
-        PipelineEvent(
-            type=EventType.INTENT_PARSED,
-            stage="intent_parsing",
-            message="Analyzing idea",
-        )
-    )
-
-    first_stream = analyze_route._stream_events(report_id)
-    first_event = await anext(first_stream)
-    assert first_event["event"] == EventType.INTENT_PARSED.value
-    await first_stream.aclose()
-
-    await run_state.publish(
-        PipelineEvent(
-            type=EventType.SOURCE_COMPLETED,
-            stage="github_search",
-            message="Found 2 results from github",
-            data={"platform": "github", "count": 2},
-        )
-    )
-    await run_state.publish(
-        PipelineEvent(
-            type=EventType.REPORT_READY,
-            stage="complete",
-            message="Report ready",
-        )
-    )
-
-    reconnect_stream = analyze_route._stream_events(report_id)
-    replayed_events = [
-        (await anext(reconnect_stream))["event"],
-        (await anext(reconnect_stream))["event"],
-        (await anext(reconnect_stream))["event"],
-    ]
-    assert replayed_events[-1] == EventType.REPORT_READY.value
-    assert EventType.SOURCE_COMPLETED.value in replayed_events
-    await reconnect_stream.aclose()
-
-
-@pytest.mark.asyncio
-async def test_stream_status_only_processing_keeps_ping_until_complete() -> None:
-    report_id = "report-status-only-processing"
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_status = AsyncMock(
-        side_effect=[
-            {"status": "processing"},
-            {"status": "processing"},
-            {"status": "complete"},
-            {"status": "complete"},
-        ]
-    )
-    sleep_mock = AsyncMock(return_value=None)
-
-    with (
-        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
-        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
-    ):
-        stream = analyze_route._stream_events(report_id)
-        first = await anext(stream)
-        second = await anext(stream)
-        terminal = await anext(stream)
-        await stream.aclose()
-
-    assert first["event"] == "ping"
-    assert second["event"] == "ping"
-    assert terminal["event"] == EventType.REPORT_READY.value
-    assert sleep_mock.await_count == 2
-
-
-@pytest.mark.asyncio
-async def test_stream_status_only_processing_emits_failed_terminal_event() -> None:
-    report_id = "report-status-only-failed"
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_status = AsyncMock(
-        side_effect=[
-            {"status": "processing"},
-            {
-                "status": "failed",
-                "error_code": "PIPELINE_FAILURE",
-                "message": "Pipeline failed. Please retry.",
-            },
-            {
-                "status": "failed",
-                "error_code": "PIPELINE_FAILURE",
-                "message": "Pipeline failed. Please retry.",
-            },
-        ]
-    )
-    sleep_mock = AsyncMock(return_value=None)
-
-    with (
-        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
-        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
-    ):
-        stream = analyze_route._stream_events(report_id)
-        first = await anext(stream)
-        terminal = await anext(stream)
-        await stream.aclose()
-
-    assert first["event"] == "ping"
-    assert terminal["event"] == EventType.ERROR.value
-    assert sleep_mock.await_count == 1
-
-
-@pytest.mark.asyncio
-async def test_stream_status_only_processing_times_out_with_terminal_error() -> None:
-    report_id = "report-status-only-stale-processing"
-    ping_iterations = 90
-    mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_status = AsyncMock(
-        side_effect=[{"status": "processing"}] * (ping_iterations + 5)
-    )
-    sleep_mock = AsyncMock(return_value=None)
-
-    with (
-        patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
-        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
-    ):
-        stream = analyze_route._stream_events(report_id)
-        pings = [await anext(stream) for _ in range(ping_iterations)]
-        terminal = await anext(stream)
-        await stream.aclose()
-
-    assert all(item["event"] == "ping" for item in pings)
-    assert terminal["event"] == EventType.ERROR.value
-    payload = json.loads(terminal["data"])
-    assert payload["data"]["error_code"] == "PIPELINE_PROCESSING_STALE"
-    assert sleep_mock.await_count == ping_iterations
-
-
-@pytest.mark.asyncio
-async def test_status_terminal_event_for_failed_status_includes_error_code(
-    tmp_path,
+def test_report_runtime_status_uses_status_file_when_report_not_ready(
+    personal_runtime: FileCache,
 ) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    report_id = "report-failed-status"
-    await cache.put_status(report_id, "failed", "bad query")
+    app = create_app()
+    report = _make_report("pending-key", "pending idea")
 
-    with patch("ideago.api.routes.analyze.get_cache", return_value=cache):
-        event = await analyze_route._status_terminal_event(report_id)
+    with TestClient(app) as client:
+        personal_runtime._put_status_sync(
+            report.id,
+            "processing",
+            report.query,
+            None,
+            "Analysis is in progress",
+        )
+        detail_response = client.get(f"/api/v1/reports/{report.id}")
+        status_response = client.get(f"/api/v1/reports/{report.id}/status")
 
-    assert event is not None
-    assert event.type == EventType.ERROR
-    assert event.data.get("error_code") == "PIPELINE_FAILURE"
-
-
-@pytest.mark.asyncio
-async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
-    query = "A cancellable startup research query"
-    report_id = "report-cancel"
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
-    deps.get_processing_reports()[query_hash] = report_id
-
-    class SlowOrchestrator:
-        async def run(self, *_args, **_kwargs) -> None:
-            await asyncio.sleep(10)
-
-    with (
-        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
-        patch(
-            "ideago.api.routes.analyze.get_orchestrator",
-            return_value=SlowOrchestrator(),
-        ),
-    ):
-        task = asyncio.create_task(analyze_route._run_pipeline(query, report_id))
-        deps.set_pipeline_task(report_id, task)
-
-        result = await analyze_route.cancel_analysis(report_id)
-        assert result["status"] == "cancelled"
-
-        with contextlib.suppress(asyncio.CancelledError):
-            await asyncio.wait_for(task, timeout=2)
-        assert task.cancelled() or task.done()
-        status = await cache.get_status(report_id)
-        assert status is not None
-        assert status["status"] == "cancelled"
-        assert status["error_code"] == "PIPELINE_CANCELLED"
-        assert status["message"] == "Analysis cancelled by user"
-
-        run_state = deps.get_report_run(report_id)
-        assert run_state is not None
-        assert any(e.type == EventType.CANCELLED for e in run_state.history)
+    assert detail_response.status_code == 202
+    assert detail_response.json()["status"] == "processing"
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "processing"
 
 
-@pytest.mark.asyncio
-async def test_run_pipeline_redacts_internal_error_details(tmp_path) -> None:
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    report_id = "report-internal-error"
+def test_cancel_analysis_returns_not_found_without_active_task(
+    personal_runtime: FileCache,
+) -> None:
+    app = create_app()
 
-    class FailingOrchestrator:
-        async def run(self, *_args, **_kwargs):
-            raise RuntimeError("internal failure: token=abc123")
+    with TestClient(app) as client:
+        response = client.delete(
+            "/api/v1/reports/missing-report/cancel",
+            headers={"X-Requested-With": "IdeaGo"},
+        )
 
-    with (
-        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
-        patch(
-            "ideago.api.routes.analyze.get_orchestrator",
-            return_value=FailingOrchestrator(),
-        ),
-    ):
-        await analyze_route._run_pipeline("A failing startup query", report_id)
-
-    status = await cache.get_status(report_id)
-    assert status is not None
-    assert status["status"] == "failed"
-    assert status["error_code"] == "PIPELINE_FAILURE"
-    assert status["message"] == "Pipeline failed. Please retry."
-
-    run_state = deps.get_report_run(report_id)
-    assert run_state is not None
-    error_events = [e for e in run_state.history if e.type == EventType.ERROR]
-    assert error_events
-    assert "token=abc123" not in error_events[-1].message
-    assert error_events[-1].data["error_code"] == "PIPELINE_FAILURE"
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ANALYSIS_NOT_FOUND"
 
 
-def test_spa_fallback_serves_index_for_frontend_routes(tmp_path) -> None:
-    """Direct deep links like /reports/:id should return index.html."""
-    dist_dir = tmp_path / "dist"
-    dist_dir.mkdir(parents=True, exist_ok=True)
-    index_path = dist_dir / "index.html"
-    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+def test_mutating_routes_require_csrf_header(personal_runtime: FileCache) -> None:
+    app = create_app()
 
-    with (
-        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
-        patch.object(app_module, "_FRONTEND_INDEX", index_path),
-    ):
-        app = create_app()
-        with TestClient(app) as local_client:
-            response = local_client.get("/reports/136574fd-94c2-47f3-9b70-765b16104709")
-            assert response.status_code == 200
-            assert "SPA" in response.text
+    with TestClient(app) as client:
+        response = client.post("/api/v1/analyze", json={"query": "test idea"})
 
-
-def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
-    """Files that exist in dist should be served directly."""
-    dist_dir = tmp_path / "dist"
-    dist_dir.mkdir(parents=True, exist_ok=True)
-    index_path = dist_dir / "index.html"
-    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
-    robots_path = dist_dir / "robots.txt"
-    robots_path.write_text("User-agent: *\nDisallow:", encoding="utf-8")
-
-    with (
-        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
-        patch.object(app_module, "_FRONTEND_INDEX", index_path),
-    ):
-        app = create_app()
-        with TestClient(app) as local_client:
-            response = local_client.get("/robots.txt")
-            assert response.status_code == 200
-            assert "User-agent: *" in response.text
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "CSRF_MISSING_HEADER"

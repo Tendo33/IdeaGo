@@ -1,88 +1,76 @@
 # Backend Development Standards
 
-This document defines default backend practices for this repository and all connected AI tools.
+This document defines default backend practices for this repository.
 
-## Default Stack (When Not Specified)
+## Current Stack
 
-- Language/runtime: Python 3.10+
-- API framework: FastAPI
-- Data validation: Pydantic v2
-- Data access: SQLAlchemy
-- Migrations: Alembic
-- Package/runtime tooling: uv
-- Quality tooling: ruff + pytest
-
-> Note: This stack is a default architecture baseline for backend/API tasks when they are introduced.
-> The current template repository does not pre-scaffold a full FastAPI + SQLAlchemy + Alembic app by default.
+- Python 3.10+
+- FastAPI
+- Pydantic v2
+- LangGraph + LangChain OpenAI
+- Local file cache for persisted reports
+- SQLite checkpoints for runtime state
+- `uv`, `ruff`, `mypy`, `pytest`
 
 ## Architecture
 
-Use a layered design to keep boundaries clear:
+Use clear layers:
 
-- `api` layer: HTTP routes, request/response schemas, auth guards
-- `service` layer: business use cases and orchestration
-- `repository` layer: persistence and external storage access
-- `domain` layer: pure business models and rules
+- `api`: HTTP routes, schemas, errors, middleware
+- `pipeline`: LangGraph orchestration and typed event flow
+- `cache`: report persistence and runtime status storage
+- `models`: domain models
+- `config`: `pydantic-settings`
+- `observability`: logging and metrics
 
 Rules:
 
-- Keep HTTP concerns in `api`; do not put business logic in route handlers.
-- Keep SQL/session details in repository layer.
-- Service layer should be testable without HTTP or database bootstrapping.
+- Keep business logic out of route handlers.
+- Use `AppError(status, ErrorCode, message)` for structured API failures.
+- Keep report routes explicit and contract-first.
+- Keep pipeline state and report assembly typed.
+- Keep `pipeline/merger.py` limited to deterministic competitor dedupe.
+- Keep whitespace and evidence-backed synthesis in `pipeline/aggregator.py`.
 
-## API Conventions
+## Public API Shape On `main`
 
-- Use versioned API prefix, e.g. `/api/v1`.
-- Use Pydantic models for all request/response contracts.
-- Return structured error payloads with stable error codes.
-- Ensure idempotency for retry-safe write operations when applicable.
-- Add pagination/filtering/sorting for list endpoints.
+- Versioned prefix: `/api/v1`
+- Public routes on `main`: `analyze`, `reports`, `health`
+- No auth, billing, or admin routes on `main`
+- Analyze, report detail, report status, report export, and history are anonymous on `main`
+- Mutating routes require `X-Requested-With`
 
-## Configuration and Secrets
+## Data and Persistence
 
-- Use `pydantic-settings` for config.
-- Read secrets from environment variables, never hardcode.
-- Keep `.env` local-only; do not commit sensitive values.
-- Define environment-specific behavior explicitly (dev/stage/prod).
-
-## Logging and Observability
-
-- Use `loguru` for structured logs.
-- Include request or trace identifiers in logs.
-- Log failures with actionable context (operation, entity id, reason).
-- Avoid logging PII, tokens, passwords, or raw secrets.
-
-## Data and Transactions
-
-- Use explicit transaction boundaries for write operations.
-- Validate incoming data before persistence.
-- Use migrations for schema changes; do not mutate schema manually in production.
-- Keep repository methods narrow and purpose-driven.
+- `main` persists completed reports through `FileCache`
+- `main` persists pipeline checkpoints through local SQLite
+- Anonymous reports expire by TTL
+- Status files track `processing`, `complete`, `failed`, and `cancelled`
+- `main` must not require Supabase or Stripe configuration to boot
 
 ## Security Baseline
 
-- Validate and sanitize all external input.
-- Enforce authN/authZ in API layer and service layer as needed.
-- Apply rate limiting for public or high-risk endpoints.
-- Use least-privilege credentials for database and infrastructure access.
+- CSRF protection on mutating API routes through `X-Requested-With`
+- In-memory rate limiting for analyze and reports
+- CORS must be explicit in production
+- Never hardcode secrets
+- Avoid logging PII or raw secrets
+
+## Source Intelligence V2
+
+- Default report shape is decision-first
+- Keep competitor discovery as one section inside the broader validation contract
+- Treat report detail and export formats as explicit interfaces
+- Ranking stays opportunity-first: pain, commercial, migration, and whitespace evidence should beat raw popularity when signals conflict
 
 ## Testing Strategy
 
-- Unit tests: domain/service logic and edge cases.
-- Integration tests: repository behavior and key API flows.
-- Regression tests for every bug fix.
-- Prefer deterministic tests; avoid timing-based flakes.
+- Unit tests for pure logic and edge cases
+- Integration tests for file cache and public API flows
+- Regression tests for each bug fix
+- Prefer deterministic tests over timing-heavy tests
 
-## Done Criteria (Backend)
-
-A backend task is complete only if:
-
-- behavior is implemented as requested,
-- relevant tests pass,
-- lint/format checks pass,
-- migrations/docs are updated when behavior or schema changes.
-
-Recommended checks:
+## Done Criteria
 
 ```bash
 uv run ruff check src tests scripts

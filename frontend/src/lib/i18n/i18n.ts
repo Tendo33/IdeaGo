@@ -17,7 +17,7 @@ i18n
         translation: zhTranslation,
       },
     },
-    fallbackLng: 'zh',
+    fallbackLng: 'en',
     interpolation: {
       escapeValue: false, // react already safes from xss
     },

@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next'
+
 interface RelevanceRingProps {
   score: number
   size?: number
 }
 
 export function RelevanceRing({ score, size = 36 }: RelevanceRingProps) {
+  const { t } = useTranslation()
   const percent = Math.round(score * 100)
   const radius = (size - 6) / 2
   const circumference = 2 * Math.PI * radius
@@ -22,7 +25,12 @@ export function RelevanceRing({ score, size = 36 }: RelevanceRingProps) {
       : 'fill-text-dim'
 
   return (
-    <svg width={size} height={size} className="shrink-0" aria-label={`Relevance: ${percent}%`}>
+    <svg
+      width={size}
+      height={size}
+      className="shrink-0"
+      aria-label={t('report.accessibility.relevanceRing', { percent })}
+    >
       <circle
         cx={size / 2}
         cy={size / 2}

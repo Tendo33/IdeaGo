@@ -5,8 +5,17 @@
 
 from pathlib import Path
 
+import pytest
+
 from ideago.utils import decorator_utils
 from ideago.utils.file_utils import (
+    async_calculate_file_hash,
+    async_copy_file,
+    async_delete_file,
+    async_list_files,
+    async_move_file,
+    async_read_text_file,
+    async_write_text_file,
     calculate_file_hash,
     copy_file,
     delete_file,
@@ -49,6 +58,10 @@ class TestEnsureDirectory:
         assert result is not None
         assert nested.exists()
 
+    def test_ensure_directory_failure(self, temp_file: Path) -> None:
+        """Test failure when target path conflicts with a file."""
+        assert ensure_directory(temp_file / "child") is None
+
 
 # =============================================================================
 # get_file_size / format_file_size 测试
@@ -90,6 +103,11 @@ class TestFileSize:
         result = format_file_size(1024 * 1024 * 1024)
         assert "GB" in result
 
+    def test_format_file_size_zero_and_large(self) -> None:
+        """Test zero-byte and very large sizes."""
+        assert format_file_size(0) == "0 B"
+        assert "TB" in format_file_size(1024**4)
+
 
 # =============================================================================
 # calculate_file_hash 测试
@@ -122,6 +140,10 @@ class TestCalculateFileHash:
         """Test hash of nonexistent file."""
         result = calculate_file_hash(temp_dir / "nonexistent.txt")
         assert result is None
+
+    def test_hash_invalid_algorithm(self, temp_file: Path) -> None:
+        """Test unsupported hash algorithm."""
+        assert calculate_file_hash(temp_file, algorithm="bad-hash") is None
 
     def test_hash_logs_timing(self, temp_file: Path, monkeypatch) -> None:
         """Test hash calculation emits timing log."""
@@ -158,6 +180,17 @@ class TestCopyMoveFile:
         result = copy_file(temp_file, dest, create_dirs=True)
         assert result is not None
         assert dest.exists()
+
+    def test_copy_and_move_file_failure_paths(
+        self, temp_file: Path, temp_dir: Path
+    ) -> None:
+        """Test copy/move failure paths."""
+        missing = temp_dir / "missing.txt"
+        dest = temp_dir / "nested" / "copy.txt"
+        assert copy_file(missing, dest) is None
+        assert copy_file(temp_file, temp_dir, create_dirs=False) is None
+        assert move_file(missing, dest) is None
+        assert move_file(temp_file, temp_dir, create_dirs=False) is None
 
     def test_copy_file_logs_timing(
         self, temp_file: Path, temp_dir: Path, monkeypatch
@@ -279,6 +312,10 @@ class TestListFiles:
         assert result is not None
         assert any("list_files took" in message for message in debug_messages)
 
+    def test_list_files_nonexistent(self, temp_dir: Path) -> None:
+        """Test listing a missing directory."""
+        assert list_files(temp_dir / "missing") is None
+
 
 # =============================================================================
 # read_text_file / write_text_file 测试
@@ -311,6 +348,18 @@ class TestReadWriteTextFile:
         """Test reading nonexistent file returns None."""
         result = read_text_file(temp_dir / "nonexistent.txt")
         assert result is None
+
+    def test_read_and_write_text_failure_paths(self, temp_dir: Path) -> None:
+        """Test read/write failure branches."""
+        binary = temp_dir / "binary.txt"
+        binary.write_bytes(b"\xff\xfe\xfd")
+        assert (
+            read_text_file(binary, encoding="utf-8", default="fallback") == "fallback"
+        )
+
+        out_dir = temp_dir / "dir"
+        out_dir.mkdir()
+        assert write_text_file("content", out_dir, create_dirs=False) is None
 
     def test_write_unicode(self, temp_dir: Path) -> None:
         """Test writing and reading unicode content."""
@@ -352,3 +401,56 @@ class TestSanitizeFilename:
         """Test sanitizing empty string."""
         result = sanitize_filename("")
         assert result == ""
+
+    def test_sanitize_control_chars_and_long_name(self) -> None:
+        """Test sanitizing control chars and trimming long names."""
+        result = sanitize_filename("bad\x00name\t.txt")
+        assert "\x00" not in result
+        long_name = "a" * 300 + ".txt"
+        sanitized = sanitize_filename(long_name)
+        assert len(sanitized) == 255
+        assert sanitized.endswith(".txt")
+
+
+class TestAsyncFileUtils:
+    """Tests for async file utilities."""
+
+    @pytest.mark.asyncio
+    async def test_async_read_write_copy_move_delete_and_list(
+        self, temp_dir: Path
+    ) -> None:
+        source = temp_dir / "source.txt"
+        copy_target = temp_dir / "sub" / "copy.txt"
+        move_target = temp_dir / "moved.txt"
+
+        assert await async_write_text_file("hello", source) == 5
+        assert await async_read_text_file(source) == "hello"
+        assert await async_copy_file(source, copy_target) == copy_target
+        assert await async_move_file(copy_target, move_target) == move_target
+        assert await async_calculate_file_hash(source) is not None
+
+        files = await async_list_files(temp_dir, recursive=True)
+        assert files is not None
+        assert source in files
+        assert move_target in files
+
+        assert await async_delete_file(move_target) is True
+        assert not move_target.exists()
+
+    @pytest.mark.asyncio
+    async def test_async_file_utils_failure_paths(self, temp_dir: Path) -> None:
+        missing = temp_dir / "missing.txt"
+        out_dir = temp_dir / "dir"
+        out_dir.mkdir()
+
+        assert await async_read_text_file(missing) is None
+        assert (
+            await async_write_text_file("content", out_dir, create_dirs=False) is None
+        )
+        assert await async_copy_file(missing, temp_dir / "copy.txt") is None
+        assert await async_move_file(missing, temp_dir / "move.txt") is None
+        assert await async_delete_file(missing, missing_ok=True) is True
+        assert await async_delete_file(missing, missing_ok=False) is False
+        assert await async_calculate_file_hash(missing) is None
+        assert await async_calculate_file_hash(out_dir, algorithm="bad") is None
+        assert await async_list_files(temp_dir / "missing") is None

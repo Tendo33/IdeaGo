@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { getCompetitorDomId } from '../competitor'
 import type { Competitor } from '@/lib/types/research'
+import { buttonVariants } from '@/components/ui/Button'
 
 interface LandscapeChartProps {
   competitors: Competitor[]
@@ -40,7 +41,7 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-none bg-popover border border-2 border-border p-3 shadow-[4px_4px_0px_0px_var(--border)] max-w-xs">
+    <div className="rounded-none bg-popover border-2 border-border p-3 shadow max-w-xs">
       <p className="text-sm font-semibold text-foreground mb-0.5">{d.name}</p>
       <p className="text-xs text-muted-foreground mb-1.5 line-clamp-2">{d.oneLiner}</p>
       <div className="flex gap-3 text-xs text-muted-foreground">
@@ -84,6 +85,10 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   const handleClick = (d: DataPoint) => {
     const el = document.getElementById(d.domId)
     if (el) {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current)
         highlightTimerRef.current = null
@@ -92,7 +97,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
         highlightedElementRef.current.classList.remove('ring-2', 'ring-primary')
       }
       highlightedElementRef.current = el
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'center' })
       el.classList.add('ring-2', 'ring-primary')
       highlightTimerRef.current = setTimeout(() => {
         el.classList.remove('ring-2', 'ring-primary')
@@ -105,7 +110,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
   }
 
   return (
-    <div className="rounded-none border border-2 border-border bg-card  shadow-[4px_4px_0px_0px_var(--border)] p-5 hover:border-ring/35 transition-colors duration-300">
+    <div className="rounded-none border-2 border-border bg-card shadow p-5 hover:border-ring/35 transition-colors duration-300">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold font-heading text-foreground">
           {t('report.chart.title')}
@@ -162,6 +167,24 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
       <p className="text-[10px] text-muted-foreground text-center mt-2">
         {t('report.chart.clickHint')}
       </p>
+
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {data.map(point => (
+          <button
+            key={point.domId}
+            type="button"
+            onClick={() => handleClick(point)}
+            className={buttonVariants({
+              variant: 'ghost',
+              size: 'sm',
+              className: 'px-2.5 text-xs normal-case tracking-normal',
+            })}
+            aria-label={t('report.accessibility.jumpToCompetitor', { name: point.name })}
+          >
+            {point.name}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

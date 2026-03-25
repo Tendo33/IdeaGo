@@ -1,10 +1,10 @@
 # Pydantic Models 规范
 
-本文档定义在 `python_template` 项目中使用 Pydantic 模型的规则。
+本文档定义在 `ideago` 项目中使用 Pydantic 模型的规则。
 
 ## 核心规则
 
-1. **所有数据模型必须继承项目的 `BaseModel`**（`python_template.models.base`），不要直接继承 `pydantic.BaseModel`。
+1. **所有数据模型必须继承项目的 `BaseModel`**（`ideago.models.base`），不要直接继承 `pydantic.BaseModel`。
 2. **模型只能定义在 `models/` 目录下**，不要在 `utils/` 或其他位置定义数据类。
 3. **统一使用 Pydantic v2 语法**：`model_config = ConfigDict(...)`，`model_dump()`，`model_validate()`。禁止 v1 的 `class Config` 或 `.dict()`。
 4. **所有公开模型必须在 `models/__init__.py` 中导出**。
@@ -12,7 +12,7 @@
 ## 目录结构
 
 ```text
-src/python_template/models/
+src/ideago/models/
 ├── __init__.py        # 统一导出
 ├── base.py            # 项目 BaseModel + Mixins
 └── <domain>.py        # 按业务域组织模型文件

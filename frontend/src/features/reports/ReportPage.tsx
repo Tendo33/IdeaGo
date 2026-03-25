@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
-import { isRequestAbortError, startAnalysis } from '@/lib/api/client'
+import { Alert } from '@/components/ui/Alert'
+import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
 import { ReportContentPane } from '@/features/reports/components/ReportContentPane'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
 import { useCompetitorFilters } from '@/features/reports/components/useCompetitorFilters'
 import { useReportLifecycle } from '@/features/reports/components/useReportLifecycle'
+
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function ReportPage() {
   const { t } = useTranslation()
@@ -15,28 +18,49 @@ export function ReportPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [createError, setCreateError] = useState<string | null>(null)
+  const [quotaExceeded, setQuotaExceeded] = useState(false)
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
+  const createQuery = (location.state as { query?: string } | null)?.query
+
+  const startQueuedAnalysis = useCallback(
+    async (query: string | undefined, signal?: AbortSignal) => {
+      if (!query) {
+        navigate('/', { replace: true })
+        return
+      }
+
+      setCreateError(null)
+      setQuotaExceeded(false)
+
+      try {
+        const { report_id } = await startAnalysis(query, signal ? { signal } : undefined)
+        navigate(`/reports/${report_id}`, { replace: true })
+      } catch (error) {
+        if (isRequestAbortError(error)) return
+        if (isApiError(error) && error.is('QUOTA_EXCEEDED')) {
+          setQuotaExceeded(true)
+        }
+        const message = error instanceof Error ? error.message : ''
+        setCreateError(message || t('home.errorStartAnalysis'))
+      }
+    },
+    [navigate, t],
+  )
 
   useEffect(() => {
     if (!isNewAnalysis) return
-    const query = (location.state as { query?: string } | null)?.query
-    if (!query) {
-      navigate('/', { replace: true })
-      return
-    }
     const controller = new AbortController()
-    startAnalysis(query, { signal: controller.signal })
-      .then(({ report_id }) => {
-        navigate(`/reports/${report_id}`, { replace: true })
-      })
-      .catch(e => {
-        if (isRequestAbortError(e)) return
-        setCreateError(e instanceof Error ? e.message : t('home.errorStartAnalysis'))
-      })
-    return () => controller.abort()
-  }, [isNewAnalysis, location.state, navigate, t])
+    const timer = window.setTimeout(() => {
+      void startQueuedAnalysis(createQuery, controller.signal)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [createQuery, isNewAnalysis, startQueuedAnalysis])
 
   const {
     loadPhase,
@@ -55,7 +79,34 @@ export function ReportPage() {
     cancelCurrentAnalysis,
   } = useReportLifecycle(effectiveId, navigate)
 
+  const handleCancel = useCallback(() => {
+    if (isNewAnalysis) {
+      navigate('/', { replace: true })
+      return
+    }
+    cancelCurrentAnalysis()
+  }, [isNewAnalysis, navigate, cancelCurrentAnalysis])
+
+  const handleCreateErrorAction = useCallback(() => {
+    void startQueuedAnalysis(createQuery)
+  }, [createQuery, startQueuedAnalysis])
+
+  useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
+
+
   const loadError = (isNewAnalysis ? createError : null) || lifecycleError
+  const hasRecoverableCreateQuery = Boolean(createQuery)
+  const usesHomeFallbackCta =
+    (isNewAnalysis && createError && !hasRecoverableCreateQuery) ||
+    (!isNewAnalysis &&
+      runtimeStatus !== null &&
+      !runtimeStatus.query &&
+      (runtimeStatus.status === 'not_found' ||
+        runtimeStatus.status === 'failed' ||
+        runtimeStatus.status === 'cancelled' ||
+        runtimeStatus.status === 'complete'))
+  const errorActionLabel = usesHomeFallbackCta ? t('error.backToHome') : undefined
+  const errorActionHandler = isNewAnalysis && createError ? handleCreateErrorAction : retryErrorState
 
   const {
     sortBy,
@@ -86,16 +137,16 @@ export function ReportPage() {
   }, [setCompareSet, setShowCompare])
 
   const hasBlockingError = Boolean(sseError || loadError)
+  const showExistingReportLoading = !isNewAnalysis && !hasBlockingError && loadPhase === 'loading' && !report
   const showProgress =
-    !hasBlockingError && (loadPhase === 'processing' || (loadPhase === 'loading' && !report))
+    !hasBlockingError && (loadPhase === 'processing' || (isNewAnalysis && loadPhase === 'loading' && !report))
   const allFailed = report
     ? report.source_results.length > 0 &&
       report.source_results.every(source => source.status === 'failed' || source.status === 'timeout')
     : false
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      <div className="app-shell max-w-5xl">
+    <div className="app-shell max-w-5xl pt-8 pb-16">
         <ReportProgressPane
           show={showProgress}
           events={events}
@@ -103,15 +154,29 @@ export function ReportPage() {
           loadPhase={loadPhase}
           isComplete={isComplete}
           reportId={effectiveId}
-          onCancel={cancelCurrentAnalysis}
+          onCancel={handleCancel}
         />
 
-        {(sseError || loadError) && (
+        {quotaExceeded && (
+          <Alert variant="warning" className="mb-6 items-center">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-warning">
+                {t('quota.exceeded', 'You have reached your daily analysis limit.')}
+              </p>
+              <p className="text-xs text-warning/80 mt-1">
+                {t('quota.upgradeHint', 'You can start another analysis after your quota resets tomorrow.')}
+              </p>
+            </div>
+          </Alert>
+        )}
+
+        {!quotaExceeded && (sseError || loadError) && (
           <ReportErrorBanner
             message={sseError || loadError || t('report.error.unknown')}
-            onRetry={retryErrorState}
+            onRetry={errorActionHandler}
             errorKind={sseError ? 'system' : (loadErrorKind ?? 'system')}
             runtimeStatus={runtimeStatus}
+            actionLabel={errorActionLabel}
           />
         )}
 
@@ -139,6 +204,28 @@ export function ReportPage() {
           />
         )}
 
+        {showExistingReportLoading && (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-4 border-2 border-border bg-card p-5">
+                <Skeleton className="h-5 w-1/4" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+              <div className="space-y-4 border-2 border-border bg-card p-5">
+                <Skeleton className="h-5 w-1/3" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-5/6" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {showProgress && isComplete && !report && !sseError && !cancelled && !loadError && (
           <div className="space-y-6">
             <div className="space-y-2">
@@ -153,6 +240,5 @@ export function ReportPage() {
           </div>
         )}
       </div>
-    </div>
   )
 }

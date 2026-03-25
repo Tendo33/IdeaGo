@@ -3,12 +3,22 @@
 测试 JSON 工具函数模块。
 """
 
+import contextlib
 import json
+from io import StringIO
 from pathlib import Path
+
+import pytest
 
 from ideago.utils import decorator_utils
 from ideago.utils.json_utils import (
+    async_load_json_batch,
+    async_merge_json_files,
+    async_read_json,
+    async_write_json,
+    json_path_get,
     merge_json_files,
+    pretty_print_json,
     read_json,
     safe_json_dumps,
     safe_json_loads,
@@ -141,6 +151,10 @@ class TestSafeJsonLoads:
         result = safe_json_loads("")
         assert result is None
 
+    def test_safe_json_loads_type_error(self) -> None:
+        """Test non-string input returns default."""
+        assert safe_json_loads(None, default={"bad": True}) == {"bad": True}
+
 
 class TestSafeJsonDumps:
     """Tests for safe_json_dumps function."""
@@ -252,6 +266,20 @@ class TestMergeJsonFiles:
         assert result == {"a": 1, "b": 2}
         assert any("merge_json_files took" in message for message in debug_messages)
 
+    def test_merge_json_files_non_dict_and_write_failure(self, temp_dir: Path) -> None:
+        """Test merge skips non-dict payloads and handles output write failures."""
+        file1 = temp_dir / "file1.json"
+        file2 = temp_dir / "file2.json"
+        file1.write_text('{"a": 1}', encoding="utf-8")
+        file2.write_text("[1, 2, 3]", encoding="utf-8")
+
+        assert merge_json_files([file1, file2]) == {"a": 1}
+        assert merge_json_files([temp_dir / "missing.json"]) is None
+
+        output_dir = temp_dir / "outdir"
+        output_dir.mkdir()
+        assert merge_json_files([file1], output_path=output_dir) is None
+
 
 class TestValidateJsonSchema:
     """Tests for validate_json_schema function."""
@@ -267,3 +295,85 @@ class TestValidateJsonSchema:
         data = {"name": "test"}
         result = validate_json_schema(data, required_keys=["name", "value"])
         assert result is False
+
+
+class TestJsonPathAndPrettyPrint:
+    """Tests for JSON path lookup and pretty printing."""
+
+    def test_json_path_get_success_cases(self) -> None:
+        data = {"user": {"items": [{"name": "alpha"}], "age": 10}}
+        assert json_path_get(data, "user.items.0.name") == "alpha"
+        assert json_path_get(data, "user.age") == 10
+        assert json_path_get(data, "user/items/0/name", separator="/") == "alpha"
+
+    def test_json_path_get_failure_cases(self) -> None:
+        data = {"user": {"items": [{"name": "alpha"}]}}
+        assert json_path_get(data, "user.items.5.name") is None
+        assert json_path_get(data, "user.missing") is None
+        assert json_path_get(data, "user.items.bad.name") is None
+
+    def test_pretty_print_json_and_fallback(self) -> None:
+        stdout = StringIO()
+        with contextlib.redirect_stdout(stdout):
+            pretty_print_json({"name": "test"})
+        assert '"name": "test"' in stdout.getvalue()
+
+        class Unserializable:
+            def __str__(self) -> str:
+                return "fallback-value"
+
+        stdout = StringIO()
+        with contextlib.redirect_stdout(stdout):
+            pretty_print_json(Unserializable())
+        assert "fallback-value" in stdout.getvalue()
+
+
+class TestAsyncJsonUtils:
+    """Tests for async JSON helpers."""
+
+    @pytest.mark.asyncio
+    async def test_async_read_and_write_json(self, temp_dir: Path) -> None:
+        file_path = temp_dir / "async.json"
+        assert await async_write_json({"a": 1}, file_path) is True
+        assert await async_read_json(file_path) == {"a": 1}
+
+    @pytest.mark.asyncio
+    async def test_async_read_and_write_json_error_paths(self, temp_dir: Path) -> None:
+        missing = temp_dir / "missing.json"
+        invalid = temp_dir / "invalid.json"
+        invalid.write_text("{ invalid", encoding="utf-8")
+        out_dir = temp_dir / "dir"
+        out_dir.mkdir()
+
+        class Unserializable:
+            pass
+
+        assert await async_read_json(missing) is None
+        assert await async_read_json(invalid) is None
+        assert await async_write_json(Unserializable(), temp_dir / "bad.json") is False
+        assert await async_write_json({"a": 1}, out_dir, create_dirs=False) is False
+
+    @pytest.mark.asyncio
+    async def test_async_merge_json_files_and_batch(self, temp_dir: Path) -> None:
+        file1 = temp_dir / "file1.json"
+        file2 = temp_dir / "file2.json"
+        file3 = temp_dir / "file3.json"
+        output = temp_dir / "merged.json"
+
+        file1.write_text('{"a": 1}', encoding="utf-8")
+        file2.write_text("[1, 2, 3]", encoding="utf-8")
+        file3.write_text('{"b": 2}', encoding="utf-8")
+
+        merged = await async_merge_json_files([file1, file2, file3], output_path=output)
+        assert merged == {"a": 1, "b": 2}
+        assert json.loads(output.read_text(encoding="utf-8")) == {"a": 1, "b": 2}
+
+        assert await async_merge_json_files([temp_dir / "missing.json"]) is None
+
+        batch = await async_load_json_batch(
+            [file1, file2, temp_dir / "missing.json"],
+            max_concurrency=2,
+        )
+        assert batch[0] == {"a": 1}
+        assert batch[1] == [1, 2, 3]
+        assert batch[2] is None

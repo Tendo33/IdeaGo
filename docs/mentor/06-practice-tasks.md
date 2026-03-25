@@ -1,104 +1,150 @@
-# 06 · 分层练习任务（从读到改）
+# 06 · 分层练习任务
 
-> 建议按难度顺序做。每个任务都给出目标、关键文件、最小验证。
+> 这些任务按“理解 -> 小改 -> 跨模块 -> 扩展”组织，适合拿来训练你对当前代码结构的掌握程度。
 
-## Level 1：理解与追踪（不改代码）
+## Level 1：理解与追踪
 
-### 任务 1：画出你的请求时序图
+### 任务 1：画出真实请求时序图
 
-- 目标：把 `analyze -> stream -> report` 画成 8~12 个步骤
+- 目标：把“登录后发起分析 -> SSE -> 报告 ready”画成 8 到 12 步
 - 关键文件：
   - `src/ideago/api/routes/analyze.py`
-  - `src/ideago/pipeline/langgraph_engine.py`
-  - `frontend/src/api/useSSE.ts`
-- 验证：用 `curl` 跑一遍并对照事件顺序
+  - `src/ideago/api/dependencies.py`
+  - `frontend/src/features/reports/components/useReportLifecycle.ts`
+  - `frontend/src/lib/api/useSSE.ts`
+- 最小验证：
+  - 手工跑一次分析
+  - 对照浏览器 Network 或后端日志
 
-### 任务 2：解释并发去重
+### 任务 2：解释用户维度的并发去重
 
-- 目标：解释为什么同 query 多请求返回同一个 `report_id`
-- 关键文件：`src/ideago/api/dependencies.py`
-- 验证：阅读测试 `tests/test_api.py::test_analyze_endpoint_deduplicates_concurrent_same_query`
-
-## Level 2：小范围改动（低风险）
-
-### 任务 3：新增一个 SSE 事件文案映射（前端）
-
-- 目标：在报告进度显示里加入更友好的事件描述
+- 目标：解释为什么“同一用户、同一 query”会复用任务，而“不同用户、同一 query”不会
 - 关键文件：
-  - `frontend/src/api/useSSE.ts`
-  - 报告进度相关组件（`frontend/src/pages/report/ReportProgressPane.tsx`）
-- 验证：`npm --prefix frontend run test`
+  - `src/ideago/api/dependencies.py`
+  - `src/ideago/api/routes/analyze.py`
+  - `tests/test_api.py`
+- 最小验证：
 
-### 任务 4：扩展 status 导出信息（后端）
+```bash
+uv run pytest tests/test_api.py -q
+```
 
-- 目标：让 `/reports/{id}/status` 返回额外可诊断字段（例如 message 细化）
+## Level 2：小范围改动
+
+### 任务 3：优化报告进度文案
+
+- 目标：把某个进度事件的展示文案改得更清晰
+- 关键文件：
+  - `frontend/src/lib/api/useSSE.ts`
+  - `frontend/src/features/reports/components/ReportProgressPane.tsx`
+  - i18n 文案文件
+- 最小验证：
+
+```bash
+pnpm --prefix frontend test
+pnpm --prefix frontend typecheck
+```
+
+### 任务 4：增强状态接口的诊断信息
+
+- 目标：让 `/reports/{id}/status` 对失败场景给出更清晰的信息
 - 关键文件：
   - `src/ideago/api/routes/reports.py`
   - `src/ideago/api/schemas.py`
-- 验证：`uv run pytest tests/test_api.py -q`
+  - `tests/test_api.py`
+- 最小验证：
 
-## Level 3：跨模块改动（中等）
+```bash
+uv run pytest tests/test_api.py -q
+```
 
-### 任务 5：新增报告字段并前后端联动
+## Level 3：跨模块改动
 
-- 目标：新增一个报告字段并在 UI 展示
+### 任务 5：新增报告字段并做前后端联动
+
+- 目标：给报告新增一个字段并展示到 UI
 - 关键文件：
   - `src/ideago/models/research.py`
-  - `src/ideago/pipeline/nodes.py`（组装字段）
-  - `frontend/src/types/research.ts`
-  - `frontend/src/pages/report/ReportContentPane.tsx`
-- 验证：
-  - `uv run pytest tests/test_research_models.py -q`
-  - `npm --prefix frontend run typecheck`
+  - `src/ideago/pipeline/nodes.py`
+  - `frontend/src/lib/types/research.ts`
+  - `frontend/src/features/reports/components/ReportContentPane.tsx`
+- 最小验证：
 
-### 任务 6：调整聚合降级策略
+```bash
+uv run pytest tests/test_research_models.py -q
+pnpm --prefix frontend typecheck
+pnpm --prefix frontend test
+```
 
-- 目标：当聚合失败时，给出更结构化的 fallback 说明
+### 任务 6：调整聚合失败时的降级表现
+
+- 目标：让聚合失败后的 fallback 更结构化、更可解释
 - 关键文件：
-  - `src/ideago/pipeline/nodes.py:aggregate_node`
   - `src/ideago/pipeline/aggregator.py`
-- 验证：`uv run pytest tests/test_langgraph_engine.py -q`
+  - `src/ideago/pipeline/nodes.py`
+  - `tests/test_langgraph_engine.py`
+- 最小验证：
 
-## Level 4：特性扩展（高价值）
+```bash
+uv run pytest tests/test_langgraph_engine.py -q
+```
 
-### 任务 7：新增数据源（完整链路）
+## Level 4：特性扩展
 
-- 目标：接入一个新 source（示例：Reddit/Hugging Face Spaces）
+### 任务 7：新增一个数据源
+
+- 目标：接入新的 source，并让报告和前端都认得它
 - 关键文件：
-  - `src/ideago/models/research.py`（Platform）
+  - `src/ideago/models/research.py`
   - `src/ideago/sources/<new>_source.py`
-  - `src/ideago/api/dependencies.py`（register）
-  - `frontend/src/types/research.ts`
-  - `frontend/src/pages/report/useCompetitorFilters.ts`（平台过滤）
-- 验证：
-  - `uv run pytest tests/test_sources.py -q`
-  - `npm --prefix frontend run test`
+  - `src/ideago/api/dependencies.py`
+  - `frontend/src/lib/types/research.ts`
+  - `frontend/src/features/reports/components/PlatformIcons.tsx`
+  - `frontend/src/features/reports/components/useCompetitorFilters.ts`
+- 最小验证：
+
+```bash
+uv run pytest tests/test_sources.py -q
+pnpm --prefix frontend test
+pnpm --prefix frontend typecheck
+```
 
 ### 任务 8：增强 SSE 断流恢复策略
 
-- 目标：改善“流结束但报告未就绪”的用户体验
+- 目标：改善“流结束了，但报告还没 ready”的用户体验
 - 关键文件：
-  - `frontend/src/api/useSSE.ts`
-  - `frontend/src/pages/report/useReportLifecycle.ts`
-- 验证：
-  - `npm --prefix frontend run test`
-  - 手工断网/限速观察重连行为
+  - `frontend/src/lib/api/useSSE.ts`
+  - `frontend/src/features/reports/components/useReportLifecycle.ts`
+  - 相关前端测试
+- 最小验证：
 
-## 任务执行模板（建议复制）
+```bash
+pnpm --prefix frontend test
+pnpm --prefix frontend typecheck
+```
+
+## 建议的任务执行模板
 
 ```md
 ### 任务名称
 - 目标：
 - 改动文件：
-- 预期风险：
+- 影响层：
+- 风险点：
 - 验证命令：
 - 回滚方案：
 ```
 
-## 动手任务（现在就做）
+## 开始前先自问 3 个问题
 
-从 Level 2 选一个你最有把握的任务，先只写“执行模板”，我可以帮你做一次 review 再开改。
+1. 这个任务会不会同时影响后端模型和前端类型
+2. 这个任务会不会破坏认证、权限或用户隔离
+3. 这个任务是否需要同步更新测试和文档
+
+## 现在就可以做的起步动作
+
+从 Level 2 选一个任务，先把“任务执行模板”写出来，再开始动手。
 
 ---
 
-下一篇：`docs/mentor/07-troubleshooting.md`（排错速查表）。
+下一篇：`docs/mentor/07-troubleshooting.md`

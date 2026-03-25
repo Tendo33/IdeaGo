@@ -1,17 +1,24 @@
-import { ShieldCheck, AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ConfidenceMetrics } from '@/lib/types/research'
 
-interface ConfidenceCardProps {
+export interface ConfidenceCardProps {
   confidence: ConfidenceMetrics | null | undefined
 }
 
-function getConfidenceTone(score: number): {
+interface ToneConfig {
   badgeClass: string
   progressClass: string
   labelKey: string
   suggestionKey: string
-} {
+}
+
+interface MetricRow {
+  label: string
+  value: string
+}
+
+function getConfidenceTone(score: number): ToneConfig {
   if (score >= 75) {
     return {
       badgeClass: 'bg-cta/15 text-cta border-cta/30',
@@ -39,61 +46,163 @@ function getConfidenceTone(score: number): {
 export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
   const { t } = useTranslation()
   const hasConfidence = Boolean(confidence && typeof confidence === 'object')
+
+  if (!hasConfidence) {
+    return (
+      <div className="card space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="inline-flex items-center gap-2 text-sm font-semibold font-heading text-foreground">
+            <ShieldCheck className="h-4 w-4 text-cta" />
+            {t('report.transparency.confidence.title')}
+          </h3>
+          <span className="rounded-none border border-warning/30 bg-warning/15 px-2.5 py-1 text-xs text-warning">
+            {t('report.transparency.unavailable')}
+          </span>
+        </div>
+        <div className="rounded-none border-2 border-border bg-muted/40 p-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t('report.transparency.unavailable')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const score = toBoundedInt(confidence?.score, 0, 100)
   const successRate = toBoundedInt((confidence?.source_success_rate ?? 0) * 100, 0, 100)
   const sampleSize = toBoundedInt(confidence?.sample_size, 0, 99999)
   const sourceCoverage = toBoundedInt(confidence?.source_coverage, 0, 999)
-  const freshnessHint = confidence?.freshness_hint?.trim() || t('report.transparency.confidence.defaultFreshness')
+  const sourceDiversity = toBoundedInt(confidence?.source_diversity, 0, 999)
+  const evidenceDensity = toBoundedInt((confidence?.evidence_density ?? 0) * 100, 0, 100)
+  const recencyScore = toBoundedInt((confidence?.recency_score ?? 0) * 100, 0, 100)
+  const degradationPenalty = toBoundedInt((confidence?.degradation_penalty ?? 0) * 100, 0, 100)
+  const contradictionPenalty = toBoundedInt((confidence?.contradiction_penalty ?? 0) * 100, 0, 100)
+  const freshnessHint =
+    confidence?.freshness_hint?.trim() || t('report.transparency.confidence.defaultFreshness')
+  const reasons = Array.isArray(confidence?.reasons)
+    ? confidence.reasons.filter(reason => reason.trim().length > 0)
+    : []
   const tone = getConfidenceTone(score)
+
+  const primaryMetrics: MetricRow[] = [
+    { label: t('report.transparency.confidence.samples'), value: String(sampleSize) },
+    { label: t('report.transparency.confidence.coverage'), value: String(sourceCoverage) },
+    { label: t('report.transparency.confidence.successRate'), value: `${successRate}%` },
+    { label: t('report.transparency.confidence.sourceDiversity'), value: String(sourceDiversity) },
+    { label: t('report.transparency.confidence.evidenceDensity'), value: `${evidenceDensity}%` },
+    { label: t('report.transparency.confidence.recency'), value: `${recencyScore}%` },
+  ]
+
+  const penaltyMetrics: MetricRow[] = [
+    { label: t('report.transparency.confidence.degradationPenalty'), value: `${degradationPenalty}%` },
+    { label: t('report.transparency.confidence.contradictionPenalty'), value: `${contradictionPenalty}%` },
+  ]
+  const hasPenalty = degradationPenalty > 0 || contradictionPenalty > 0
 
   return (
     <div className="card space-y-6">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-sm font-semibold font-heading text-foreground inline-flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-cta" />
+          <ShieldCheck className="h-4 w-4 text-cta" />
           {t('report.transparency.confidence.title')}
         </h3>
-        <span className={`px-2.5 py-1 text-xs rounded-none border ${tone.badgeClass}`}>
+        <span className={`rounded-none border px-2.5 py-1 text-xs ${tone.badgeClass}`}>
           {t(tone.labelKey)}
         </span>
       </div>
 
-      <div className="mb-4">
-        <div className="flex items-end justify-between gap-3 mb-3">
-          <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.score')}</p>
-          <p className="text-lg font-bold text-foreground shrink-0">{score}/100</p>
+      <div className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-xs text-muted-foreground break-words">
+            {t('report.transparency.confidence.score')}
+          </p>
+          <p className="shrink-0 text-lg font-bold text-foreground">{score}/100</p>
         </div>
-        <div className="h-2 rounded-none bg-secondary overflow-hidden">
-          <div className={`h-2 ${tone.progressClass}`} style={{ width: `${score}%` }} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
-          <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.samples')}</p>
-          <p className="text-base font-bold text-foreground mt-2">{sampleSize}</p>
-        </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
-          <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.coverage')}</p>
-          <p className="text-base font-bold text-foreground mt-2">{sourceCoverage}</p>
-        </div>
-        <div className="rounded-none border border-2 border-border bg-muted/55 p-3 flex flex-col justify-between">
-          <p className="text-xs text-muted-foreground break-words">{t('report.transparency.confidence.successRate')}</p>
-          <p className="text-base font-bold text-foreground mt-2">{successRate}%</p>
+        <div className="h-2 overflow-hidden rounded-none bg-secondary">
+          <div
+            className={`h-2 transition-[width] duration-700 ease-out ${tone.progressClass}`}
+            style={{ width: `${score}%` }}
+          />
         </div>
       </div>
 
-      <div className="rounded-none border border-2 border-border bg-muted/55 p-4">
-        <p className="text-xs text-muted-foreground break-words">{freshnessHint}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {primaryMetrics.map(metric => (
+          <div
+            key={metric.label}
+            className="flex min-h-20 flex-col justify-between rounded-none border-2 border-border bg-muted/30 p-3 transition-colors duration-200 hover:bg-muted/70"
+          >
+            <p className="text-xs text-muted-foreground break-words">{metric.label}</p>
+            <p className="mt-2 text-base font-bold text-foreground">{metric.value}</p>
+          </div>
+        ))}
       </div>
 
-      <p className="mt-4 text-sm text-muted-foreground flex items-start gap-2 break-words leading-relaxed">
-        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+      <div className="rounded-none border-2 border-border bg-muted/55 p-4">
+        <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          {t('report.transparency.confidence.freshness')}
+        </p>
+        <p className="mt-2 text-sm text-foreground break-words">{freshnessHint}</p>
+      </div>
+
+      <div className="space-y-3 rounded-none border-2 border-border bg-background p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            {t('report.transparency.confidence.trustDrivers')}
+          </p>
+          {hasPenalty ? (
+            <span className="rounded-none border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-warning">
+              {t('report.transparency.confidence.penaltiesApplied')}
+            </span>
+          ) : (
+            <span className="rounded-none border border-cta/30 bg-cta/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cta">
+              {t('report.transparency.confidence.noMajorPenalties')}
+            </span>
+          )}
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          {penaltyMetrics.map(metric => (
+            <div
+              key={metric.label}
+              className="rounded-none border border-border/70 bg-muted/30 px-3 py-2"
+            >
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                {metric.label}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{metric.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            {t('report.transparency.confidence.whyThisScore')}
+          </p>
+          {reasons.length > 0 ? (
+            <ul className="space-y-2">
+              {reasons.map(reason => (
+                <li
+                  key={reason}
+                  className="flex items-start gap-2 rounded-none border border-border/70 bg-muted/35 px-3 py-2 text-sm text-foreground"
+                >
+                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cta" />
+                  <span className="break-words">{reason}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t('report.transparency.confidence.reasonsFallback')}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <p className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{t(tone.suggestionKey)}</span>
       </p>
-      {!hasConfidence && (
-        <p className="mt-2 text-xs text-warning">{t('report.transparency.unavailable')}</p>
-      )}
     </div>
   )
 }

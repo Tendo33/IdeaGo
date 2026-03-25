@@ -62,4 +62,38 @@ describe('LandscapeChart', () => {
     expect(scrollIntoView).toHaveBeenCalled()
     expect(target.classList.contains('ring-2')).toBe(true)
   })
+
+  it('offers a keyboard-accessible jump action for each competitor', () => {
+    const competitor: Competitor = {
+      name: 'Acme',
+      links: ['https://acme.example.com'],
+      one_liner: 'Acme description',
+      features: ['feature-1'],
+      pricing: null,
+      strengths: [],
+      weaknesses: [],
+      relevance_score: 0.81,
+      source_platforms: ['github'],
+      source_urls: ['https://acme.example.com'],
+    }
+    const domId = getCompetitorDomId(competitor)
+    const scrollIntoView = vi.fn()
+
+    render(
+      <>
+        <div id={domId} data-testid="target-card" />
+        <LandscapeChart competitors={[competitor]} />
+      </>,
+    )
+
+    const target = screen.getByTestId('target-card')
+    Object.defineProperty(target, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to competitor Acme' }))
+
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
 })

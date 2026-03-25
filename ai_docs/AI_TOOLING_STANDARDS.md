@@ -1,50 +1,57 @@
 # AI Tooling Standards
 
-This document defines one shared engineering contract for all AI assistants used in this repository.
+This document defines the shared engineering contract for AI assistants working in this repository.
 
-**Before starting any task, read the relevant documents in `ai_docs/` first.**
+## Read Order
 
-## ai_docs/ Index
+Before editing, read the relevant docs in `ai_docs/`:
 
-| Document | Purpose |
-| :--- | :--- |
-| `AI_TOOLING_STANDARDS.md` | This file — shared contract for all AI tools |
-| `BACKEND_STANDARDS.md` | Backend architecture, layering, API conventions |
-| `FRONTEND_STANDARDS.md` | Frontend stack, directory structure, component conventions |
-| `SCRIPTS_GUIDE.md` | How to rename the package and update version numbers |
-| `MODELS_GUIDE.md` | Pydantic model rules for this project |
-| `SETTINGS_GUIDE.md` | Configuration management with pydantic-settings |
-| `SDK_USAGE.md` | src-layout import conventions |
-| `PRE_COMMIT_GUIDE.md` | Pre-commit hooks setup and usage |
+- `AI_TOOLING_STANDARDS.md`
+- `BACKEND_STANDARDS.md`
+- `FRONTEND_STANDARDS.md`
+- `MODELS_GUIDE.md`
+- `SETTINGS_GUIDE.md`
+- `SDK_USAGE.md`
+- `SCRIPTS_GUIDE.md`
+- `PRE_COMMIT_GUIDE.md`
 
-## Tool Configuration Map
+## Branch Model
 
-- Cursor: `.cursorrules`, `.cursor/rules/*.mdc`, `.cursor/skills/*`
-- Codex: `AGENTS.md`, `.codex/skills/*`
-- Claude Code: `CLAUDE.md`, `.claude/skills/*`
-- Anti-Gravity Agent: `.agent/rules/*.md`, `.agent/skills/*`
+- `main` is the personal/open-source deployment line.
+- `saas` adds commercial runtime features on top of `main`.
+- Shared product work lands in `main` first, then merges into `saas`.
+- Do not reintroduce Supabase, Stripe, LinuxDo, or account runtime requirements into `main`.
 
 ## Shared Engineering Contract
 
-1. Plan before coding: restate goal, list assumptions, then implement.
-2. Keep edits small and reviewable; avoid broad refactors without explicit request.
-3. Prefer existing project conventions over personal preference.
-4. Verify before claiming completion.
+1. Plan before coding.
+2. Prefer minimal, reviewable edits.
+3. Follow the existing project architecture.
+4. Update docs and env examples when behavior changes.
+5. Verify before claiming completion.
 
-## Backend Stack (Python)
+## Current V2 Contract Boundaries
 
-- Runtime: Python 3.10+
-- Dependency management: `uv`
-- Lint/format: `ruff`
-- Tests: `pytest`
-- Style: type hints required, explicit error handling, small pure functions preferred
+- Reports are decision-first: recommendation, why-now, pain signals, commercial signals, whitespace opportunities, competitors, then evidence and confidence.
+- Backend report payloads and frontend shared types are explicit contracts.
+- Keep LangGraph state, extraction outputs, and aggregation carriers typed.
+- `pipeline/merger.py` is deterministic competitor dedupe only.
+- Whitespace and opportunity synthesis belongs in `pipeline/aggregator.py`.
+- Source roles are fixed unless the task explicitly changes them: Tavily, Reddit, GitHub, Hacker News, App Store, Product Hunt.
+- Retrieval and ranking stay opportunity-first rather than popularity-first.
 
-If a backend API/service is needed and no framework is specified, default to:
+## Backend Stack
 
-- FastAPI for HTTP API layer
-- Pydantic v2 for DTO/schema validation
-- SQLAlchemy + Alembic for persistence and migrations
-- Redis for cache/short-lived state when required
+- Python 3.10+
+- `uv`
+- `ruff`
+- `pytest`
+- `mypy`
+- FastAPI
+- Pydantic v2
+- LangGraph + LangChain OpenAI
+- Local file cache for reports
+- SQLite checkpoints for pipeline state
 
 Backend verification:
 
@@ -55,35 +62,15 @@ uv run mypy src
 uv run pytest
 ```
 
-For detailed backend engineering rules, see `ai_docs/BACKEND_STANDARDS.md`.
-
 ## Frontend Stack
 
-For detailed frontend engineering rules, see `ai_docs/FRONTEND_STANDARDS.md`.
-
-Fixed tech stack — do not change unless explicitly requested:
-
-| Layer | Choice |
-| :--- | :--- |
-| Package manager | **pnpm** |
-| Framework | React |
-| Language | TypeScript (strict) |
-| Bundler | Vite |
-| Styling | Tailwind CSS |
-| Component library | **shadcn/ui** |
-
-Preferred layout:
-
-- `frontend/src/app` — app shell and routing
-- `frontend/src/features/*` — domain modules
-- `frontend/src/components/ui` — shadcn/ui primitives and shared components
-- `frontend/src/lib` — utilities and API wrappers
-
-Frontend conventions:
-
-- Use shadcn/ui components as building blocks; customize via Tailwind and CSS variables.
-- Prefer semantic HTML, keyboard accessibility, and visible focus states.
-- Avoid `any` except for documented edge cases.
+- `pnpm`
+- React 19
+- TypeScript
+- Vite 7
+- Tailwind CSS 4
+- React Router 7
+- Vitest + Testing Library
 
 Frontend verification:
 
@@ -100,5 +87,5 @@ A task is done only when:
 
 - requested behavior is implemented,
 - relevant checks pass,
-- edge cases are covered,
-- docs/config are updated if behavior or workflow changed.
+- docs/config/examples are updated if needed,
+- `main` still works without SaaS env vars.

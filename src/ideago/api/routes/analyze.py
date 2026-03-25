@@ -10,7 +10,7 @@ import hashlib
 import uuid
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
@@ -26,6 +26,7 @@ from ideago.api.dependencies import (
     remove_pipeline_task,
     reserve_processing_report,
 )
+from ideago.api.errors import AppError, ErrorCode
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.events import EventType, PipelineEvent
@@ -54,11 +55,17 @@ async def _mark_cancelled(report_id: str) -> None:
                 data={"report_id": report_id},
             )
         )
-    await get_cache().put_status(
+    cache = get_cache()
+    existing_user_id = ""
+    existing_status = await cache.get_status(report_id)
+    if existing_status:
+        existing_user_id = existing_status.get("user_id", "") or ""
+    await cache.put_status(
         report_id,
         "cancelled",
         error_code="PIPELINE_CANCELLED",
         message="Analysis cancelled by user",
+        user_id=existing_user_id,
     )
 
 
@@ -73,25 +80,27 @@ class _RunStateCallback:
         await run_state.publish(event)
 
 
-async def _run_pipeline(query: str, report_id: str) -> None:
+async def _run_pipeline(query: str, report_id: str, user_id: str = "") -> None:
     """Background task: run the pipeline and push events to the queue."""
     cache = get_cache()
     run_state = get_or_create_report_run(report_id)
     callback = _RunStateCallback(report_id)
     try:
-        await cache.put_status(
-            report_id,
-            "processing",
-            query,
-            message="Analysis is in progress",
-        )
         orchestrator = get_orchestrator()
-        report = await orchestrator.run(query, callback=callback, report_id=report_id)
+        report = await orchestrator.run(
+            query, callback=callback, report_id=report_id, user_id=user_id
+        )
         if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
-        await cache.put_status(report_id, "complete", query, message="Report ready")
+        await cache.put_status(
+            report_id,
+            "complete",
+            query,
+            message="Report ready",
+            user_id=user_id,
+        )
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _mark_cancelled(report_id)
@@ -103,6 +112,7 @@ async def _run_pipeline(query: str, report_id: str) -> None:
             query,
             error_code="PIPELINE_FAILURE",
             message="Pipeline failed. Please retry.",
+            user_id=user_id,
         )
         await run_state.publish(
             PipelineEvent(
@@ -131,6 +141,14 @@ async def start_analysis(request: AnalyzeRequest) -> AnalyzeResponse:
     existing_report_id = await reserve_processing_report(query_hash, report_id)
     if existing_report_id is not None:
         return AnalyzeResponse(report_id=existing_report_id)
+
+    cache = get_cache()
+    await cache.put_status(
+        report_id,
+        "processing",
+        query,
+        message="Analysis is in progress",
+    )
 
     get_or_create_report_run(report_id)
 
@@ -249,8 +267,10 @@ async def cancel_analysis(report_id: str) -> dict:
     task = await get_pipeline_task_for_report(report_id)
     report_is_processing = await is_processing_report(report_id)
     if (task is None or task.done()) and not report_is_processing:
-        raise HTTPException(
-            status_code=404, detail="No active analysis found for this report"
+        raise AppError(
+            404,
+            ErrorCode.ANALYSIS_NOT_FOUND,
+            "No active analysis found for this report",
         )
 
     if task is not None and not task.done():

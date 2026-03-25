@@ -6,17 +6,23 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, NamedTuple
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
+
+
+class _ResolvedQuery(NamedTuple):
+    text: str
+    family: str
 
 
 class AppStoreSource:
@@ -62,7 +68,12 @@ class AppStoreSource:
         }
         return payload
 
-    async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+    async def _search_single_query(
+        self,
+        resolved_query: _ResolvedQuery,
+        limit: int,
+    ) -> list[RawResult]:
+        query = resolved_query.text
         try:
             resp = await self._client.get(
                 "/search",
@@ -99,6 +110,13 @@ class AppStoreSource:
                         url=track_url,
                         platform=Platform.APPSTORE,
                         raw_data={
+                            "matched_query": query,
+                            "query_family": resolved_query.family,
+                            "source_native_score": item.get("averageUserRating"),
+                            "engagement_proxy": item.get("userRatingCount"),
+                            "freshness_timestamp": _to_iso_datetime(
+                                item.get("releaseDate")
+                            ),
                             "track_id": item.get("trackId"),
                             "bundle_id": item.get("bundleId"),
                             "seller_name": item.get("sellerName"),
@@ -133,6 +151,13 @@ class AppStoreSource:
         """Search iOS apps for each query and return deduplicated results."""
         if not queries:
             return []
+        resolved_queries = [
+            resolved_query
+            for query in queries
+            if (resolved_query := _resolve_query(query)).text
+        ]
+        if not resolved_queries:
+            return []
 
         self._last_search_diagnostics = {
             "partial_failure": False,
@@ -146,15 +171,20 @@ class AppStoreSource:
         )
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
+        async def run_query(
+            resolved_query: _ResolvedQuery,
+        ) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
                 try:
-                    return query, await self._search_single_query(query, limit)
+                    return resolved_query.text, await self._search_single_query(
+                        resolved_query,
+                        limit,
+                    )
                 except Exception as exc:  # noqa: BLE001
-                    return query, exc
+                    return resolved_query.text, exc
 
         grouped_results = await asyncio.gather(
-            *(run_query(query) for query in queries),
+            *(run_query(query) for query in resolved_queries),
             return_exceptions=False,
         )
         deduped_results: list[RawResult] = []
@@ -272,3 +302,49 @@ def _to_iso_date(value: object) -> str | None:
     except ValueError:
         return None
     return parsed.date().isoformat()
+
+
+def _to_iso_datetime(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _resolve_query(query: object) -> _ResolvedQuery:
+    text = _extract_query_text(query)
+    if not text:
+        return _ResolvedQuery("", "competitor_discovery")
+    family = _extract_query_family(query)
+    return _ResolvedQuery(text, family or infer_query_family(text))
+
+
+def _extract_query_text(query: object) -> str:
+    if isinstance(query, str):
+        return query.strip()
+    if isinstance(query, dict):
+        for key in ("query", "text", "value"):
+            value = query.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for attr in ("query", "text", "value"):
+        value = getattr(query, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _extract_query_family(query: object) -> str:
+    if isinstance(query, dict):
+        value = query.get("query_family") or query.get("family")
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+    value = getattr(query, "query_family", None) or getattr(query, "family", None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""

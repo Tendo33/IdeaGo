@@ -20,20 +20,6 @@ vi.mock('@/features/history/HistoryPage', async () => {
   }
 })
 
-describe('App route loading', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    window.history.pushState({}, '', '/reports/r-1')
-  })
-
-  it('shows route fallback before lazy page resolves', async () => {
-    render(<App />)
-
-    expect(screen.getByTestId('route-loading')).toBeInTheDocument()
-    expect(await screen.findByText('REPORT PAGE')).toBeInTheDocument()
-  })
-})
-
 function mockMatchMedia(matches: boolean) {
   const listeners = new Set<(event: MediaQueryListEvent) => void>()
   const mediaQueryList = {
@@ -51,6 +37,43 @@ function mockMatchMedia(matches: boolean) {
 
   vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => mediaQueryList))
 }
+
+describe('App route loading', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    window.history.pushState({}, '', '/reports/r-1')
+  })
+
+  it('shows route fallback before lazy page resolves', async () => {
+    mockMatchMedia(false)
+    render(<App />)
+
+    expect(screen.getByTestId('route-loading')).toBeInTheDocument()
+    expect(await screen.findByText('REPORT PAGE')).toBeInTheDocument()
+  })
+})
+
+describe('App personal mode routes', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    window.history.pushState({}, '', '/')
+  })
+
+  it('shows home page on root without requiring authentication', async () => {
+    mockMatchMedia(false)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+  })
+
+  it('renders history route directly', async () => {
+    mockMatchMedia(false)
+    window.history.pushState({}, '', '/reports')
+    render(<App />)
+
+    expect(await screen.findByText('HISTORY PAGE')).toBeInTheDocument()
+  })
+})
 
 describe('App theme mode', () => {
   beforeEach(() => {

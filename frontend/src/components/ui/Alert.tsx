@@ -9,29 +9,29 @@ export interface AlertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, '
 
 export const Alert = forwardRef<HTMLDivElement, AlertProps>(
   ({ className = '', variant = 'default', title, children, icon, ...props }, ref) => {
-    const baseClasses = "flex items-start gap-3 p-4 border-2 shadow-[4px_4px_0px_0px]"
+    const baseClasses = "flex items-start gap-3 p-4 border-2"
 
     const variantConfig = {
       default: {
-        classes: "bg-card border-border shadow-[var(--border)] text-foreground",
+        classes: "bg-card border-border shadow text-foreground",
         icon: <Info className="h-5 w-5 shrink-0 mt-0.5 text-muted-foreground" />,
         titleClasses: "text-foreground",
         descClasses: "text-muted-foreground"
       },
       destructive: {
-        classes: "bg-destructive/10 border-destructive shadow-[var(--destructive)] text-destructive",
+        classes: "bg-destructive/10 border-destructive shadow shadow-destructive text-destructive",
         icon: <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-destructive" />,
         titleClasses: "text-destructive",
         descClasses: "text-destructive/90"
       },
       warning: {
-        classes: "bg-warning/20 border-warning shadow-[var(--warning)] text-warning",
+        classes: "bg-warning/20 border-warning shadow shadow-warning text-warning",
         icon: <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-warning" />,
         titleClasses: "text-warning",
         descClasses: "text-warning/90"
       },
       success: {
-        classes: "bg-success/10 border-success shadow-[var(--success)] text-success",
+        classes: "bg-success/10 border-success shadow shadow-success text-success",
         icon: <CheckCircle className="h-5 w-5 shrink-0 mt-0.5 text-success" />,
         titleClasses: "text-success",
         descClasses: "text-success/90"

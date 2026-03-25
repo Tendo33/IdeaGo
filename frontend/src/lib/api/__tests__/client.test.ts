@@ -7,7 +7,7 @@ import {
   listReports,
   deleteReport,
   cancelAnalysis,
-  getExportUrl,
+  exportReport,
   getStreamUrl,
 } from '../client'
 
@@ -16,6 +16,7 @@ vi.stubGlobal('fetch', mockFetch)
 
 beforeEach(() => {
   mockFetch.mockReset()
+  localStorage.clear()
 })
 
 describe('startAnalysis', () => {
@@ -31,7 +32,10 @@ describe('startAnalysis', () => {
       expect.stringContaining('/api/v1/analyze'),
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'IdeaGo',
+        }),
         body: JSON.stringify({ query: 'my startup idea' }),
       }),
     )
@@ -130,11 +134,16 @@ describe('getReportRuntimeStatus', () => {
 })
 
 describe('listReports', () => {
-  it('returns list of reports', async () => {
-    const reports = [{ id: 'r1', query: 'test', created_at: '2026-01-01', competitor_count: 3 }]
+  it('returns paginated reports', async () => {
+    const paginated = {
+      items: [{ id: 'r1', query: 'test', created_at: '2026-01-01', competitor_count: 3 }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    }
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve(reports),
+      json: () => Promise.resolve(paginated),
     })
 
     const result = await listReports()
@@ -142,13 +151,13 @@ describe('listReports', () => {
       expect.stringContaining('/api/v1/reports'),
       expect.objectContaining({ signal: expect.anything() }),
     )
-    expect(result).toEqual(reports)
+    expect(result).toEqual(paginated)
   })
 
   it('supports limit and offset query parameters', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve([]),
+      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 20 }),
     })
 
     await listReports({ limit: 5, offset: 20 })
@@ -206,8 +215,22 @@ describe('cancelAnalysis', () => {
 })
 
 describe('URL helpers', () => {
-  it('getExportUrl builds correct URL', () => {
-    expect(getExportUrl('abc')).toContain('/api/v1/reports/abc/export')
+  it('exportReport triggers download in anonymous mode', async () => {
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:fake', revokeObjectURL })
+
+    const mockLink = { href: '', download: '', click: vi.fn(), remove: vi.fn() }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockLink as unknown as HTMLElement)
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as unknown as Node)
+
+    mockFetch.mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(['# Report'])) })
+    await exportReport('abc')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reports/abc/export'),
+      expect.objectContaining({ signal: expect.anything() }),
+    )
+    expect(mockLink.click).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake')
   })
 
   it('getStreamUrl builds correct URL', () => {

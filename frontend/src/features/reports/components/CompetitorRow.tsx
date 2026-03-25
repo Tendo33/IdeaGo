@@ -23,7 +23,7 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
   return (
     <div
       id={elementId}
-      className="flex items-center gap-4 px-5 py-4 rounded-none border border-2 border-border bg-card  transition-all duration-300 hover:border-cta/30 hover:bg-muted/55 hover:-translate-y-px group"
+      className="flex items-center gap-4 px-5 py-4 rounded-none border-2 border-border bg-card transition-all duration-300 group"
     >
       <span className="text-sm font-mono text-muted-foreground w-6 text-right shrink-0">#{rank}</span>
       <RelevanceRing score={competitor.relevance_score} size={32} />
@@ -53,10 +53,10 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
         {onToggleCompare && (
           <button
             onClick={e => { e.stopPropagation(); onToggleCompare(getCompetitorId(competitor)) }}
-            className={`text-xs px-2 py-1 rounded-none border cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
+            className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-none border-2 cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
               compareSelected
-                ? 'border-cta/50 bg-cta/10 text-cta'
-                : 'border-2 border-border text-muted-foreground hover:border-cta/30'
+                ? 'border-cta bg-cta text-primary-foreground shadow-sm'
+                : 'border-border text-muted-foreground hover:border-cta/50 hover:text-cta hover:bg-cta/5'
             }`}
             aria-label={compareSelected ? t('report.competitors.compareSelected') : t('report.competitors.compareUnselected')}
             aria-pressed={Boolean(compareSelected)}
@@ -70,7 +70,7 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
             target="_blank"
             rel="noopener noreferrer"
             className="p-1.5 rounded-none text-muted-foreground hover:text-cta transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-            aria-label={`Open ${competitor.name}`}
+            aria-label={t('report.accessibility.openCompetitor', { name: competitor.name })}
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </a>

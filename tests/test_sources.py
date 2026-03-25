@@ -9,11 +9,13 @@ import httpx
 import pytest
 
 from ideago.models.research import Platform, RawResult
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.errors import SourceSearchError
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.producthunt_source import ProductHuntSource
+from ideago.sources.reddit_source import RedditSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
@@ -30,6 +32,8 @@ MOCK_GITHUB_RESPONSE = {
             "language": "TypeScript",
             "topics": ["markdown", "browser-extension"],
             "forks_count": 50,
+            "size": 1024,
+            "pushed_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z",
         },
         {
@@ -40,6 +44,8 @@ MOCK_GITHUB_RESPONSE = {
             "language": "JavaScript",
             "topics": [],
             "forks_count": 10,
+            "size": 512,
+            "pushed_at": "2025-12-01T00:00:00Z",
             "updated_at": "2025-12-01T00:00:00Z",
         },
     ],
@@ -53,6 +59,7 @@ MOCK_HN_RESPONSE = {
             "objectID": "12345",
             "points": 150,
             "num_comments": 42,
+            "created_at_i": 1706745600,
             "story_text": "",
             "author": "user1",
         },
@@ -62,6 +69,7 @@ MOCK_HN_RESPONSE = {
             "objectID": "67890",
             "points": 80,
             "num_comments": 65,
+            "created_at_i": 1706832000,
             "story_text": "Looking for recommendations...",
             "author": "user2",
         },
@@ -233,9 +241,94 @@ async def test_github_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown notes extension"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.GITHUB
-    assert "github.com" in results[0].url
-    assert results[0].raw_data["stargazers_count"] == 1200
+    first = results[0]
+    assert first.platform == Platform.GITHUB
+    assert "github.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown notes extension"
+    assert first.raw_data["query_family"] == infer_query_family(
+        "markdown notes extension"
+    )
+    assert first.raw_data["source_native_score"] == 1200
+    assert first.raw_data["engagement_proxy"] == 1250
+    assert first.raw_data["freshness_timestamp"] == "2026-01-01T00:00:00Z"
+    assert first.raw_data["stargazers_count"] == 1200
+
+
+@pytest.mark.asyncio
+async def test_github_search_prefers_carried_query_family_metadata() -> None:
+    src = GitHubSource(token="test-token")
+    mock_response = httpx.Response(200, json=MOCK_GITHUB_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown notes extension",
+                    "query_family": "migration_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown notes extension"
+    assert results[0].raw_data["query_family"] == "migration_discovery"
+
+
+@pytest.mark.asyncio
+async def test_github_search_filters_repositories_below_min_stars() -> None:
+    src = GitHubSource(token="", min_stars=500)
+    mock_response = httpx.Response(200, json=MOCK_GITHUB_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["markdown notes extension"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "user/markdown-clipper"
+
+
+@pytest.mark.asyncio
+async def test_github_search_filters_empty_repositories() -> None:
+    src = GitHubSource(token="", min_stars=50)
+    mock_response = httpx.Response(
+        200,
+        json={
+            "items": [
+                {
+                    "full_name": "user/active-repo",
+                    "description": "Has real content",
+                    "html_url": "https://github.com/user/active-repo",
+                    "stargazers_count": 500,
+                    "language": "Python",
+                    "topics": [],
+                    "forks_count": 20,
+                    "size": 256,
+                    "pushed_at": "2026-02-01T00:00:00Z",
+                    "updated_at": "2026-02-01T00:00:00Z",
+                },
+                {
+                    "full_name": "user/empty-repo",
+                    "description": "Empty shell repo",
+                    "html_url": "https://github.com/user/empty-repo",
+                    "stargazers_count": 500,
+                    "language": None,
+                    "topics": [],
+                    "forks_count": 0,
+                    "size": 0,
+                    "pushed_at": None,
+                    "updated_at": "2026-02-01T00:00:00Z",
+                },
+            ]
+        },
+    )
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["markdown notes extension"], limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "user/active-repo"
 
 
 @pytest.mark.asyncio
@@ -329,10 +422,12 @@ async def test_github_search_partial_failure_returns_partial_results() -> None:
                         "full_name": f"user/{query}",
                         "description": "ok",
                         "html_url": f"https://github.com/user/{query}",
-                        "stargazers_count": 1,
+                        "stargazers_count": 100,
                         "language": "Python",
                         "topics": [],
                         "forks_count": 0,
+                        "size": 64,
+                        "pushed_at": "2026-01-01T00:00:00Z",
                         "updated_at": "2026-01-01T00:00:00Z",
                     }
                 ]
@@ -412,8 +507,46 @@ async def test_tavily_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown browser extension"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.TAVILY
-    assert "chromewebstore" in results[0].url
+    first = results[0]
+    assert first.platform == Platform.TAVILY
+    assert "chromewebstore" in first.url
+    assert first.raw_data["matched_query"] == "markdown browser extension"
+    assert first.raw_data["query_family"] == infer_query_family(
+        "markdown browser extension"
+    )
+    assert first.raw_data["source_native_score"] == pytest.approx(0.95)
+    assert first.raw_data["engagement_proxy"] == pytest.approx(0.95)
+    assert first.raw_data["freshness_timestamp"] is None
+
+
+@pytest.mark.asyncio
+async def test_tavily_search_prefers_carried_query_family_metadata() -> None:
+    src = TavilySource(api_key="tvly-test")
+    mock_tavily_response = {
+        "results": [
+            {
+                "title": "Markdownify - Chrome Extension",
+                "url": "https://chromewebstore.google.com/detail/markdownify",
+                "content": "Convert any webpage to markdown with one click...",
+                "score": 0.95,
+            }
+        ]
+    }
+    with patch.object(
+        src._client, "search", new_callable=AsyncMock, return_value=mock_tavily_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown browser extension",
+                    "query_family": "commercial_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown browser extension"
+    assert results[0].raw_data["query_family"] == "commercial_discovery"
 
 
 @pytest.mark.asyncio
@@ -508,10 +641,37 @@ async def test_hn_search_returns_raw_results() -> None:
     ):
         results = await src.search(["markdown web clipper"], limit=10)
     assert len(results) == 2
-    assert results[0].platform == Platform.HACKERNEWS
-    assert "example.com" in results[0].url
+    first = results[0]
+    assert first.platform == Platform.HACKERNEWS
+    assert "example.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown web clipper"
+    assert first.raw_data["query_family"] == infer_query_family("markdown web clipper")
+    assert first.raw_data["source_native_score"] == 150
+    assert first.raw_data["engagement_proxy"] == 192
+    assert first.raw_data["freshness_timestamp"] == "2024-02-01T00:00:00Z"
     # HN posts without URL get the HN discussion URL
     assert "ycombinator" in results[1].url
+
+
+@pytest.mark.asyncio
+async def test_hn_search_prefers_carried_query_family_metadata() -> None:
+    src = HackerNewsSource()
+    mock_response = httpx.Response(200, json=MOCK_HN_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [
+                {
+                    "query": "markdown web clipper",
+                    "query_family": "positioning_discovery",
+                }
+            ],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown web clipper"
+    assert results[0].raw_data["query_family"] == "positioning_discovery"
 
 
 @pytest.mark.asyncio
@@ -607,10 +767,32 @@ async def test_appstore_search_returns_raw_results() -> None:
         results = await src.search(["focus notes"], limit=10)
 
     assert len(results) == 2
-    assert results[0].platform == Platform.APPSTORE
-    assert "apps.apple.com" in results[0].url
-    assert results[0].raw_data["track_id"] == 1001
-    assert results[0].description == "Capture quick notes"
+    first = results[0]
+    assert first.platform == Platform.APPSTORE
+    assert "apps.apple.com" in first.url
+    assert first.raw_data["matched_query"] == "focus notes"
+    assert first.raw_data["query_family"] == infer_query_family("focus notes")
+    assert first.raw_data["source_native_score"] == pytest.approx(4.8)
+    assert first.raw_data["engagement_proxy"] == 9021
+    assert first.raw_data["freshness_timestamp"] == "2025-12-01T00:00:00Z"
+    assert first.raw_data["track_id"] == 1001
+    assert first.description == "Capture quick notes"
+
+
+@pytest.mark.asyncio
+async def test_appstore_search_prefers_carried_query_family_metadata() -> None:
+    src = AppStoreSource(country="us")
+    mock_response = httpx.Response(200, json=MOCK_APPSTORE_RESPONSE)
+    with patch.object(
+        src._client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(
+            [{"query": "focus notes", "query_family": "workflow_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "focus notes"
+    assert results[0].raw_data["query_family"] == "workflow_discovery"
 
 
 @pytest.mark.asyncio
@@ -719,11 +901,34 @@ async def test_producthunt_search_returns_raw_results() -> None:
     assert first.description == "Convert html to markdown in seconds"
     assert first.url == "https://www.producthunt.com/posts/markdown-rocket"
     assert first.platform == Platform.PRODUCT_HUNT
+    assert first.raw_data["matched_query"] == "html to markdown"
+    assert first.raw_data["query_family"] == infer_query_family("html to markdown")
+    assert first.raw_data["source_native_score"] == 320
+    assert first.raw_data["engagement_proxy"] == 320
+    assert first.raw_data["freshness_timestamp"] == "2026-01-10T00:00:00Z"
     assert first.raw_data["post_id"] == "post-1"
     assert first.raw_data["votes_count"] == 320
     assert first.raw_data["created_at"] == "2026-01-10T00:00:00Z"
     assert first.raw_data["website"] == "https://markdown-rocket.example.com"
     assert first.raw_data["topic_slug"] in {"developer-tools", "productivity"}
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_prefers_carried_query_family_metadata() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+        ]
+        results = await src.search(
+            [{"query": "html to markdown", "query_family": "launch_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "html to markdown"
+    assert results[0].raw_data["query_family"] == "launch_discovery"
 
 
 @pytest.mark.asyncio
@@ -801,6 +1006,108 @@ async def test_producthunt_search_deduplicates_posts_across_topics() -> None:
 
 
 @pytest.mark.asyncio
+async def test_producthunt_search_preserves_provenance_for_shared_topics() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    shared_topic_response = {
+        "data": {
+            "topics": {
+                "nodes": [
+                    {
+                        "name": "Developer Tools",
+                        "slug": "developer-tools",
+                        "postsCount": 100,
+                        "url": "https://www.producthunt.com/topics/developer-tools",
+                    }
+                ]
+            }
+        }
+    }
+    shared_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [
+                    {
+                        "id": "post-writer",
+                        "name": "Writer Helper",
+                        "tagline": "AI writing helper for docs",
+                        "votesCount": 180,
+                        "createdAt": "2026-01-11T00:00:00Z",
+                        "url": "https://www.producthunt.com/posts/writer-helper",
+                        "website": "https://writer-helper.example.com",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    queries = [
+        {"query": "markdown", "query_family": "competitor_discovery"},
+        {"query": "writer helper", "query_family": "commercial_discovery"},
+    ]
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=shared_topic_response),
+            httpx.Response(200, json=shared_topic_response),
+            httpx.Response(200, json=shared_posts_response),
+        ]
+        results = await src.search(queries, limit=10)
+
+    assert len(results) == 1
+    assert results[0].raw_data["matched_query"] == "writer helper"
+    assert results[0].raw_data["query_family"] == "commercial_discovery"
+
+
+@pytest.mark.asyncio
+async def test_producthunt_search_preserves_provenance_for_fallback_topics() -> None:
+    src = ProductHuntSource(dev_token="ph-token")
+    empty_topics = {"data": {"topics": {"nodes": []}}}
+    matching_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [
+                    {
+                        "id": "post-focus",
+                        "name": "Focus Notes",
+                        "tagline": "Focus notes app for makers",
+                        "votesCount": 220,
+                        "createdAt": "2026-01-12T00:00:00Z",
+                        "url": "https://www.producthunt.com/posts/focus-notes",
+                        "website": "https://focus-notes.example.com",
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    empty_posts_response = {
+        "data": {
+            "posts": {
+                "nodes": [],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+    }
+    queries = [
+        {"query": "markdown", "query_family": "competitor_discovery"},
+        {"query": "focus notes", "query_family": "workflow_discovery"},
+    ]
+    with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [
+            httpx.Response(200, json=empty_topics),
+            httpx.Response(200, json=empty_topics),
+            httpx.Response(200, json=matching_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+            httpx.Response(200, json=empty_posts_response),
+        ]
+        results = await src.search(queries, limit=10)
+
+    assert len(results) == 1
+    assert results[0].raw_data["matched_query"] == "focus notes"
+    assert results[0].raw_data["query_family"] == "workflow_discovery"
+
+
+@pytest.mark.asyncio
 async def test_producthunt_search_handles_chinese_queries_without_zeroing() -> None:
     src = ProductHuntSource(dev_token="ph-token")
     with patch.object(src._client, "post", new_callable=AsyncMock) as mock_post:
@@ -829,3 +1136,349 @@ async def test_producthunt_search_falls_back_when_topics_empty() -> None:
         results = await src.search(["markdown"], limit=10)
 
     assert len(results) >= 1
+
+
+# ---------- RedditSource ----------
+
+MOCK_REDDIT_RESPONSE = {
+    "data": {
+        "children": [
+            {
+                "kind": "t3",
+                "data": {
+                    "id": "abc123",
+                    "title": "Best markdown editor alternatives?",
+                    "selftext": "I'm looking for a good markdown editor. Any recommendations?",
+                    "url": "https://www.reddit.com/r/software/comments/abc123/best_markdown_editor_alternatives/",
+                    "permalink": "/r/software/comments/abc123/best_markdown_editor_alternatives/",
+                    "subreddit": "software",
+                    "score": 245,
+                    "num_comments": 87,
+                    "created_utc": 1706745600,
+                    "upvote_ratio": 0.95,
+                },
+            },
+            {
+                "kind": "t3",
+                "data": {
+                    "id": "def456",
+                    "title": "Recommend me a note-taking app",
+                    "selftext": "",
+                    "url": "https://www.reddit.com/r/productivity/comments/def456/recommend_me_a_notetaking_app/",
+                    "permalink": "/r/productivity/comments/def456/recommend_me_a_notetaking_app/",
+                    "subreddit": "productivity",
+                    "score": 120,
+                    "num_comments": 45,
+                    "created_utc": 1706832000,
+                    "upvote_ratio": 0.88,
+                },
+            },
+        ]
+    }
+}
+
+MOCK_TOKEN_RESPONSE = {
+    "access_token": "fake-token-abc",
+    "token_type": "bearer",
+    "expires_in": 86400,
+    "scope": "*",
+}
+
+
+def _make_reddit(client_id: str = "test-id", client_secret: str = "test-secret", **kw):
+    return RedditSource(client_id=client_id, client_secret=client_secret, **kw)
+
+
+def _patch_token(src: RedditSource):
+    """Patch _ensure_token to skip real OAuth and return a fake token."""
+    return patch.object(
+        src, "_ensure_token", new_callable=AsyncMock, return_value="fake-token"
+    )
+
+
+def test_reddit_platform() -> None:
+    src = _make_reddit()
+    assert src.platform == Platform.REDDIT
+
+
+def test_reddit_available_with_credentials() -> None:
+    src = _make_reddit()
+    assert src.is_available() is True
+
+
+def test_reddit_available_with_public_fallback_enabled_without_credentials() -> None:
+    src = RedditSource()
+    assert src.is_available() is True
+
+
+def test_reddit_not_available_without_credentials() -> None:
+    src = RedditSource(enable_public_fallback=False)
+    assert src.is_available() is False
+    src2 = RedditSource(client_id="id-only")
+    assert src2.is_available() is False
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_without_credentials_uses_public_fallback() -> None:
+    src = RedditSource()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with patch.object(
+        src._public_client, "get", new_callable=AsyncMock, return_value=mock_response
+    ):
+        results = await src.search(["test"])
+
+    assert len(results) == 2
+    assert results[0].raw_data["auth_mode"] == "public_fallback"
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["used_public_fallback"] is True
+    assert diagnostics["fallback_reason"] == "missing_credentials"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_without_credentials_returns_empty_when_fallback_disabled() -> (
+    None
+):
+    src = RedditSource(enable_public_fallback=False)
+    results = await src.search(["test"])
+    assert results == []
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["used_public_fallback"] is False
+    assert diagnostics["fallback_reason"] == "disabled_by_config"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_returns_raw_results() -> None:
+    src = _make_reddit()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+    ):
+        results = await src.search(["markdown editor"], limit=10)
+    assert len(results) == 2
+    first = results[0]
+    assert first.platform == Platform.REDDIT
+    assert "reddit.com" in first.url
+    assert first.raw_data["matched_query"] == "markdown editor"
+    assert first.raw_data["query_family"] == infer_query_family("markdown editor")
+    assert first.raw_data["source_native_score"] == 245
+    assert first.raw_data["engagement_proxy"] == 332
+    assert first.raw_data["freshness_timestamp"] == "2024-02-01T00:00:00Z"
+    assert first.raw_data["score"] == 245
+    assert first.raw_data["num_comments"] == 87
+    assert first.raw_data["subreddit"] == "software"
+    assert first.raw_data["auth_mode"] == "oauth"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_prefers_carried_query_family_metadata() -> None:
+    src = _make_reddit()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+    ):
+        results = await src.search(
+            [{"query": "markdown editor", "query_family": "alternative_discovery"}],
+            limit=10,
+        )
+
+    assert results[0].raw_data["matched_query"] == "markdown editor"
+    assert results[0].raw_data["query_family"] == "alternative_discovery"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_deduplicates_across_queries() -> None:
+    src = _make_reddit()
+    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+    ):
+        results = await src.search(["query1", "query2"], limit=10)
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_handles_rate_limit() -> None:
+    src = _make_reddit()
+    mock_response = httpx.Response(429, json={"message": "Too Many Requests"})
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+        pytest.raises(SourceSearchError),
+    ):
+        await src.search(["test"], limit=5)
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_handles_timeout() -> None:
+    src = _make_reddit(timeout=1)
+
+    async def slow_get(*_args, **_kwargs):
+        raise httpx.ReadTimeout("timeout")
+
+    with (
+        _patch_token(src),
+        patch.object(src._client, "get", new_callable=AsyncMock) as mock_get,
+        pytest.raises(SourceSearchError),
+    ):
+        mock_get.side_effect = slow_get
+        await src.search(["test"], limit=5)
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_partial_failure_returns_partial_results() -> None:
+    src = _make_reddit()
+
+    async def fake_get(*_args, **kwargs):
+        query = kwargs["params"]["q"]
+        if query == "bad":
+            raise httpx.ReadTimeout("timeout")
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "children": [
+                        {
+                            "kind": "t3",
+                            "data": {
+                                "id": f"id-{query}",
+                                "title": f"Post about {query}",
+                                "selftext": "content",
+                                "url": f"https://reddit.com/r/test/{query}",
+                                "permalink": f"/r/test/{query}",
+                                "subreddit": "test",
+                                "score": 10,
+                                "num_comments": 5,
+                                "created_utc": 1706745600,
+                                "upvote_ratio": 0.9,
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+
+    with (
+        _patch_token(src),
+        patch.object(src._client, "get", new_callable=AsyncMock) as mock_get,
+    ):
+        mock_get.side_effect = fake_get
+        results = await src.search(["good", "bad"], limit=5)
+
+    assert len(results) == 1
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["partial_failure"] is True
+    assert diagnostics["failed_queries"] == ["bad"]
+    assert diagnostics["timed_out_queries"] == ["bad"]
+    assert diagnostics["used_public_fallback"] is False
+    assert diagnostics["fallback_reason"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_reddit_public_fallback_partial_failure_marks_diagnostics() -> None:
+    src = RedditSource()
+
+    async def fake_get(*_args, **kwargs):
+        query = kwargs["params"]["q"]
+        if query == "bad":
+            raise httpx.ReadTimeout("timeout")
+        return httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
+
+    with patch.object(src._public_client, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = fake_get
+        results = await src.search(["good", "bad"], limit=5)
+
+    assert len(results) == 2
+    diagnostics = src.consume_last_search_diagnostics()
+    assert diagnostics["partial_failure"] is True
+    assert diagnostics["used_public_fallback"] is True
+    assert diagnostics["fallback_reason"] == "missing_credentials"
+
+
+@pytest.mark.asyncio
+async def test_reddit_search_sanitizes_selftext_html() -> None:
+    src = _make_reddit()
+    html_response = {
+        "data": {
+            "children": [
+                {
+                    "kind": "t3",
+                    "data": {
+                        "id": "html1",
+                        "title": "Test post",
+                        "selftext": 'Check out <a href="https://example.com">this &amp; that</a>',
+                        "url": "https://www.reddit.com/r/test/comments/html1/test/",
+                        "permalink": "/r/test/comments/html1/test/",
+                        "subreddit": "test",
+                        "score": 10,
+                        "num_comments": 2,
+                        "created_utc": 1706745600,
+                        "upvote_ratio": 0.9,
+                    },
+                }
+            ]
+        }
+    }
+    mock_response = httpx.Response(200, json=html_response)
+    with (
+        _patch_token(src),
+        patch.object(
+            src._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ),
+    ):
+        results = await src.search(["test"], limit=10)
+
+    assert len(results) == 1
+    assert "<" not in results[0].description
+    assert "&amp;" not in results[0].description
+    assert "this & that" in results[0].description
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_acquisition() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(200, json=MOCK_TOKEN_RESPONSE)
+    with patch.object(
+        src._auth_client, "post", new_callable=AsyncMock, return_value=mock_token_resp
+    ):
+        token = await src._ensure_token()
+    assert token == "fake-token-abc"
+    assert src._access_token == "fake-token-abc"
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_reuses_valid_token() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(200, json=MOCK_TOKEN_RESPONSE)
+    with patch.object(
+        src._auth_client, "post", new_callable=AsyncMock, return_value=mock_token_resp
+    ) as mock_post:
+        await src._ensure_token()
+        await src._ensure_token()
+    mock_post.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reddit_token_failure_raises() -> None:
+    src = _make_reddit()
+    mock_token_resp = httpx.Response(401, json={"error": "invalid_grant"})
+    with (
+        patch.object(
+            src._auth_client,
+            "post",
+            new_callable=AsyncMock,
+            return_value=mock_token_resp,
+        ),
+        pytest.raises(SourceSearchError, match="OAuth token request failed"),
+    ):
+        await src._ensure_token()

@@ -44,61 +44,60 @@
 
   --warning: oklch(0.8 0.2 80);
   --success: oklch(0.6 0.2 150);
+  --success-foreground: oklch(0.99 0.01 150);
 
-  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
-  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Very sharp radius for brutalism */
   --radius: 0px;
 
   /* Hard offset shadows */
-  --shadow-sm: 2px 2px 0px 0px oklch(0.15 0 0);
-  --shadow: 4px 4px 0px 0px oklch(0.15 0 0);
-  --shadow-md: 6px 6px 0px 0px oklch(0.15 0 0);
-  --shadow-lg: 8px 8px 0px 0px oklch(0.15 0 0);
-  --shadow-xl: 12px 12px 0px 0px oklch(0.15 0 0);
-  --shadow-hover: 2px 2px 0px 0px oklch(0.15 0 0);
+  --shadow-sm: 2px 2px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow: 4px 4px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-md: 6px 6px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-lg: 8px 8px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-xl: 12px 12px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-2xl: 16px 16px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-3xl: 20px 20px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-4xl: 24px 24px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-5xl: 32px 32px 0px 0px var(--tw-shadow-color, var(--border));
+  --shadow-hover: 2px 2px 0px 0px var(--tw-shadow-color, var(--border));
 
   --tracking-normal: -0.01em;
   --spacing: 0.25rem;
 }
 
 .dark {
-  /* Deep charcoal background */
-  --background: oklch(0.15 0 0);
+  /* Deep charcoal background with subtle blue tint */
+  --background: oklch(0.15 0.005 260);
   --foreground: oklch(0.98 0 0); /* Off white */
 
-  --card: oklch(0.18 0 0);
+  --card: oklch(0.18 0.005 260);
   --card-foreground: oklch(0.98 0 0);
 
-  --popover: oklch(0.18 0 0);
+  --popover: oklch(0.18 0.005 260);
   --popover-foreground: oklch(0.98 0 0);
 
   --primary: oklch(0.7 0.2 260); /* Brighter blue for dark mode */
-  --primary-foreground: oklch(0.1 0 0);
+  --primary-foreground: oklch(0.1 0.01 260);
 
-  --secondary: oklch(0.25 0 0);
+  --secondary: oklch(0.25 0.005 260);
   --secondary-foreground: oklch(0.98 0 0);
 
-  --muted: oklch(0.25 0 0);
+  --muted: oklch(0.25 0.005 260);
   --muted-foreground: oklch(0.7 0 0);
 
   --text-dim: oklch(0.6 0 0);
 
-  --accent: oklch(0.25 0 0);
+  --accent: oklch(0.25 0.005 260);
   --accent-foreground: oklch(0.98 0 0);
 
   --border: oklch(0.98 0 0); /* White borders for brutalism in dark mode */
   --input: oklch(0.98 0 0);
   --ring: oklch(0.7 0.2 260);
-
-  --shadow-sm: 2px 2px 0px 0px oklch(0.98 0 0);
-  --shadow: 4px 4px 0px 0px oklch(0.98 0 0);
-  --shadow-md: 6px 6px 0px 0px oklch(0.98 0 0);
-  --shadow-lg: 8px 8px 0px 0px oklch(0.98 0 0);
-  --shadow-xl: 12px 12px 0px 0px oklch(0.98 0 0);
-  --shadow-hover: 2px 2px 0px 0px oklch(0.98 0 0);
+  --success-foreground: oklch(0.1 0.05 150);
 }
 
 @theme inline {
@@ -133,11 +132,12 @@
   --color-danger: var(--destructive);
   --color-warning: var(--warning);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
-  --font-heading: 'Archivo Black', 'Space Grotesk', var(--font-sans);
+  --font-heading: 'Archivo Black', var(--font-sans);
 
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
@@ -149,18 +149,22 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+  --shadow-3xl: var(--shadow-3xl);
+  --shadow-4xl: var(--shadow-4xl);
+  --shadow-5xl: var(--shadow-5xl);
 }
 
 @layer components {
   /* Brutalist components */
   .filter-chip {
-    @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-bold uppercase tracking-wider border-2 border-border bg-background text-muted-foreground transition-all duration-150 cursor-pointer hover:text-foreground hover:bg-muted shadow-[2px_2px_0px_0px_var(--border)];
+    @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-bold uppercase tracking-wider border-2 border-border bg-background text-muted-foreground transition-all duration-150 cursor-pointer hover:text-foreground hover:bg-muted shadow-sm;
   }
   .filter-chip-active {
     @apply bg-primary text-primary-foreground border-border hover:bg-primary/90 hover:text-primary-foreground;
   }
   .interactive-surface {
-    @apply bg-background border-2 border-border shadow-[2px_2px_0px_0px_var(--border)];
+    @apply bg-background border-2 border-border shadow-sm;
   }
   .animate-breathing {
     animation: breathing 2s infinite ease-in-out;
@@ -170,7 +174,7 @@
     50% { transform: scale(1.1); opacity: 0.8; }
   }
   .skip-to-content {
-    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:font-bold focus:border-2 focus:border-border focus:shadow-[4px_4px_0px_0px_var(--border)];
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:font-bold focus:border-2 focus:border-border focus:shadow;
   }
 
   @media print {
@@ -180,17 +184,17 @@
   }
 
   .card {
-    @apply bg-card text-card-foreground rounded-none p-6 md:p-8 border-2 border-border shadow-[6px_6px_0px_0px_var(--border)] transition-all duration-200;
+    @apply bg-card text-card-foreground rounded-none p-6 md:p-8 border-2 border-border shadow-md transition-all duration-200;
   }
   .card-clickable {
-    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_var(--border)];
+    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg;
   }
 
   .input {
     @apply px-4 py-3 border-2 border-border rounded-none text-base bg-background text-foreground transition-all duration-150 outline-none font-medium;
   }
   .input:focus {
-    @apply border-primary ring-0 shadow-[4px_4px_0px_0px_var(--border)];
+    @apply border-primary ring-0 shadow;
   }
 
   .app-shell {
@@ -198,14 +202,14 @@
   }
 
   .surface-card {
-    @apply bg-card border-2 border-border shadow-[4px_4px_0px_0px_var(--border)];
+    @apply bg-card border-2 border-border shadow;
   }
 
   .topbar-action {
-    @apply min-h-12 min-w-12 inline-flex items-center justify-center gap-2 border-2 border-border bg-background px-4 font-bold uppercase tracking-wider text-foreground transition-all duration-150 cursor-pointer shadow-[4px_4px_0px_0px_var(--border)];
+    @apply min-h-12 min-w-12 inline-flex items-center justify-center gap-2 border-2 border-border bg-background px-4 font-bold uppercase tracking-wider text-foreground transition-all duration-150 cursor-pointer shadow;
   }
   .topbar-action:hover {
-    @apply translate-x-[2px] translate-y-[2px] shadow-[2px_2px_0px_0px_var(--border)] bg-muted;
+    @apply translate-x-[2px] translate-y-[2px] shadow-sm bg-muted;
   }
   .topbar-action:active {
     @apply translate-x-[4px] translate-y-[4px] shadow-none;
@@ -229,7 +233,7 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     letter-spacing: -0.04em;
-    font-weight: 800;
+    font-weight: 400; /* Archivo Black is a single-weight font (400) */
     text-transform: uppercase;
   }
   h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1; }
@@ -249,3 +253,12 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in { animation: fade-in 400ms ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

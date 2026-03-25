@@ -29,12 +29,142 @@ How to add your own settings / 如何添加自己的配置项:
 """
 
 import json
+from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_SOURCE_QUERY_CAPS: dict[str, int] = {
+    "github": 5,
+    "tavily": 5,
+    "hackernews": 5,
+    "appstore": 5,
+    "producthunt": 5,
+    "reddit": 5,
+}
+
+_DEFAULT_QUERY_FAMILY_WEIGHTS: dict[str, float] = {
+    "competitor_discovery": 1.0,
+    "alternative_discovery": 1.1,
+    "pain_discovery": 1.15,
+    "commercial_discovery": 1.0,
+    "migration_discovery": 1.0,
+    "workflow_discovery": 0.75,
+    "ecosystem_discovery": 0.7,
+    "launch_discovery": 0.85,
+    "positioning_discovery": 0.85,
+    "discussion_discovery": 0.8,
+}
+
+_DEFAULT_ROLE_QUERY_BUDGETS: dict[str, int] = {
+    "builder_signal": 5,
+    "market_scan": 5,
+    "user_feedback": 5,
+    "launch_signal": 4,
+    "discussion_signal": 4,
+    "general": 4,
+}
+
+_DEFAULT_ORCHESTRATION_PROFILES: dict[str, dict[str, Any]] = {
+    "default": {
+        "role_query_budgets": deepcopy(_DEFAULT_ROLE_QUERY_BUDGETS),
+        "family_weight_overrides": {},
+        "family_trim_threshold": 0.0,
+    },
+    "web": {
+        "role_query_budgets": {
+            "builder_signal": 5,
+            "market_scan": 5,
+            "user_feedback": 4,
+            "launch_signal": 4,
+            "discussion_signal": 4,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "pain_discovery": 1.2,
+            "commercial_discovery": 1.1,
+        },
+        "family_trim_threshold": 0.0,
+    },
+    "mobile": {
+        "role_query_budgets": {
+            "builder_signal": 3,
+            "market_scan": 4,
+            "user_feedback": 5,
+            "launch_signal": 4,
+            "discussion_signal": 4,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "pain_discovery": 1.25,
+            "commercial_discovery": 1.15,
+            "ecosystem_discovery": 0.5,
+        },
+        "family_trim_threshold": 0.0,
+    },
+    "browser-extension": {
+        "role_query_budgets": {
+            "builder_signal": 5,
+            "market_scan": 4,
+            "user_feedback": 4,
+            "launch_signal": 4,
+            "discussion_signal": 5,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "discussion_discovery": 1.15,
+            "ecosystem_discovery": 1.0,
+        },
+        "family_trim_threshold": 0.0,
+    },
+    "desktop": {
+        "role_query_budgets": {
+            "builder_signal": 4,
+            "market_scan": 4,
+            "user_feedback": 4,
+            "launch_signal": 4,
+            "discussion_signal": 4,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "pain_discovery": 1.1,
+        },
+        "family_trim_threshold": 0.0,
+    },
+    "cli": {
+        "role_query_budgets": {
+            "builder_signal": 5,
+            "market_scan": 4,
+            "user_feedback": 3,
+            "launch_signal": 3,
+            "discussion_signal": 5,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "discussion_discovery": 1.2,
+            "workflow_discovery": 1.0,
+        },
+        "family_trim_threshold": 0.0,
+    },
+    "api": {
+        "role_query_budgets": {
+            "builder_signal": 5,
+            "market_scan": 5,
+            "user_feedback": 3,
+            "launch_signal": 3,
+            "discussion_signal": 4,
+            "general": 4,
+        },
+        "family_weight_overrides": {
+            "commercial_discovery": 1.2,
+            "alternative_discovery": 1.15,
+        },
+        "family_trim_threshold": 0.0,
+    },
+}
 
 
 class Settings(BaseSettings):
@@ -112,6 +242,30 @@ class Settings(BaseSettings):
             "Product Hunt developer token for GraphQL source / Product Hunt 开发者令牌"
         ),
     )
+    reddit_client_id: str = Field(
+        default="",
+        description="Reddit OAuth client ID (from https://www.reddit.com/prefs/apps)",
+    )
+    reddit_client_secret: str = Field(
+        default="",
+        description="Reddit OAuth client secret",
+    )
+    reddit_enable_public_fallback: bool = Field(
+        default=True,
+        description="Allow public read-only Reddit fallback when OAuth credentials are missing",
+    )
+    reddit_public_fallback_limit: int = Field(
+        default=10,
+        ge=1,
+        le=25,
+        description="Per-query result limit for public Reddit fallback",
+    )
+    reddit_public_fallback_delay_seconds: float = Field(
+        default=1.5,
+        ge=0.0,
+        le=10.0,
+        description="Delay between public Reddit fallback requests in seconds",
+    )
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(
@@ -137,6 +291,28 @@ class Settings(BaseSettings):
         ge=1,
         le=8,
         description="Max concurrent source fetches across platforms / 跨数据源全局并发上限",
+    )
+    source_query_caps: str = Field(
+        default="",
+        description=(
+            "JSON object mapping source platform to max query count. "
+            'Example: {"github": 4, "tavily": 5}'
+        ),
+    )
+    query_family_default_weights: str = Field(
+        default="",
+        description=(
+            "JSON object mapping query family to orchestration weight. "
+            'Example: {"pain_discovery": 1.2, "workflow_discovery": 0.6}'
+        ),
+    )
+    app_type_orchestration_profiles: str = Field(
+        default="",
+        description=(
+            "JSON object mapping app_type to orchestration profile. "
+            "Each profile can override role_query_budgets, "
+            "family_weight_overrides, and family_trim_threshold."
+        ),
     )
     producthunt_posted_after_days: int = Field(
         default=730,
@@ -173,11 +349,57 @@ class Settings(BaseSettings):
         default=".cache/ideago",
         description="Cache directory path / 缓存目录路径",
     )
-    cache_ttl_hours: int = Field(
+    anonymous_cache_ttl_hours: int = Field(
         default=24,
         ge=1,
         le=168,
-        description="Cache TTL in hours / 缓存有效期（小时）",
+        description="TTL for anonymous (unowned) reports. "
+        "User-owned reports persist indefinitely.",
+    )
+    file_cache_max_entries: int = Field(
+        default=500,
+        ge=10,
+        le=10000,
+        description="Maximum number of entries in the local file cache. "
+        "Oldest entries are evicted when limit is reached.",
+    )
+
+    # --- Rate limiting ---
+    rate_limit_analyze_max: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Max analyze requests per user within the rate-limit window",
+    )
+    rate_limit_analyze_window_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=3600,
+        description="Rate-limit sliding window for analyze (seconds)",
+    )
+    rate_limit_reports_max: int = Field(
+        default=60,
+        ge=1,
+        le=300,
+        description="Max report read requests per user within the rate-limit window",
+    )
+    rate_limit_reports_window_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=3600,
+        description="Rate-limit sliding window for report reads (seconds)",
+    )
+
+    # --- Observability ---
+    sentry_dsn: str = Field(
+        default="",
+        description="Sentry DSN for error tracking. Leave empty to disable.",
+    )
+    sentry_traces_sample_rate: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Sentry performance traces sample rate (0.0-1.0)",
     )
 
     # --- Server / 服务配置 ---
@@ -221,6 +443,18 @@ class Settings(BaseSettings):
         if v_upper not in allowed:
             raise ValueError(f"Log level must be one of {allowed}")
         return v_upper
+
+    @model_validator(mode="after")
+    def validate_production_config(self) -> "Settings":
+        """Ensure critical settings are present in production."""
+        if self.environment != "production":
+            return self
+        required = {"openai_api_key": self.openai_api_key}
+        missing = [k for k, v in required.items() if not v.strip()]
+        if missing:
+            names = ", ".join(k.upper() for k in missing)
+            raise ValueError(f"Production requires the following settings: {names}")
+        return self
 
     def get_project_root(self) -> Path:
         """Get project root directory / 获取项目根目录.
@@ -280,6 +514,115 @@ class Settings(BaseSettings):
                 }
             )
         return endpoints
+
+    def get_source_query_caps(self) -> dict[str, int]:
+        """Return per-source query caps merged with defaults."""
+        caps = deepcopy(_DEFAULT_SOURCE_QUERY_CAPS)
+        overrides = self._parse_json_object_setting(self.source_query_caps)
+        for source_name, raw_value in overrides.items():
+            key = str(source_name).strip().lower()
+            if key not in caps:
+                continue
+            parsed = self._coerce_positive_int(raw_value)
+            if parsed is None:
+                continue
+            caps[key] = parsed
+        return caps
+
+    def get_query_family_default_weights(self) -> dict[str, float]:
+        """Return query-family weights merged with defaults."""
+        weights = deepcopy(_DEFAULT_QUERY_FAMILY_WEIGHTS)
+        overrides = self._parse_json_object_setting(self.query_family_default_weights)
+        for family_name, raw_value in overrides.items():
+            key = str(family_name).strip().lower()
+            if key not in weights:
+                continue
+            parsed = self._coerce_non_negative_float(raw_value)
+            if parsed is None:
+                continue
+            weights[key] = parsed
+        return weights
+
+    def get_orchestration_profiles(self) -> dict[str, dict[str, Any]]:
+        """Return app-type orchestration profiles merged with defaults."""
+        profiles = deepcopy(_DEFAULT_ORCHESTRATION_PROFILES)
+        overrides = self._parse_json_object_setting(
+            self.app_type_orchestration_profiles
+        )
+        for app_type, raw_profile in overrides.items():
+            app_key = str(app_type).strip().lower()
+            if not app_key or not isinstance(raw_profile, dict):
+                continue
+            base_profile = deepcopy(profiles.get(app_key, profiles["default"]))
+            role_budgets = self._parse_json_object_setting(
+                raw_profile.get("role_query_budgets")
+            )
+            family_overrides = self._parse_json_object_setting(
+                raw_profile.get("family_weight_overrides")
+            )
+            threshold = self._coerce_non_negative_float(
+                raw_profile.get("family_trim_threshold")
+            )
+            if threshold is not None:
+                base_profile["family_trim_threshold"] = threshold
+
+            base_role_budgets = base_profile.get("role_query_budgets", {})
+            if isinstance(base_role_budgets, dict):
+                for role_name, raw_budget in role_budgets.items():
+                    role_key = str(role_name).strip().lower()
+                    if role_key not in _DEFAULT_ROLE_QUERY_BUDGETS:
+                        continue
+                    parsed_budget = self._coerce_positive_int(raw_budget)
+                    if parsed_budget is None:
+                        continue
+                    base_role_budgets[role_key] = parsed_budget
+                base_profile["role_query_budgets"] = base_role_budgets
+
+            base_family_overrides = base_profile.get("family_weight_overrides", {})
+            if isinstance(base_family_overrides, dict):
+                for family_name, raw_weight in family_overrides.items():
+                    family_key = str(family_name).strip().lower()
+                    if family_key not in _DEFAULT_QUERY_FAMILY_WEIGHTS:
+                        continue
+                    parsed_weight = self._coerce_non_negative_float(raw_weight)
+                    if parsed_weight is None:
+                        continue
+                    base_family_overrides[family_key] = parsed_weight
+                base_profile["family_weight_overrides"] = base_family_overrides
+
+            profiles[app_key] = base_profile
+        return profiles
+
+    @staticmethod
+    def _parse_json_object_setting(raw: Any) -> dict[str, Any]:
+        if isinstance(raw, dict):
+            return raw
+        if not isinstance(raw, str):
+            return {}
+        payload = raw.strip()
+        if not payload:
+            return {}
+        try:
+            parsed = json.loads(payload)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _coerce_positive_int(raw: Any) -> int | None:
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
+
+    @staticmethod
+    def _coerce_non_negative_float(raw: Any) -> float | None:
+        try:
+            parsed = float(raw)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed >= 0 else None
 
 
 @lru_cache

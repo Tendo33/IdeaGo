@@ -2,15 +2,104 @@
   "app": {
     "title": "Idea",
     "titleHighlight": "Go",
-    "history": "History"
+    "history": "History",
+    "skipToContent": "Skip to content",
+    "switchToLanguage": "Switch to {{language}}"
   },
   "nav": {
-    "history": "History"
+    "history": "History",
+    "home": "Home",
+    "userMenu": "User menu",
+    "userOptions": "User options"
+  },
+  "theme": {
+    "toggle": "Toggle theme mode",
+    "options": "Theme mode options",
+    "system": "System",
+    "dark": "Dark",
+    "light": "Light",
+    "systemShort": "SYS",
+    "darkShort": "DARK",
+    "lightShort": "LIGHT"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "signedInAs": "Signed in as",
+    "loginTitle": "Sign In",
+    "registerTitle": "Create Account",
+    "resetTitle": "Reset Password",
+    "loginSubtitle": "Sign in to access your reports",
+    "registerSubtitle": "Start analyzing competitors today",
+    "resetSubtitle": "Enter your email and we'll send a reset link",
+    "continueWithGithub": "Continue with GitHub",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithLinuxDo": "Continue with LinuxDo",
+    "orEmail": "or",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "minChars": "At least 6 characters",
+    "sendResetLink": "Send Reset Link",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "rememberPassword": "Remember your password?",
+    "checkEmail": "Check your email",
+    "confirmSent": "We've sent a confirmation link to",
+    "resetEmailSent": "Check your email",
+    "resetEmailDesc": "We've sent a password reset link to",
+    "backToLogin": "Back to login",
+    "callbackTimeout": "Sign-in is taking longer than expected. Please try again.",
+    "callbackError": "Sign-in Failed",
+    "signingIn": "Signing you in...",
+    "unexpectedError": "An unexpected error occurred",
+    "legalNotice": "By continuing, you agree to our"
+  },
+  "profile": {
+    "title": "Profile",
+    "saved": "Profile updated successfully",
+    "memberSince": "Member since",
+    "planAndUsage": "Daily Usage",
+    "currentPlan": "Quota type",
+    "dailyQuotaLabel": "Daily limit",
+    "usageThisMonth": "Used today",
+    "quotaUsage": "Quota usage",
+    "resetsOn": "Resets on",
+    "editProfile": "Edit Profile",
+    "displayName": "Display Name",
+    "displayNamePlaceholder": "How should we call you?",
+    "bio": "Bio",
+    "bioPlaceholder": "Tell us about yourself...",
+    "save": "Save Changes",
+    "loadError": "Failed to load profile",
+    "updateError": "Failed to update profile",
+    "subscription": "Subscription",
+    "proPlan": "Pro Plan",
+    "freePlan": "Free Plan",
+    "activeSubscription": "Active subscription",
+    "noSubscription": "No active subscription",
+    "manageSubscription": "Manage Subscription",
+    "upgradeToPro": "Upgrade to Pro",
+    "dangerZone": "Danger Zone",
+    "deleteWarning": "Permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteAccount": "Delete Account",
+    "deleteConfirm": "Are you sure? All reports, profile data, and subscription will be permanently removed.",
+    "deleteError": "Failed to delete account",
+    "confirmDelete": "Yes, Delete Everything",
+    "cancelDelete": "Cancel"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "dismiss": "Dismiss",
+    "and": "and"
   },
   "home": {
-    "description": "Validate your startup idea using real competitor data from GitHub, the web, Hacker News, and the App Store.",
+    "description": "Validate your startup idea with evidence cross-checked across six research sources: GitHub, Tavily, Hacker News, App Store, Product Hunt, and Reddit.",
     "recentResearch": "Recent Research",
     "competitors": "competitors",
+    "quickPrompts": "Quick Prompts",
     "prompt0": "An AI tool that automatically summarizes meeting notes",
     "prompt1": "A local organic food delivery marketplace",
     "prompt2": "A browser extension that converts web pages into Markdown",
@@ -26,7 +115,12 @@
     "tooShort": "Please enter at least {{min}} characters to give us enough context. (Currently {{current}})",
     "tooLong": "Please keep your description under {{max}} characters.",
     "lengthCount": "{{current}} / {{max}} characters",
-    "submittingHint": "Submitting your idea for analysis..."
+    "submittingHint": "Submitting your idea for analysis...",
+    "validation": {
+      "missingLetters": "Please include letters so we can understand the idea you want analyzed.",
+      "lowSignal": "Please add a bit more meaningful detail instead of short fragments or IDs.",
+      "tooManySymbols": "Please remove most symbols and describe the idea in words."
+    }
   },
   "history": {
     "back": "Back to search",
@@ -37,6 +131,7 @@
     "deleteConfirm": "Are you sure you want to delete this report? This action cannot be undone.",
     "delete": "Delete report",
     "deleting": "Deleting report...",
+    "deleted": "Report deleted",
     "errorDelete": "We couldn't delete this report. Please try again.",
     "emptyState": "You haven't run any research reports yet.",
     "startFirst": "Start your first analysis",
@@ -56,11 +151,20 @@
     "page": "Loading page content..."
   },
   "report": {
+    "analyzing": "Analyzing...",
     "sections": {
       "summary": "Overview",
       "landscape": "Market Landscape",
       "competitors": "Competitor Details",
-      "opportunities": "Opportunities"
+      "opportunities": "Opportunities",
+      "navigation": "Report sections",
+      "shouldWeBuildThis": "Should we build this?",
+      "whyNow": "Why now",
+      "pain": "Pain",
+      "whitespace": "Whitespace",
+      "evidenceConfidence": "Evidence",
+      "painPlaceholder": "Pain and commercial signal analysis will appear here when available.",
+      "whitespacePlaceholder": "Whitespace opportunities and differentiation angles will appear here when available."
     },
     "blueOcean": {
       "title": "No Direct Competitors Found",
@@ -119,6 +223,17 @@
         "samples": "Sources Analyzed",
         "coverage": "Platform Coverage",
         "successRate": "Extraction Success",
+        "sourceDiversity": "Source diversity",
+        "evidenceDensity": "Evidence density",
+        "recency": "Recency",
+        "degradationPenalty": "Degradation penalty",
+        "contradictionPenalty": "Contradiction penalty",
+        "freshness": "Freshness",
+        "trustDrivers": "Trust Drivers",
+        "penaltiesApplied": "Penalties Applied",
+        "noMajorPenalties": "No Major Penalties",
+        "whyThisScore": "Why this score",
+        "reasonsFallback": "No specific confidence reasons were provided for this report.",
         "defaultFreshness": "Data freshness information is unavailable.",
         "high": "High Reliability",
         "medium": "Moderate Reliability",
@@ -146,17 +261,134 @@
     },
     "insight": {
       "title": "Differentiation Opportunities",
-      "opportunity": "Opportunity #"
+      "opportunity": "Opportunity #",
+      "signal": "Signal",
+      "subtitle": "Recommended execution angles once the build decision is positive enough.",
+      "differentiationAngle": "Differentiation angle",
+      "differentiationDescription": "Use this as a practical wedge, not a generic product promise."
     },
     "market": {
-      "title": "Market Overview"
+      "title": "Market Overview",
+      "whyNow": "Why now",
+      "contextAndTiming": "Market context and timing",
+      "showLessContext": "Show less context",
+      "readFullContext": "Read the full market context",
+      "contextLens": "Context lens",
+      "contextHint1": "Read this section as timing context: what changed in the market, what demand is surfacing, and why the opportunity may be open now.",
+      "contextHint2": "The recommendation should align with this backdrop rather than rely on competitor counts alone."
+    },
+    "pain": {
+      "badge": "Pain signals",
+      "title": "Recurring user friction worth solving",
+      "themes": "Themes",
+      "intense": "{{value}}% intense",
+      "intensity": "Intensity",
+      "frequency": "Frequency",
+      "evidenceLinks": "{{count}} evidence links",
+      "openEvidence": "Evidence"
+    },
+    "commercial": {
+      "badge": "Commercial signals",
+      "title": "Demand cues that suggest paid intent",
+      "signals": "Signals",
+      "intent": "{{value}}% intent",
+      "strength": "Commercial strength",
+      "monetizationHint": "Monetization hint",
+      "monetizationFallback": "Commercial demand is visible, but packaging is still undefined."
+    },
+    "whitespace": {
+      "badge": "Whitespace opportunities",
+      "title": "Where the market still looks under-served",
+      "opportunityScore": "Opportunity score",
+      "wedge": "Whitespace wedge",
+      "potential": "Potential",
+      "supporting": {
+        "entryWedge": "Entry wedge: {{value}}",
+        "targetSegment": "Target segment: {{value}}",
+        "references": "{{count}} supporting references"
+      },
+      "fallback": {
+        "description": "Differentiation path surfaced even when whitespace synthesis is still sparse.",
+        "eyebrow": "Fallback wedge",
+        "supportingPoint": "Use this as the first sharp entry point."
+      }
     },
     "progress": {
+      "eyebrow": "Live analysis pipeline",
+      "pipelineSummary": "Shows the real backend event stream, source status, and structured extraction progress in one view.",
+      "focusLabel": "Current focus",
+      "genericSource": "Source",
       "ideaProfile": "Analyzing Your Idea",
       "searchResults": "Finding Competitors",
       "foundResults": "Discovered {{count}} potential matches from",
       "potentialCompetitors": "Identified {{count}} relevant competitors to analyze",
-      "cancel": "Cancel analysis"
+      "cancel": "Cancel analysis",
+      "allSourcesHealthy": "All sources are healthy",
+      "failedSources": "{{count}} sources failed",
+      "resultUnit": "results",
+      "appTypeLabel": "Product type",
+      "keywordsLabel": "Signal tags",
+      "targetScenarioLabel": "Target scenario",
+      "timeline": "Pipeline log",
+      "timelineDescription": "Every line below comes from a live SSE pipeline event, not a fabricated progress estimate.",
+      "timelineEmpty": "Waiting for the first pipeline event.",
+      "metrics": {
+        "sourcesDone": "Sources complete",
+        "extracted": "Profiles extracted",
+        "activeSources": "Parallel tasks"
+      },
+      "status": {
+        "pending": "Queued",
+        "active": "Live",
+        "done": "Complete",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "waiting": {
+        "description": "The system first parses the idea, then queries six research sources in parallel, then extracts structured competitor profiles."
+      },
+      "focus": {
+        "intent": "Idea parsing",
+        "extraction": "Structured extraction",
+        "aggregation": "Market synthesis",
+        "complete": "Preparing report",
+        "failed": "Awaiting retry",
+        "cancelled": "Pipeline stopped"
+      },
+      "current": {
+        "intentTitle": "Breaking down your idea",
+        "intentDescription": "Identifying product type, keywords, and target scenario to build the search plan.",
+        "sourceTitleSingle": "Scanning {{platform}}",
+        "sourceTitleMulti": "Scanning {{count}} sources in parallel",
+        "sourceDescription": "Pulling candidate products, community discussion, and market signals for structured extraction.",
+        "extractionTitleSingle": "Extracting structured signals from {{platform}}",
+        "extractionTitle": "Extracting competitor signals",
+        "extractionDescription": "Compressing raw search results into comparable competitor profiles, pain points, and commercial cues.",
+        "aggregationTitle": "Synthesizing the final decision",
+        "aggregationDescription": "Merging overlaps and combining pain, commercial, and whitespace signals into a decision-ready report.",
+        "completeTitle": "Analysis is almost ready",
+        "completeDescription": "The report payload is prepared and is about to transition into the final view.",
+        "failedTitle": "Analysis was interrupted",
+        "failedDescription": "One or more stages did not complete successfully, so the pipeline stopped here.",
+        "cancelledTitle": "Analysis cancelled",
+        "cancelledDescription": "This run has been stopped and no further stages will execute."
+      },
+      "feed": {
+        "intentStarted": "Started parsing the idea",
+        "intentParsed": "Captured product type and core keywords",
+        "sourceStarted": "Querying {{platform}}",
+        "sourceCompleted": "{{platform}} returned {{count}} candidates",
+        "sourceFailed": "{{platform}} failed to respond",
+        "extractionStarted": "Started structured extraction",
+        "extractionStartedPlatform": "Started structured extraction for {{platform}}",
+        "extractionCompleted": "Added {{count}} structured competitors",
+        "extractionCompletedPlatform": "{{platform}} added {{count}} structured competitors",
+        "aggregationStarted": "Started synthesizing market and opportunity signals",
+        "aggregationCompleted": "Merged into {{count}} distinct competitors",
+        "reportReady": "Report is ready",
+        "cancelled": "Run cancelled",
+        "error": "Run failed"
+      }
     },
     "compare": {
       "title": "Comparing {{count}} Competitors",
@@ -186,8 +418,8 @@
           "short": "GitHub"
         },
         "tavily": {
-          "label": "Searching the web",
-          "short": "Web Search"
+          "label": "Searching Tavily results",
+          "short": "Tavily"
         },
         "hackernews": {
           "label": "Checking Hacker News discussions",
@@ -200,6 +432,10 @@
         "producthunt": {
           "label": "Checking Product Hunt launches",
           "short": "Product Hunt"
+        },
+        "reddit": {
+          "label": "Searching Reddit discussions",
+          "short": "Reddit"
         },
         "extraction": {
           "label": "Extracting competitor details",
@@ -224,6 +460,13 @@
       "relevance": "Relevance Match %",
       "clickHint": "Click any dot to view that competitor. Larger dots indicate more available data sources."
     },
+    "accessibility": {
+      "openCompetitorLink": "Open {{name}} on {{host}}",
+      "openCompetitor": "Open {{name}}",
+      "removeCompetitor": "Remove {{name}}",
+      "jumpToCompetitor": "Jump to competitor {{name}}",
+      "relevanceRing": "Relevance score {{percent}}%"
+    },
     "header": {
       "newSearch": "Start new search",
       "share": "Share Report",
@@ -232,7 +475,40 @@
       "copyLink": "Copy report link",
       "export": "Export Report",
       "markdown": "Download as Markdown",
-      "print": "Print or save as PDF"
+      "print": "Print or save as PDF",
+      "chromeLabel": "Decision-first research report",
+      "opportunityScore": "Opportunity score {{value}}%",
+      "whyThisCall": "Why this call",
+      "contextKeywords": "Context keywords",
+      "metrics": {
+        "painThemes": "Pain themes",
+        "commercialCues": "Commercial cues",
+        "whitespaceWedges": "Whitespace wedges"
+      },
+      "summary": {
+        "bestEntryWedge": "Best entry wedge: {{value}}",
+        "mainPain": "Main pain: {{value}}",
+        "commercialCue": "Commercial cue: {{value}}",
+        "executionAngle": "Execution angle: {{value}}",
+        "sparse": "Signal extraction is still sparse, so use the recommendation with extra caution."
+      },
+      "decision": {
+        "badge": {
+          "go": "Go",
+          "caution": "Caution",
+          "noGo": "No-go"
+        },
+        "title": {
+          "go": "Should we build this? Yes, if we stay focused.",
+          "caution": "Should we build this? Only with a narrow wedge.",
+          "noGo": "Should we build this? Probably not yet."
+        },
+        "subtitle": {
+          "go": "The opportunity looks real enough to justify moving forward with a sharp wedge.",
+          "caution": "There is signal here, but the entry point needs to be disciplined.",
+          "noGo": "The current evidence suggests the opportunity is weak or poorly timed."
+        }
+      }
     },
     "sort": {
       "label": "Sort competitors by",
@@ -254,7 +530,193 @@
       "restart": "We couldn't restart the analysis. Please try again.",
       "cancel": "We couldn't cancel the analysis.",
       "broaden": "We couldn't start the broadened analysis.",
+      "extractionUnavailable": "Structured extraction is unavailable. Showing raw results instead.",
       "unknown": "An unknown error occurred."
+    }
+  },
+  "landing": {
+    "badge": "AI-Powered Competitor Research",
+    "heroLine1": "Validate Before",
+    "heroLine2": "You Build",
+    "heroDesc": "One sentence about your startup idea. One auditable research report with evidence from six research sources: GitHub, Tavily, Hacker News, App Store, Product Hunt, and Reddit.",
+    "cta": "Start Free Analysis",
+    "learnMore": "See how it works",
+    "mockLabel": "Sample Report",
+    "mockQuery": "A browser extension that converts web pages to Markdown",
+    "mockCompetitors": "Competitors",
+    "mockRelevance": "Relevance",
+    "mockSources": "Sources",
+    "mockTime": "Avg. Time",
+    "mockVerdict": "Recommended: Proceed",
+    "sourcesLabel": "Six research sources we cross-check",
+    "sourceNames": {
+      "github": "GitHub",
+      "tavily": "Tavily",
+      "hackernews": "Hacker News",
+      "appstore": "App Store",
+      "producthunt": "Product Hunt",
+      "reddit": "Reddit"
+    },
+    "howTitle": "How It Works",
+    "howSubtitle": "From idea to insight in minutes, not weeks.",
+    "step1Title": "Describe",
+    "step1Desc": "Tell us your startup idea in plain language. No structured forms, just your vision.",
+    "step2Title": "Analyze",
+    "step2Desc": "Our AI pipeline queries six data sources: GitHub, Tavily, Hacker News, App Store, Product Hunt, and Reddit.",
+    "step3Title": "Decide",
+    "step3Desc": "Get a structured report with competitors, market gaps, and a Go / No-Go recommendation backed by evidence.",
+    "featuresTitle": "Built For Founders Who Move Fast",
+    "feat1Title": "Multi-Source Intelligence",
+    "feat1Desc": "Cross-check signals from six research sources so your decision is not based on a single search engine.",
+    "feat2Title": "Transparent & Traceable",
+    "feat2Desc": "Every competitor comes with source links, confidence scores, and data freshness metrics. No black-box answers.",
+    "feat3Title": "Go / No-Go Verdict",
+    "feat3Desc": "Get a clear market saturation signal — not just a list of competitors, but a strategic recommendation.",
+    "feat4Title": "Real-Time Progress",
+    "feat4Desc": "Watch your analysis unfold live via SSE streaming. Know exactly which sources are being queried and when.",
+    "ctaTitle": "Ready To Validate?",
+    "ctaDesc": "Stop guessing. Start building on data.",
+    "ctaButton": "Get Started Free",
+    "footerTagline": "Built for founders, by founders"
+  },
+  "legal": {
+    "backToHome": "Back to Home",
+    "termsTitle": "Terms of Service",
+    "privacyTitle": "Privacy Policy",
+    "lastUpdated": "Last updated",
+    "terms": {
+      "acceptanceTitle": "1. Acceptance of Terms",
+      "acceptance": "By accessing or using IdeaGo (\"the Service\"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.",
+      "descriptionTitle": "2. Description of Service",
+      "description": "IdeaGo is an AI-powered competitor research platform. We aggregate publicly available information and generate analytical reports. Reports are generated by AI and may contain inaccuracies.",
+      "accountsTitle": "3. User Accounts",
+      "accounts": "You are responsible for maintaining the security of your account credentials. You must not share your account or use the Service for any unlawful purpose.",
+      "subscriptionTitle": "4. Subscriptions & Billing",
+      "subscription": "Paid plans are billed through Stripe. You can cancel at any time through your account settings. Refunds are handled per our refund policy.",
+      "ipTitle": "5. Intellectual Property",
+      "ip": "Reports generated for you are yours to use. The Service, its code, and branding remain the property of IdeaGo.",
+      "disclaimerTitle": "6. Disclaimer",
+      "disclaimer": "The Service is provided \"as is\". We do not guarantee the accuracy, completeness, or timeliness of any information provided. Use reports at your own risk.",
+      "limitationTitle": "7. Limitation of Liability",
+      "limitation": "To the maximum extent permitted by law, IdeaGo shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.",
+      "changesTitle": "8. Changes to Terms",
+      "changes": "We may update these terms from time to time. Continued use of the Service constitutes acceptance of the updated terms.",
+      "contactTitle": "9. Contact",
+      "contact": "For questions about these terms, please contact us through the channels listed on our website."
+    },
+    "privacy": {
+      "collectTitle": "1. Information We Collect",
+      "collect": "We collect the idea queries you submit to generate reports, locally persisted report data, and standard operational telemetry needed to keep the service running.",
+      "useTitle": "2. How We Use Your Information",
+      "use": "We use this information to generate reports, improve retrieval and report quality, and keep the service stable.",
+      "storageTitle": "3. Data Storage & Security",
+      "storage": "On the main branch, reports are stored locally using file-based persistence and local SQLite checkpoints. We recommend HTTPS for public deployments and do not require payment or account data.",
+      "sharingTitle": "4. Data Sharing",
+      "sharing": "We do not sell your personal data. Report queries may be sent to configured model and retrieval providers only to produce the report you requested.",
+      "retentionTitle": "5. Data Retention",
+      "retention": "Anonymous reports are retained according to the configured TTL for the local file cache. If you self-host the service, you control the stored files and retention policy.",
+      "rightsTitle": "6. Your Rights",
+      "rights": "If you self-host the service, you control access, export, and deletion of locally stored report data. Export is available directly from the report page.",
+      "cookiesTitle": "7. Cookies",
+      "cookies": "The personal deployment does not require login cookies. We do not use third-party advertising cookies.",
+      "changesTitle": "8. Changes to This Policy",
+      "changes": "We may update this privacy policy from time to time by changing the documentation in the repository or deployed app.",
+      "contactTitle": "9. Contact",
+      "contact": "For privacy-related questions, please contact us through the channels listed on our website."
+    }
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Start free, upgrade when you need more power.",
+    "perMonth": "/month",
+    "currentPlan": "Current Plan",
+    "upgrade": "Upgrade to Pro",
+    "comingSoon": "Coming Soon",
+    "freeFeature1": "5 analyses per month",
+    "freeFeature2": "Basic competitor reports",
+    "freeFeature3": "6 data sources",
+    "freeFeature4": "Report export (Markdown)",
+    "proFeature1": "100 analyses per month",
+    "proFeature2": "Advanced competitor insights",
+    "proFeature3": "6 data sources + priority",
+    "proFeature4": "Report export (Markdown)",
+    "proFeature5": "Reports never expire",
+    "proFeature6": "Priority support",
+    "loadError": "Could not verify your current subscription status.",
+    "upgradeError": "Failed to start checkout. Please try again.",
+    "signInToUpgrade": "Sign in to Upgrade"
+  },
+  "quota": {
+    "exceeded": "You have reached your daily analysis limit.",
+    "upgradeHint": "You can start another analysis after your quota resets tomorrow.",
+    "upgradeCta": "Tomorrow"
+  },
+  "welcome": {
+    "title": "Welcome to IdeaGo!",
+    "body": "Describe your startup idea below and we will find competitors, analyze market signals, and generate a research report in minutes.",
+    "step1": "Enter your idea",
+    "step2": "AI researches the market",
+    "step3": "Read your report"
+  },
+  "errors": {
+    "rateLimited": "Too many requests. Please wait a moment and try again.",
+    "networkError": "Network error. Check your connection and retry.",
+    "sessionExpired": "Session expired. Please sign in again.",
+    "quotaExceeded": "Daily analysis limit reached.",
+    "unknown": "Something went wrong. Please try again."
+  },
+  "account": {
+    "deleteTitle": "Delete Account",
+    "deleteDescription": "This will permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteConfirm": "Delete My Account",
+    "deleteCancel": "Cancel",
+    "dangerZone": "Danger Zone"
+  },
+  "admin": {
+    "title": "Admin Dashboard",
+    "menuLabel": "Admin",
+    "forbidden": "Access Denied",
+    "forbiddenMessage": "You do not have permission to access this page.",
+    "totalUsers": "Users",
+    "totalReports": "Reports",
+    "activeProcessing": "Processing",
+    "planBreakdown": "Plans",
+    "usersTitle": "Users",
+    "noUsers": "No users found.",
+    "userFallbackName": "Unnamed user",
+    "actions": {
+      "saveQuotaFor": "Save quota for {{name}}",
+      "editQuotaFor": "Edit quota for {{name}}"
+    },
+    "messages": {
+      "quotaUpdated": "Updated quota for {{name}}.",
+      "loadError": "We couldn't load admin data. Please try again.",
+      "unknownError": "Something went wrong. Please try again."
+    },
+    "values": {
+      "roles": {
+        "admin": "Admin",
+        "user": "User"
+      },
+      "plans": {
+        "free": "Free",
+        "pro": "Pro"
+      },
+      "providers": {
+        "github": "GitHub",
+        "google": "Google",
+        "linuxdo": "LinuxDo",
+        "supabase": "Email"
+      }
+    },
+    "col": {
+      "user": "User",
+      "role": "Role",
+      "plan": "Plan",
+      "provider": "Provider",
+      "usage": "Usage",
+      "limit": "Limit",
+      "joined": "Joined"
     }
   }
 }

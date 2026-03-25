@@ -6,11 +6,27 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from openai import APIStatusError
 
-from ideago.llm.chat_model import ChatModelClient
+from ideago.llm.chat_model import (
+    ChatModelClient,
+    LlmEndpointConfig,
+    _backoff_delay_seconds,
+    _build_ordered_endpoint_indexes,
+    _classify_exception,
+    _empty_call_metadata,
+    _extract_content_text,
+    _extract_status_code,
+    _extract_token_usage,
+    _merge_call_metadata,
+    _next_start_endpoint_index,
+    _parse_fallback_endpoints,
+    _safe_non_negative_int,
+)
 from ideago.llm.prompt_loader import load_prompt
 from ideago.models.research import Competitor, Intent, Platform, RawResult
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.exceptions import AggregationError, IntentParsingError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.merger import merge_competitors
@@ -19,6 +35,7 @@ _TEST_INTENT = Intent(
     keywords_en=["markdown", "notes"],
     app_type="browser-extension",
     target_scenario="Take markdown notes",
+    output_language="en",
     cache_key="test-key",
 )
 
@@ -29,6 +46,7 @@ def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
     assert "keywords_en" in prompt
+    assert "output_language" in prompt
     assert "app_type" in prompt
     assert "target_scenario" in prompt
     assert "Do not invent product or company names" in prompt
@@ -43,9 +61,11 @@ def test_load_prompt_extractor() -> None:
         keywords="markdown, notes",
         app_type="web",
         target_scenario="Take notes",
+        output_language="en",
     )
     assert "github" in prompt
     assert "markdown, notes" in prompt
+    assert "Output language: en" in prompt
     assert "{platform}" not in prompt
 
 
@@ -54,9 +74,13 @@ def test_load_prompt_extractor_appstore() -> None:
         "extractor_appstore",
         platform="appstore",
         raw_results_json="[]",
-        query_context="test",
+        keywords="notes",
+        app_type="mobile",
+        target_scenario="Capture notes",
+        output_language="zh",
     )
     assert "App Store products" in prompt
+    assert "Output language: zh" in prompt
     assert "{platform}" not in prompt
 
 
@@ -65,8 +89,10 @@ def test_load_prompt_aggregator() -> None:
         "aggregator",
         competitors_json="[]",
         original_query="test idea",
+        output_language="zh",
     )
     assert "test idea" in prompt
+    assert "Output Language" in prompt
 
 
 def test_load_prompt_missing_raises() -> None:
@@ -193,12 +219,8 @@ async def test_chat_model_client_all_endpoints_fail_exposes_error_class() -> Non
     with pytest.raises(AuthError):
         await client.invoke_json("test prompt")
 
-    metadata = client.pop_last_call_metadata()
-    assert metadata["llm_calls"] == 2
-    assert metadata["llm_retries"] == 1
-    assert metadata["fallback_used"] is True
-    assert metadata["endpoints_tried"] == ["primary", "fallback-1"]
-    assert metadata["last_error_class"] == "auth_error"
+    assert primary_model.ainvoke.call_count == 1
+    assert fallback_model.ainvoke.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -236,7 +258,7 @@ async def test_chat_model_client_json_parse_retry_with_endpoint_failover_succeed
 
 
 @pytest.mark.asyncio
-async def test_chat_model_client_json_parse_retry_exhausted_keeps_metadata() -> None:
+async def test_chat_model_client_json_parse_retry_exhausted_raises() -> None:
     client = ChatModelClient(
         api_key="sk-primary",
         model="gpt-4o-mini",
@@ -253,12 +275,7 @@ async def test_chat_model_client_json_parse_retry_exhausted_keeps_metadata() -> 
     with pytest.raises(json.JSONDecodeError):
         await client.invoke_json("test prompt")
 
-    metadata = client.pop_last_call_metadata()
-    assert metadata["llm_calls"] == 2
-    assert metadata["llm_retries"] == 1
-    assert metadata["fallback_used"] is False
-    assert metadata["endpoints_tried"] == ["primary"]
-    assert metadata["last_error_class"] == "json_parse_error"
+    assert primary_model.ainvoke.call_count == 2
 
 
 def test_chat_model_client_passes_custom_base_url(
@@ -303,11 +320,128 @@ def test_chat_model_client_treats_blank_base_url_as_none(
     assert captured["base_url"] is None
 
 
+def test_chat_model_helpers_cover_metadata_and_parsing_paths() -> None:
+    metadata = _empty_call_metadata()
+    assert metadata["llm_calls"] == 0
+
+    merged = _merge_call_metadata(
+        {
+            "llm_calls": "2",
+            "endpoint_failovers": 1,
+            "tokens_prompt": 3.0,
+            "tokens_completion": True,
+            "fallback_used": False,
+            "endpoints_tried": ["primary", ""],
+            "endpoint_used": "",
+            "last_error_class": "old",
+        },
+        {
+            "llm_calls": 1,
+            "endpoint_failovers": "2",
+            "tokens_prompt": "4",
+            "tokens_completion": 5,
+            "fallback_used": True,
+            "endpoints_tried": ["fallback-1", "primary"],
+            "endpoint_used": "fallback-1",
+            "last_error_class": "timeout_error",
+        },
+    )
+    assert merged["llm_calls"] == 3
+    assert merged["llm_retries"] == 2
+    assert merged["endpoint_failovers"] == 3
+    assert merged["tokens_prompt"] == 7
+    assert merged["tokens_completion"] == 6
+    assert merged["fallback_used"] is True
+    assert merged["endpoints_tried"] == ["primary", "fallback-1"]
+    assert merged["endpoint_used"] == "fallback-1"
+    assert merged["last_error_class"] == "timeout_error"
+
+    assert _safe_non_negative_int(True) == 1
+    assert _safe_non_negative_int(-4) == 0
+    assert _safe_non_negative_int(3.7) == 3
+    assert _safe_non_negative_int(" 5 ") == 5
+    assert _safe_non_negative_int("bad") == 0
+
+    assert _build_ordered_endpoint_indexes(3, 1) == [1, 2, 0]
+    assert _build_ordered_endpoint_indexes(0, 1) == []
+    assert (
+        _next_start_endpoint_index(
+            current_endpoint_name="fallback-1",
+            endpoint_configs=[
+                LlmEndpointConfig("primary", "k", "m", None, 60),
+                LlmEndpointConfig("fallback-1", "k2", "m2", None, 60),
+            ],
+            model_count=2,
+        )
+        == 0
+    )
+
+    endpoints = _parse_fallback_endpoints(
+        [
+            {"api_key": " ", "model": "m"},
+            {
+                "api_key": "k1",
+                "model": "m1",
+                "name": " fb ",
+                "base_url": " https://x ",
+                "timeout": 30,
+            },
+            {"api_key": "k2", "model": "m2"},
+            "bad",
+        ]
+    )
+    assert [endpoint.name for endpoint in endpoints] == ["fb", "fallback-3"]
+    assert endpoints[0].base_url == "https://x"
+    assert endpoints[1].timeout == 60
+
+    assert _extract_content_text("hello") == "hello"
+    assert _extract_content_text(["a", {"text": "b"}, {"bad": "x"}]) == "ab"
+    assert _extract_content_text(123) == "123"
+
+    response = MagicMock()
+    response.content = "{}"
+    response.usage_metadata = {"input_tokens": 3, "output_tokens": 4}
+    response.response_metadata = {"token_usage": {"prompt_tokens": 5}}
+    response.additional_kwargs = {"usage": {"completion_tokens": 6}}
+    assert _extract_token_usage(response) == (5, 6)
+
+
+def test_chat_model_exception_classification_helpers() -> None:
+    response = MagicMock()
+    response.status_code = 404
+    api_error = APIStatusError.__new__(APIStatusError)
+    api_error.response = response
+    api_error.status_code = 404
+    assert _classify_exception(api_error) == "model_unavailable"
+
+    class StatusExc(Exception):
+        def __init__(self, status_code: int, message: str) -> None:
+            super().__init__(message)
+            self.status_code = status_code
+
+    assert _classify_exception(StatusExc(401, "forbidden")) == "auth_error"
+    assert _classify_exception(StatusExc(429, "too many requests")) == "retryable_http"
+    assert (
+        _classify_exception(RuntimeError("network connection dropped"))
+        == "network_error"
+    )
+    assert _classify_exception(RuntimeError("request timed out")) == "timeout_error"
+    assert _classify_exception(RuntimeError("other")) == "unknown_error"
+    assert _extract_status_code(StatusExc(500, "boom")) == 500
+    assert _extract_status_code(RuntimeError("boom")) is None
+
+
+def test_backoff_delay_is_non_negative() -> None:
+    delay = _backoff_delay_seconds(0.5, 2)
+    assert delay >= 2.0
+
+
 # ---------- IntentParser ----------
 
 MOCK_INTENT_LLM_RESPONSE = {
     "keywords_en": ["markdown", "notes", "browser extension"],
     "keywords_zh": ["Markdown 笔记", "浏览器插件"],
+    "output_language": "zh",
     "app_type": "browser-extension",
     "target_scenario": "Take markdown notes while browsing web pages",
     "search_queries": [
@@ -335,15 +469,30 @@ MOCK_INTENT_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_intent_parser_returns_intent() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_INTENT_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(return_value=(MOCK_INTENT_LLM_RESPONSE, {}))
 
     parser = IntentParser(llm)
     intent = await parser.parse("我想做一个给网页内容做Markdown笔记的浏览器插件")
 
     assert "markdown" in intent.keywords_en
     assert intent.app_type == "browser-extension"
+    assert intent.output_language == "zh"
     assert len(intent.search_queries) == 5
     assert len(intent.cache_key) == 16
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_error_and_metrics_paths() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(side_effect=IntentParsingError("bad prompt"))
+    parser = IntentParser(llm)
+
+    with pytest.raises(IntentParsingError):
+        await parser.parse("bad query")
+
+    parser._store_metrics_for_current_task({"llm_calls": 1})
+    assert parser.pop_llm_metrics_for_current_task() == {"llm_calls": 1}
+    assert parser.pop_llm_metrics_for_current_task() == {}
 
 
 # ---------- Extractor ----------
@@ -376,7 +525,9 @@ MOCK_EXTRACTOR_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_extractor_extracts_valid_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_EXTRACTOR_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(MOCK_EXTRACTOR_LLM_RESPONSE, {})
+    )
 
     extractor = Extractor(llm)
     raw = [
@@ -395,31 +546,34 @@ async def test_extractor_extracts_valid_competitors() -> None:
 @pytest.mark.asyncio
 async def test_extractor_filters_unverifiable_links() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(
-        return_value={
-            "competitors": [
-                {
-                    "name": "MixedLinks",
-                    "links": [
-                        "https://github.com/user/markdown-clipper",
-                        "https://fake-site.example/fabricated",
-                    ],
-                    "one_liner": "Contains one valid and one fabricated link",
-                    "source_platforms": ["github"],
-                    "source_urls": [
-                        "https://github.com/user/markdown-clipper",
-                        "https://fake-site.example/fabricated",
-                    ],
-                },
-                {
-                    "name": "AllFake",
-                    "links": ["https://fake-site.example/only-fake"],
-                    "one_liner": "Should be removed",
-                    "source_platforms": ["github"],
-                    "source_urls": ["https://fake-site.example/only-fake"],
-                },
-            ]
-        }
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [
+                    {
+                        "name": "MixedLinks",
+                        "links": [
+                            "https://github.com/user/markdown-clipper",
+                            "https://fake-site.example/fabricated",
+                        ],
+                        "one_liner": "Contains one valid and one fabricated link",
+                        "source_platforms": ["github"],
+                        "source_urls": [
+                            "https://github.com/user/markdown-clipper",
+                            "https://fake-site.example/fabricated",
+                        ],
+                    },
+                    {
+                        "name": "AllFake",
+                        "links": ["https://fake-site.example/only-fake"],
+                        "one_liner": "Should be removed",
+                        "source_platforms": ["github"],
+                        "source_urls": ["https://fake-site.example/only-fake"],
+                    },
+                ]
+            },
+            {},
+        )
     )
 
     extractor = Extractor(llm)
@@ -480,6 +634,7 @@ async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
         keywords_en=["focus", "notes"],
         app_type="mobile",
         target_scenario="Focus notes app",
+        output_language="en",
         cache_key="focus-key",
     )
     await extractor.extract(raw, focus_intent)
@@ -487,6 +642,7 @@ async def test_extractor_uses_appstore_prompt_and_meta_payload() -> None:
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
     assert "focused on App Store products" in prompt
+    assert "Output language: en" in prompt
     assert "appstore_meta" in prompt
     assert "Capture quick notes and tasks with AI assistance." in prompt
     assert '"price_label": "Free"' in prompt
@@ -517,6 +673,7 @@ async def test_extractor_non_appstore_payload_unchanged() -> None:
     call_kwargs = llm.invoke_json_with_meta.await_args.kwargs
     prompt = call_kwargs["prompt"]
     assert "Source platform: github" in prompt
+    assert "Output language: en" in prompt
     assert "appstore_meta" not in prompt
     assert "stargazers_count" not in prompt
 
@@ -551,7 +708,9 @@ MOCK_AGGREGATOR_LLM_RESPONSE = {
 @pytest.mark.asyncio
 async def test_aggregator_analyzes_without_modifying_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
-    llm.invoke_json = AsyncMock(return_value=MOCK_AGGREGATOR_LLM_RESPONSE)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(MOCK_AGGREGATOR_LLM_RESPONSE, {})
+    )
 
     agg = Aggregator(llm)
     competitors = [
@@ -570,7 +729,11 @@ async def test_aggregator_analyzes_without_modifying_competitors() -> None:
             source_urls=["https://github.com/user/markdownify"],
         ),
     ]
-    result = await agg.analyze(competitors, "markdown notes extension")
+    result = await agg.analyze(
+        competitors,
+        "markdown notes extension",
+        output_language="en",
+    )
     assert isinstance(result, AggregationResult)
     assert len(result.competitors) == 2
     assert "crowded" in result.go_no_go.lower() or "caution" in result.go_no_go.lower()
@@ -584,13 +747,44 @@ async def test_aggregator_analyzes_without_modifying_competitors() -> None:
 async def test_aggregator_empty_competitors() -> None:
     llm = MagicMock(spec=ChatModelClient)
     agg = Aggregator(llm)
-    result = await agg.aggregate([], "test")
+    result = await agg.aggregate([], "test", output_language="zh")
     assert result.competitors == []
-    assert (
-        "no competitors" in result.market_summary.lower()
-        or "unexplored" in result.go_no_go.lower()
-    )
+    assert "竞品" in result.market_summary
+    assert "探索" in result.go_no_go
     llm.invoke_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_aggregator_error_and_metrics_paths() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(side_effect=RuntimeError("boom"))
+    agg = Aggregator(llm)
+
+    competitor = Competitor(
+        name="One",
+        links=["https://example.com"],
+        one_liner="one",
+        source_platforms=[Platform.TAVILY],
+        source_urls=["https://example.com"],
+    )
+
+    with pytest.raises(AggregationError):
+        await agg.analyze([competitor], "query", output_language="en")
+
+    agg._store_metrics_for_current_task({"llm_calls": 2})
+    assert agg.pop_llm_metrics_for_current_task() == {"llm_calls": 2}
+    assert agg.pop_llm_metrics_for_current_task() == {}
+
+
+def test_aggregator_infers_recommendation_type_fallback() -> None:
+    from ideago.models.research import RecommendationType
+    from ideago.pipeline.aggregator import _infer_recommendation_type
+
+    assert _infer_recommendation_type("No-go for now") == RecommendationType.NO_GO
+    assert (
+        _infer_recommendation_type("Proceed with caution") == RecommendationType.CAUTION
+    )
+    assert _infer_recommendation_type("Go build it") == RecommendationType.GO
 
 
 def test_fuse_competitors_merges_cross_source_duplicates() -> None:

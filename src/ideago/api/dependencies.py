@@ -10,9 +10,11 @@ import contextlib
 import threading
 import time
 
+from ideago.cache.base import ReportRepository
 from ideago.cache.file_cache import FileCache
 from ideago.config.settings import get_settings
 from ideago.llm.chat_model import ChatModelClient
+from ideago.observability.log_config import get_logger
 from ideago.pipeline.aggregator import Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.extractor import Extractor
@@ -22,11 +24,14 @@ from ideago.sources.appstore_source import AppStoreSource
 from ideago.sources.github_source import GitHubSource
 from ideago.sources.hackernews_source import HackerNewsSource
 from ideago.sources.producthunt_source import ProductHuntSource
+from ideago.sources.reddit_source import RedditSource
 from ideago.sources.registry import SourceRegistry
 from ideago.sources.tavily_source import TavilySource
 
+logger = get_logger(__name__)
+
 _orchestrator: LangGraphEngine | None = None
-_cache: FileCache | None = None
+_cache: ReportRepository | None = None
 _report_runs: dict[str, ReportRunState] = {}
 _processing_reports: dict[str, str] = {}
 _pipeline_tasks: dict[str, asyncio.Task[None]] = {}
@@ -73,11 +78,15 @@ class ReportRunState:
         return list(self.history)
 
 
-def get_cache() -> FileCache:
+def get_cache() -> ReportRepository:
     global _cache
     if _cache is None:
         settings = get_settings()
-        _cache = FileCache(settings.cache_dir, settings.cache_ttl_hours)
+        _cache = FileCache(
+            settings.cache_dir,
+            settings.anonymous_cache_ttl_hours,
+            max_entries=settings.file_cache_max_entries,
+        )
     return _cache
 
 
@@ -131,6 +140,17 @@ def get_orchestrator() -> LangGraphEngine:
                 max_concurrent_queries=settings.source_query_concurrency,
             )
         )
+        registry.register(
+            RedditSource(
+                client_id=settings.reddit_client_id,
+                client_secret=settings.reddit_client_secret,
+                timeout=settings.source_timeout_seconds,
+                max_concurrent_queries=settings.source_query_concurrency,
+                enable_public_fallback=settings.reddit_enable_public_fallback,
+                public_fallback_limit=settings.reddit_public_fallback_limit,
+                public_fallback_delay_seconds=settings.reddit_public_fallback_delay_seconds,
+            )
+        )
 
         _orchestrator = LangGraphEngine(
             intent_parser=IntentParser(llm),
@@ -149,41 +169,56 @@ def get_orchestrator() -> LangGraphEngine:
 
 def cleanup_report_runs() -> None:
     """Drop finished report run states after TTL to avoid memory growth."""
-    now = time.monotonic()
-    stale_ids = [
-        report_id
-        for report_id, run in _report_runs.items()
-        if run.is_terminal
-        and not run.subscribers
-        and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
-    ]
-    for report_id in stale_ids:
-        _report_runs.pop(report_id, None)
+    with _runtime_state_lock:
+        now = time.monotonic()
+        stale_ids = [
+            report_id
+            for report_id, run in _report_runs.items()
+            if run.is_terminal
+            and not run.subscribers
+            and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
+        ]
+        for report_id in stale_ids:
+            _report_runs.pop(report_id, None)
 
 
 def get_or_create_report_run(report_id: str) -> ReportRunState:
     """Get or create runtime event state for a report."""
-    cleanup_report_runs()
-    run = _report_runs.get(report_id)
-    if run is None:
-        run = ReportRunState()
-        _report_runs[report_id] = run
-    return run
+    with _runtime_state_lock:
+        now = time.monotonic()
+        stale_ids = [
+            rid
+            for rid, run in _report_runs.items()
+            if run.is_terminal
+            and not run.subscribers
+            and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
+        ]
+        for rid in stale_ids:
+            _report_runs.pop(rid, None)
+        run = _report_runs.get(report_id)
+        if run is None:
+            run = ReportRunState()
+            _report_runs[report_id] = run
+        return run
 
 
 def get_report_run(report_id: str) -> ReportRunState | None:
     """Get runtime event state for a report if present."""
-    cleanup_report_runs()
-    return _report_runs.get(report_id)
-
-
-async def reserve_processing_report(query_hash: str, report_id: str) -> str | None:
-    """Atomically reserve processing slot; return existing active report_id if present."""
     with _runtime_state_lock:
-        existing_report_id = _processing_reports.get(query_hash)
+        return _report_runs.get(report_id)
+
+
+async def reserve_processing_report(
+    query_hash: str, report_id: str, *, user_id: str = ""
+) -> str | None:
+    """Atomically reserve processing slot; return existing active report_id if present."""
+    key = f"{user_id}:{query_hash}" if user_id else query_hash
+
+    with _runtime_state_lock:
+        existing_report_id = _processing_reports.get(key)
         if existing_report_id is not None:
             return existing_report_id
-        _processing_reports[query_hash] = report_id
+        _processing_reports[key] = report_id
         return None
 
 
@@ -255,5 +290,15 @@ async def shutdown_runtime_state() -> None:
 
 
 def get_processing_reports() -> dict[str, str]:
-    """Map of query hash → report_id for deduplication."""
-    return _processing_reports
+    """Snapshot of query-hash → report_id for deduplication.
+
+    Returns a shallow copy so callers never mutate the live dict.
+    """
+    with _runtime_state_lock:
+        return dict(_processing_reports)
+
+
+def is_report_id_processing(report_id: str) -> bool:
+    """Check if a specific report_id is in the local processing map (sync)."""
+    with _runtime_state_lock:
+        return report_id in _processing_reports.values()

@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/Button'
-import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode, type ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { Component, Suspense, lazy, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
-import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, History } from 'lucide-react'
 import { HomePage } from '@/features/home/HomePage'
+import { ThemeModeMenu, type ThemeMode } from './ThemeModeMenu'
 
 const ReportPage = lazy(async () => {
   const page = await import('@/features/reports/ReportPage')
@@ -23,8 +25,6 @@ interface ErrorBoundaryState {
 interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode
 }
-
-type ThemeMode = 'system' | 'light' | 'dark'
 
 const THEME_MODE_STORAGE_KEY = 'ideago-theme-mode'
 const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
@@ -53,6 +53,24 @@ function applyTheme(mode: ThemeMode, systemPrefersDark: boolean) {
   const shouldUseDark = mode === 'dark' || (mode === 'system' && systemPrefersDark)
   root.classList.toggle('dark', shouldUseDark)
   root.style.colorScheme = shouldUseDark ? 'dark' : 'light'
+}
+
+function resolveDocumentLanguage(language: string | undefined): string {
+  if (!language) return 'en'
+  const [normalized] = language.split('-')
+  return normalized || 'en'
+}
+
+function getLanguageDisplayName(language: string, uiLanguage: string): string {
+  const normalizedLanguage = resolveDocumentLanguage(language)
+  const normalizedUiLanguage = resolveDocumentLanguage(uiLanguage)
+
+  try {
+    const displayNames = new Intl.DisplayNames([normalizedUiLanguage], { type: 'language' })
+    return displayNames.of(normalizedLanguage) ?? normalizedLanguage.toUpperCase()
+  } catch {
+    return normalizedLanguage.toUpperCase()
+  }
 }
 
 function useThemeMode() {
@@ -85,103 +103,6 @@ function useThemeMode() {
   }
 }
 
-const THEME_OPTIONS: Array<{
-  mode: ThemeMode
-  label: string
-  shortLabel: string
-  Icon: typeof Monitor
-}> = [
-  { mode: 'system', label: 'System', shortLabel: 'SYS', Icon: Monitor },
-  { mode: 'dark', label: 'Dark', shortLabel: 'DARK', Icon: Moon },
-  { mode: 'light', label: 'Light', shortLabel: 'LIGHT', Icon: Sun },
-]
-
-function ThemeModeMenu({
-  themeMode,
-  onSelectThemeMode,
-}: {
-  themeMode: ThemeMode
-  onSelectThemeMode: (mode: ThemeMode) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const activeTheme = THEME_OPTIONS.find(option => option.mode === themeMode) ?? THEME_OPTIONS[0]
-  const ActiveIcon = activeTheme.Icon
-
-  useEffect(() => {
-    if (!open) return
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(previous => !previous)}
-        className="topbar-action focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label="Toggle theme mode"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <ActiveIcon className="h-5 w-5" />
-        <span className="hidden sm:inline">{activeTheme.shortLabel}</span>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label="Theme mode options"
-          className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
-        >
-          {THEME_OPTIONS.map(option => {
-            const OptionIcon = option.Icon
-            const selected = option.mode === themeMode
-            return (
-              <button
-                key={option.mode}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                onClick={() => {
-                  onSelectThemeMode(option.mode)
-                  setOpen(false)
-                }}
-                className={`w-full inline-flex items-center justify-between px-3 py-2 text-sm font-bold uppercase tracking-wider transition-all cursor-pointer border-2 border-transparent ${
-                  selected
-                    ? 'bg-primary text-primary-foreground border-border shadow-[2px_2px_0px_0px_var(--border)]'
-                    : 'text-muted-foreground hover:bg-muted hover:border-border hover:shadow-[2px_2px_0px_0px_var(--border)] hover:text-foreground'
-                }`}
-              >
-                <span className="inline-flex items-center gap-3">
-                  <OptionIcon className="h-4 w-4" />
-                  {option.label}
-                </span>
-                {selected && <Check className="h-4 w-4" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null }
 
@@ -198,8 +119,8 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     if (this.state.hasError) {
       return (
         <div className="min-h-screen px-4 py-10 bg-background text-foreground flex items-center justify-center">
-          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--destructive)] text-center">
-            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" />
+          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-lg shadow-destructive text-center">
+            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" aria-hidden="true" />
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
             </h1>
@@ -214,7 +135,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 window.location.href = '/'
               }}
             >
-              <ArrowLeft className="w-5 h-5 mr-3" />
+              <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
               {t('error.backToHome')}
             </Button>
           </div>
@@ -232,15 +153,12 @@ function NotFound() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-lg text-center">
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
-        <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground">{t('error.notFoundTitle')}</h2>
-        <p className="mb-10 text-lg font-bold text-muted-foreground">{t('error.notFoundMessage')}</p>
-        <Button
-          size="lg"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="w-5 h-5 mr-3" />
+        <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
+        <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.notFoundMessage')}</p>
+        <Button size="lg" onClick={() => navigate('/')}>
+          <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
           {t('error.backToHome')}
         </Button>
       </div>
@@ -258,21 +176,22 @@ function NavBar({
   const { t, i18n } = useTranslation()
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
+  const nextLanguage = isChinese ? 'en' : 'zh'
+  const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLanguage)
 
   useEffect(() => {
-    document.documentElement.lang = currentLanguage
+    document.documentElement.lang = resolveDocumentLanguage(currentLanguage)
   }, [currentLanguage])
 
   const toggleLanguage = () => {
-    const newLang = isChinese ? 'en' : 'zh'
-    i18n.changeLanguage(newLang)
+    i18n.changeLanguage(nextLanguage)
   }
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print min-w-0">
       <Link
         to="/"
-        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all"
+        className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base"
       >
         {t('app.title')} {t('app.titleHighlight')}
       </Link>
@@ -281,7 +200,7 @@ function NavBar({
         <button
           onClick={toggleLanguage}
           className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          aria-label={isChinese ? 'Switch to English' : '切换到中文'}
+          aria-label={t('app.switchToLanguage', { language: languageToggleLabel })}
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
@@ -290,7 +209,7 @@ function NavBar({
           className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           aria-label={t('app.history')}
         >
-          <History className="w-5 h-5 shrink-0" />
+          <History className="w-5 h-5 shrink-0" aria-hidden="true" />
           <span className="hidden sm:inline">{t('app.history')}</span>
         </Link>
       </div>
@@ -302,7 +221,7 @@ function RouteLoading() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
+      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
         <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin"></div>
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">{t('loading.page')}</p>
       </div>
@@ -330,6 +249,12 @@ export default function App() {
             </Routes>
           </Suspense>
         </main>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            className: 'border-2 border-border bg-background text-foreground font-bold shadow-lg',
+          }}
+        />
       </BrowserRouter>
     </ErrorBoundary>
   )
