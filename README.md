@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="docs/assets/icon.png" alt="IdeaGo Icon" width="120" />
+  <img src="assets/icon.png" alt="IdeaGo Icon" width="120" />
 </div>
 
 # IdeaGo
 
 <p align="center">
-  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
+  <img src="assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
 </p>
 
 IdeaGo is a Source Intelligence V2 system for validating startup ideas. On `main`, it is an anonymous, personal-deployment product: no Supabase, no login, no billing, no account system.

@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="docs/assets/icon.png" alt="IdeaGo Icon" width="120" />
+  <img src="assets/icon.png" alt="IdeaGo Icon" width="120" />
 </div>
 
 # IdeaGo
 
 <p align="center">
-  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
+  <img src="assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
 </p>
 
 IdeaGo 是一个 Source Intelligence V2 创业想法验证系统。当前 `main` 分支是匿名个人部署版：不依赖 Supabase，不需要登录，不包含支付和账户体系。
