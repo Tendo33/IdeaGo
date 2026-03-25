@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Bumped backend and frontend versions for release.
 
+## [0.3.5] - 2026-03-26
+
+### Changed
+- Refreshed `main` branch README content and structure for a clearer release-facing presentation.
+- Aligned release version markers across backend, frontend, and lockfiles.
+
 ## [0.2.11] - 2026-03-15
 
 ### Changed
@@ -165,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/Tendo33/ideago/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Tendo33/ideago/compare/v0.3.3...v0.3.4
 [0.2.11]: https://github.com/Tendo33/ideago/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/Tendo33/ideago/compare/v0.2.9...v0.2.10
