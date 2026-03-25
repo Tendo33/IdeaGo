@@ -6,12 +6,6 @@
     "skipToContent": "跳转到内容",
     "switchToLanguage": "切换到{{language}}"
   },
-  "nav": {
-    "history": "历史记录",
-    "home": "首页",
-    "userMenu": "用户菜单",
-    "userOptions": "用户选项"
-  },
   "theme": {
     "toggle": "切换主题模式",
     "options": "主题模式选项",
@@ -21,73 +15,6 @@
     "systemShort": "系统",
     "darkShort": "深色",
     "lightShort": "浅色"
-  },
-  "auth": {
-    "signIn": "登录",
-    "signUp": "注册",
-    "signOut": "退出登录",
-    "signedInAs": "已登录为",
-    "loginTitle": "登录",
-    "registerTitle": "创建账户",
-    "resetTitle": "重置密码",
-    "loginSubtitle": "登录以访问您的调研报告",
-    "registerSubtitle": "立即开始竞品分析",
-    "resetSubtitle": "输入您的邮箱，我们将发送重置链接",
-    "continueWithGithub": "使用 GitHub 继续",
-    "continueWithGoogle": "使用 Google 继续",
-    "continueWithLinuxDo": "使用 LinuxDo 继续",
-    "orEmail": "或",
-    "email": "邮箱",
-    "password": "密码",
-    "forgotPassword": "忘记密码？",
-    "minChars": "至少 6 个字符",
-    "sendResetLink": "发送重置链接",
-    "noAccount": "还没有账户？",
-    "hasAccount": "已有账户？",
-    "rememberPassword": "记得密码？",
-    "checkEmail": "请查收邮箱",
-    "confirmSent": "我们已向此邮箱发送确认链接",
-    "resetEmailSent": "请查收邮箱",
-    "resetEmailDesc": "我们已向此邮箱发送密码重置链接",
-    "backToLogin": "返回登录",
-    "callbackTimeout": "登录时间超出预期，请重试。",
-    "callbackError": "登录失败",
-    "signingIn": "正在登录...",
-    "unexpectedError": "发生了一个意外错误",
-    "legalNotice": "继续即表示您同意我们的"
-  },
-  "profile": {
-    "title": "个人资料",
-    "saved": "个人资料已更新",
-    "memberSince": "加入于",
-    "planAndUsage": "每日用量",
-    "currentPlan": "配额类型",
-    "usageThisMonth": "今日已用",
-    "quotaUsage": "配额用量",
-    "resetsOn": "重置日期",
-    "editProfile": "编辑资料",
-    "displayName": "显示名称",
-    "displayNamePlaceholder": "您希望我们怎么称呼您？",
-    "bio": "个人简介",
-    "bioPlaceholder": "介绍一下自己...",
-    "save": "保存更改",
-    "loadError": "无法加载个人资料",
-    "updateError": "无法更新个人资料",
-    "subscription": "订阅管理",
-    "proPlan": "Pro 套餐",
-    "freePlan": "免费套餐",
-    "activeSubscription": "订阅有效中",
-    "noSubscription": "暂无有效订阅",
-    "manageSubscription": "管理订阅",
-    "upgradeToPro": "升级到 Pro",
-    "dailyQuotaLabel": "每日限额",
-    "dangerZone": "高风险操作区",
-    "deleteWarning": "永久删除您的账户及所有相关数据。此操作无法撤销。",
-    "deleteAccount": "删除账户",
-    "deleteConfirm": "确认要继续吗？所有报告、个人资料和订阅信息都将被永久删除。",
-    "deleteError": "删除账户失败",
-    "confirmDelete": "确认，删除全部数据",
-    "cancelDelete": "取消"
   },
   "common": {
     "cancel": "取消",
@@ -534,51 +461,6 @@
       "unknown": "发生了一个未知的错误。"
     }
   },
-  "landing": {
-    "badge": "AI 驱动的竞品调研引擎",
-    "heroLine1": "先验证",
-    "heroLine2": "再动手",
-    "heroDesc": "一句话描述您的创业想法，即可获得一份基于 6 个研究来源证据的可审计分析报告：GitHub、Tavily、Hacker News、App Store、Product Hunt 和 Reddit。",
-    "cta": "免费开始分析",
-    "learnMore": "了解工作原理",
-    "mockLabel": "示例报告",
-    "mockQuery": "一款将网页一键转换为 Markdown 的浏览器插件",
-    "mockCompetitors": "个竞品",
-    "mockRelevance": "匹配度",
-    "mockSources": "数据源",
-    "mockTime": "平均耗时",
-    "mockVerdict": "建议：可以推进",
-    "sourcesLabel": "我们交叉验证的 6 个研究来源",
-    "sourceNames": {
-      "github": "GitHub",
-      "tavily": "Tavily",
-      "hackernews": "Hacker News",
-      "appstore": "App Store",
-      "producthunt": "Product Hunt",
-      "reddit": "Reddit"
-    },
-    "howTitle": "工作流程",
-    "howSubtitle": "从想法到洞察，只需几分钟。",
-    "step1Title": "描述想法",
-    "step1Desc": "用自然语言描述您的创业想法，无需填写复杂表单。",
-    "step2Title": "AI 分析",
-    "step2Desc": "我们的 AI 管道会同时查询 6 个数据源：GitHub、Tavily、Hacker News、App Store、Product Hunt 和 Reddit。",
-    "step3Title": "做出决策",
-    "step3Desc": "获取结构化报告：竞品列表、市场空白、基于证据的 Go / No-Go 推荐。",
-    "featuresTitle": "为快速行动的创业者而生",
-    "feat1Title": "多源情报",
-    "feat1Desc": "交叉比对 6 个研究来源的信号，避免只依赖单一搜索引擎做判断。",
-    "feat2Title": "透明可追溯",
-    "feat2Desc": "每个竞品都附带来源链接、置信度评分和数据时效性指标。拒绝黑箱结论。",
-    "feat3Title": "Go / No-Go 判定",
-    "feat3Desc": "不仅列出竞品清单，更给出清晰的市场饱和度信号和战略建议。",
-    "feat4Title": "实时进度跟踪",
-    "feat4Desc": "通过 SSE 实时流观看分析过程，精确了解哪些数据源正在被查询。",
-    "ctaTitle": "准备好验证了吗？",
-    "ctaDesc": "别再猜测，用数据说话。",
-    "ctaButton": "免费开始使用",
-    "footerTagline": "由创业者打造，为创业者服务"
-  },
   "legal": {
     "backToHome": "返回首页",
     "termsTitle": "服务条款",
@@ -589,10 +471,10 @@
       "acceptance": "访问或使用 IdeaGo（以下简称“本服务”）即表示您同意受本服务条款约束。如不同意，请勿使用本服务。",
       "descriptionTitle": "2. 服务说明",
       "description": "IdeaGo 是一个由 AI 驱动的竞品调研平台。我们聚合公开信息并生成分析报告。报告由 AI 生成，可能存在不准确之处。",
-      "accountsTitle": "3. 用户账户",
-      "accounts": "您有责任妥善保管账户凭证。您不得共享账户，也不得将本服务用于任何违法用途。",
-      "subscriptionTitle": "4. 订阅与计费",
-      "subscription": "付费套餐通过 Stripe 计费。您可随时在账户设置中取消。退款将按我们的退款政策处理。",
+      "accountsTitle": "3. 个人部署责任",
+      "accounts": "在开源 `main` 分支中，您需要自行负责部署安全、提供商密钥、访问控制以及本地数据保留策略。请勿以不安全的方式暴露部署环境或密钥。",
+      "subscriptionTitle": "4. 第三方服务提供商",
+      "subscription": "个人部署版不内置计费或账户体系。如果您自行配置模型或检索服务，其使用将受对应第三方服务条款约束。",
       "ipTitle": "5. 知识产权",
       "ip": "为您生成的报告可由您使用。本服务及其代码、品牌等知识产权归 IdeaGo 所有。",
       "disclaimerTitle": "6. 免责声明",
@@ -625,97 +507,15 @@
       "contact": "如有隐私相关问题，请通过我们网站列出的渠道联系我们。"
     }
   },
-  "pricing": {
-    "title": "选择您的套餐",
-    "subtitle": "免费开始使用，需要更多时再升级。",
-    "perMonth": "/月",
-    "currentPlan": "当前套餐",
-    "upgrade": "升级到 Pro",
-    "comingSoon": "即将推出",
-    "freeFeature1": "每月 5 次分析",
-    "freeFeature2": "基础竞品报告",
-    "freeFeature3": "6 个数据源",
-    "freeFeature4": "报告导出 (Markdown)",
-    "proFeature1": "每月 100 次分析",
-    "proFeature2": "高级竞品洞察",
-    "proFeature3": "6 个数据源 + 优先处理",
-    "proFeature4": "报告导出 (Markdown)",
-    "proFeature5": "报告永不过期",
-    "proFeature6": "优先技术支持",
-    "loadError": "无法确认您当前的订阅状态。",
-    "upgradeError": "无法发起结账流程，请稍后重试。",
-    "signInToUpgrade": "登录后升级"
-  },
   "quota": {
     "exceeded": "您已达到今日分析次数上限。",
     "upgradeHint": "配额将在明天重置后恢复，届时您可以继续发起分析。",
     "upgradeCta": "明天"
   },
-  "welcome": {
-    "title": "欢迎使用 IdeaGo！",
-    "body": "在下方描述您的创业想法，我们将为您搜索竞品、分析市场信号，并在几分钟内生成研究报告。",
-    "step1": "输入想法",
-    "step2": "AI 调研市场",
-    "step3": "查看报告"
-  },
   "errors": {
     "rateLimited": "请求过于频繁，请稍后再试。",
     "networkError": "网络错误，请检查您的网络连接后重试。",
-    "sessionExpired": "登录已过期，请重新登录。",
     "quotaExceeded": "已达到今日分析次数上限。",
     "unknown": "出现了问题，请重试。"
-  },
-  "account": {
-    "deleteTitle": "删除账户",
-    "deleteDescription": "这将永久删除您的账户及所有关联数据，此操作不可撤销。",
-    "deleteConfirm": "删除我的账户",
-    "deleteCancel": "取消",
-    "dangerZone": "危险操作"
-  },
-  "admin": {
-    "title": "管理后台",
-    "menuLabel": "管理",
-    "forbidden": "无权访问",
-    "forbiddenMessage": "您没有访问此页面的权限。",
-    "totalUsers": "用户数",
-    "totalReports": "报告数",
-    "activeProcessing": "处理中",
-    "planBreakdown": "套餐分布",
-    "usersTitle": "用户列表",
-    "noUsers": "未找到用户。",
-    "userFallbackName": "未命名用户",
-    "actions": {
-      "saveQuotaFor": "保存 {{name}} 的配额",
-      "editQuotaFor": "编辑 {{name}} 的配额"
-    },
-    "messages": {
-      "quotaUpdated": "{{name}} 的配额已更新。",
-      "loadError": "我们无法加载管理后台数据，请稍后重试。",
-      "unknownError": "出现了一些问题，请稍后重试。"
-    },
-    "values": {
-      "roles": {
-        "admin": "管理员",
-        "user": "用户"
-      },
-      "plans": {
-        "free": "免费版",
-        "pro": "专业版"
-      },
-      "providers": {
-        "github": "GitHub",
-        "google": "Google",
-        "linuxdo": "LinuxDo"
-      }
-    },
-    "col": {
-      "user": "用户",
-      "role": "角色",
-      "plan": "套餐",
-      "provider": "登录方式",
-      "usage": "用量",
-      "limit": "上限",
-      "joined": "注册时间"
-    }
   }
 }

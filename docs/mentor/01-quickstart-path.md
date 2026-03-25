@@ -7,23 +7,23 @@
 当前版本和早期文档相比，有 4 个关键变化：
 
 1. 前端依赖管理固定为 `pnpm`
-2. 公开接口只有最小健康检查，分析主链路默认需要登录
+2. `main` 的分析主链路默认匿名可用
 3. 前端路由已经迁到 `features/*`，不再走 `pages/*`
-4. 后端除了分析链路，还包含 auth、billing、admin 等真实业务模块
+4. `main` 只保留个人部署闭环所需的 analyze、reports、health、本地缓存与 SQLite checkpoint
 
 ## 1) 准备环境
 
 ```bash
 uv sync --all-extras
 pnpm --prefix frontend install
-Copy-Item .env.example .env
+cp .env.example .env
 ```
 
 最小建议配置：
 
 - 必需：`OPENAI_API_KEY`
 - 建议：`TAVILY_API_KEY`
-- 如果你要完整验证登录流程：补好 Supabase 和 LinuxDo 相关配置
+- 可选：其他研究源凭据，例如 GitHub、Product Hunt、Reddit OAuth
 
 ## 2) 启动服务
 
@@ -51,7 +51,7 @@ curl http://localhost:8000/api/v1/health
 {"status":"ok"}
 ```
 
-这里故意不返回 `sources` 和 `dependencies`，详细健康信息在管理侧。
+这里故意保持最小健康返回，让个人部署时的启动验证更直接。
 
 ## 3) 用“正确的入口”开始阅读
 
@@ -68,7 +68,7 @@ curl http://localhost:8000/api/v1/health
 ### 3.3 前端应用入口
 
 - `frontend/src/app/App.tsx`
-  - 路由、主题、语言、认证上下文、受保护页面都在这里
+  - 路由、主题、语言、错误边界都在这里
 
 ### 3.4 报告链路入口
 
@@ -80,19 +80,17 @@ curl http://localhost:8000/api/v1/health
 
 ## 4) 如何体验一次真实分析
 
-最简单的方式不是手写匿名 `curl`，而是：
+最简单的方式就是直接走匿名主路径：
 
 1. 打开前端页面
-2. 完成登录
-3. 在首页输入 idea
-4. 观察页面跳转到 `/reports/:id`
-5. 同时打开浏览器 Network 看 `/analyze`、`/reports/:id/stream`、`/reports/:id`
+2. 在首页输入 idea
+3. 观察页面跳转到 `/reports/:id`
+4. 同时打开浏览器 Network 看 `/analyze`、`/reports/:id/stream`、`/reports/:id`
 
-如果你已经有有效 token，也可以手工请求：
+你也可以直接手工请求：
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/analyze \
-  -H "Authorization: Bearer <token>" \
   -H "X-Requested-With: IdeaGo" \
   -H "Content-Type: application/json" \
   -d '{"query":"An AI assistant for indie game analytics"}'
@@ -101,8 +99,7 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 拿到 `report_id` 后：
 
 ```bash
-curl -N http://localhost:8000/api/v1/reports/<report_id>/stream \
-  -H "Authorization: Bearer <token>"
+curl -N http://localhost:8000/api/v1/reports/<report_id>/stream
 ```
 
 ## 5) 你在这一篇必须确认的入口函数
@@ -120,7 +117,7 @@ curl -N http://localhost:8000/api/v1/reports/<report_id>/stream \
 因为后续几乎所有改动都会穿过它们：
 
 - API 契约调整，会碰 `api/routes/*` 和 `lib/api/client.ts`
-- 认证、权限、配额问题，会碰 `auth/*`、`api/routes/auth.py`、`analyze.py`
+- 匿名流、缓存和状态恢复问题，会碰 `analyze.py`、`reports.py`、`file_cache.py`
 - pipeline 顺序变化，会碰 `langgraph_engine.py` 和 `nodes.py`
 - 进度体验和报告页异常恢复，会碰 `useReportLifecycle.ts` 和 `useSSE.ts`
 
@@ -132,11 +129,11 @@ curl -N http://localhost:8000/api/v1/reports/<report_id>/stream \
 2. 验证 `/api/v1/health`
 3. 打开 `src/ideago/api/app.py`，确认有哪些中间件
 4. 打开 `frontend/src/app/App.tsx`，确认 `/reports/:id` 和 `/reports` 的路由定义
-5. 如果你有登录环境，跑一次真实分析并观察 SSE
+5. 跑一次真实匿名分析并观察 SSE
 
 完成标准：
 
-- 你能说清楚“为什么现在不能再把匿名 `curl /analyze` 当成默认学习入口”
+- 你能说清楚“为什么 `main` 可以把匿名 `curl /analyze` 当成默认学习入口”
 
 ---
 

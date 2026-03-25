@@ -7,13 +7,13 @@
 | 现象 | 优先检查 | 典型位置 |
 |---|---|---|
 | `/health` 不是 `ok` | 基础配置和依赖连通性 | `src/ideago/api/routes/health.py` |
-| 登录后调用分析直接 401/403 | token、CSRF header、当前会话 | `frontend/src/lib/api/client.ts`, `src/ideago/auth/*`, `src/ideago/api/app.py` |
+| 匿名分析请求直接 4xx | `X-Requested-With`、请求体、限流或输入校验 | `frontend/src/lib/api/client.ts`, `src/ideago/api/routes/analyze.py`, `src/ideago/api/app.py` |
 | 一直 `processing` | 后台任务、运行态、status 持久化 | `src/ideago/api/routes/analyze.py`, `src/ideago/api/dependencies.py`, cache 实现 |
 | SSE 断流或不更新 | `_stream_events()`、前端重连逻辑、终态事件 | `src/ideago/api/routes/analyze.py`, `frontend/src/lib/api/useSSE.ts` |
 | SSE 已完成但页面还没 ready | `useReportLifecycle` 的补拉和恢复逻辑 | `frontend/src/features/reports/components/useReportLifecycle.ts` |
 | 报告内容明显偏少 | source 可用性、提取降级、聚合结果 | `src/ideago/pipeline/nodes.py`, `src/ideago/sources/*.py` |
 | 报告里的链接可疑 | extractor 的链接过滤 | `src/ideago/pipeline/extractor.py` |
-| 不同用户能看到彼此数据 | owner check、status user_id、repository 过滤 | `src/ideago/api/routes/reports.py`, `src/ideago/cache/*` |
+| history 或报告读取异常 | 本地索引、TTL、status 文件与实体文件是否一致 | `src/ideago/api/routes/reports.py`, `src/ideago/cache/*` |
 | 报告页卡顿 | 虚拟化、图表或大组件渲染 | `frontend/src/features/reports/components/VirtualizedCompetitorList.tsx` |
 
 ## 2) 快速诊断命令
@@ -56,13 +56,12 @@ Get-ChildItem .cache/ideago
 
 - source 一直不可用
 - LLM 请求马上失败
-- 登录跳转或回调异常
 
 优先看：
 
 - `.env`
 - `src/ideago/config/settings.py`
-- Supabase / LinuxDo / OpenAI / Tavily 等配置是否完整
+- OpenAI / Tavily / GitHub / Product Hunt / Reddit 等配置是否完整
 
 ### B. 运行态与持久化不一致
 
@@ -78,25 +77,25 @@ Get-ChildItem .cache/ideago
 - `status` 写入逻辑
 - `useReportLifecycle()` 的恢复逻辑
 
-### C. 用户隔离与权限链路出错
+### C. 匿名缓存索引与状态链路出错
 
 表现：
 
-- 某用户拿不到自己报告
-- 某用户看到了不该看的报告
-- SSE 或 status 返回 403/404
+- history 列表和详情页内容对不上
+- SSE 或 status 已结束，但实体文件仍然缺失
+- 清理逻辑删掉了该保留的匿名报告
 
 优先看：
 
-- owner check
-- `get_report_user_id()`
-- status 中是否写入了 `user_id`
-- token 解析与会话状态
+- `_index.json`
+- `*.status.json`
+- `cleanup_expired()`
+- `useReportLifecycle()` 的补拉与终态判断
 
 ## 4) 推荐调试顺序
 
 1. 先确认是不是基础环境问题：`/health`
-2. 再看是不是认证/权限问题：401、403、token、header
+2. 再看是不是请求协议问题：4xx、header、query、请求体
 3. 再看运行态：processing map、pipeline task、ReportRunState
 4. 再看持久化：report/status 是否真的写下来了
 5. 最后才看前端渲染与交互
@@ -108,9 +107,9 @@ Get-ChildItem .cache/ideago
 - 是否会破坏 `ReportRuntimeStatus` 的语义
 - 是否新增 SSE 事件却忘了前端事件白名单
 - 是否修改报告模型却忘了同步 TS 类型
-- 是否会影响 `user_id` 写入和 owner check
+- 是否会影响匿名 status 恢复与历史列表
 - 是否会影响 query 去重 key
-- 是否会引入新的副作用，比如重复扣 quota 或重复发通知
+- 是否会引入新的副作用，比如重复创建匿名任务或错误清理缓存
 
 ## 6) 故障复盘模板
 

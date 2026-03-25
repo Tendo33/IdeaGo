@@ -4,13 +4,13 @@
 
 ## 总览：从点击到报告
 
-1. 登录用户在首页提交 query
+1. 匿名用户在首页提交 query
 2. 前端调用 `POST /api/v1/analyze`
-3. 后端校验配额并创建后台任务
+3. 后端创建后台任务并登记运行态
 4. `_run_pipeline()` 执行 LangGraph
 5. 前端报告页订阅 `/reports/{id}/stream`
 6. 后端通过 `ReportRunState` 推送事件
-7. 报告落到 `FileCache` 或 Supabase
+7. 报告落到 `FileCache`，checkpoint 落到本地 SQLite
 8. 前端补拉 `/reports/{id}` 和 `/reports/{id}/status`，进入 ready 或 error/cancelled
 
 ## Step 1：前端发起分析
@@ -23,12 +23,11 @@
 - 页面收集用户输入
 - `startAnalysis(query)` 发 `POST /api/v1/analyze`
 - 请求头里会带上：
-  - `Authorization`
   - `X-Requested-With: IdeaGo`
 
 这里要记住两个现实点：
 
-- 这个接口需要认证，不再是匿名入口
+- 这个接口在 `main` 上就是匿名入口
 - CSRF 保护要求 state-changing 请求带 `X-Requested-With`
 
 ## Step 2：后端接收并创建任务
@@ -38,19 +37,18 @@
 
 执行顺序：
 
-1. `check_and_increment_quota(user.id)` 校验套餐额度
-2. 清洗 query
-3. 计算 `query_hash = sha256(query)[:16]`
-4. `reserve_processing_report(query_hash, report_id, user_id=user.id)` 做去重
-5. 写入 `processing` 状态
-6. 创建 `ReportRunState`
-7. `asyncio.create_task(_run_pipeline(...))`
-8. 立即返回 `report_id`
+1. 清洗 query
+2. 计算 `query_hash = sha256(query)[:16]`
+3. `reserve_processing_report(query_hash, report_id)` 做去重
+4. 写入 `processing` 状态
+5. 创建 `ReportRunState`
+6. `asyncio.create_task(_run_pipeline(...))`
+7. 立即返回 `report_id`
 
-为什么现在要强调“按用户去重”：
+为什么现在要强调“按 query 去重”：
 
-- 相同 query 不再是全局共用一个任务
-- 不同用户的相同 query 会各自拿到自己的 `report_id`
+- 同一份匿名 query 会复用当前 processing 任务
+- 报告完成后，匿名读取依赖状态文件和缓存恢复，而不是会话态
 
 ## Step 3：后台运行 pipeline
 
@@ -68,11 +66,6 @@
 - 取消时写 `cancelled` 并发布 `cancelled`
 - 结束后释放 processing slot 和 task 映射
 
-此外还有两个现在版本里很重要的细节：
-
-- 任务完成后可能触发 `notify_report_ready`
-- 配额接近上限时可能触发 `notify_quota_warning`
-
 ## Step 4：LangGraph 节点链
 
 - 文件：`src/ideago/pipeline/langgraph_engine.py`
@@ -84,7 +77,7 @@
 - `cache_lookup`
 - `fetch_sources`
 - `extract_map`
-- `aggregate`
+- `analyze`
 - `assemble_report`
 - `persist_report`
 
@@ -135,7 +128,7 @@
 - 遇到 `ping` 只更新连接状态，不进入业务事件
 - 识别 `report_ready`、`error`、`cancelled` 作为终止事件
 - 异常断开时做指数退避重连
-- 401 时清理会话并跳转登录页
+- 连接异常时保持匿名页面停留，并交给状态补拉兜底
 
 ## Step 7：为什么还需要状态补拉
 
@@ -171,9 +164,9 @@
 
 ## 动手任务
 
-如果你有可用登录环境，做一次真实追踪：
+做一次真实匿名追踪：
 
-1. 登录后发起一次分析
+1. 从首页发起一次分析
 2. 在浏览器 Network 里观察：
    - `POST /api/v1/analyze`
    - `GET /api/v1/reports/:id/stream`

@@ -1,7 +1,8 @@
 """Lightweight in-process metrics collection.
 
 Tracks request counts, latencies, and error rates without external
-dependencies. Intended for the ``/api/v1/metrics`` admin endpoint.
+dependencies. Intended for local diagnostics and future lightweight
+observability endpoints.
 """
 
 from __future__ import annotations

@@ -33,8 +33,8 @@ class ReportRepository(Protocol):
     async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
         """Retrieve a cached report by its content-hash cache key.
 
-        When *user_id* is provided, only reports belonging to that user are
-        returned (tenant isolation).
+        When *user_id* is provided, repositories may use it to scope results
+        to an owning identity. ``main`` usually leaves this empty.
         """
         ...
 
@@ -43,8 +43,8 @@ class ReportRepository(Protocol):
     ) -> ResearchReport | None:
         """Retrieve a report by its unique ID.
 
-        When *user_id* is provided, only the report belonging to that user is
-        returned (tenant isolation at the repository level).
+        When *user_id* is provided, repositories may use it to scope results
+        to an owning identity. ``main`` usually leaves this empty.
         """
         ...
 
@@ -55,8 +55,8 @@ class ReportRepository(Protocol):
     async def delete(self, report_id: str, *, user_id: str = "") -> bool:
         """Delete a report. Returns True if it existed.
 
-        When *user_id* is provided, only the report belonging to that user
-        is deleted (tenant isolation at the repository level).
+        When *user_id* is provided, repositories may use it to scope deletion
+        to an owning identity. ``main`` usually leaves this empty.
         """
         ...
 

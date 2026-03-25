@@ -19,7 +19,7 @@
 
 这里有两个你必须记住的现实点：
 
-- cache 不是永远只有 `FileCache`，现在会按配置切到 Supabase
+- `main` 默认并且只依赖 `FileCache` + 本地 SQLite checkpoint
 - source registry 已经不只是 GitHub/Tavily/HN，还包含 App Store、Product Hunt、Reddit
 
 ## 2) 这个装配层真正解决了什么
@@ -34,7 +34,7 @@
 
 ### C. 保持路由层薄
 
-API 层负责鉴权、配额、响应协议；真正的研究流程交给 orchestrator 和 pipeline。
+API 层负责请求协议、状态登记、响应契约；真正的研究流程交给 orchestrator 和 pipeline。
 
 ## 3) 契约层：为什么这个项目能演进
 
@@ -46,7 +46,7 @@ API 层负责鉴权、配额、响应协议；真正的研究流程交给 orches
 
 它们的价值是把“主流程”与“具体实现”拆开：
 
-- `ReportRepository` 让 file cache 和 Supabase cache 可以共存
+- `ReportRepository` 让报告持久化和运行态访问从业务逻辑中解耦
 - `DataSource` 让新 source 可以接进 registry
 - `ProgressCallback` 让节点事件能被 SSE 运行态消费，而不是写死在 pipeline 里
 
@@ -123,33 +123,23 @@ API 层负责鉴权、配额、响应协议；真正的研究流程交给 orches
 
 ## 7) 一些“看起来不核心，但实际很要命”的配套点
 
-### A. 认证与权限
+### A. 匿名运行态与恢复
 
-分析接口、报告接口、SSE 都是用户隔离的。
+`main` 的关键约束不是登录态，而是匿名运行态是否可恢复。
 
 这意味着你做 feature 时不能只改 pipeline，还要确认：
 
-- `status` 是否带上 `user_id`
-- owner check 是否还能工作
-- 前端 token 失效时是否能正确重定向
-
-### B. 配额与通知
-
-现在分析动作还耦合了：
-
-- `check_and_increment_quota()`
-- `notify_quota_warning()`
-- `notify_report_ready()`
-
-所以任何“重试分析”“自动再次发起分析”的改动，都要考虑配额和通知副作用。
+- `status` 是否还能表达 processing / complete / failed / cancelled
+- `ReportRunState` 历史重放是否还能工作
+- 报告尚未落盘时，前端补拉是否还能正确兜底
 
 ## 8) 学习时可以暂时靠后的部分
 
 以下内容不是第一轮理解主链路的阻塞项：
 
 - `src/ideago/core/*`
-- `src/ideago/notifications/*` 的具体发送实现
-- `billing/*` 的细节
+- 更细的 prompt 调优策略
+- 指标聚合和埋点细节
 
 先把“分析主链路 + 报告页 + SSE”吃透，再回来看这些模块会更轻松。
 

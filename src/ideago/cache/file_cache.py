@@ -65,8 +65,8 @@ class FileCache:
     async def get(self, cache_key: str, *, user_id: str = "") -> ResearchReport | None:
         """Retrieve a cached report by cache key. Returns None if missing or expired.
 
-        When *user_id* is provided, only reports belonging to that user are
-        returned (tenant isolation).
+        When *user_id* is provided, restricts results to reports tagged with
+        that owner id.
         """
         return await asyncio.to_thread(self._get_sync, cache_key, user_id)
 
@@ -96,7 +96,7 @@ class FileCache:
         """Retrieve a cached report by its ID.
 
         When *user_id* is provided, cross-checks the index to ensure the
-        report belongs to that user (tenant isolation).
+        report belongs to that owner id.
         """
         return await asyncio.to_thread(self._get_by_id_sync, report_id, user_id)
 
@@ -244,7 +244,7 @@ class FileCache:
         """Delete a cached report by ID.
 
         When *user_id* is provided, only deletes if the report belongs
-        to that user (tenant isolation).
+        to that owner id.
         """
         return await asyncio.to_thread(self._delete_sync, report_id, user_id)
 
