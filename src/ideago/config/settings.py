@@ -208,7 +208,7 @@ class Settings(BaseSettings):
         ),
     )
     openai_timeout_seconds: int = Field(
-        default=60,
+        default=120,
         ge=5,
         le=300,
         description="LLM request timeout in seconds / LLM 请求超时秒数",
@@ -275,7 +275,7 @@ class Settings(BaseSettings):
         description="Max results per data source / 每个数据源最大结果数",
     )
     source_timeout_seconds: int = Field(
-        default=30,
+        default=60,
         ge=5,
         le=120,
         description="Per-source fetch timeout / 单源抓取超时秒数",
@@ -322,9 +322,9 @@ class Settings(BaseSettings):
         "Product Hunt 抓取时间窗口（天）",
     )
     extraction_timeout_seconds: int = Field(
-        default=180,
+        default=240,
         ge=10,
-        le=180,
+        le=300,
         description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",
     )
     langgraph_checkpoint_db_path: str = Field(
