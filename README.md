@@ -1,39 +1,93 @@
 <div align="center">
-  <img src="assets/icon.png" alt="IdeaGo Icon" width="120" />
+  <img src="assets/icon.png" alt="IdeaGo logo" width="96" />
+
+  <h1>IdeaGo</h1>
+
+  <p><strong>Decision-first source intelligence for startup ideas.</strong></p>
+
+  <p>
+    IdeaGo turns a rough product idea into a structured validation report with recommendation,
+    pain signals, commercial signals, whitespace opportunities, competitors, evidence, and confidence.
+  </p>
+
+  <p>
+    <a href="README_CN.md">简体中文</a> ·
+    <a href="#quick-start">Quick Start</a> ·
+    <a href="#how-it-works">How It Works</a> ·
+    <a href="#project-structure">Project Structure</a> ·
+    <a href="DEPLOYMENT.md">Deployment</a>
+  </p>
+
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A" alt="LangGraph" />
+    <img src="https://img.shields.io/badge/Branch-main%20%E2%86%92%20saas-111827" alt="Branch flow main to saas" />
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+  </p>
 </div>
 
-# IdeaGo
+---
 
-<p align="center">
-  <img src="assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
-</p>
+## Overview
 
-IdeaGo is a Source Intelligence V2 system for validating startup ideas. On `main`, it is an anonymous, personal-deployment product: no Supabase, no login, no billing, no account system.
+IdeaGo is the `main` branch of the project: a local or personal-deployment edition with no login,
+no Supabase requirement, no billing, and no account system.
 
-[简体中文](README_CN.md) | English
+If you want the commercial version with auth, profile, billing, and admin flows, use the `saas`
+branch instead.
 
-## Branches
+## Screenshot Placeholders
 
-- `main`: personal/open-source deployment. Anonymous analyze, history, report detail, export, local file cache, local SQLite checkpoints.
-- `saas`: same core product as `main`, plus auth, payment, profile, admin, and SaaS-only environment variables.
+> Replace the placeholders below with your own screenshots when ready.
 
-Long-term sync rule:
+### Hero Screenshot
 
-- shared/core features go `main -> saas`
-- commercial-only features stay on `saas`
+![Hero Screenshot Placeholder](assets/banner_new.png)
 
-## What It Does
+`[Placeholder] Replace this image with a homepage or full workflow screenshot.`
 
-IdeaGo turns one startup idea into a decision-first report with:
+### Report Detail Screenshot
 
-- recommendation and why-now summary
+![Report Screenshot Placeholder](assets/usage_new.png)
+
+`[Placeholder] Replace this image with a report detail or insights screenshot.`
+
+### Optional Extra Screenshot
+
+`[Placeholder] Add a third screenshot here for history, compare view, or SSE progress.`
+
+## Why IdeaGo
+
+Most idea validation tools stop at surface-level summaries. IdeaGo is built for the question that
+comes next: should this idea move forward now, and why?
+
+It keeps the report decision-first:
+
+- recommendation and why-now
 - pain signals
 - commercial signals
 - whitespace opportunities
 - competitors
-- evidence and confidence
+- evidence
+- confidence
 
-Core sources:
+That ordering is part of the product contract, not a presentation detail.
+
+## What You Get On `main`
+
+The `main` branch is the anonymous, personal-deployment line of the product:
+
+- anonymous analysis flow
+- persisted report history through local file cache
+- report detail pages and markdown export
+- SSE progress streaming during long-running analysis
+- local SQLite checkpoints for LangGraph runtime state
+- no Supabase, no Stripe, no LinuxDo variables required to boot
+
+Core sources currently include:
 
 - Tavily
 - Reddit
@@ -41,14 +95,6 @@ Core sources:
 - Hacker News
 - App Store
 - Product Hunt
-
-## Main Branch Runtime Model
-
-- backend routes: `/api/v1/analyze`, `/api/v1/reports`, `/api/v1/health`
-- report persistence: local `FileCache`
-- pipeline checkpoints: local SQLite
-- progress updates: SSE
-- report flow: anonymous submit -> stream progress -> open report -> revisit from history -> export markdown
 
 ## Quick Start
 
@@ -73,12 +119,14 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-Minimum useful config:
+Minimum useful configuration:
 
 - required: `OPENAI_API_KEY`
 - recommended: `TAVILY_API_KEY`
 
-### Development
+Useful defaults already live in [`.env.example`](.env.example).
+
+### Run In Development
 
 Terminal 1:
 
@@ -97,7 +145,7 @@ Open:
 - frontend: [http://localhost:5173](http://localhost:5173)
 - backend health: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
-### Single-process local run
+### Run As A Single Local Process
 
 ```bash
 pnpm --prefix frontend build
@@ -106,25 +154,38 @@ uv run python -m ideago
 
 Open: [http://localhost:8000](http://localhost:8000)
 
-## Configuration
+## How It Works
 
-Important `main` settings:
+IdeaGo takes a single idea, normalizes and interprets it, gathers source evidence, extracts relevant
+signals, and assembles a structured report that can be reopened from history later.
 
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `TAVILY_API_KEY`
-- `CACHE_DIR`
-- `ANONYMOUS_CACHE_TTL_HOURS`
-- `FILE_CACHE_MAX_ENTRIES`
-- `LANGGRAPH_CHECKPOINT_DB_PATH`
-- `CORS_ALLOW_ORIGINS`
+```mermaid
+flowchart TD
+    A["User idea"] --> B["POST /api/v1/analyze"]
+    B --> C["LangGraph engine"]
+    C --> D["Intent parsing"]
+    D --> E{"Cache hit?"}
+    E -->|Yes| F["Return persisted report"]
+    E -->|No| G["Fetch source data"]
+    G --> H["Extract structured signals"]
+    H --> I["Aggregate findings"]
+    I --> J["Assemble report"]
+    J --> K["Persist report + status"]
+    K --> L["Report detail / history / export"]
+    C -.-> M["SSE progress stream"]
+```
 
-Reddit notes:
+Runtime model on `main`:
 
-- `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` are optional.
-- If they are missing, `main` can fall back to public Reddit reads when `REDDIT_ENABLE_PUBLIC_FALLBACK=true`.
+- API routes: `/api/v1/analyze`, `/api/v1/reports`, `/api/v1/health`
+- report persistence: local `FileCache`
+- runtime checkpoints: local SQLite
+- progress updates: SSE
+- user flow: submit idea -> stream progress -> read report -> reopen from history -> export markdown
 
 ## API Overview
+
+Public API on `main`:
 
 - `POST /api/v1/analyze`
 - `GET /api/v1/reports`
@@ -138,13 +199,72 @@ Reddit notes:
 
 `main` does not expose auth, billing, profile, pricing, or admin APIs.
 
-## Development Rules
+## Configuration Notes
 
-- Keep the report contract decision-first.
-- Treat backend report schemas and frontend shared types as explicit contracts.
-- Keep `pipeline/merger.py` deterministic competitor dedupe only.
-- Keep whitespace and entry-wedge synthesis in `pipeline/aggregator.py`.
-- Do not introduce SaaS runtime dependencies into `main`.
+Important settings on `main`:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `TAVILY_API_KEY`
+- `CACHE_DIR`
+- `ANONYMOUS_CACHE_TTL_HOURS`
+- `FILE_CACHE_MAX_ENTRIES`
+- `LANGGRAPH_CHECKPOINT_DB_PATH`
+- `CORS_ALLOW_ORIGINS`
+
+Optional Reddit credentials:
+
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
+
+If Reddit OAuth credentials are missing, public read fallback can still work when
+`REDDIT_ENABLE_PUBLIC_FALLBACK=true`.
+
+## Branch Model
+
+- `main`: personal/open-source deployment only
+- `saas`: same core product, plus auth, billing, profile, admin, and SaaS-only environment variables
+
+Sync rule:
+
+- shared product work lands on `main`
+- `saas` pulls from `main`
+- do not move SaaS runtime dependencies back into `main`
+
+## Project Structure
+
+```text
+.
+├── src/ideago/          # FastAPI app, LangGraph pipeline, sources, models
+├── frontend/src/        # React app
+├── tests/               # Backend tests
+├── ai_docs/             # Project standards and guides
+├── assets/              # README assets used on main
+└── DEPLOYMENT.md        # Main-branch deployment guide
+```
+
+Key backend areas:
+
+- `api/`: routes, schemas, app setup, errors
+- `pipeline/`: orchestration, events, merger, extractor, intent parsing
+- `cache/`: file cache and persistence abstractions
+- `sources/`: external source fetchers
+
+Key frontend areas:
+
+- `frontend/src/app`
+- `frontend/src/features/home`
+- `frontend/src/features/history`
+- `frontend/src/features/reports`
+- `frontend/src/lib/api`
+
+## Documentation
+
+- [Deployment Guide](DEPLOYMENT.md)
+- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
+- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
+- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
+- [Settings Guide](ai_docs/SETTINGS_GUIDE.md)
 
 ## Verification
 
@@ -153,14 +273,27 @@ uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
+
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
 
-## Deployment
+## FAQ
 
-For personal deployment on `main`, see [DEPLOYMENT.md](DEPLOYMENT.md).
+### Is this the SaaS version?
 
-SaaS deployment docs belong on the `saas` branch, not `main`.
+No. This README describes the `main` branch, which is meant for local or personal deployment.
+
+### Does `main` require Supabase or Stripe?
+
+No. `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
+
+### Where should SaaS docs live?
+
+On the `saas` branch. Keep commercial deployment docs there instead of mixing them into `main`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
