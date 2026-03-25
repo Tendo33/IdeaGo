@@ -1,275 +1,333 @@
 <div align="center">
-  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
+
+  <h1>IdeaGo</h1>
+
+  <p><strong>SaaS-grade source intelligence for idea validation and operator workflows.</strong></p>
+
+  <p>
+    The <code>saas</code> branch extends IdeaGo with authentication, profile, quota, admin, and
+    commercial deployment concerns while keeping the same decision-first report contract.
+  </p>
+
+  <p>
+    <a href="README_CN.md">简体中文</a> ·
+    <a href="#quick-start">Quick Start</a> ·
+    <a href="#saas-capabilities">SaaS Capabilities</a> ·
+    <a href="#how-it-works">How It Works</a> ·
+    <a href="DEPLOYMENT.md">Deployment</a>
+  </p>
+
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white" alt="Stripe" />
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+  </p>
 </div>
 
-# IdeaGo: AI-powered competitor research engine
-
-**Most ideas die in the research phase. IdeaGo turns a sentence into an auditable competitor report with differentiation angles in minutes.**
-
-[Quick Start](#-quick-start) · [Architecture](#-architecture) · [API Overview](#-api-overview) · [Configuration](#-configuration) · [简体中文](README_CN.md)
-
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A)](https://www.langchain.com/langgraph)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-> **[Screenshot Placeholder: IdeaGo main workflow demo GIF / video]**
-
 ---
 
-## News
+## Overview
 
-* **2026-03-25** **SaaS edition** in progress (`saas` branch): multi-tenant, billing, and user workspaces.
-* **2026-03-20** **Supabase authentication** integrated (`feature/supabase-auth`), replacing the single API key model.
-* **2026-03-15** **Source Intelligence V2**: decision-first reports (recommendation, pain, whitespace) before competitor lists.
+This README describes the `saas` branch.
 
----
+It shares the same core Source Intelligence V2 report pipeline as `main`, but adds the operational
+pieces you need for a hosted product: user authentication, profile and quota management, admin
+surfaces, Supabase-backed persistence, and production-oriented deployment requirements.
 
-## Why IdeaGo?
+If you want the simpler local or personal-deployment edition with anonymous usage and no Supabase,
+go to the `main` branch instead.
 
-| **Pain** | **IdeaGo** |
-| --- | --- |
-| Manual research is slow | Multi-source retrieval (Tavily, GitHub, Reddit, HN) plus extraction and aggregation |
-| LLMs invent competitors | **Link grounding**: every competitor maps to a fetched URL |
-| Reports feel generic | **Decision-first**: `go` / `caution` / `no_go`, pain, whitespace, then the competitor matrix |
-| Pipelines are opaque | **SSE progress**: intent → fetch → extract → aggregate, with cost and confidence |
+## Screenshot Placeholders
 
----
+> Replace these placeholders with your own product shots when you are ready.
 
-## What you get
+### Hero Screenshot
 
-| Validate fast | Traceable links | Decision-first |
-| --- | --- | --- |
-| One sentence in, structured report out | Claims tied to sources, no anonymous side channels | Verdict and opportunities before competitors |
+![Hero Screenshot Placeholder](docs/assets/banner_new.png)
 
----
+`[Placeholder] Replace this image with the SaaS landing page or signed-in workflow.`
 
-## How it works
+### Report Workspace Screenshot
 
-| Pipeline | Sources |
-| --- | --- |
-| LangGraph: intent → cache → fetch → extract → aggregate → report | GitHub, Tavily, Hacker News, Reddit, App Store, Product Hunt |
+![Workspace Screenshot Placeholder](docs/assets/usage_new.png)
 
-| Resilience | Transparency |
-| --- | --- |
-| Retries, JSON recovery, endpoint failover, graceful degradation | Confidence, evidence, token/latency telemetry in every report |
+`[Placeholder] Replace this image with the authenticated report experience or dashboard.`
 
----
+### Admin / Account Screenshot
+
+`[Placeholder] Add a screenshot for profile, quota, billing, or admin tooling.`
+
+## Why The `saas` Branch Exists
+
+The `main` branch is intentionally lightweight. The `saas` branch is where IdeaGo becomes a hosted
+product with identity, ownership, and operations layered on top of the same core analysis engine.
+
+It keeps the same report contract:
+
+- recommendation and why-now
+- pain signals
+- commercial signals
+- whitespace opportunities
+- competitors
+- evidence
+- confidence
+
+The extra surface area is about product operations, not changing the order of decisions inside the
+report.
+
+## SaaS Capabilities
+
+Compared with `main`, the `saas` branch adds:
+
+- authenticated user flows with Supabase-backed identity
+- LinuxDo OAuth support and custom auth session handling
+- user profile and quota endpoints
+- admin routes for user management, quota changes, metrics, and health
+- Supabase-backed persistence and PostgreSQL-powered shared runtime state
+- Stripe integration points for checkout, portal, and webhook handling
+- legal pages, landing page, and hosted-product routing
+
+Current implementation note:
+
+- pricing and billing infrastructure exist on this branch
+- the pricing UI is still feature-flagged off in `frontend/src/lib/featureFlags.ts`
+
+Core sources remain:
+
+- Tavily
+- Reddit
+- GitHub
+- Hacker News
+- App Store
+- Product Hunt
 
 ## Quick Start
 
-Pick **one** path below. **Docker** is for a one-command local run or deployment-shaped setup; **local development** is for backend/frontend changes with hot reload.
+### Prerequisites
 
-### Shared prerequisites (all paths)
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv)
+- Node.js 20+
+- `pnpm`
+- a Supabase project
+- OpenAI API access
 
-* **Keys**: set at least `OPENAI_API_KEY` in `.env`. `TAVILY_API_KEY` is strongly recommended for web search quality.
+Recommended for a complete hosted setup:
 
----
+- Tavily API key
+- Stripe account and keys
+- Sentry DSN
 
-### A) Docker
-
-Best for: quick local tryout, or running without installing Python/Node on the host.
-
-**Requirements**
-
-* [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2
-
-**Steps**
-
-```bash
-cp .env.example .env
-# Edit .env: set OPENAI_API_KEY (and optional keys such as TAVILY_API_KEY)
-
-docker compose up --build -d
-```
-
-**Open**
-
-* App: [http://localhost:8000](http://localhost:8000) (port follows `PORT` in `.env`, default `8000`)
-
-**Notes**
-
-* [`docker-compose.yml`](docker-compose.yml) builds from the repo [`Dockerfile`](Dockerfile) and loads `.env` via `env_file`.
-* Do **not** set `APP_API_KEY` (removed). Keep secrets in runtime env only, not in image layers.
-
----
-
-### B) Local development (hot reload)
-
-Best for: editing `src/ideago` or `frontend/` with fast feedback.
-
-**Requirements**
-
-* Python **3.10+** and [uv](https://github.com/astral-sh/uv)
-* Node.js **20+** and [pnpm](https://pnpm.io/)
-
-**1) Install dependencies**
+### Install
 
 ```bash
 uv sync --all-extras
 pnpm --prefix frontend install
 ```
 
-**2) Environment**
+### Configure
 
 ```bash
 cp .env.example .env
-# Edit .env (minimum: OPENAI_API_KEY)
+cp frontend/.env.example frontend/.env
 ```
 
-**3) Run backend and frontend in two terminals**
+Minimum practical configuration for `saas`:
 
-Terminal 1 — API (reload):
+- `OPENAI_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `AUTH_SESSION_SECRET`
+- `FRONTEND_APP_URL`
+
+Frontend auth configuration:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Billing is optional for local development, but production billing flows also need:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+
+### Run In Development
+
+Terminal 1:
 
 ```bash
 uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
 ```
 
-Terminal 2 — Vite:
+Terminal 2:
 
 ```bash
 pnpm --prefix frontend dev
 ```
 
-**Open**
+Open:
 
-* Frontend: [http://localhost:5173](http://localhost:5173)
-* Health: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+- frontend: [http://localhost:5173](http://localhost:5173)
+- backend health: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
----
-
-### C) Optional: single-process local (backend serves built frontend)
-
-Best for: one process, no Vite dev server — FastAPI serves the built SPA.
+### Single-Process Local Run
 
 ```bash
 pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
-**Open**
+Open: [http://localhost:8000](http://localhost:8000)
 
-* [http://localhost:8000](http://localhost:8000)
+For deployment-shaped setup, use [DEPLOYMENT.md](DEPLOYMENT.md).
 
----
+## How It Works
 
-## Architecture
+The analysis pipeline is still decision-first, but the hosted flow adds identity, ownership, quota,
+and admin operations around it.
 
 ```mermaid
 flowchart TD
-    A["User idea"] --> B["POST /api/v1/analyze"]
+    A["Signed-in user"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph engine"]
-    C --> D["parse_intent"]
-    D --> E{"cache_lookup"}
-    E -->|hit| F["report_ready"]
-    E -->|miss| G["fetch_sources"]
-    G --> H["extract_map"]
-    H --> I["aggregate"]
-    I --> J["assemble_report"]
-    J --> K["persist_report"]
-    K --> F
-    F --> L["GET /api/v1/reports/{id}"]
-    C -.-> M["SSE /api/v1/reports/{id}/stream"]
+    C --> D["Intent parsing"]
+    D --> E{"Cache / shared state"}
+    E -->|Hit| F["Return persisted report"]
+    E -->|Miss| G["Fetch source data"]
+    G --> H["Extract structured signals"]
+    H --> I["Aggregate findings"]
+    I --> J["Assemble report"]
+    J --> K["Persist report + runtime status"]
+    K --> L["Report workspace / history / export"]
+    A --> M["Auth, profile, quota"]
+    A --> N["Admin / billing surfaces"]
+    C -.-> O["SSE progress stream"]
 ```
 
-### Runtime notes
+Runtime model on `saas`:
 
-* `POST /analyze` returns `report_id` immediately; work continues in the background.
-* The UI subscribes to SSE for per-stage progress.
-* In-flight duplicate requests for the same normalized query are deduplicated.
-* In-memory rate limit on `POST /api/v1/analyze`: **10** requests per **60s** per IP/session key.
+- authenticated analyze flow
+- protected report history and report detail pages
+- profile and quota management
+- admin dashboards and operational APIs
+- Supabase-backed user data and shared persistence
+- PostgreSQL checkpoint support for distributed runtime state
 
----
+## API Overview
 
-## API overview
+Core report APIs:
 
-Base path: `/api/v1`
+- `POST /api/v1/analyze`
+- `GET /api/v1/reports`
+- `GET /api/v1/reports/{id}`
+- `GET /api/v1/reports/{id}/status`
+- `GET /api/v1/reports/{id}/stream`
+- `GET /api/v1/reports/{id}/export`
+- `DELETE /api/v1/reports/{id}`
+- `DELETE /api/v1/reports/{id}/cancel`
+- `GET /api/v1/health`
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/analyze` | Start analysis; returns `report_id` |
-| `GET` | `/health` | Health and source availability |
-| `GET` | `/reports` | List reports (`limit`, `offset`) |
-| `GET` | `/reports/{report_id}` | Get report (`202` while processing) |
-| `GET` | `/reports/{report_id}/status` | Runtime status |
-| `GET` | `/reports/{report_id}/stream` | SSE progress |
-| `GET` | `/reports/{report_id}/export` | Export Markdown |
-| `DELETE` | `/reports/{report_id}` | Delete report |
-| `DELETE` | `/reports/{report_id}/cancel` | Cancel run |
+Auth APIs:
 
-**Example**
+- `GET /api/v1/auth/linuxdo/start`
+- `GET /api/v1/auth/linuxdo/callback`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/quota`
+- `GET /api/v1/auth/profile`
+- `PUT /api/v1/auth/profile`
+- `DELETE /api/v1/auth/account`
 
-```bash
-curl -X POST http://localhost:8000/api/v1/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"query":"An AI assistant for indie game analytics"}'
+Admin APIs:
 
-curl -N http://localhost:8000/api/v1/reports/<report_id>/stream
-```
+- `GET /api/v1/admin/users`
+- `PATCH /api/v1/admin/users/{user_id}/quota`
+- `GET /api/v1/admin/stats`
+- `GET /api/v1/admin/metrics`
+- `GET /api/v1/admin/health`
 
----
+Billing APIs on this branch:
 
-## Configuration
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/portal`
+- `GET /api/v1/billing/status`
+- `POST /api/v1/billing/webhook`
 
-Defaults: [`.env.example`](.env.example). Schema: [`src/ideago/config/settings.py`](src/ideago/config/settings.py).
+Current behavior note:
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | `""` | LLM access |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | Primary model |
-| `OPENAI_FALLBACK_ENDPOINTS` | No | `""` | JSON array of fallback endpoints |
-| `TAVILY_API_KEY` | Recommended | `""` | Tavily web search |
-| `GITHUB_TOKEN` | No | `""` | Higher GitHub rate limits |
-| `LANGGRAPH_MAX_RETRIES` | No | `2` | Retry budget |
-| `CACHE_DIR` | No | `.cache/ideago` | Cache directory |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | No | `""` | Supabase client |
-| `CORS_ALLOW_ORIGINS` | No | `*` | Browser origins |
+- billing routes exist, but user-facing checkout and portal flows are intentionally hidden until
+  pricing is re-enabled
 
-Full list (timeouts, concurrency, Reddit/Product Hunt, LinuxDo OAuth, etc.) is in `.env.example`.
+## Configuration Notes
 
----
+Important SaaS settings:
 
-## Security (after `APP_API_KEY` removal)
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
+- `AUTH_SESSION_SECRET`
+- `AUTH_SESSION_EXPIRE_HOURS`
+- `FRONTEND_APP_URL`
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+- `SENTRY_DSN`
 
-`APP_API_KEY` / `X-API-Key` is removed everywhere.
+The authoritative env reference is [`.env.example`](.env.example), with frontend-specific variables
+in [`frontend/.env.example`](frontend/.env.example).
 
-**Built-in**
+## Branch Model
 
-* Rate limit on `POST /api/v1/analyze` (see Runtime notes).
-* CORS via `CORS_ALLOW_ORIGINS` (avoid `*` on public deployments).
-* FastAPI + Pydantic validation; sanitized errors to clients.
+- `main`: local or personal deployment, anonymous usage, no Supabase dependency
+- `saas`: hosted product line with auth, billing hooks, profile, admin, and SaaS-only runtime config
 
-**Recommended for public hosts**
+Sync rule:
 
-* Reverse proxy or API gateway (Nginx, Caddy, Cloudflare, Traefik).
-* TLS at the edge; keep the backend on a private network.
-* Secrets only in runtime env, never baked into images.
+- shared product work lands on `main`
+- `saas` pulls from `main`
+- SaaS-specific runtime dependencies stay on `saas`
 
----
-
-## Project structure
+## Project Structure
 
 ```text
 .
-├── src/ideago/          # FastAPI, LangGraph, sources, models
-├── frontend/src/        # React 19 app
-├── tests/               # Pytest
-├── ai_docs/             # Engineering standards
-└── docs/                # Design assets
+├── src/ideago/          # API, auth, billing, pipeline, cache, models, sources
+├── frontend/src/        # React app with landing, auth, profile, pricing, admin, reports
+├── supabase/migrations/ # SaaS database migrations
+├── ai_docs/             # Project standards and guides
+├── docs/assets/         # README assets used on saas
+└── DEPLOYMENT.md        # SaaS deployment guide
 ```
 
----
+Notable SaaS-specific areas:
 
-## Tech stack
+- `src/ideago/auth`
+- `src/ideago/billing`
+- `src/ideago/api/routes/auth.py`
+- `src/ideago/api/routes/admin.py`
+- `frontend/src/features/auth`
+- `frontend/src/features/profile`
+- `frontend/src/features/admin`
+- `supabase/migrations`
 
-**Backend:** Python 3.10+, FastAPI, LangGraph, LangChain OpenAI, Pydantic v2, optional Supabase.
+## Documentation
 
-**Frontend:** React 19, TypeScript, Vite 7, Tailwind 4, React Router 7, i18next, Supabase JS, Framer Motion, Recharts.
+- [Deployment Guide](DEPLOYMENT.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
+- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
+- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
 
----
-
-## Development & quality
+## Verification
 
 ```bash
 uv run ruff check src tests scripts
@@ -283,10 +341,21 @@ pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md).
+## FAQ
 
----
+### Is this the same as `main`?
+
+No. `main` is the local and anonymous deployment line. `saas` adds hosted-product concerns and
+requires more infrastructure.
+
+### Does `saas` require Supabase?
+
+Yes. The authenticated product flow and operational data model rely on Supabase configuration.
+
+### Is billing fully live in the UI?
+
+Not yet. The integration points are present, but the pricing UI is currently feature-flagged off.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

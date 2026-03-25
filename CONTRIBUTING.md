@@ -1,4 +1,4 @@
-# Contributing to Python Template
+# Contributing to IdeaGo
 
 感谢你对本项目的兴趣！我们欢迎所有形式的贡献。
 

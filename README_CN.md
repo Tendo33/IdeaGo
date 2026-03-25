@@ -1,275 +1,328 @@
 <div align="center">
-  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
+
+  <h1>IdeaGo</h1>
+
+  <p><strong>面向托管产品与运营场景的 Source Intelligence SaaS 分支。</strong></p>
+
+  <p>
+    <code>saas</code> 分支在同一套决策优先报告引擎之上，补齐了登录、资料、配额、后台、
+    持久化与商业化部署所需的能力。
+  </p>
+
+  <p>
+    <a href="README.md">English</a> ·
+    <a href="#快速开始">快速开始</a> ·
+    <a href="#saas-能力">SaaS 能力</a> ·
+    <a href="#工作原理">工作原理</a> ·
+    <a href="DEPLOYMENT.md">部署说明</a>
+  </p>
+
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white" alt="Stripe" />
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+  </p>
 </div>
 
-# IdeaGo：面向创业想法的 AI 竞品调研引擎
-
-**今天的大部分点子死于调研耗时。IdeaGo 让你在几分钟内拿到可审计的、带差异化建议的竞品分析报告。**
-
-[快速开始](#-快速开始) · [系统架构](#-系统架构) · [API 文档](#-api-概览) · [配置说明](#-配置说明) · [English](README.md)
-
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A)](https://www.langchain.com/langgraph)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-> **[Screenshot Placeholder：IdeaGo 主流程演示 GIF / 视频]**
-
 ---
 
-## 📰 最新动态
+## 项目概览
 
-* **2026-03-25** 正在开发 **SaaS 版本**（`saas` 分支）：多租户、计费与用户工作空间。
-* **2026-03-20** 集成 **Supabase 认证**（`feature/supabase-auth`），替代单一 API Key 方案。
-* **2026-03-15** **Source Intelligence V2**：报告以决策为先（推荐、痛点、空白机会），再列竞品。
+这份 README 对应的是 `saas` 分支。
 
----
+它和 `main` 使用同一套 Source Intelligence V2 核心分析管线，但额外补上了托管产品真正需要的部分：
+用户身份、资料与配额、管理端、Supabase 持久化，以及更接近线上环境的部署要求。
 
-## 🤔 为什么需要 IdeaGo？
+如果你要的是更轻量的本地部署 / 个人部署版本，请切回 `main` 分支。
 
-| **痛点** | **IdeaGo** |
-| --- | --- |
-| 人工调研慢 | 多源检索（Tavily、GitHub、Reddit、HN）+ 提取与聚合 |
-| 大模型会编竞品 | **链接溯源**：竞品需对应已抓取的 URL |
-| 报告像套话 | **决策优先**：`go` / `caution` / `no_go`、痛点、空白机会后才是竞品矩阵 |
-| 流水线不透明 | **SSE 进度**：意图 → 检索 → 提取 → 聚合，含成本与置信度 |
+## 截图占位
 
----
+> 下面的位置已经为 SaaS 版截图预留好，后续可以直接替换。
 
-## 🎯 你能得到什么
+### Hero 截图
 
-| 快速验证 | 链接可追溯 | 决策优先 |
-| --- | --- | --- |
-| 一句话输入，结构化报告输出 | 每条主张有来源，无匿名侧信道 | 先结论与机会，再竞品矩阵 |
+![Hero Screenshot Placeholder](docs/assets/banner_new.png)
 
----
+`[占位] 建议替换为 SaaS 首页或登录后的主流程截图。`
 
-## ✨ 工作原理
+### 工作区截图
 
-| 流水线 | 数据源 |
-| --- | --- |
-| LangGraph：意图 → 缓存 → 检索 → 提取 → 聚合 → 报告 | GitHub、Tavily、Hacker News、Reddit、App Store、Product Hunt |
+![Workspace Screenshot Placeholder](docs/assets/usage_new.png)
 
-| 稳定性 | 透明度 |
-| --- | --- |
-| 重试、JSON 恢复、端点故障切换、优雅降级 | 每份报告含置信度、证据与 Token/耗时等遥测 |
+`[占位] 建议替换为登录后的报告工作区、历史页或报告详情截图。`
 
----
+### Admin / 账户截图
 
-## 🚀 快速开始
+`[占位] 这里可以补 profile、quota、billing 或 admin 后台截图。`
 
-下面 **只选一种** 方式即可。**Docker** 适合本地一键跑通或接近部署形态；**本地开发** 适合改后端/前端并需要热更新。
+## 为什么需要 `saas` 分支
 
-### 共用前置（所有方式）
+`main` 分支是刻意保持轻量的。`saas` 分支则是在同一套分析引擎之上，把一个可托管产品所需的身份、
+权限、数据归属和运营能力补齐。
 
-* **密钥**：至少要在 `.env` 中配置 `OPENAI_API_KEY`；强烈建议配置 `TAVILY_API_KEY` 以提升网页检索质量。
+它仍然遵守同一份报告契约：
 
----
+- recommendation and why-now
+- pain signals
+- commercial signals
+- whitespace opportunities
+- competitors
+- evidence
+- confidence
 
-### A) Docker
+多出来的部分是产品运营能力，不是改掉报告的核心顺序。
 
-适合：本机快速体验、或不想在宿主机安装 Python/Node 的“一套起”运行。
+## SaaS 能力
 
-**环境要求**
+相对于 `main`，`saas` 分支增加了：
 
-* [Docker](https://docs.docker.com/get-docker/) 与 Docker Compose v2
+- 基于 Supabase 的认证与用户身份
+- LinuxDo OAuth 支持与自定义会话处理
+- 用户 profile 与 quota 接口
+- 面向管理员的用户、配额、指标、健康检查接口
+- 基于 Supabase 的持久化与共享状态
+- 用于 checkout、portal、webhook 的 Stripe 集成点
+- landing page、法律页面，以及托管产品需要的前端路由
 
-**步骤**
+当前实现状态说明：
 
-```bash
-cp .env.example .env
-# 编辑 .env：填写 OPENAI_API_KEY（以及可选的 TAVILY_API_KEY 等）
+- 计费基础设施已经在这个分支上
+- 但前端 pricing UI 目前仍通过 `frontend/src/lib/featureFlags.ts` 关闭
 
-docker compose up --build -d
-```
+核心数据源仍然包括：
 
-**访问**
+- Tavily
+- Reddit
+- GitHub
+- Hacker News
+- App Store
+- Product Hunt
 
-* 应用：[http://localhost:8000](http://localhost:8000)（端口由 `.env` 中的 `PORT` 决定，默认 `8000`）
+## 快速开始
 
-**说明**
+### 前置要求
 
-* `docker-compose.yml` 使用仓库内 [`Dockerfile`](Dockerfile) 构建镜像，并通过 `env_file` 加载 `.env`。
-* **不要** 再配置 `APP_API_KEY`（已移除）。密钥只放在运行时环境变量中，不要写入镜像层。
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv)
+- Node.js 20+
+- `pnpm`
+- 一个 Supabase 项目
+- OpenAI API 访问权限
 
----
+如果要跑完整托管场景，推荐同时准备：
 
-### B) 本地开发（热更新）
+- Tavily API Key
+- Stripe 账号与密钥
+- Sentry DSN
 
-适合：修改 `src/ideago` 或 `frontend/` 时需要前后端即时反馈。
-
-**环境要求**
-
-* Python **3.10+** 与 [uv](https://github.com/astral-sh/uv)
-* Node.js **20+** 与 [pnpm](https://pnpm.io/)
-
-**1）安装依赖**
+### 安装依赖
 
 ```bash
 uv sync --all-extras
 pnpm --prefix frontend install
 ```
 
-**2）环境变量**
+### 配置环境变量
 
 ```bash
 cp .env.example .env
-# 编辑 .env（至少：OPENAI_API_KEY）
+cp frontend/.env.example frontend/.env
 ```
 
-**3）两个终端分别启动**
+`saas` 分支最小可运行配置：
 
-终端 1 — 后端 API（热重载）：
+- `OPENAI_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `AUTH_SESSION_SECRET`
+- `FRONTEND_APP_URL`
+
+前端认证相关变量：
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Billing 对本地开发不是硬依赖，但如果要启用生产计费流，还需要：
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+
+### 本地开发运行
+
+终端 1：
 
 ```bash
 uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
 ```
 
-终端 2 — 前端 Vite：
+终端 2：
 
 ```bash
 pnpm --prefix frontend dev
 ```
 
-**访问**
+打开：
 
-* 前端：[http://localhost:5173](http://localhost:5173)
-* 健康检查：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+- 前端：[http://localhost:5173](http://localhost:5173)
+- 后端健康检查：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
----
-
-### C) 可选：单进程本地（后端托管构建后的前端）
-
-适合：不需要 Vite 开发服务器、希望一个进程由 FastAPI 提供前端静态资源。
+### 单进程本地运行
 
 ```bash
 pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
-**访问**
+打开：[http://localhost:8000](http://localhost:8000)
 
-* [http://localhost:8000](http://localhost:8000)
+如果你要按接近线上环境的方式部署，请看 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
----
+## 工作原理
 
-## 🏗️ 系统架构
+分析引擎本身仍然是决策优先，但在托管版里，外面多包了一层用户身份、数据归属、配额与后台操作。
 
 ```mermaid
 flowchart TD
-    A["用户想法"] --> B["POST /api/v1/analyze"]
+    A["登录用户"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph 引擎"]
-    C --> D["parse_intent"]
-    D --> E{"cache_lookup"}
-    E -->|命中| F["report_ready"]
-    E -->|未命中| G["fetch_sources"]
-    G --> H["extract_map"]
-    H --> I["aggregate"]
-    I --> J["assemble_report"]
-    J --> K["persist_report"]
-    K --> F
-    F --> L["GET /api/v1/reports/{id}"]
-    C -.-> M["SSE /api/v1/reports/{id}/stream"]
+    C --> D["意图解析"]
+    D --> E{"缓存 / 共享状态"}
+    E -->|命中| F["返回已持久化报告"]
+    E -->|未命中| G["抓取外部数据源"]
+    G --> H["提取结构化信号"]
+    H --> I["聚合洞察"]
+    I --> J["组装报告"]
+    J --> K["持久化报告与运行状态"]
+    K --> L["报告工作区 / 历史 / 导出"]
+    A --> M["认证、资料、配额"]
+    A --> N["管理后台 / 计费能力"]
+    C -.-> O["SSE 实时进度流"]
 ```
 
-### 运行说明
+`saas` 分支的运行模型：
 
-* `POST /analyze` 立即返回 `report_id`，分析在后台继续。
-* 前端通过 SSE 展示各阶段进度。
-* 同一标准化查询的并发进行中请求会去重。
-* `POST /api/v1/analyze` 内存限流：每 IP/会话键 **60 秒** 内最多 **10** 次。
+- 认证后的分析流程
+- 受保护的报告详情与历史页面
+- profile 与 quota 管理
+- 管理员后台与运维接口
+- 基于 Supabase 的用户数据与共享持久化
+- 支持 PostgreSQL checkpoint 的分布式运行时状态
 
----
+## API 概览
 
-## 📊 API 概览
+核心报告 API：
 
-基础路径：`/api/v1`
+- `POST /api/v1/analyze`
+- `GET /api/v1/reports`
+- `GET /api/v1/reports/{id}`
+- `GET /api/v1/reports/{id}/status`
+- `GET /api/v1/reports/{id}/stream`
+- `GET /api/v1/reports/{id}/export`
+- `DELETE /api/v1/reports/{id}`
+- `DELETE /api/v1/reports/{id}/cancel`
+- `GET /api/v1/health`
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `POST` | `/analyze` | 启动分析，返回 `report_id` |
-| `GET` | `/health` | 健康检查与数据源可用性 |
-| `GET` | `/reports` | 报告列表（`limit`、`offset`） |
-| `GET` | `/reports/{report_id}` | 获取报告（处理中返回 `202`） |
-| `GET` | `/reports/{report_id}/status` | 运行状态 |
-| `GET` | `/reports/{report_id}/stream` | SSE 进度流 |
-| `GET` | `/reports/{report_id}/export` | 导出 Markdown |
-| `DELETE` | `/reports/{report_id}` | 删除报告 |
-| `DELETE` | `/reports/{report_id}/cancel` | 取消任务 |
+认证相关 API：
 
-**示例**
+- `GET /api/v1/auth/linuxdo/start`
+- `GET /api/v1/auth/linuxdo/callback`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/quota`
+- `GET /api/v1/auth/profile`
+- `PUT /api/v1/auth/profile`
+- `DELETE /api/v1/auth/account`
 
-```bash
-curl -X POST http://localhost:8000/api/v1/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"query":"An AI assistant for indie game analytics"}'
+管理后台 API：
 
-curl -N http://localhost:8000/api/v1/reports/<report_id>/stream
-```
+- `GET /api/v1/admin/users`
+- `PATCH /api/v1/admin/users/{user_id}/quota`
+- `GET /api/v1/admin/stats`
+- `GET /api/v1/admin/metrics`
+- `GET /api/v1/admin/health`
 
----
+本分支上的 Billing API：
 
-## ⚙️ 配置说明
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/portal`
+- `GET /api/v1/billing/status`
+- `POST /api/v1/billing/webhook`
 
-默认值见 [`.env.example`](.env.example)，类型定义见 [`src/ideago/config/settings.py`](src/ideago/config/settings.py)。
+当前行为说明：
 
-| 变量 | 必需 | 默认 | 用途 |
-| --- | --- | --- | --- |
-| `OPENAI_API_KEY` | 是 | `""` | LLM 访问 |
-| `OPENAI_MODEL` | 否 | `gpt-4o-mini` | 主模型 |
-| `OPENAI_FALLBACK_ENDPOINTS` | 否 | `""` | 备用端点 JSON 数组 |
-| `TAVILY_API_KEY` | 推荐 | `""` | Tavily 网页检索 |
-| `GITHUB_TOKEN` | 否 | `""` | 提高 GitHub 限流 |
-| `LANGGRAPH_MAX_RETRIES` | 否 | `2` | 重试预算 |
-| `CACHE_DIR` | 否 | `.cache/ideago` | 缓存目录 |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 否 | `""` | Supabase 客户端 |
-| `CORS_ALLOW_ORIGINS` | 否 | `*` | 浏览器来源 |
+- billing 路由已经存在
+- 但面向用户的 checkout / portal 流程目前仍被刻意隐藏，等待 pricing 重新开放
 
-完整列表（超时、并发、Reddit/Product Hunt、LinuxDo OAuth 等）见 `.env.example`。
+## 配置说明
 
----
+SaaS 版最关键的配置项：
 
-## 🔒 安全说明（移除 `APP_API_KEY` 之后）
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
+- `AUTH_SESSION_SECRET`
+- `AUTH_SESSION_EXPIRE_HOURS`
+- `FRONTEND_APP_URL`
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+- `SENTRY_DSN`
 
-`APP_API_KEY` / `X-API-Key` 已从各处移除。
+后端完整变量见 [`.env.example`](.env.example)，前端变量见 [`frontend/.env.example`](frontend/.env.example)。
 
-**内置**
+## 分支模型
 
-* `POST /api/v1/analyze` 限流（见上文）。
-* `CORS_ALLOW_ORIGINS` 控制跨域（公网勿滥用 `*`）。
-* FastAPI + Pydantic 校验；对客户端返回脱敏错误。
+- `main`：本地 / 个人部署版，匿名使用，不依赖 Supabase
+- `saas`：托管产品线，增加 auth、billing 集成点、profile、admin 与 SaaS 专属配置
 
-**公网部署建议**
+长期同步规则：
 
-* 前置反向代理或 API 网关（Nginx、Caddy、Cloudflare、Traefik 等）。
-* 在边缘终止 TLS，后端放在私有网络。
-* 密钥仅运行时注入，勿写入镜像。
+- 通用产品能力先进 `main`
+- `saas` 再合并 `main`
+- SaaS 专属运行时依赖留在 `saas`
 
----
-
-## 📂 项目结构
+## 项目结构
 
 ```text
 .
-├── src/ideago/          # FastAPI、LangGraph、数据源、模型
-├── frontend/src/        # React 19 应用
-├── tests/               # Pytest
-├── ai_docs/             # 工程规范
-└── docs/                # 设计资源
+├── src/ideago/          # API、auth、billing、pipeline、cache、models、sources
+├── frontend/src/        # React 前端，含 landing、auth、profile、pricing、admin、reports
+├── supabase/migrations/ # SaaS 数据库迁移
+├── ai_docs/             # 项目规范与说明
+├── docs/assets/         # saas 分支 README 使用的素材
+└── DEPLOYMENT.md        # SaaS 部署说明
 ```
 
----
+值得关注的 SaaS 区域：
 
-## 🛠️ 技术栈
+- `src/ideago/auth`
+- `src/ideago/billing`
+- `src/ideago/api/routes/auth.py`
+- `src/ideago/api/routes/admin.py`
+- `frontend/src/features/auth`
+- `frontend/src/features/profile`
+- `frontend/src/features/admin`
+- `supabase/migrations`
 
-**后端：** Python 3.10+、FastAPI、LangGraph、LangChain OpenAI、Pydantic v2、可选 Supabase。
+## 文档入口
 
-**前端：** React 19、TypeScript、Vite 7、Tailwind 4、React Router 7、i18next、Supabase JS、Framer Motion、Recharts。
+- [部署说明](DEPLOYMENT.md)
+- [贡献指南](CONTRIBUTING.md)
+- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
+- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
+- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
 
----
-
-## 🤝 开发与质量
+## 验证命令
 
 ```bash
 uv run ruff check src tests scripts
@@ -283,10 +336,20 @@ pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)。
+## 常见问题
 
----
+### 这和 `main` 一样吗？
 
-## 📄 许可证
+不一样。`main` 是匿名、本地部署路线；`saas` 是面向托管产品的完整运行线。
 
-MIT License。详见 [LICENSE](LICENSE)。
+### `saas` 一定需要 Supabase 吗？
+
+需要。认证流和运营数据模型都依赖 Supabase 配置。
+
+### 计费 UI 已经完全开放了吗？
+
+还没有。计费集成点已经在这个分支里，但 pricing UI 目前仍处于 feature flag 关闭状态。
+
+## 许可证
+
+MIT，见 [LICENSE](LICENSE)。
