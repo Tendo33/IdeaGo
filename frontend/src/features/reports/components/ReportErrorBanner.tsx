@@ -8,6 +8,7 @@ interface ReportErrorBannerProps {
   onRetry: () => void
   errorKind?: 'system' | 'runtime'
   runtimeStatus?: ReportRuntimeStatus | null
+  actionLabel?: string
 }
 
 function getBannerText(
@@ -16,6 +17,13 @@ function getBannerText(
   t: (key: string) => string,
 ): { title: string; retryLabel: string } {
   if (errorKind === 'system') {
+    if (runtimeStatus?.status === 'complete') {
+      return {
+        title: t('report.error.systemTitle'),
+        retryLabel: t('report.failed.startAgain'),
+      }
+    }
+
     return {
       title: t('report.error.systemTitle'),
       retryLabel: t('report.failed.retryShort'),
@@ -39,7 +47,7 @@ function getBannerText(
   if (runtimeStatus?.status === 'not_found') {
     return {
       title: t('report.error.notFoundTitle'),
-      retryLabel: t('report.failed.retryShort'),
+      retryLabel: t('report.failed.startAgain'),
     }
   }
 
@@ -54,6 +62,7 @@ export function ReportErrorBanner({
   onRetry,
   errorKind = 'system',
   runtimeStatus,
+  actionLabel,
 }: ReportErrorBannerProps) {
   const { t } = useTranslation()
   const text = getBannerText(errorKind, runtimeStatus, t)
@@ -72,7 +81,7 @@ export function ReportErrorBanner({
         onClick={onRetry}
         className="ml-3 border-warning text-warning hover:bg-warning/10 focus-visible:ring-warning"
       >
-        {text.retryLabel}
+        {actionLabel ?? text.retryLabel}
       </Button>
     </Alert>
   )

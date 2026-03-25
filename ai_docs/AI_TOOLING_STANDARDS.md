@@ -31,6 +31,16 @@ This document defines one shared engineering contract for all AI assistants used
 3. Prefer existing project conventions over personal preference.
 4. Verify before claiming completion.
 
+## Current V2 Contract Boundaries
+
+- Reports are decision-first: recommendation, pain signals, commercial signals, whitespace opportunities, competitors, then evidence and confidence.
+- Treat backend report payloads and frontend shared types as explicit contracts that must be updated together when the shape changes.
+- Keep LangGraph state, extraction output, and aggregation carriers typed; do not smuggle V2 signal data through anonymous dict side channels.
+- Keep `pipeline/merger.py` limited to deterministic competitor dedupe.
+- Keep whitespace and entry-wedge synthesis in `pipeline/aggregator.py`, where evidence-backed report assembly is coordinated.
+- Source roles are fixed unless a task explicitly changes the source set: Tavily handles broad recall, Reddit pain and switching language, GitHub open-source maturity, Hacker News builder discourse, App Store review-cluster pain, Product Hunt launch positioning.
+- Retrieval and ranking changes should stay opportunity-first: corroborated pain, commercial intent, migration signals, and whitespace evidence outrank raw popularity alone.
+
 ## Backend Stack (Python)
 
 - Runtime: Python 3.10+
@@ -39,12 +49,14 @@ This document defines one shared engineering contract for all AI assistants used
 - Tests: `pytest`
 - Style: type hints required, explicit error handling, small pure functions preferred
 
-If a backend API/service is needed and no framework is specified, default to:
+Current backend stack:
 
 - FastAPI for HTTP API layer
 - Pydantic v2 for DTO/schema validation
-- SQLAlchemy + Alembic for persistence and migrations
-- Redis for cache/short-lived state when required
+- Supabase (PostgREST) + local file cache for persistence
+- SQL migrations in `supabase/migrations/`
+- Stripe SDK for billing
+- Structured error codes via `AppError` / `ErrorCode` (`api/errors.py`)
 
 Backend verification:
 

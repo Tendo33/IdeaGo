@@ -1,7 +1,9 @@
 import { useEffect, useReducer, useRef, useCallback } from 'react'
 import i18n from '../i18n/i18n'
-import type { PipelineEvent } from '../types/research'
+import { parsePipelineEvent, type PipelineEvent } from '../types/research'
 import { getStreamUrl } from "./client";
+import { clearCustomAuthSession, getAccessToken, setAccessToken } from "../auth/token";
+import { supabase } from "../supabase/client";
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
@@ -24,15 +26,18 @@ const STREAM_EVENT_TYPES = new Set([
 
 interface SSEState {
 	events: PipelineEvent[];
+	pendingEvents: PipelineEvent[];
 	isComplete: boolean;
 	isReconnecting: boolean;
 	error: string | null;
 	cancelled: string | null;
+	pendingTerminalState: { type: 'complete' | 'cancelled' | 'error'; message?: string } | null;
 }
 
 type SSEAction =
 	| { type: "reset" }
 	| { type: "event"; event: PipelineEvent }
+	| { type: "flush" }
 	| { type: "connected" }
 	| { type: "complete" }
 	| { type: "cancelled"; message: string }
@@ -46,23 +51,53 @@ function eventKey(event: PipelineEvent): string {
 function sseReducer(state: SSEState, action: SSEAction): SSEState {
 	switch (action.type) {
 		case "reset":
-			return { events: [], isComplete: false, isReconnecting: false, error: null, cancelled: null };
+			return { events: [], pendingEvents: [], isComplete: false, isReconnecting: false, error: null, cancelled: null, pendingTerminalState: null };
 		case "event":
-			if (state.events.some((existing) => eventKey(existing) === eventKey(action.event))) {
+			if (state.events.some((existing) => eventKey(existing) === eventKey(action.event)) ||
+					state.pendingEvents.some((existing) => eventKey(existing) === eventKey(action.event))) {
 				return { ...state, isReconnecting: false };
 			}
 			return {
 				...state,
-				events: [...state.events, action.event].slice(-MAX_EVENT_HISTORY),
+				pendingEvents: [...state.pendingEvents, action.event],
 				isReconnecting: false,
 			};
+		case "flush": {
+			if (state.pendingEvents.length === 0) {
+				if (state.pendingTerminalState) {
+					if (state.pendingTerminalState.type === 'complete') {
+						return { ...state, isComplete: true, isReconnecting: false, pendingTerminalState: null };
+					} else if (state.pendingTerminalState.type === 'error') {
+						return { ...state, error: state.pendingTerminalState.message ?? null, isComplete: true, isReconnecting: false, pendingTerminalState: null };
+					} else if (state.pendingTerminalState.type === 'cancelled') {
+						return { ...state, cancelled: state.pendingTerminalState.message ?? null, isComplete: true, isReconnecting: false, pendingTerminalState: null };
+					}
+				}
+				return state;
+			}
+			const nextEvent = state.pendingEvents[0];
+			return {
+				...state,
+				events: [...state.events, nextEvent].slice(-MAX_EVENT_HISTORY),
+				pendingEvents: state.pendingEvents.slice(1)
+			};
+		}
 		case "connected":
 			return { ...state, isReconnecting: false };
 		case "complete":
+			if (state.pendingEvents.length > 0) {
+				return { ...state, pendingTerminalState: { type: 'complete' } };
+			}
 			return { ...state, isComplete: true, isReconnecting: false };
 		case "cancelled":
+			if (state.pendingEvents.length > 0) {
+				return { ...state, pendingTerminalState: { type: 'cancelled', message: action.message } };
+			}
 			return { ...state, cancelled: action.message, isComplete: true, isReconnecting: false };
 		case "error":
+			if (state.pendingEvents.length > 0) {
+				return { ...state, pendingTerminalState: { type: 'error', message: action.message } };
+			}
 			return { ...state, error: action.message, cancelled: null, isComplete: true, isReconnecting: false };
 		case "reconnecting":
 			return { ...state, isReconnecting: true };
@@ -130,16 +165,27 @@ function* parseSseChunk(buffer: string): Generator<{ eventType: string; data: st
 export function useSSE(reportId: string | null): UseSSEResult {
 	const [state, dispatch] = useReducer(sseReducer, {
 		events: [],
+		pendingEvents: [],
 		isComplete: false,
 		isReconnecting: false,
 		error: null,
 		cancelled: null,
+		pendingTerminalState: null,
 	});
 	const abortRef = useRef<AbortController | null>(null);
 	const attemptRef = useRef(0);
 	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isCompleteRef = useRef(false);
 	const connectRef = useRef<((id: string) => void) | null>(null);
+
+	useEffect(() => {
+		if (state.pendingEvents.length > 0 || state.pendingTerminalState) {
+			const timer = setTimeout(() => {
+				dispatch({ type: "flush" });
+			}, 300);
+			return () => clearTimeout(timer);
+		}
+	}, [state.pendingEvents.length, state.pendingTerminalState]);
 
 	useEffect(() => {
 		isCompleteRef.current = state.isComplete;
@@ -165,12 +211,24 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
 			(async () => {
 				try {
+					const sseHeaders: Record<string, string> = { Accept: "text/event-stream" };
+					const token = getAccessToken();
+					if (token) sseHeaders.Authorization = `Bearer ${token}`;
+
 					const res = await fetch(url, {
-						headers: { Accept: "text/event-stream" },
+						headers: sseHeaders,
 						signal: controller.signal,
 					});
 
 					if (!res.ok || !res.body) {
+					if (res.status === 401) {
+						clearCustomAuthSession();
+						setAccessToken(null);
+						supabase.auth.signOut().catch(() => {});
+						const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+						window.location.href = `/login?returnTo=${returnTo}`;
+						return;
+					}
 						if (!res.ok && !shouldRetrySseStatus(res.status)) {
 							dispatch({ type: "error", message: i18n.t("report.error.connectionLost") });
 							return;
@@ -198,16 +256,18 @@ export function useSSE(reportId: string | null): UseSSEResult {
 						buffer = buffer.slice(lastBoundary);
 
 						for (const { eventType, data } of parseSseChunk(toProcess)) {
-							if (eventType === "ping") {
+								if (eventType === "ping") {
 								attemptRef.current = 0;
 								dispatch({ type: "connected" });
 								continue;
 							}
-							if (!STREAM_EVENT_TYPES.has(eventType)) continue;
-							try {
-								const event: PipelineEvent = JSON.parse(data);
-								attemptRef.current = 0;
-								dispatch({ type: "event", event });
+								if (!STREAM_EVENT_TYPES.has(eventType)) continue;
+								try {
+									const parsed = parsePipelineEvent(JSON.parse(data), eventType as PipelineEvent['type']);
+									if (!parsed) continue;
+									const event: PipelineEvent = parsed;
+									attemptRef.current = 0;
+									dispatch({ type: "event", event });
 								if (event.type === "report_ready") {
 									dispatch({ type: "complete" });
 									return;
@@ -269,5 +329,12 @@ export function useSSE(reportId: string | null): UseSSEResult {
 		};
 	}, [cleanupConnection, connect, reportId]);
 
-	return { ...state, retry };
+	return {
+		events: state.events,
+		isComplete: state.isComplete,
+		isReconnecting: state.isReconnecting,
+		error: state.error,
+		cancelled: state.cancelled,
+		retry
+	};
 }

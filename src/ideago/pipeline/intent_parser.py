@@ -44,6 +44,8 @@ class IntentParser:
             self._store_metrics_for_current_task(llm_metrics)
             logger.debug("Intent parser LLM response: {}", data)
             intent = Intent.model_validate(data)
+            if intent.output_language not in {"zh", "en"}:
+                intent = intent.model_copy(update={"output_language": "en"})
             intent.cache_key = intent.compute_cache_key()
             return intent
         except IntentParsingError:

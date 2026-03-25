@@ -218,9 +218,10 @@ export function VirtualizedCompetitorList({
   )
 
   useEffect(() => {
+    const observers = rowObservers.current
     return () => {
-      rowObservers.current.forEach(obs => obs.disconnect())
-      rowObservers.current.clear()
+      observers.forEach(obs => obs.disconnect())
+      observers.clear()
     }
   }, [])
 

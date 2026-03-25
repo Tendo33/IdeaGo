@@ -1,9 +1,45 @@
 import { Button } from '@/components/ui/Button'
-import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode, type ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Component, Suspense, lazy, useEffect, useState, type ReactNode, type ErrorInfo } from 'react'
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
-import { Check, History, ArrowLeft, AlertTriangle, Monitor, Moon, Sun } from 'lucide-react'
-import { HomePage } from '@/features/home/HomePage'
+import { History, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Toaster } from 'sonner'
+import { AuthProvider } from '@/lib/auth/AuthProvider'
+import { ProtectedRoute, AdminRoute } from '@/lib/auth/ProtectedRoute'
+import { useAuth } from '@/lib/auth/useAuth'
+import { PRICING_ENABLED } from '@/lib/featureFlags'
+import { UserMenu } from '@/features/auth/components/UserMenu'
+import { ThemeModeMenu, type ThemeMode } from './ThemeModeMenu'
+
+const HomePage = lazy(async () => {
+  const page = await import('@/features/home/HomePage')
+  return { default: page.HomePage }
+})
+
+const LandingPage = lazy(async () => {
+  const page = await import('@/features/landing/LandingPage')
+  return { default: page.LandingPage }
+})
+
+const LoginPage = lazy(async () => {
+  const page = await import('@/features/auth/LoginPage')
+  return { default: page.LoginPage }
+})
+
+const AuthCallback = lazy(async () => {
+  const page = await import('@/features/auth/AuthCallback')
+  return { default: page.AuthCallback }
+})
+
+const ProfilePage = lazy(async () => {
+  const page = await import('@/features/profile/ProfilePage')
+  return { default: page.ProfilePage }
+})
+
+const PricingPage = lazy(async () => {
+  const page = await import('@/features/pricing/PricingPage')
+  return { default: page.PricingPage }
+})
 
 const ReportPage = lazy(async () => {
   const page = await import('@/features/reports/ReportPage')
@@ -15,6 +51,21 @@ const HistoryPage = lazy(async () => {
   return { default: page.HistoryPage }
 })
 
+const AdminPage = lazy(async () => {
+  const page = await import('@/features/admin/AdminPage')
+  return { default: page.AdminPage }
+})
+
+const TermsPage = lazy(async () => {
+  const page = await import('@/features/legal/TermsPage')
+  return { default: page.TermsPage }
+})
+
+const PrivacyPage = lazy(async () => {
+  const page = await import('@/features/legal/PrivacyPage')
+  return { default: page.PrivacyPage }
+})
+
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
@@ -23,8 +74,6 @@ interface ErrorBoundaryState {
 interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode
 }
-
-type ThemeMode = 'system' | 'light' | 'dark'
 
 const THEME_MODE_STORAGE_KEY = 'ideago-theme-mode'
 const THEME_MEDIA_QUERY = '(prefers-color-scheme: dark)'
@@ -53,6 +102,33 @@ function applyTheme(mode: ThemeMode, systemPrefersDark: boolean) {
   const shouldUseDark = mode === 'dark' || (mode === 'system' && systemPrefersDark)
   root.classList.toggle('dark', shouldUseDark)
   root.style.colorScheme = shouldUseDark ? 'dark' : 'light'
+}
+
+function resolveDocumentLanguage(language: string | undefined): string {
+  if (!language) return 'en'
+  const [normalized] = language.split('-')
+  return normalized || 'en'
+}
+
+function getLanguageDisplayName(language: string, uiLanguage: string): string {
+  const normalizedLanguage = resolveDocumentLanguage(language)
+  const normalizedUiLanguage = resolveDocumentLanguage(uiLanguage)
+
+  try {
+    const displayNames = new Intl.DisplayNames([normalizedUiLanguage], { type: 'language' })
+    return displayNames.of(normalizedLanguage) ?? normalizedLanguage.toUpperCase()
+  } catch {
+    return normalizedLanguage.toUpperCase()
+  }
+}
+
+function useDocumentLanguageSync() {
+  const { i18n } = useTranslation()
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language
+
+  useEffect(() => {
+    document.documentElement.lang = resolveDocumentLanguage(currentLanguage)
+  }, [currentLanguage])
 }
 
 function useThemeMode() {
@@ -85,103 +161,6 @@ function useThemeMode() {
   }
 }
 
-const THEME_OPTIONS: Array<{
-  mode: ThemeMode
-  label: string
-  shortLabel: string
-  Icon: typeof Monitor
-}> = [
-  { mode: 'system', label: 'System', shortLabel: 'SYS', Icon: Monitor },
-  { mode: 'dark', label: 'Dark', shortLabel: 'DARK', Icon: Moon },
-  { mode: 'light', label: 'Light', shortLabel: 'LIGHT', Icon: Sun },
-]
-
-function ThemeModeMenu({
-  themeMode,
-  onSelectThemeMode,
-}: {
-  themeMode: ThemeMode
-  onSelectThemeMode: (mode: ThemeMode) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const activeTheme = THEME_OPTIONS.find(option => option.mode === themeMode) ?? THEME_OPTIONS[0]
-  const ActiveIcon = activeTheme.Icon
-
-  useEffect(() => {
-    if (!open) return
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(previous => !previous)}
-        className="topbar-action focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        aria-label="Toggle theme mode"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <ActiveIcon className="h-5 w-5" />
-        <span className="hidden sm:inline">{activeTheme.shortLabel}</span>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label="Theme mode options"
-          className="absolute right-0 top-full mt-2 w-48 border-2 border-border bg-background p-2 shadow-[4px_4px_0px_0px_var(--border)] z-50"
-        >
-          {THEME_OPTIONS.map(option => {
-            const OptionIcon = option.Icon
-            const selected = option.mode === themeMode
-            return (
-              <button
-                key={option.mode}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                onClick={() => {
-                  onSelectThemeMode(option.mode)
-                  setOpen(false)
-                }}
-                className={`w-full inline-flex items-center justify-between px-3 py-2 text-sm font-bold uppercase tracking-wider transition-all cursor-pointer border-2 border-transparent ${
-                  selected
-                    ? 'bg-primary text-primary-foreground border-border shadow-[2px_2px_0px_0px_var(--border)]'
-                    : 'text-muted-foreground hover:bg-muted hover:border-border hover:shadow-[2px_2px_0px_0px_var(--border)] hover:text-foreground'
-                }`}
-              >
-                <span className="inline-flex items-center gap-3">
-                  <OptionIcon className="h-4 w-4" />
-                  {option.label}
-                </span>
-                {selected && <Check className="h-4 w-4" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null }
 
@@ -198,8 +177,8 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     if (this.state.hasError) {
       return (
         <div className="min-h-screen px-4 py-10 bg-background text-foreground flex items-center justify-center">
-          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-[8px_8px_0px_0px_var(--destructive)] text-center">
-            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" />
+          <div className="max-w-xl w-full border-4 border-destructive bg-destructive/10 p-8 md:p-12 shadow-lg shadow-destructive text-center">
+            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-6" aria-hidden="true" />
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
             </h1>
@@ -214,7 +193,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
                 window.location.href = '/'
               }}
             >
-              <ArrowLeft className="w-5 h-5 mr-3" />
+              <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
               {t('error.backToHome')}
             </Button>
           </div>
@@ -232,15 +211,15 @@ function NotFound() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
-      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-[8px_8px_0px_0px_var(--border)] text-center">
+      <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-lg text-center">
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
-        <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground">{t('error.notFoundTitle')}</h2>
-        <p className="mb-10 text-lg font-bold text-muted-foreground">{t('error.notFoundMessage')}</p>
+          <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
+        <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.notFoundMessage')}</p>
         <Button
           size="lg"
           onClick={() => navigate('/')}
         >
-          <ArrowLeft className="w-5 h-5 mr-3" />
+          <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
           {t('error.backToHome')}
         </Button>
       </div>
@@ -256,23 +235,21 @@ function NavBar({
   onSelectThemeMode: (mode: ThemeMode) => void
 }) {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
-
-  useEffect(() => {
-    document.documentElement.lang = currentLanguage
-  }, [currentLanguage])
+  const nextLanguage = isChinese ? 'en' : 'zh'
+  const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLanguage)
 
   const toggleLanguage = () => {
-    const newLang = isChinese ? 'en' : 'zh'
-    i18n.changeLanguage(newLang)
+    i18n.changeLanguage(nextLanguage)
   }
 
   return (
-    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print">
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background px-4 py-4 md:px-8 flex items-center justify-between shadow-sm no-print min-w-0">
       <Link
         to="/"
-        className="inline-block px-4 py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_var(--border)] transition-all"
+        className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none rounded-none hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none transition-all truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base"
       >
         {t('app.title')} {t('app.titleHighlight')}
       </Link>
@@ -281,18 +258,29 @@ function NavBar({
         <button
           onClick={toggleLanguage}
           className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          aria-label={isChinese ? 'Switch to English' : '切换到中文'}
+          aria-label={t('app.switchToLanguage', { language: languageToggleLabel })}
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
-        <Link
-          to="/reports"
-          className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          aria-label={t('app.history')}
-        >
-          <History className="w-5 h-5 shrink-0" />
-          <span className="hidden sm:inline">{t('app.history')}</span>
-        </Link>
+        {PRICING_ENABLED && (
+          <Link
+            to="/pricing"
+            className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            <span>{t('pricing.title')}</span>
+          </Link>
+        )}
+        {user && (
+          <Link
+            to="/reports"
+            className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            aria-label={t('app.history')}
+          >
+            <History className="w-5 h-5 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('app.history')}</span>
+          </Link>
+        )}
+        <UserMenu />
       </div>
     </nav>
   )
@@ -302,11 +290,59 @@ function RouteLoading() {
   const { t } = useTranslation()
   return (
     <div className="app-shell px-4 min-h-[50vh] flex items-center justify-center">
-      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-[8px_8px_0px_0px_var(--border)]">
+      <div data-testid="route-loading" className="border-4 border-border bg-card px-12 py-8 text-center shadow-lg">
         <div className="w-8 h-8 bg-primary border-2 border-border mx-auto mb-4 animate-spin"></div>
         <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">{t('loading.page')}</p>
       </div>
     </div>
+  )
+}
+
+function HomeOrLanding({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (mode: ThemeMode) => void }) {
+  const { user, loading } = useAuth()
+  if (loading) return <RouteLoading />
+  return user ? <HomePage /> : <LandingPage themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
+}
+
+function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (m: ThemeMode) => void }) {
+  const { t } = useTranslation()
+  const { user, loading } = useAuth()
+  const { pathname } = useLocation()
+  const showNavForSignedOutPublicRoute =
+    pathname === '/login' ||
+    pathname === '/terms' ||
+    pathname === '/privacy' ||
+    (PRICING_ENABLED && pathname === '/pricing')
+  const showNav = !loading && (user !== null || showNavForSignedOutPublicRoute)
+  useDocumentLanguageSync()
+
+  return (
+    <>
+      <a href="#main-content" className="skip-to-content">
+        {t('app.skipToContent')}
+      </a>
+      {showNav && <NavBar themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />}
+      <main
+        id="main-content"
+        className={`pb-16 min-h-screen bg-background text-foreground overflow-x-hidden ${showNav ? 'pt-24 sm:pt-32' : ''}`}
+      >
+        <Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/" element={<HomeOrLanding themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />} />
+            {PRICING_ENABLED && <Route path="/pricing" element={<PricingPage />} />}
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </main>
+    </>
   )
 }
 
@@ -316,20 +352,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <a href="#main-content" className="skip-to-content">
-          Skip to content
-        </a>
-        <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
-        <main id="main-content" className="pb-16 pt-24 sm:pt-32 min-h-screen bg-background text-foreground overflow-x-hidden">
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/reports/:id" element={<ReportPage />} />
-              <Route path="/reports" element={<HistoryPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </main>
+        <AuthProvider>
+          <AppShell themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              className: 'border-2 border-border bg-background text-foreground font-bold shadow-lg',
+            }}
+          />
+        </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
   )

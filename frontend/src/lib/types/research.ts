@@ -1,4 +1,4 @@
-export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'google_trends'
+export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'reddit'
 
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 
@@ -16,12 +16,160 @@ export type EventType =
   | 'cancelled'
   | 'error'
 
+export interface PipelineEventData {
+  app_type?: string
+  keywords?: string[]
+  target_scenario?: string
+  platform?: string
+  count?: number
+}
+
 export interface PipelineEvent {
   type: EventType
   stage: string
   message: string
-  data: Record<string, unknown>
+  data: PipelineEventData
   timestamp: string
+}
+
+export interface ProgressIntentData {
+  appType?: string
+  keywords: string[]
+  targetScenario?: string
+}
+
+export interface ProgressSourceCompletedData {
+  platform?: string
+  count?: number
+}
+
+export interface ProgressExtractionCompletedData {
+  count?: number
+}
+
+const PIPELINE_EVENT_TYPES: EventType[] = [
+  'intent_started',
+  'intent_parsed',
+  'source_started',
+  'source_completed',
+  'source_failed',
+  'extraction_started',
+  'extraction_completed',
+  'aggregation_started',
+  'aggregation_completed',
+  'report_ready',
+  'cancelled',
+  'error',
+]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isEventType(value: unknown): value is EventType {
+  return typeof value === 'string' && PIPELINE_EVENT_TYPES.includes(value as EventType)
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function readCount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return undefined
+}
+
+export function parseIntentProgressData(raw: unknown): ProgressIntentData {
+  if (!isRecord(raw)) {
+    return { keywords: [] }
+  }
+
+  return {
+    appType: readString(raw.app_type),
+    keywords: readStringList(raw.keywords),
+    targetScenario: readString(raw.target_scenario),
+  }
+}
+
+export function parseSourceCompletedProgressData(raw: unknown): ProgressSourceCompletedData {
+  if (!isRecord(raw)) {
+    return {}
+  }
+
+  return {
+    platform: readString(raw.platform),
+    count: readCount(raw.count),
+  }
+}
+
+export function parseExtractionCompletedProgressData(raw: unknown): ProgressExtractionCompletedData {
+  if (!isRecord(raw)) {
+    return {}
+  }
+
+  return {
+    count: readCount(raw.count),
+  }
+}
+
+export function normalizePipelineEventData(type: EventType, raw: unknown): PipelineEventData {
+  if (type === 'intent_parsed') {
+    const parsed = parseIntentProgressData(raw)
+    return {
+      ...(parsed.appType ? { app_type: parsed.appType } : {}),
+      ...(parsed.keywords.length > 0 ? { keywords: parsed.keywords } : {}),
+      ...(parsed.targetScenario ? { target_scenario: parsed.targetScenario } : {}),
+    }
+  }
+
+  if (type === 'source_completed') {
+    const parsed = parseSourceCompletedProgressData(raw)
+    return {
+      ...(parsed.platform ? { platform: parsed.platform } : {}),
+      ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+    }
+  }
+
+  if (type === 'extraction_completed') {
+    const parsed = parseExtractionCompletedProgressData(raw)
+    return {
+      ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+    }
+  }
+
+  return {}
+}
+
+export function parsePipelineEvent(raw: unknown, fallbackType?: EventType): PipelineEvent | null {
+  if (!isRecord(raw)) {
+    return null
+  }
+
+  const type = isEventType(raw.type) ? raw.type : fallbackType
+  if (!type) {
+    return null
+  }
+
+  return {
+    type,
+    stage: readString(raw.stage) ?? '',
+    message: readString(raw.message) ?? '',
+    data: normalizePipelineEventData(type, raw.data),
+    timestamp: readString(raw.timestamp) ?? '',
+  }
 }
 
 export interface Competitor {
@@ -46,24 +194,89 @@ export interface SourceResult {
   duration_ms: number
 }
 
+export interface SearchQuery {
+  platform: Platform
+  queries: string[]
+}
+
+export interface PainSignal {
+  theme: string
+  summary: string
+  intensity: number
+  frequency: number
+  evidence_urls: string[]
+  source_platforms: Platform[]
+}
+
+export interface CommercialSignal {
+  theme: string
+  summary: string
+  intent_strength: number
+  monetization_hint: string
+  evidence_urls: string[]
+  source_platforms: Platform[]
+}
+
+export interface WhitespaceOpportunity {
+  title: string
+  description: string
+  target_segment: string
+  wedge: string
+  potential_score: number
+  confidence: number
+  supporting_evidence: string[]
+}
+
+export interface OpportunityScoreBreakdown {
+  pain_intensity: number
+  solution_gap: number
+  commercial_intent: number
+  freshness: number
+  competition_density: number
+  score: number
+}
+
 export interface ConfidenceMetrics {
   sample_size: number
   source_coverage: number
   source_success_rate: number
+  source_diversity: number
+  evidence_density: number
+  recency_score: number
+  degradation_penalty: number
+  contradiction_penalty: number
+  reasons: string[]
   freshness_hint: string
   score: number
 }
 
+export type EvidenceCategory =
+  | 'competitor'
+  | 'pain'
+  | 'commercial'
+  | 'migration'
+  | 'whitespace'
+  | 'market'
+
 export interface EvidenceItem {
   title: string
   url: string
-  platform: string
+  platform: Platform | null
   snippet: string
+  category: EvidenceCategory
+  freshness_hint: string
+  matched_query: string
+  query_family: string
 }
 
 export interface EvidenceSummary {
   top_evidence: string[]
   evidence_items: EvidenceItem[]
+  category_counts: Record<string, number>
+  source_platforms: Platform[]
+  freshness_distribution: Record<string, number>
+  degraded_sources: Platform[]
+  uncertainty_notes: string[]
 }
 
 export interface CostBreakdown {
@@ -84,6 +297,7 @@ export interface LlmFaultToleranceMeta {
 
 export interface ReportMeta {
   llm_fault_tolerance: LlmFaultToleranceMeta
+  quality_warnings: string[]
 }
 
 export interface Intent {
@@ -91,6 +305,9 @@ export interface Intent {
   keywords_zh: string[]
   app_type: string
   target_scenario: string
+  output_language: string
+  search_queries: SearchQuery[]
+  cache_key: string
 }
 
 export type RecommendationType = 'go' | 'caution' | 'no_go'
@@ -101,6 +318,10 @@ export interface ResearchReport {
   intent: Intent
   source_results: SourceResult[]
   competitors: Competitor[]
+  pain_signals: PainSignal[]
+  commercial_signals: CommercialSignal[]
+  whitespace_opportunities: WhitespaceOpportunity[]
+  opportunity_score: OpportunityScoreBreakdown
   market_summary: string
   go_no_go: string
   recommendation_type: RecommendationType
@@ -110,6 +331,7 @@ export interface ResearchReport {
   cost_breakdown: CostBreakdown
   report_meta: ReportMeta
   created_at: string
+  updated_at: string
 }
 
 export interface ReportListItem {
@@ -117,6 +339,13 @@ export interface ReportListItem {
   query: string
   created_at: string
   competitor_count: number
+}
+
+export interface PaginatedReportList {
+  items: ReportListItem[]
+  total: number
+  limit: number | null
+  offset: number
 }
 
 export type RuntimeStatus =

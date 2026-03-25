@@ -15,16 +15,16 @@ pip install -e .
 ## 导入
 
 ```python
-from python_template.utils import read_json
+from ideago.utils import read_json
 
 data = read_json("data.json")
 ```
 
-测试文件中同样直接导入，不写 `from src.python_template...`。
+测试文件中同样直接导入，不写 `from src.ideago...`。
 
 ## 原理
 
-1. `src` 布局规范：`pip install -e .` 会将 `src/` 加入 `sys.path`，Python 直接找到 `python_template` 包。
+1. `src` 布局规范：`pip install -e .` 会将 `src/` 加入 `sys.path`，Python 直接找到 `ideago` 包。
 2. Pytest 配置：`pyproject.toml` 中 `pythonpath = ["src"]`，测试运行时也能定位到包。
 
 ## 路径注意事项

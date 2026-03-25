@@ -16,7 +16,7 @@ interface CompetitorCardProps {
   onToggleCompare?: (id: string) => void
 }
 
-function LinkWithHost({ link, name }: { link: string; name: string }) {
+function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; ariaLabel: string }) {
   let hostname = 'link'
   try {
     const u = new URL(link)
@@ -29,8 +29,8 @@ function LinkWithHost({ link, name }: { link: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[44px] px-2 py-2 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-      aria-label={`Open ${name} on ${hostname}`}
+      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[32px] px-2 py-1 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      aria-label={ariaLabel.replace('{{host}}', hostname).replace('{{name}}', name)}
     >
       <ExternalLink className="w-3 h-3" />
       {hostname}
@@ -64,8 +64,8 @@ export const CompetitorCard = memo(function CompetitorCard({
       id={elementId}
       className={`relative bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
-          ? 'border-2 border-border shadow-[4px_4px_0px_0px_var(--border)] p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
-          : 'border-2 border-border hover:shadow-[4px_4px_0px_0px_var(--border)] p-5 card-clickable'
+          ? 'border-2 border-border shadow p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
+          : 'border-2 border-border p-5'
       }`}
     >
       {/* Featured Accent Line */}
@@ -83,7 +83,7 @@ export const CompetitorCard = memo(function CompetitorCard({
               </Badge>
             )}
             <h3
-              className={`font-black font-heading text-foreground truncate ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
+              className={`font-black font-heading text-foreground truncate min-w-0 ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
               title={competitor.name}
             >
               {competitor.name}
@@ -177,9 +177,14 @@ export const CompetitorCard = memo(function CompetitorCard({
               )
             })}
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
             {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
-              <LinkWithHost key={i} link={link} name={competitor.name} />
+              <LinkWithHost
+                key={i}
+                link={link}
+                name={competitor.name}
+                ariaLabel={t('report.accessibility.openCompetitorLink', { name: '{{name}}', host: '{{host}}' })}
+              />
             ))}
           </div>
         </div>
@@ -188,10 +193,10 @@ export const CompetitorCard = memo(function CompetitorCard({
           {onToggleCompare && (
             <button
               onClick={e => { e.stopPropagation(); onToggleCompare(getCompetitorId(competitor)) }}
-              className={`text-xs px-3 min-h-[44px] rounded-none border cursor-pointer transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
+              className={`text-xs font-bold uppercase tracking-wider px-3 min-h-[44px] rounded-none border-2 cursor-pointer transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
                 compareSelected
-                  ? 'border-cta/50 bg-cta/10 text-cta'
-                  : 'border-2 border-border text-muted-foreground hover:border-cta/30 hover:text-muted-foreground hover:bg-muted/55'
+                  ? 'border-cta bg-cta text-primary-foreground shadow-sm'
+                  : 'border-border text-muted-foreground hover:border-cta/50 hover:text-cta hover:bg-cta/5'
               }`}
               aria-pressed={Boolean(compareSelected)}
             >
@@ -201,7 +206,7 @@ export const CompetitorCard = memo(function CompetitorCard({
           {!isFeatured && hasMore && (
             <button
               onClick={() => setIsExpanded(prev => !prev)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none group"
+              className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-cta transition-colors cursor-pointer min-h-[44px] px-2 -mr-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none group"
             >
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
               {isExpanded ? t('report.competitors.less') : t('report.competitors.details')}

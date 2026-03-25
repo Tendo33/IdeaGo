@@ -40,6 +40,9 @@ jobs:
       - name: Mypy
         run: uv run mypy src
 
+      - name: Security audit (pip-audit)
+        run: uvx pip-audit --strict --desc
+
       - name: Pytest
         run: uv run pytest
 
@@ -74,6 +77,10 @@ jobs:
 
       - name: Type check
         run: pnpm typecheck
+
+      - name: Security audit (pnpm audit)
+        run: pnpm audit --prod
+        continue-on-error: true
 
       - name: Build
         run: pnpm build

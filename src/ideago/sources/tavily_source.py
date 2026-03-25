@@ -6,14 +6,21 @@
 from __future__ import annotations
 
 import asyncio
+from typing import NamedTuple
 
 from tavily import AsyncTavilyClient
 
 from ideago.models.research import Platform, RawResult
 from ideago.observability.log_config import get_logger
+from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
+
+
+class _ResolvedQuery(NamedTuple):
+    text: str
+    family: str
 
 
 class TavilySource:
@@ -63,9 +70,14 @@ class TavilySource:
         }
         return payload
 
-    async def _search_single_query(self, query: str, limit: int) -> list[RawResult]:
+    async def _search_single_query(
+        self,
+        resolved_query: _ResolvedQuery,
+        limit: int,
+    ) -> list[RawResult]:
         if not self._client:
             return []
+        query = resolved_query.text
         try:
             response = await asyncio.wait_for(
                 self._client.search(
@@ -82,6 +94,11 @@ class TavilySource:
                     url=item.get("url", ""),
                     platform=Platform.TAVILY,
                     raw_data={
+                        "matched_query": query,
+                        "query_family": resolved_query.family,
+                        "source_native_score": item.get("score"),
+                        "engagement_proxy": item.get("score"),
+                        "freshness_timestamp": None,
                         "score": item.get("score"),
                         "raw_content": item.get("raw_content"),
                     },
@@ -102,6 +119,13 @@ class TavilySource:
         """Search web for each query and return combined results."""
         if not self._client or not queries:
             return []
+        resolved_queries = [
+            resolved_query
+            for query in queries
+            if (resolved_query := _resolve_query(query)).text
+        ]
+        if not resolved_queries:
+            return []
 
         self._last_search_diagnostics = {
             "partial_failure": False,
@@ -114,15 +138,20 @@ class TavilySource:
         )
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def run_query(query: str) -> tuple[str, list[RawResult] | Exception]:
+        async def run_query(
+            resolved_query: _ResolvedQuery,
+        ) -> tuple[str, list[RawResult] | Exception]:
             async with semaphore:
                 try:
-                    return query, await self._search_single_query(query, limit)
+                    return resolved_query.text, await self._search_single_query(
+                        resolved_query,
+                        limit,
+                    )
                 except Exception as exc:  # noqa: BLE001
-                    return query, exc
+                    return resolved_query.text, exc
 
         grouped_results = await asyncio.gather(
-            *(run_query(query) for query in queries),
+            *(run_query(query) for query in resolved_queries),
             return_exceptions=False,
         )
         results: list[RawResult] = []
@@ -159,3 +188,35 @@ class TavilySource:
         if failed_queries and first_error is not None:
             raise first_error
         return results
+
+
+def _resolve_query(query: object) -> _ResolvedQuery:
+    text = _extract_query_text(query)
+    if not text:
+        return _ResolvedQuery("", "competitor_discovery")
+    family = _extract_query_family(query)
+    return _ResolvedQuery(text, family or infer_query_family(text))
+
+
+def _extract_query_text(query: object) -> str:
+    if isinstance(query, str):
+        return query.strip()
+    if isinstance(query, dict):
+        for key in ("query", "text", "value"):
+            value = query.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for attr in ("query", "text", "value"):
+        value = getattr(query, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _extract_query_family(query: object) -> str:
+    if isinstance(query, dict):
+        value = query.get("query_family") or query.get("family")
+        return value.strip() if isinstance(value, str) and value.strip() else ""
+    value = getattr(query, "query_family", None) or getattr(query, "family", None)
+    return value.strip() if isinstance(value, str) and value.strip() else ""

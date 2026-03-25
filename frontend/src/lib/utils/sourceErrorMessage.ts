@@ -1,20 +1,23 @@
+import i18n from '../i18n/i18n'
 import type { SourceStatus } from '../types/research'
 
 const LEGACY_LLM_EXTRACTION_PREFIX = 'llm extraction failed:'
-const EXTRACTION_UNAVAILABLE_MESSAGE = 'Extraction unavailable; showing raw results.'
 
 export function normalizeSourceErrorMessage(
   status: SourceStatus,
   errorMessage: string | null,
 ): string | null {
-  if (!errorMessage) {
+  if (errorMessage === null) {
     return null
   }
-  if (errorMessage.toLowerCase().includes(LEGACY_LLM_EXTRACTION_PREFIX)) {
-    return EXTRACTION_UNAVAILABLE_MESSAGE
+  if (errorMessage.trim() === '' && status !== 'degraded') {
+    return null
   }
   if (status === 'degraded' && errorMessage.trim() === '') {
-    return EXTRACTION_UNAVAILABLE_MESSAGE
+    return i18n.t('report.error.extractionUnavailable')
+  }
+  if (errorMessage.toLowerCase().includes(LEGACY_LLM_EXTRACTION_PREFIX)) {
+    return i18n.t('report.error.extractionUnavailable')
   }
   return errorMessage
 }

@@ -1,134 +1,179 @@
-# 04 · 高级特性深挖（附坑点与调试路径）
+# 04 · 高级特性深挖
 
-> 本篇聚焦 5 个“拉开项目质量差距”的高级机制。
+> 本篇聚焦当前版本里最值得理解、也最容易被改坏的 5 组机制。
 
-## 1) LangGraph 检查点与可恢复执行
+## 1) LLM 可靠性：重试、故障切换、JSON 恢复
 
-**实现位置**
-- `src/ideago/pipeline/langgraph_engine.py`
-  - `AsyncSqliteSaver.from_conn_string(...)`
-  - `graph.aget_state(config)` + `graph.ainvoke(...)`
+实现位置：
 
-**它解决的问题**
-- 任务中断后可恢复
-- 状态机执行有一致持久化落点
-
-**常见坑**
-- 误以为每次都从头跑：实际上如果 `snapshot.next` 有值，会继续执行未完成节点。
-
-**调试建议**
-- 删除检查点 DB 再跑，观察行为差异：
-
-```bash
-rm -f .cache/ideago/langgraph-checkpoints.db
-```
-
----
-
-## 2) LLM 可靠性：重试 + 故障切换 + JSON 恢复
-
-**实现位置**
 - `src/ideago/llm/chat_model.py`
-  - `_invoke_with_retry_meta`
-  - `_is_retryable_exception`
-  - `_is_failover_eligible`
-  - `invoke_json_with_meta`
 
-**它解决的问题**
-- 429/超时/短暂网络错误不会立即失败
-- 主端点异常可切到 fallback endpoint
-- 返回非法 JSON 时可重试并切换端点
+它解决的问题：
 
-**常见坑**
-- 只看最终失败，不看 `pop_last_call_metadata()`，错过关键信息（`endpoints_tried`、`last_error_class`）。
+- 429、超时、瞬时网络问题不会直接击穿整条链路
+- 主 endpoint 失败时可以尝试 fallback endpoint
+- 结构化输出失败时可以做 JSON 恢复或再次调用
 
-**调试建议**
-- 先看测试样例：`tests/test_llm_layer.py`
-- 重点验证字段：`llm_calls`、`endpoint_failovers`、`fallback_used`
+阅读时重点看：
 
----
+- 哪些错误被认定为 retryable
+- 哪些场景允许 failover
+- 元数据怎么记到调用结果里
 
-## 3) 提取降级 + 链接真实性约束
+常见误区：
 
-**实现位置**
-- `src/ideago/pipeline/extractor.py`
-  - `_normalize_url`
-  - 只保留来自 raw results 的链接
-- `src/ideago/pipeline/nodes.py`
-  - `extract_map_node`
-  - `_degrade_raw_to_competitors`
+- 只看最终是否失败，不看中间经历了多少次 retry/failover
+- 忽略元数据，导致以为“模型很稳定”，其实只是兜底做得好
 
-**它解决的问题**
-- 防止 LLM 编造链接（hallucinated links）
-- 单源提取失败仍可返回“可用但降级”结果
-
-**常见坑**
-- 把降级结果误判成“系统成功”，其实 `SourceStatus` 会标 `degraded`，需在前端显式提示。
-
-**调试建议**
-- 看回归测试：`tests/test_langgraph_engine.py`（extraction failure 路径）
-- 用 `source_results[].status/error_msg` 判断真实质量，不只看 HTTP 200。
-
----
-
-## 4) SSE 稳定性：历史重放 + 心跳 + 指数重连
-
-**实现位置**
-- 后端：`src/ideago/api/routes/analyze.py:_stream_events`
-- 前端：`frontend/src/api/useSSE.ts`
-
-**它解决的问题**
-- 前端中途重连后仍能收到历史事件
-- 空闲期不断线（ping）
-- 异常断流时自动重连（指数退避）
-
-**常见坑**
-- 忽略“终止事件”，导致前端一直重连。
-
-**调试建议**
-- 在浏览器 DevTools 观察 `/stream` 是否出现：
-  - `ping`
-  - `report_ready` / `error` / `cancelled`
-- 如果只见 ping 不见终态，检查后端 status 文件：
+调试建议：
 
 ```bash
-ls -la .cache/ideago/*.status.json
+uv run pytest tests/test_llm_layer.py -q
 ```
 
----
+重点关注：
 
-## 5) 前端大数据量体验：竞品列表虚拟化
+- `llm_calls`
+- `endpoint_failovers`
+- `fallback_used`
+- `last_error_class`
 
-**实现位置**
-- `frontend/src/pages/report/ReportContentPane.tsx`
-  - `VIRTUALIZATION_THRESHOLD = 35`
-- `frontend/src/components/VirtualizedCompetitorList.tsx`
-  - 动态测量行高 + 二分定位可视区域
+## 2) 提取降级与链接约束
 
-**它解决的问题**
-- 竞品多时避免一次性渲染，降低卡顿
+实现位置：
 
-**常见坑**
-- 只做固定行高虚拟化，遇到动态内容错位。
+- `src/ideago/pipeline/extractor.py`
+- `src/ideago/pipeline/nodes.py`
 
-**调试建议**
-- 关注：`binarySearchOffset`、`measuredHeights`、`offsets`
-- 切换 `grid/list` 和窗口宽度，验证可视区域计算是否稳定。
+它解决的问题：
 
----
+- 防止模型编造来源链接
+- 单个 source 抽取失败时，尽量保留“可用但降级”的结果
 
-## 动手任务（30 分钟）
+为什么它很重要：
 
-做一次“故障演练”复盘（不改代码）：
+- 这个项目的可信度不只看“有没有结论”，还看“结论能不能回溯到真实来源”
 
-1. 假设 LLM 主端点 401，fallback 可用。
-2. 你预期 `chat_model` 元数据里哪些字段变化？
-3. 这份变化最终在哪些对象里可见？（提示：report meta / cost / logs）
-4. 前端最终应展示什么用户可感知信号？
+常见误区：
+
+- 看见有 competitors 就以为系统完全成功
+- 忽略 `source_results[].status`，把 `degraded` 当成 `ok`
+
+调试建议：
+
+```bash
+uv run pytest tests/test_langgraph_engine.py -q
+```
+
+看这些信息：
+
+- `source_results[].status`
+- `source_results[].error_msg`
+- 报告中的 `links` 是否都能在 raw source results 中找到来源
+
+## 3) SSE 稳定性：历史重放、ping、终态恢复、前端重连
+
+实现位置：
+
+- 后端：`src/ideago/api/routes/analyze.py`
+- 运行态：`src/ideago/api/dependencies.py`
+- 前端：`frontend/src/lib/api/useSSE.ts`
+
+它解决的问题：
+
+- 前端中途进入页面，也能补收到历史事件
+- 长时间没有新业务事件时，连接不会假死
+- 流异常关闭时，前端可以自动重连
+- 后端运行态已经不在，但 status 文件还在时，仍能推导终态
+
+当前版本相比简单 SSE 的高级点在于：
+
+- 不是只有“在线时推”，还有“重连后补”
+- 不是只有“消息队列”，还有“状态文件兜底”
+
+常见误区：
+
+- 只盯着前端不更新，忽略后端其实已经只剩 status 文件
+- 没处理终止事件，导致前端无限重连
+
+调试建议：
+
+```bash
+uv run pytest tests/test_api.py -q
+pnpm --prefix frontend test
+```
+
+手工观察：
+
+- Network 中 `/stream` 是否出现 `ping`
+- 是否能收到 `report_ready`、`error`、`cancelled`
+- 若没有终态，去看 `.cache/ideago` 或对应 Supabase 状态
+
+## 4) 双持久化实现：FileCache 与 SupabaseRepository
+
+实现位置：
+
+- `src/ideago/cache/file_cache.py`
+- `src/ideago/cache/supabase_cache.py`
+- `src/ideago/api/dependencies.py:get_cache()`
+
+它解决的问题：
+
+- 本地开发可以零门槛跑起来
+- 生产环境可以用 Supabase 做多用户隔离与持久化
+
+你需要理解的是：
+
+- 业务代码尽量依赖 `ReportRepository` 抽象
+- `status` 不只是“附属信息”，它是恢复运行态和做权限判定的重要依据
+
+常见误区：
+
+- 假设所有环境都有本地状态文件
+- 修改状态写入逻辑时忘记带 `user_id`，导致 owner check 被破坏
+
+## 5) 报告页体验：状态协调与大列表虚拟化
+
+实现位置：
+
+- `frontend/src/features/reports/components/useReportLifecycle.ts`
+- `frontend/src/features/reports/components/ReportContentPane.tsx`
+- `frontend/src/features/reports/components/VirtualizedCompetitorList.tsx`
+
+它解决的问题：
+
+- SSE 完成但实体尚未可读时，页面不会闪崩
+- 竞品数量较多时，页面不会一次性渲染所有卡片
+
+这个模块真正复杂的地方不是 UI，而是状态协调：
+
+- 初始加载
+- processing 中的 SSE 订阅
+- complete 后的补拉
+- failed/cancelled 的恢复与重试
+- 切换到 ready 后的展示节奏
+
+常见误区：
+
+- 只改 UI 组件，不管 lifecycle
+- 只改 SSE 逻辑，不验证 ready/missing/processing 三种切换
+
+## 动手任务
+
+做一次“故障故事线”复盘：
+
+1. 假设主 LLM endpoint 暂时不可用，但 fallback 可用
+2. 说清楚：
+   - 哪一层先发现问题
+   - 哪一层做 retry / failover
+   - 哪些元数据会变化
+   - 报告最终会留下什么痕迹
+   - 前端用户最终看到的是什么
 
 完成标准：
-- 你能把“异常 -> 重试 -> 切换 -> 用户看到的结果”讲成一条完整故事线。
+
+- 你能把“底层异常 -> pipeline 继续或失败 -> 前端最终状态”完整讲出来
 
 ---
 
-下一篇：`docs/mentor/05-learning-plan.md`（给你一套可执行 4 周计划）。
+下一篇：`docs/mentor/05-learning-plan.md`

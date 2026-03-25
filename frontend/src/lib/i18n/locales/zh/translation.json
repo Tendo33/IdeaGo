@@ -2,15 +2,104 @@
   "app": {
     "title": "Idea",
     "titleHighlight": "Go",
-    "history": "历史记录"
+    "history": "历史记录",
+    "skipToContent": "跳转到内容",
+    "switchToLanguage": "切换到{{language}}"
   },
   "nav": {
-    "history": "历史记录"
+    "history": "历史记录",
+    "home": "首页",
+    "userMenu": "用户菜单",
+    "userOptions": "用户选项"
+  },
+  "theme": {
+    "toggle": "切换主题模式",
+    "options": "主题模式选项",
+    "system": "跟随系统",
+    "dark": "深色",
+    "light": "浅色",
+    "systemShort": "系统",
+    "darkShort": "深色",
+    "lightShort": "浅色"
+  },
+  "auth": {
+    "signIn": "登录",
+    "signUp": "注册",
+    "signOut": "退出登录",
+    "signedInAs": "已登录为",
+    "loginTitle": "登录",
+    "registerTitle": "创建账户",
+    "resetTitle": "重置密码",
+    "loginSubtitle": "登录以访问您的调研报告",
+    "registerSubtitle": "立即开始竞品分析",
+    "resetSubtitle": "输入您的邮箱，我们将发送重置链接",
+    "continueWithGithub": "使用 GitHub 继续",
+    "continueWithGoogle": "使用 Google 继续",
+    "continueWithLinuxDo": "使用 LinuxDo 继续",
+    "orEmail": "或",
+    "email": "邮箱",
+    "password": "密码",
+    "forgotPassword": "忘记密码？",
+    "minChars": "至少 6 个字符",
+    "sendResetLink": "发送重置链接",
+    "noAccount": "还没有账户？",
+    "hasAccount": "已有账户？",
+    "rememberPassword": "记得密码？",
+    "checkEmail": "请查收邮箱",
+    "confirmSent": "我们已向此邮箱发送确认链接",
+    "resetEmailSent": "请查收邮箱",
+    "resetEmailDesc": "我们已向此邮箱发送密码重置链接",
+    "backToLogin": "返回登录",
+    "callbackTimeout": "登录时间超出预期，请重试。",
+    "callbackError": "登录失败",
+    "signingIn": "正在登录...",
+    "unexpectedError": "发生了一个意外错误",
+    "legalNotice": "继续即表示您同意我们的"
+  },
+  "profile": {
+    "title": "个人资料",
+    "saved": "个人资料已更新",
+    "memberSince": "加入于",
+    "planAndUsage": "每日用量",
+    "currentPlan": "配额类型",
+    "usageThisMonth": "今日已用",
+    "quotaUsage": "配额用量",
+    "resetsOn": "重置日期",
+    "editProfile": "编辑资料",
+    "displayName": "显示名称",
+    "displayNamePlaceholder": "您希望我们怎么称呼您？",
+    "bio": "个人简介",
+    "bioPlaceholder": "介绍一下自己...",
+    "save": "保存更改",
+    "loadError": "无法加载个人资料",
+    "updateError": "无法更新个人资料",
+    "subscription": "订阅管理",
+    "proPlan": "Pro 套餐",
+    "freePlan": "免费套餐",
+    "activeSubscription": "订阅有效中",
+    "noSubscription": "暂无有效订阅",
+    "manageSubscription": "管理订阅",
+    "upgradeToPro": "升级到 Pro",
+    "dailyQuotaLabel": "每日限额",
+    "dangerZone": "高风险操作区",
+    "deleteWarning": "永久删除您的账户及所有相关数据。此操作无法撤销。",
+    "deleteAccount": "删除账户",
+    "deleteConfirm": "确认要继续吗？所有报告、个人资料和订阅信息都将被永久删除。",
+    "deleteError": "删除账户失败",
+    "confirmDelete": "确认，删除全部数据",
+    "cancelDelete": "取消"
+  },
+  "common": {
+    "cancel": "取消",
+    "delete": "删除",
+    "dismiss": "关闭",
+    "and": "和"
   },
   "home": {
-    "description": "通过来自 GitHub、全网、Hacker News 和 App Store 的真实竞品数据，快速验证您的创业想法。",
+    "description": "通过 6 个研究来源交叉验证证据，快速评估您的创业想法：GitHub、Tavily、Hacker News、App Store、Product Hunt 和 Reddit。",
     "recentResearch": "最近的调研",
     "competitors": "个竞品",
+    "quickPrompts": "快速提示",
     "prompt0": "一款能自动总结会议记录的 AI 工具",
     "prompt1": "一个本地有机食品配送的电商平台",
     "prompt2": "一款将网页一键转换为 Markdown 的浏览器插件",
@@ -26,7 +115,12 @@
     "tooShort": "为了获得更准确的结果，请至少输入 {{min}} 个字符（当前已输入 {{current}} 个）。",
     "tooLong": "描述过长，请控制在 {{max}} 个字符以内。",
     "lengthCount": "{{current}} / {{max}} 字符",
-    "submittingHint": "正在提交您的想法进行分析..."
+    "submittingHint": "正在提交您的想法进行分析...",
+    "validation": {
+      "missingLetters": "请至少输入一些文字，便于我们理解您要分析的想法。",
+      "lowSignal": "请补充更多有意义的内容，而不是过短的片段或编号。",
+      "tooManySymbols": "请减少符号，尽量用文字描述您的想法。"
+    }
   },
   "history": {
     "back": "返回搜索",
@@ -37,6 +131,7 @@
     "deleteConfirm": "您确定要删除这份报告吗？此操作无法撤销。",
     "delete": "确认删除",
     "deleting": "正在删除...",
+    "deleted": "报告已删除",
     "errorDelete": "删除报告失败，请稍后重试。",
     "emptyState": "您还没有生成过任何调研报告。",
     "startFirst": "开始您的第一次分析",
@@ -56,11 +151,20 @@
     "page": "正在加载页面内容..."
   },
   "report": {
+    "analyzing": "分析中...",
     "sections": {
       "summary": "分析概览",
       "landscape": "市场格局",
       "competitors": "竞品详情",
-      "opportunities": "切入机会"
+      "opportunities": "切入机会",
+      "navigation": "报告分段导航",
+      "shouldWeBuildThis": "这个方向值得做吗？",
+      "whyNow": "为什么是现在",
+      "pain": "痛点信号",
+      "whitespace": "市场空白",
+      "evidenceConfidence": "数据来源与证据",
+      "painPlaceholder": "痛点与商业信号分析会在数据可用后显示在这里。",
+      "whitespacePlaceholder": "市场空白机会和差异化方向会在数据可用后显示在这里。"
     },
     "blueOcean": {
       "title": "未发现直接竞品",
@@ -119,6 +223,17 @@
         "samples": "已分析来源数",
         "coverage": "平台覆盖面",
         "successRate": "数据提取成功率",
+        "sourceDiversity": "来源多样性",
+        "evidenceDensity": "证据密度",
+        "recency": "时效性",
+        "degradationPenalty": "降级惩罚",
+        "contradictionPenalty": "矛盾惩罚",
+        "freshness": "新鲜度",
+        "trustDrivers": "可信度驱动因素",
+        "penaltiesApplied": "已应用惩罚项",
+        "noMajorPenalties": "无主要惩罚项",
+        "whyThisScore": "评分依据",
+        "reasonsFallback": "该报告未提供具体的置信度原因说明。",
         "defaultFreshness": "无法获取数据新鲜度信息。",
         "high": "高可靠性",
         "medium": "中等可靠性",
@@ -146,17 +261,134 @@
     },
     "insight": {
       "title": "差异化竞争机会",
-      "opportunity": "机会点 #"
+      "opportunity": "机会点 #",
+      "signal": "信号",
+      "subtitle": "当构建决策较为积极时，建议优先采用以下执行切入角度。",
+      "differentiationAngle": "差异化方向",
+      "differentiationDescription": "把它作为可落地的切入点，而不是泛泛的产品口号。"
     },
     "market": {
-      "title": "市场宏观概览"
+      "title": "市场宏观概览",
+      "whyNow": "为什么是现在",
+      "contextAndTiming": "市场背景与时机",
+      "showLessContext": "收起背景解读",
+      "readFullContext": "阅读完整市场背景",
+      "contextLens": "解读视角",
+      "contextHint1": "请将本节视为时机背景：市场发生了什么变化、哪些需求正在浮现，以及为什么现在可能存在机会。",
+      "contextHint2": "最终建议应与这一背景相匹配，而不是只依赖竞品数量。"
+    },
+    "pain": {
+      "badge": "痛点信号",
+      "title": "值得解决的高频用户阻力",
+      "themes": "主题数",
+      "intense": "强度 {{value}}%",
+      "intensity": "强度",
+      "frequency": "频率",
+      "evidenceLinks": "{{count}} 条证据链接",
+      "openEvidence": "证据"
+    },
+    "commercial": {
+      "badge": "商业信号",
+      "title": "指向付费意愿的需求线索",
+      "signals": "信号数",
+      "intent": "意向 {{value}}%",
+      "strength": "商业强度",
+      "monetizationHint": "变现提示",
+      "monetizationFallback": "已观察到商业需求，但具体打包方式仍不明确。"
+    },
+    "whitespace": {
+      "badge": "市场空白机会",
+      "title": "仍有供给不足的市场区域",
+      "opportunityScore": "机会评分",
+      "wedge": "空白切入点",
+      "potential": "潜力",
+      "supporting": {
+        "entryWedge": "切入方式：{{value}}",
+        "targetSegment": "目标人群：{{value}}",
+        "references": "{{count}} 条支持性参考"
+      },
+      "fallback": {
+        "description": "即使空白机会合成信号仍较弱，这条差异化路径也值得优先验证。",
+        "eyebrow": "备用切入点",
+        "supportingPoint": "可将此方向作为第一个明确切口。"
+      }
     },
     "progress": {
+      "eyebrow": "实时分析流水线",
+      "pipelineSummary": "按后端真实事件流展示分析进度、来源状态与结构化提取结果。",
+      "focusLabel": "当前焦点",
+      "genericSource": "数据来源",
       "ideaProfile": "正在拆解您的想法",
       "searchResults": "正在搜寻潜在竞品",
       "foundResults": "发现了 {{count}} 个潜在匹配项，来自",
       "potentialCompetitors": "初步识别出 {{count}} 个高度相关的竞品准备深入分析",
-      "cancel": "取消当前分析"
+      "cancel": "取消当前分析",
+      "allSourcesHealthy": "全部来源运行正常",
+      "failedSources": "{{count}} 个来源失败",
+      "resultUnit": "结果",
+      "appTypeLabel": "产品类型",
+      "keywordsLabel": "信号标签",
+      "targetScenarioLabel": "目标场景",
+      "timeline": "事件流",
+      "timelineDescription": "每一条状态都来自实时 SSE 管道事件，不做假进度推断。",
+      "timelineEmpty": "正在等待第一条管道事件。",
+      "metrics": {
+        "sourcesDone": "已完成来源",
+        "extracted": "已提取画像",
+        "activeSources": "并行任务"
+      },
+      "status": {
+        "pending": "排队中",
+        "active": "进行中",
+        "done": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "waiting": {
+        "description": "系统会先拆解想法，再并行查询六个研究来源，然后提取竞品结构化特征。"
+      },
+      "focus": {
+        "intent": "意图拆解",
+        "extraction": "结构化提取",
+        "aggregation": "市场汇总",
+        "complete": "准备展示报告",
+        "failed": "等待重试",
+        "cancelled": "流程已停止"
+      },
+      "current": {
+        "intentTitle": "正在拆解您的想法",
+        "intentDescription": "提炼产品类型、关键词与目标场景，生成后续查询策略。",
+        "sourceTitleSingle": "正在扫描 {{platform}}",
+        "sourceTitleMulti": "正在并行扫描 {{count}} 个来源",
+        "sourceDescription": "持续拉取候选产品、社区讨论和市场信号，为下一步结构化提取做准备。",
+        "extractionTitleSingle": "正在提取 {{platform}} 的结构化特征",
+        "extractionTitle": "正在提取竞品特征",
+        "extractionDescription": "把原始结果压缩成可比较的竞品画像、痛点线索与商业信号。",
+        "aggregationTitle": "正在汇总最终判断",
+        "aggregationDescription": "合并重叠竞品，综合痛点、商业与空白机会信号，形成决策建议。",
+        "completeTitle": "分析即将完成",
+        "completeDescription": "报告主体已准备完成，正在切换到最终结果页。",
+        "failedTitle": "分析过程被中断",
+        "failedDescription": "部分阶段未成功完成，当前结果不会继续推进。",
+        "cancelledTitle": "分析已取消",
+        "cancelledDescription": "当前任务已停止，不会继续执行后续阶段。"
+      },
+      "feed": {
+        "intentStarted": "开始拆解想法",
+        "intentParsed": "已识别产品类型与核心关键词",
+        "sourceStarted": "开始查询 {{platform}}",
+        "sourceCompleted": "{{platform}} 返回 {{count}} 条候选结果",
+        "sourceFailed": "{{platform}} 查询失败",
+        "extractionStarted": "开始提取结构化竞品",
+        "extractionStartedPlatform": "开始提取 {{platform}} 的结构化竞品",
+        "extractionCompleted": "新增 {{count}} 个结构化竞品",
+        "extractionCompletedPlatform": "{{platform}} 新增 {{count}} 个结构化竞品",
+        "aggregationStarted": "开始汇总市场与机会信号",
+        "aggregationCompleted": "已合并为 {{count}} 个去重竞品",
+        "reportReady": "报告已准备完成",
+        "cancelled": "任务已取消",
+        "error": "任务执行出错"
+      }
     },
     "compare": {
       "title": "正在对比 {{count}} 款竞品",
@@ -186,8 +418,8 @@
           "short": "GitHub"
         },
         "tavily": {
-          "label": "检索全网信息",
-          "short": "全网搜索"
+          "label": "检索 Tavily 结果",
+          "short": "Tavily"
         },
         "hackernews": {
           "label": "分析 Hacker News 讨论",
@@ -200,6 +432,10 @@
         "producthunt": {
           "label": "追踪 Product Hunt 发布",
           "short": "Product Hunt"
+        },
+        "reddit": {
+          "label": "搜索 Reddit 社区讨论",
+          "short": "Reddit"
         },
         "extraction": {
           "label": "提取竞品核心特征",
@@ -224,6 +460,13 @@
       "relevance": "匹配关联度 %",
       "clickHint": "点击图上的圆点即可查看对应竞品详情。圆点的大小代表该竞品数据来源的数量。"
     },
+    "accessibility": {
+      "openCompetitorLink": "打开 {{name}} 在 {{host}} 上的页面",
+      "openCompetitor": "打开 {{name}}",
+      "removeCompetitor": "移除 {{name}}",
+      "jumpToCompetitor": "跳转到竞品 {{name}}",
+      "relevanceRing": "相关度 {{percent}}%"
+    },
     "header": {
       "newSearch": "发起新搜索",
       "share": "分享报告",
@@ -232,7 +475,40 @@
       "copyLink": "复制报告链接",
       "export": "导出报告",
       "markdown": "下载 Markdown 格式",
-      "print": "打印 / 另存为 PDF"
+      "print": "打印 / 另存为 PDF",
+      "chromeLabel": "决策优先调研报告",
+      "opportunityScore": "机会评分 {{value}}%",
+      "whyThisCall": "为什么给出这个结论",
+      "contextKeywords": "上下文关键词",
+      "metrics": {
+        "painThemes": "痛点主题",
+        "commercialCues": "商业信号",
+        "whitespaceWedges": "空白切入点"
+      },
+      "summary": {
+        "bestEntryWedge": "最佳切入点：{{value}}",
+        "mainPain": "核心痛点：{{value}}",
+        "commercialCue": "商业信号：{{value}}",
+        "executionAngle": "执行方向：{{value}}",
+        "sparse": "当前信号提取仍较稀疏，请谨慎参考该结论。"
+      },
+      "decision": {
+        "badge": {
+          "go": "可推进",
+          "caution": "谨慎",
+          "noGo": "暂不建议"
+        },
+        "title": {
+          "go": "这个方向值得做吗？值得，但要保持聚焦。",
+          "caution": "这个方向值得做吗？可以，但需限定切入点。",
+          "noGo": "这个方向值得做吗？当前阶段不建议。"
+        },
+        "subtitle": {
+          "go": "当前机会信号足以支持继续推进，但应从清晰切口入手。",
+          "caution": "存在一定信号，但市场切入方式必须足够克制和聚焦。",
+          "noGo": "现有证据表明该机会较弱或时机尚不成熟。"
+        }
+      }
     },
     "sort": {
       "label": "排序方式",
@@ -254,7 +530,193 @@
       "restart": "我们无法重新启动分析，请重试。",
       "cancel": "无法取消当前分析任务。",
       "broaden": "无法启动更宽泛的扩展分析。",
+      "extractionUnavailable": "暂时无法提取结构化结果，现显示原始结果。",
       "unknown": "发生了一个未知的错误。"
+    }
+  },
+  "landing": {
+    "badge": "AI 驱动的竞品调研引擎",
+    "heroLine1": "先验证",
+    "heroLine2": "再动手",
+    "heroDesc": "一句话描述您的创业想法，即可获得一份基于 6 个研究来源证据的可审计分析报告：GitHub、Tavily、Hacker News、App Store、Product Hunt 和 Reddit。",
+    "cta": "免费开始分析",
+    "learnMore": "了解工作原理",
+    "mockLabel": "示例报告",
+    "mockQuery": "一款将网页一键转换为 Markdown 的浏览器插件",
+    "mockCompetitors": "个竞品",
+    "mockRelevance": "匹配度",
+    "mockSources": "数据源",
+    "mockTime": "平均耗时",
+    "mockVerdict": "建议：可以推进",
+    "sourcesLabel": "我们交叉验证的 6 个研究来源",
+    "sourceNames": {
+      "github": "GitHub",
+      "tavily": "Tavily",
+      "hackernews": "Hacker News",
+      "appstore": "App Store",
+      "producthunt": "Product Hunt",
+      "reddit": "Reddit"
+    },
+    "howTitle": "工作流程",
+    "howSubtitle": "从想法到洞察，只需几分钟。",
+    "step1Title": "描述想法",
+    "step1Desc": "用自然语言描述您的创业想法，无需填写复杂表单。",
+    "step2Title": "AI 分析",
+    "step2Desc": "我们的 AI 管道会同时查询 6 个数据源：GitHub、Tavily、Hacker News、App Store、Product Hunt 和 Reddit。",
+    "step3Title": "做出决策",
+    "step3Desc": "获取结构化报告：竞品列表、市场空白、基于证据的 Go / No-Go 推荐。",
+    "featuresTitle": "为快速行动的创业者而生",
+    "feat1Title": "多源情报",
+    "feat1Desc": "交叉比对 6 个研究来源的信号，避免只依赖单一搜索引擎做判断。",
+    "feat2Title": "透明可追溯",
+    "feat2Desc": "每个竞品都附带来源链接、置信度评分和数据时效性指标。拒绝黑箱结论。",
+    "feat3Title": "Go / No-Go 判定",
+    "feat3Desc": "不仅列出竞品清单，更给出清晰的市场饱和度信号和战略建议。",
+    "feat4Title": "实时进度跟踪",
+    "feat4Desc": "通过 SSE 实时流观看分析过程，精确了解哪些数据源正在被查询。",
+    "ctaTitle": "准备好验证了吗？",
+    "ctaDesc": "别再猜测，用数据说话。",
+    "ctaButton": "免费开始使用",
+    "footerTagline": "由创业者打造，为创业者服务"
+  },
+  "legal": {
+    "backToHome": "返回首页",
+    "termsTitle": "服务条款",
+    "privacyTitle": "隐私政策",
+    "lastUpdated": "最后更新",
+    "terms": {
+      "acceptanceTitle": "1. 条款接受",
+      "acceptance": "访问或使用 IdeaGo（以下简称“本服务”）即表示您同意受本服务条款约束。如不同意，请勿使用本服务。",
+      "descriptionTitle": "2. 服务说明",
+      "description": "IdeaGo 是一个由 AI 驱动的竞品调研平台。我们聚合公开信息并生成分析报告。报告由 AI 生成，可能存在不准确之处。",
+      "accountsTitle": "3. 用户账户",
+      "accounts": "您有责任妥善保管账户凭证。您不得共享账户，也不得将本服务用于任何违法用途。",
+      "subscriptionTitle": "4. 订阅与计费",
+      "subscription": "付费套餐通过 Stripe 计费。您可随时在账户设置中取消。退款将按我们的退款政策处理。",
+      "ipTitle": "5. 知识产权",
+      "ip": "为您生成的报告可由您使用。本服务及其代码、品牌等知识产权归 IdeaGo 所有。",
+      "disclaimerTitle": "6. 免责声明",
+      "disclaimer": "本服务按“现状”提供。我们不保证所提供信息的准确性、完整性或时效性。您需自行承担使用报告的风险。",
+      "limitationTitle": "7. 责任限制",
+      "limitation": "在法律允许的最大范围内，IdeaGo 对因您使用本服务而产生的任何间接、附带或后果性损害不承担责任。",
+      "changesTitle": "8. 条款变更",
+      "changes": "我们可能不定期更新这些条款。您继续使用本服务即视为接受更新后的条款。",
+      "contactTitle": "9. 联系方式",
+      "contact": "如对本条款有疑问，请通过我们网站列出的渠道联系我们。"
+    },
+    "privacy": {
+      "collectTitle": "1. 我们收集的信息",
+      "collect": "我们会收集您在创建账户时提供的信息（邮箱、显示名称）、用于生成报告的搜索查询，以及基础使用分析数据（页面访问、功能使用）。",
+      "useTitle": "2. 我们如何使用您的信息",
+      "use": "我们使用这些信息来提供并改进服务、处理支付、发送重要账户通知，并汇总匿名分析数据。",
+      "storageTitle": "3. 数据存储与安全",
+      "storage": "您的数据通过 Supabase（PostgreSQL）并配合行级安全策略进行安全存储。所有通信均使用 HTTPS，我们不会存储银行卡信息，计费完全由 Stripe 处理。",
+      "sharingTitle": "4. 数据共享",
+      "sharing": "我们不会出售您的个人数据。我们可能与以下服务商共享必要数据：Stripe（支付处理）、Supabase（数据库托管）、AI 模型提供商（仅用于生成报告的查询内容，不含个人信息）。",
+      "retentionTitle": "5. 数据保留",
+      "retention": "只要您的账户处于激活状态，我们就会保留您的报告和账户数据。匿名（未登录）报告会在配置的 TTL 到期后自动删除。您可随时在个人资料设置中删除账户及全部相关数据。",
+      "rightsTitle": "6. 您的权利",
+      "rights": "您有权访问、导出、更正和删除个人数据。您可以在个人资料页面删除账户，系统将永久移除您的全部数据。",
+      "cookiesTitle": "7. Cookie",
+      "cookies": "我们使用必要 Cookie 来维持登录会话，不使用第三方广告或跟踪 Cookie。",
+      "changesTitle": "8. 政策变更",
+      "changes": "我们可能不定期更新本隐私政策。对于重要变更，我们会通过邮件或应用内通知告知您。",
+      "contactTitle": "9. 联系方式",
+      "contact": "如有隐私相关问题，请通过我们网站列出的渠道联系我们。"
+    }
+  },
+  "pricing": {
+    "title": "选择您的套餐",
+    "subtitle": "免费开始使用，需要更多时再升级。",
+    "perMonth": "/月",
+    "currentPlan": "当前套餐",
+    "upgrade": "升级到 Pro",
+    "comingSoon": "即将推出",
+    "freeFeature1": "每月 5 次分析",
+    "freeFeature2": "基础竞品报告",
+    "freeFeature3": "6 个数据源",
+    "freeFeature4": "报告导出 (Markdown)",
+    "proFeature1": "每月 100 次分析",
+    "proFeature2": "高级竞品洞察",
+    "proFeature3": "6 个数据源 + 优先处理",
+    "proFeature4": "报告导出 (Markdown)",
+    "proFeature5": "报告永不过期",
+    "proFeature6": "优先技术支持",
+    "loadError": "无法确认您当前的订阅状态。",
+    "upgradeError": "无法发起结账流程，请稍后重试。",
+    "signInToUpgrade": "登录后升级"
+  },
+  "quota": {
+    "exceeded": "您已达到今日分析次数上限。",
+    "upgradeHint": "配额将在明天重置后恢复，届时您可以继续发起分析。",
+    "upgradeCta": "明天"
+  },
+  "welcome": {
+    "title": "欢迎使用 IdeaGo！",
+    "body": "在下方描述您的创业想法，我们将为您搜索竞品、分析市场信号，并在几分钟内生成研究报告。",
+    "step1": "输入想法",
+    "step2": "AI 调研市场",
+    "step3": "查看报告"
+  },
+  "errors": {
+    "rateLimited": "请求过于频繁，请稍后再试。",
+    "networkError": "网络错误，请检查您的网络连接后重试。",
+    "sessionExpired": "登录已过期，请重新登录。",
+    "quotaExceeded": "已达到今日分析次数上限。",
+    "unknown": "出现了问题，请重试。"
+  },
+  "account": {
+    "deleteTitle": "删除账户",
+    "deleteDescription": "这将永久删除您的账户及所有关联数据，此操作不可撤销。",
+    "deleteConfirm": "删除我的账户",
+    "deleteCancel": "取消",
+    "dangerZone": "危险操作"
+  },
+  "admin": {
+    "title": "管理后台",
+    "menuLabel": "管理",
+    "forbidden": "无权访问",
+    "forbiddenMessage": "您没有访问此页面的权限。",
+    "totalUsers": "用户数",
+    "totalReports": "报告数",
+    "activeProcessing": "处理中",
+    "planBreakdown": "套餐分布",
+    "usersTitle": "用户列表",
+    "noUsers": "未找到用户。",
+    "userFallbackName": "未命名用户",
+    "actions": {
+      "saveQuotaFor": "保存 {{name}} 的配额",
+      "editQuotaFor": "编辑 {{name}} 的配额"
+    },
+    "messages": {
+      "quotaUpdated": "{{name}} 的配额已更新。",
+      "loadError": "我们无法加载管理后台数据，请稍后重试。",
+      "unknownError": "出现了一些问题，请稍后重试。"
+    },
+    "values": {
+      "roles": {
+        "admin": "管理员",
+        "user": "用户"
+      },
+      "plans": {
+        "free": "免费版",
+        "pro": "专业版"
+      },
+      "providers": {
+        "github": "GitHub",
+        "google": "Google",
+        "linuxdo": "LinuxDo",
+        "supabase": "邮箱"
+      }
+    },
+    "col": {
+      "user": "用户",
+      "role": "角色",
+      "plan": "套餐",
+      "provider": "登录方式",
+      "usage": "用量",
+      "limit": "上限",
+      "joined": "注册时间"
     }
   }
 }

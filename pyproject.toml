@@ -42,6 +42,10 @@ dependencies = [
     "tavily-python>=0.5.0",
     "sse-starlette>=2.0.0",
     "jinja2>=3.1.0",
+    "PyJWT[crypto]>=2.8.0",
+    "langgraph-checkpoint-postgres>=3.0.5",
+    "stripe>=14.4.1",
+    "sentry-sdk[fastapi]>=2.55.0",
 ]
 
 [project.optional-dependencies]
@@ -137,6 +141,9 @@ unfixable = []
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
@@ -247,3 +254,8 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ideago"]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=0.25.0",
+]

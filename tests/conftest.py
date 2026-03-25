@@ -4,6 +4,7 @@
 """
 
 import json
+import os
 import tempfile
 from collections.abc import Generator
 from datetime import datetime
@@ -11,6 +12,23 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _force_dev_environment():
+    """Ensure ENVIRONMENT=development during the test run.
+
+    Prevents production-only guards (e.g. CORS origin checks) from
+    blocking test startup when the developer's .env sets
+    ENVIRONMENT=production.
+    """
+    prev = os.environ.get("ENVIRONMENT")
+    os.environ["ENVIRONMENT"] = "development"
+    yield
+    if prev is None:
+        os.environ.pop("ENVIRONMENT", None)
+    else:
+        os.environ["ENVIRONMENT"] = prev
 
 
 @pytest.fixture

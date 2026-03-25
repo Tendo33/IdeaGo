@@ -9,13 +9,17 @@ for data validation and configuration management.
 from .base import BaseModel, TimestampMixin
 from .examples import ApiResponse, ConfigModel, PaginatedResponse, User
 from .research import (
+    CommercialSignal,
     Competitor,
     ConfidenceMetrics,
     CostBreakdown,
+    EvidenceCategory,
     EvidenceItem,
     EvidenceSummary,
     Intent,
     LlmFaultToleranceMeta,
+    OpportunityScoreBreakdown,
+    PainSignal,
     Platform,
     RawResult,
     ReportMeta,
@@ -23,6 +27,7 @@ from .research import (
     SearchQuery,
     SourceResult,
     SourceStatus,
+    WhitespaceOpportunity,
 )
 
 __all__ = [
@@ -37,9 +42,14 @@ __all__ = [
     "SearchQuery",
     "Intent",
     "Competitor",
+    "PainSignal",
+    "CommercialSignal",
+    "WhitespaceOpportunity",
+    "OpportunityScoreBreakdown",
     "SourceStatus",
     "SourceResult",
     "ConfidenceMetrics",
+    "EvidenceCategory",
     "EvidenceItem",
     "EvidenceSummary",
     "CostBreakdown",

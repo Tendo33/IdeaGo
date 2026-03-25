@@ -69,9 +69,6 @@ class ChatModelClient:
         normalized_base_url = base_url.strip() if isinstance(base_url, str) else None
         if not normalized_base_url:
             normalized_base_url = None
-        self._last_call_metadata: dict[str, Any] = _empty_call_metadata()
-        self._last_call_exception: Exception | None = None
-
         primary_endpoint = LlmEndpointConfig(
             name="primary",
             api_key=api_key,
@@ -151,8 +148,6 @@ class ChatModelClient:
                         "endpoint_used": endpoint.name,
                         "last_error_class": last_error_class,
                     }
-                    self._last_call_metadata = metadata
-                    self._last_call_exception = None
                     return response, metadata
                 except Exception as exc:
                     last_exc = exc
@@ -191,18 +186,6 @@ class ChatModelClient:
 
             break
 
-        self._last_call_metadata = {
-            "llm_calls": attempts_total,
-            "llm_retries": max(0, attempts_total - 1),
-            "endpoint_failovers": endpoint_failovers,
-            "tokens_prompt": 0,
-            "tokens_completion": 0,
-            "fallback_used": used_fallback_endpoint or endpoint_failovers > 0,
-            "endpoints_tried": endpoints_tried,
-            "endpoint_used": "",
-            "last_error_class": last_error_class or "unknown_error",
-        }
-        self._last_call_exception = last_exc
         logger.exception("LLM request failed")
         raise last_exc or RuntimeError("LLM request failed")
 
@@ -238,15 +221,11 @@ class ChatModelClient:
             content = _extract_content_text(response.content)
             try:
                 payload = json.loads(content or "{}")
-                self._last_call_metadata = aggregated_metadata
-                self._last_call_exception = None
                 return payload, aggregated_metadata
             except json.JSONDecodeError as exc:
                 last_decode_error = exc
                 logger.exception("LLM returned invalid JSON: {}", content[:200])
                 aggregated_metadata["last_error_class"] = "json_parse_error"
-                self._last_call_metadata = dict(aggregated_metadata)
-                self._last_call_exception = exc
                 if parse_attempt >= self._json_parse_max_retries:
                     raise
                 next_start_index = _next_start_endpoint_index(
@@ -256,12 +235,6 @@ class ChatModelClient:
                 )
 
         raise last_decode_error or RuntimeError("LLM JSON parsing failed")
-
-    def pop_last_call_metadata(self) -> dict[str, Any]:
-        """Return and clear metadata captured during the previous invoke."""
-        payload = dict(self._last_call_metadata)
-        self._last_call_metadata = _empty_call_metadata()
-        return payload
 
 
 def _is_retryable_exception(exc: Exception) -> bool:

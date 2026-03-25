@@ -139,6 +139,8 @@ describe('useSSE', () => {
 
     await act(async () => {
       await flushMicrotasks()
+      vi.advanceTimersByTime(300)
+      await flushMicrotasks()
     })
     expect(result.current.events).toHaveLength(1)
   })
@@ -207,9 +209,13 @@ describe('useSSE', () => {
       })
     })
 
-    await act(async () => {
-      await flushMicrotasks()
-    })
+    for (let i = 0; i < 5 && result.current.events.length === 0; i += 1) {
+      await act(async () => {
+        await flushMicrotasks()
+        vi.advanceTimersByTime(300)
+        await flushMicrotasks()
+      })
+    }
     expect(result.current.events).toHaveLength(1)
     expect(result.current.events[0]?.stage).toBe('tavily_search')
   })
@@ -272,5 +278,110 @@ describe('useSSE', () => {
       await flushMicrotasks()
     })
     expect(result.current.isReconnecting).toBe(false)
+  })
+
+  it('sanitizes malformed progress payload fields before storing events', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emit('intent_parsed', {
+        type: 'intent_parsed',
+        stage: 'intent',
+        message: 'Intent parsed',
+        data: {
+          app_type: 42,
+          keywords: ['legal', 7, null],
+          target_scenario: 'contract review',
+        },
+        timestamp: '2026-02-24T16:00:00.000Z',
+      })
+      reader.emit('source_completed', {
+        type: 'source_completed',
+        stage: 'github_search',
+        message: 'Found github results',
+        data: {
+          platform: ['github'],
+          count: '3',
+        },
+        timestamp: '2026-02-24T16:00:01.000Z',
+      })
+      reader.emit('extraction_completed', {
+        type: 'extraction_completed',
+        stage: 'extract',
+        message: 'Extracted competitors',
+        data: {
+          count: '2',
+        },
+        timestamp: '2026-02-24T16:00:02.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.events).toHaveLength(3)
+    })
+
+    expect(result.current.events[0]?.data).toEqual({
+      keywords: ['legal'],
+      target_scenario: 'contract review',
+    })
+    expect(result.current.events[1]?.data).toEqual({
+      count: 3,
+    })
+    expect(result.current.events[2]?.data).toEqual({
+      count: 2,
+    })
+  })
+
+  it('marks stream complete when report_ready arrives through the parser boundary', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emit('report_ready', {
+        stage: 'report',
+        message: 'Report is ready',
+        data: { unexpected: 'value' },
+        timestamp: '2026-02-24T16:10:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.cancelled).toBeNull()
+  })
+
+  it('marks stream errored when error arrives through the parser boundary', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emit('error', {
+        stage: 'pipeline',
+        message: 'Pipeline failed',
+        data: { count: 'nope' },
+        timestamp: '2026-02-24T16:11:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+      expect(result.current.error).toBe('Pipeline failed')
+    })
+    expect(result.current.cancelled).toBeNull()
   })
 })

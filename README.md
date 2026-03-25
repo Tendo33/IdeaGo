@@ -1,6 +1,12 @@
-﻿# IdeaGo
+﻿<div align="center">
+  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+</div>
 
-![IdeaGo Banner](docs/assets/banner.png)
+# IdeaGo
+
+<p align="center">
+  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
+</p>
 
 AI-powered competitor research engine for startup ideas.
 
@@ -50,6 +56,10 @@ AI-powered competitor research engine for startup ideas.
 
 ## What IdeaGo Does
 
+<p align="center">
+  <img src="docs/assets/usage_new.png" alt="IdeaGo Usage Pipeline" width="100%" />
+</p>
+
 IdeaGo turns one natural-language startup idea into a structured competitor report with:
 
 - Market summary and recommendation (`go` / `caution` / `no_go`)
@@ -64,7 +74,7 @@ It is designed for fast founder validation: start with one sentence, get an audi
 ## Key Features
 
 - **End-to-end pipeline**: intent parsing -> source search -> extraction -> aggregation -> report generation
-- **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store, Product Hunt
+- **Multi-source retrieval**: GitHub, Tavily Web Search, Hacker News, App Store, Product Hunt, Reddit
 - **Resilient LLM layer**: retry, JSON parse recovery, endpoint failover
 - **Strict link grounding**: extracted links are filtered against fetched source URLs
 - **Graceful degradation**: extraction/aggregation failures still return usable output
@@ -133,6 +143,7 @@ Recommended deployment controls (especially if publicly reachable):
 - LangChain OpenAI client
 - Pydantic v2 / pydantic-settings
 - File cache + SQLite checkpoint store
+- Supabase auth/session integration
 
 ### Frontend
 
@@ -140,6 +151,7 @@ Recommended deployment controls (especially if publicly reachable):
 - Tailwind CSS 4
 - React Router 7
 - i18next (zh/en)
+- Supabase JS
 - Framer Motion + Recharts
 
 ---
@@ -212,12 +224,7 @@ Notes:
 
 - Do **not** set `APP_API_KEY` (it is no longer supported).
 - Keep only real provider secrets in `.env` (e.g. `OPENAI_API_KEY`, `TAVILY_API_KEY`).
-- `docker-compose.yml` uses a prebuilt image by default. For local image build, use:
-
-```bash
-docker compose build --no-cache
-docker compose up -d
-```
+- `docker-compose.yml` builds the local image from [`Dockerfile`](Dockerfile) by default.
 
 Open: [http://localhost:8000](http://localhost:8000)
 
@@ -290,18 +297,28 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 | `TAVILY_API_KEY` | Recommended | `""` | Enable Tavily source |
 | `GITHUB_TOKEN` | No | `""` | Higher GitHub rate limit |
 | `PRODUCTHUNT_DEV_TOKEN` | No | `""` | Enable Product Hunt source |
+| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | No | `""` | Preferred Reddit OAuth source configuration |
+| `REDDIT_ENABLE_PUBLIC_FALLBACK` | No | `true` | Allow read-only public Reddit fallback when OAuth credentials are missing |
+| `REDDIT_PUBLIC_FALLBACK_LIMIT` | No | `10` | Per-query limit for public Reddit fallback |
+| `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS` | No | `1.5` | Delay between public Reddit fallback requests |
 | `APPSTORE_COUNTRY` | No | `us` | App Store country code |
 | `PRODUCTHUNT_POSTED_AFTER_DAYS` | No | `730` | Product Hunt freshness window (days) |
 | `MAX_RESULTS_PER_SOURCE` | No | `10` | Raw results per source |
 | `SOURCE_TIMEOUT_SECONDS` | No | `30` | Source timeout |
 | `SOURCE_QUERY_CONCURRENCY` | No | `2` | Per-source concurrency |
-| `EXTRACTION_TIMEOUT_SECONDS` | No | `60` | LLM extraction timeout |
+| `SOURCE_GLOBAL_CONCURRENCY` | No | `3` | Cross-source concurrency limit |
+| `EXTRACTION_TIMEOUT_SECONDS` | No | `180` | LLM extraction timeout |
 | `CACHE_DIR` | No | `.cache/ideago` | Cache directory |
 | `CACHE_TTL_HOURS` | No | `24` | Cache TTL |
 | `LANGGRAPH_CHECKPOINT_DB_PATH` | No | `.cache/ideago/langgraph-checkpoints.db` | LangGraph checkpoint DB |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | No | `""` | Supabase client auth config |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | `""` | Backend privileged Supabase access |
+| `AUTH_SESSION_SECRET` / `AUTH_SESSION_EXPIRE_HOURS` | No | `""` / `720` | Backend session signing config |
+| `FRONTEND_APP_URL` | No | `""` | Public frontend base URL for auth redirects |
+| `LINUXDO_CLIENT_ID` / `LINUXDO_CLIENT_SECRET` | No | `""` | LinuxDo OAuth client config |
+| `LINUXDO_AUTHORIZE_URL` / `LINUXDO_TOKEN_URL` / `LINUXDO_USERINFO_URL` / `LINUXDO_SCOPE` | No | Built-in defaults | LinuxDo OAuth endpoints and scopes |
 | `CORS_ALLOW_ORIGINS` | No | `*` | CORS origins |
 | `HOST` / `PORT` | No | `0.0.0.0` / `8000` | Server bind address |
-| `VITE_API_BASE_URL` | No | `""` | Optional frontend API prefix |
 
 ---
 
@@ -311,17 +328,27 @@ See full defaults in `.env.example` and schema in `src/ideago/config/settings.py
 .
 |-- src/ideago
 |   |-- api/             # FastAPI app, routes, schemas, dependencies
-|   |-- pipeline/        # LangGraph engine, nodes, events, state
-|   |-- llm/             # Chat model client + prompt templates
-|   |-- sources/         # Source plugins (GitHub/Tavily/HN/AppStore/Product Hunt)
-|   |-- cache/           # File-based report/status cache
-|   |-- models/          # Pydantic domain models
+|   |-- auth/            # Auth dependencies and Supabase helpers
+|   |-- cache/           # Cache abstractions and file/Supabase cache
 |   |-- config/          # Runtime settings
-|   `-- observability/   # Logging config
+|   |-- contracts/       # Protocols and interfaces
+|   |-- core/            # Shared runtime context
+|   |-- llm/             # Chat model client + prompt templates
+|   |-- models/          # Pydantic domain models
+|   |-- observability/   # Logging config
+|   |-- pipeline/        # LangGraph engine, nodes, events, state
+|   |-- sources/         # Source plugins (GitHub/Tavily/HN/AppStore/Product Hunt/Reddit)
+|   `-- utils/           # Shared utilities
 |-- frontend/            # React + TypeScript UI
+|   `-- src/
+|       |-- app/         # App shell and routing
+|       |-- components/  # Shared UI primitives
+|       |-- features/    # auth/history/home/landing/profile/reports
+|       |-- lib/         # API/auth/i18n/supabase/types/utils
+|       `-- styles/      # Global styles
 |-- tests/               # Pytest suite
 |-- scripts/             # Release/dev automation scripts
-|-- doc/                 # Engineering docs
+|-- ai_docs/             # Engineering standards and guides
 `-- docs/                # Plans and design assets
 ```
 
@@ -380,10 +407,10 @@ services:
 
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Backend standards: [doc/BACKEND_STANDARDS.md](doc/BACKEND_STANDARDS.md)
-- Tooling standards: [doc/AI_TOOLING_STANDARDS.md](doc/AI_TOOLING_STANDARDS.md)
-- Settings guide: [doc/SETTINGS_GUIDE.md](doc/SETTINGS_GUIDE.md)
-- SDK usage: [doc/SDK_USAGE.md](doc/SDK_USAGE.md)
+- Backend standards: [ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
+- Tooling standards: [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
+- Settings guide: [ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- SDK usage: [ai_docs/SDK_USAGE.md](ai_docs/SDK_USAGE.md)
 
 ---
 
