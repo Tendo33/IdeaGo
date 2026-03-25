@@ -1,14 +1,12 @@
-﻿<div align="center">
+<div align="center">
   <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
 </div>
 
-# IdeaGo
+# IdeaGo：面向创业想法的 AI 竞品调研引擎
 
-<p align="center">
-  <img src="docs/assets/banner_new.png" alt="IdeaGo Banner" width="100%" />
-</p>
+**今天的大部分点子死于调研耗时。IdeaGo 让你在几分钟内拿到可审计的、带差异化建议的竞品分析报告。**
 
-面向创业想法的 AI 竞品调研引擎。
+[快速开始](#-快速开始) · [系统架构](#-系统架构) · [API 文档](#-api-概览) · [配置说明](#-配置说明) · [English](README.md)
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -16,83 +14,154 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A)](https://www.langchain.com/langgraph)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-简体中文 | [English](README.md)
+> **[Screenshot Placeholder：IdeaGo 主流程演示 GIF / 视频]**
 
 ---
 
-## 目录
+## 📰 最新动态
 
-- [IdeaGo 能做什么](#ideago-能做什么)
-- [核心特性](#核心特性)
-- [系统架构](#系统架构)
-  - [运行说明](#运行说明)
-- [安全模型（移除 APP_API_KEY 之后）](#安全模型移除-app_api_key-之后)
-- [技术栈](#技术栈)
-  - [后端](#后端)
-  - [前端](#前端)
-- [快速开始](#快速开始)
-  - [1) 前置要求](#1-前置要求)
-  - [2) 安装依赖](#2-安装依赖)
-  - [3) 配置环境](#3-配置环境)
-  - [4) 开发模式（热更新）](#4-开发模式热更新)
-  - [5) 单进程本地运行（后端托管构建后的前端）](#5-单进程本地运行后端托管构建后的前端)
-  - [6) Docker](#6-docker)
-- [API 概览](#api-概览)
-  - [SSE 事件类型](#sse-事件类型)
-  - [示例](#示例)
-- [报告模型](#报告模型)
-- [配置说明](#配置说明)
-- [项目结构](#项目结构)
-- [开发与质量](#开发与质量)
-- [容器与 CI 说明（移除 APP_API_KEY 之后）](#容器与-ci-说明移除-app_api_key-之后)
-  - [Dockerfile](#dockerfile)
-  - [docker-compose](#docker-compose)
-  - [CI 镜像构建与推送](#ci-镜像构建与推送)
-- [路线图与文档](#路线图与文档)
-- [参与贡献](#参与贡献)
-- [许可证](#许可证)
+* **2026-03-25** 正在开发 **SaaS 版本**（`saas` 分支）：多租户、计费与用户工作空间。
+* **2026-03-20** 集成 **Supabase 认证**（`feature/supabase-auth`），替代单一 API Key 方案。
+* **2026-03-15** **Source Intelligence V2**：报告以决策为先（推荐、痛点、空白机会），再列竞品。
 
 ---
 
-## IdeaGo 能做什么
+## 🤔 为什么需要 IdeaGo？
 
-<p align="center">
-  <img src="docs/assets/usage_new.png" alt="IdeaGo 使用流程" width="100%" />
-</p>
-
-IdeaGo 可以把一句自然语言的创业想法，转成结构化竞品分析报告，报告包含：
-
-- 市场总结与结论建议（`go` / `caution` / `no_go`）
-- 带来源链接、可追溯的竞品清单
-- 差异化机会建议
-- 置信度、证据与运行成本透明度
-
-目标是快速验证：一句话输入，得到可审计的调研结论。
+| **痛点** | **IdeaGo** |
+| --- | --- |
+| 人工调研慢 | 多源检索（Tavily、GitHub、Reddit、HN）+ 提取与聚合 |
+| 大模型会编竞品 | **链接溯源**：竞品需对应已抓取的 URL |
+| 报告像套话 | **决策优先**：`go` / `caution` / `no_go`、痛点、空白机会后才是竞品矩阵 |
+| 流水线不透明 | **SSE 进度**：意图 → 检索 → 提取 → 聚合，含成本与置信度 |
 
 ---
 
-## 核心特性
+## 🎯 你能得到什么
 
-- **端到端流水线**：意图解析 -> 多源检索 -> 信息提取 -> 聚合分析 -> 报告生成
-- **多数据源检索**：GitHub、Tavily 网页搜索、Hacker News、App Store、Product Hunt、Reddit
-- **LLM 稳定性增强**：请求重试、JSON 解析恢复、端点故障切换
-- **链接真实性约束**：提取链接需与原始抓取 URL 严格匹配
-- **优雅降级**：提取/聚合失败时仍返回可用结果
-- **实时交互体验**：SSE 流式进度、自动重连、任务取消
-- **透明报告**：每份报告包含置信度/证据/成本/容错元数据
-- **性能导向前端**：路由懒加载、虚拟化列表、竞品对比、导出与打印
-- **缓存与运行时状态**：TTL 文件缓存 + LangGraph SQLite 检查点 + 状态文件
+| 快速验证 | 链接可追溯 | 决策优先 |
+| --- | --- | --- |
+| 一句话输入，结构化报告输出 | 每条主张有来源，无匿名侧信道 | 先结论与机会，再竞品矩阵 |
 
 ---
 
-## 系统架构
+## ✨ 工作原理
+
+| 流水线 | 数据源 |
+| --- | --- |
+| LangGraph：意图 → 缓存 → 检索 → 提取 → 聚合 → 报告 | GitHub、Tavily、Hacker News、Reddit、App Store、Product Hunt |
+
+| 稳定性 | 透明度 |
+| --- | --- |
+| 重试、JSON 恢复、端点故障切换、优雅降级 | 每份报告含置信度、证据与 Token/耗时等遥测 |
+
+---
+
+## 🚀 快速开始
+
+下面 **只选一种** 方式即可。**Docker** 适合本地一键跑通或接近部署形态；**本地开发** 适合改后端/前端并需要热更新。
+
+### 共用前置（所有方式）
+
+* **密钥**：至少要在 `.env` 中配置 `OPENAI_API_KEY`；强烈建议配置 `TAVILY_API_KEY` 以提升网页检索质量。
+
+---
+
+### A) Docker
+
+适合：本机快速体验、或不想在宿主机安装 Python/Node 的“一套起”运行。
+
+**环境要求**
+
+* [Docker](https://docs.docker.com/get-docker/) 与 Docker Compose v2
+
+**步骤**
+
+```bash
+cp .env.example .env
+# 编辑 .env：填写 OPENAI_API_KEY（以及可选的 TAVILY_API_KEY 等）
+
+docker compose up --build -d
+```
+
+**访问**
+
+* 应用：[http://localhost:8000](http://localhost:8000)（端口由 `.env` 中的 `PORT` 决定，默认 `8000`）
+
+**说明**
+
+* `docker-compose.yml` 使用仓库内 [`Dockerfile`](Dockerfile) 构建镜像，并通过 `env_file` 加载 `.env`。
+* **不要** 再配置 `APP_API_KEY`（已移除）。密钥只放在运行时环境变量中，不要写入镜像层。
+
+---
+
+### B) 本地开发（热更新）
+
+适合：修改 `src/ideago` 或 `frontend/` 时需要前后端即时反馈。
+
+**环境要求**
+
+* Python **3.10+** 与 [uv](https://github.com/astral-sh/uv)
+* Node.js **20+** 与 [pnpm](https://pnpm.io/)
+
+**1）安装依赖**
+
+```bash
+uv sync --all-extras
+pnpm --prefix frontend install
+```
+
+**2）环境变量**
+
+```bash
+cp .env.example .env
+# 编辑 .env（至少：OPENAI_API_KEY）
+```
+
+**3）两个终端分别启动**
+
+终端 1 — 后端 API（热重载）：
+
+```bash
+uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
+```
+
+终端 2 — 前端 Vite：
+
+```bash
+pnpm --prefix frontend dev
+```
+
+**访问**
+
+* 前端：[http://localhost:5173](http://localhost:5173)
+* 健康检查：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+
+---
+
+### C) 可选：单进程本地（后端托管构建后的前端）
+
+适合：不需要 Vite 开发服务器、希望一个进程由 FastAPI 提供前端静态资源。
+
+```bash
+pnpm --prefix frontend build
+uv run python -m ideago
+```
+
+**访问**
+
+* [http://localhost:8000](http://localhost:8000)
+
+---
+
+## 🏗️ 系统架构
 
 ```mermaid
 flowchart TD
-    A["用户想法输入"] --> B["POST /api/v1/analyze"]
+    A["用户想法"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph 引擎"]
     C --> D["parse_intent"]
-    D --> E["cache_lookup"]
+    D --> E{"cache_lookup"}
     E -->|命中| F["report_ready"]
     E -->|未命中| G["fetch_sources"]
     G --> H["extract_map"]
@@ -101,327 +170,123 @@ flowchart TD
     J --> K["persist_report"]
     K --> F
     F --> L["GET /api/v1/reports/{id}"]
-    C --> M["SSE /api/v1/reports/{id}/stream"]
+    C -.-> M["SSE /api/v1/reports/{id}/stream"]
 ```
 
 ### 运行说明
 
-- `POST /analyze` 后端异步执行并立即返回 `report_id`。
-- 前端通过 SSE 订阅阶段事件并实时展示进度。
-- 对同一标准化查询的并发请求会做去重。
-- `analyze` 内置内存限流：每个 IP/会话键 `60s` 内最多 `10` 次请求。
+* `POST /analyze` 立即返回 `report_id`，分析在后台继续。
+* 前端通过 SSE 展示各阶段进度。
+* 同一标准化查询的并发进行中请求会去重。
+* `POST /api/v1/analyze` 内存限流：每 IP/会话键 **60 秒** 内最多 **10** 次。
 
 ---
 
-## 安全模型（移除 APP_API_KEY 之后）
+## 📊 API 概览
 
-`APP_API_KEY` / `X-API-Key` 已从后端、前端和运行时注入完全移除。
-
-当前内置控制：
-
-- **请求限流**：对 `POST /api/v1/analyze` 做内存限流（每个 IP/会话键 `60s` 内 `10` 次）。
-- **CORS 边界**：通过 `CORS_ALLOW_ORIGINS` 控制允许的浏览器来源（公网部署避免使用 `*`）。
-- **输入校验**：FastAPI + Pydantic 对请求负载进行校验。
-- **安全错误面**：流程失败仅返回脱敏错误，不暴露内部密钥。
-
-推荐部署控制（尤其对外网开放时）：
-
-- 将 IdeaGo 放在反向代理/API 网关之后（Nginx、Caddy、Cloudflare、Traefik）。
-- 增加网络层防护：IP 白名单、VPN、Zero Trust 通道或网关层 Basic Auth。
-- 在网关终止 TLS，并保持后端服务处于 Docker 网络/VPC 私有网络内。
-- 密钥仅保留在运行时环境变量中（如 `OPENAI_API_KEY`、`TAVILY_API_KEY`），避免写入镜像层。
-
----
-
-## 技术栈
-
-### 后端
-
-- Python 3.10+
-- FastAPI + Uvicorn
-- LangGraph 状态机流水线
-- LangChain OpenAI 客户端
-- Pydantic v2 / pydantic-settings
-- 文件缓存 + SQLite 检查点存储
-- Supabase 认证与会话集成
-
-### 前端
-
-- React 19 + TypeScript + Vite 7
-- Tailwind CSS 4
-- React Router 7
-- i18next（中英双语）
-- Supabase JS
-- Framer Motion + Recharts
-
----
-
-## 快速开始
-
-### 1) 前置要求
-
-- Python `3.10+`
-- [uv](https://github.com/astral-sh/uv)
-- Node.js `20+`
-
-### 2) 安装依赖
-
-```bash
-# 后端
-uv sync --all-extras
-
-# 前端
-pnpm --prefix frontend install
-```
-
-### 3) 配置环境
-
-```bash
-cp .env.example .env
-```
-
-最小建议配置：
-
-- 必需：`OPENAI_API_KEY`
-- 推荐：`TAVILY_API_KEY`
-
-### 4) 开发模式（热更新）
-
-终端 1：
-
-```bash
-uv run uvicorn ideago.api.app:create_app --factory --reload --port 8000
-```
-
-终端 2：
-
-```bash
-pnpm --prefix frontend dev
-```
-
-访问：
-
-- 前端：[http://localhost:5173](http://localhost:5173)
-- 后端健康检查：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
-
-### 5) 单进程本地运行（后端托管构建后的前端）
-
-```bash
-pnpm --prefix frontend build
-uv run python -m ideago
-```
-
-访问：[http://localhost:8000](http://localhost:8000)
-
-### 6) Docker
-
-```bash
-cp .env.example .env
-docker compose up --build -d
-```
-
-说明：
-
-- **不要**设置 `APP_API_KEY`（已不再支持）。
-- `.env` 仅保留真实的提供方密钥（如 `OPENAI_API_KEY`、`TAVILY_API_KEY`）。
-- `docker-compose.yml` 默认使用预构建镜像。如需本地构建，请使用：
-
-```bash
-docker compose build --no-cache
-docker compose up -d
-```
-
-访问：[http://localhost:8000](http://localhost:8000)
-
----
-
-## API 概览
-
-基础前缀：`/api/v1`
+基础路径：`/api/v1`
 
 | 方法 | 路径 | 说明 |
-|---|---|---|
-| `POST` | `/analyze` | 启动分析并返回 `report_id` |
-| `GET` | `/health` | 服务健康 + 数据源可用性 |
+| --- | --- | --- |
+| `POST` | `/analyze` | 启动分析，返回 `report_id` |
+| `GET` | `/health` | 健康检查与数据源可用性 |
 | `GET` | `/reports` | 报告列表（`limit`、`offset`） |
 | `GET` | `/reports/{report_id}` | 获取报告（处理中返回 `202`） |
-| `GET` | `/reports/{report_id}/status` | 运行状态（`processing/failed/cancelled/complete/not_found`） |
+| `GET` | `/reports/{report_id}/status` | 运行状态 |
 | `GET` | `/reports/{report_id}/stream` | SSE 进度流 |
 | `GET` | `/reports/{report_id}/export` | 导出 Markdown |
 | `DELETE` | `/reports/{report_id}` | 删除报告 |
-| `DELETE` | `/reports/{report_id}/cancel` | 取消进行中的分析 |
+| `DELETE` | `/reports/{report_id}/cancel` | 取消任务 |
 
-### SSE 事件类型
-
-`intent_started`, `intent_parsed`, `source_started`, `source_completed`, `source_failed`, `extraction_started`, `extraction_completed`, `aggregation_started`, `aggregation_completed`, `report_ready`, `cancelled`, `error`
-
-### 示例
+**示例**
 
 ```bash
-# 启动分析
 curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Content-Type: application/json" \
   -d '{"query":"An AI assistant for indie game analytics"}'
 
-# 订阅事件流
 curl -N http://localhost:8000/api/v1/reports/<report_id>/stream
-
-# 获取报告
-curl http://localhost:8000/api/v1/reports/<report_id>
 ```
 
 ---
 
-## 报告模型
+## ⚙️ 配置说明
 
-每份报告都包含：
-
-- **核心分析**：竞品列表、市场总结、结论建议、差异化机会
-- **置信度信息**：样本量、来源覆盖、来源成功率、综合评分、时效提示
-- **证据信息**：关键证据摘要 + 结构化证据项
-- **成本遥测**：LLM 调用/重试/故障切换、Token 使用、总耗时
-- **容错元数据**：端点回退使用情况与最后错误类型
-
-这样结论可解释、可追溯，而不是黑盒输出。
-
----
-
-## 配置说明
-
-完整默认值见 `.env.example`，类型定义见 `src/ideago/config/settings.py`。
+默认值见 [`.env.example`](.env.example)，类型定义见 [`src/ideago/config/settings.py`](src/ideago/config/settings.py)。
 
 | 变量 | 必需 | 默认 | 用途 |
-|---|---|---|---|
-| `OPENAI_API_KEY` | 是 | `""` | LLM 访问密钥 |
-| `OPENAI_MODEL` | 否 | `gpt-4o-mini` | 主模型名称 |
-| `OPENAI_BASE_URL` | 否 | `""` | OpenAI 兼容端点 |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | 是 | `""` | LLM 访问 |
+| `OPENAI_MODEL` | 否 | `gpt-4o-mini` | 主模型 |
 | `OPENAI_FALLBACK_ENDPOINTS` | 否 | `""` | 备用端点 JSON 数组 |
-| `OPENAI_TIMEOUT_SECONDS` | 否 | `60` | LLM 超时时间 |
+| `TAVILY_API_KEY` | 推荐 | `""` | Tavily 网页检索 |
+| `GITHUB_TOKEN` | 否 | `""` | 提高 GitHub 限流 |
 | `LANGGRAPH_MAX_RETRIES` | 否 | `2` | 重试预算 |
-| `LANGGRAPH_JSON_PARSE_MAX_RETRIES` | 否 | `1` | JSON 恢复重试次数 |
-| `TAVILY_API_KEY` | 推荐 | `""` | 启用 Tavily 数据源 |
-| `GITHUB_TOKEN` | 否 | `""` | 提升 GitHub 速率限制 |
-| `PRODUCTHUNT_DEV_TOKEN` | 否 | `""` | 启用 Product Hunt 数据源 |
-| `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | 否 | `""` | 启用 Reddit 数据源 |
-| `APPSTORE_COUNTRY` | 否 | `us` | App Store 国家码 |
-| `PRODUCTHUNT_POSTED_AFTER_DAYS` | 否 | `730` | Product Hunt 抓取时间窗口（天） |
-| `MAX_RESULTS_PER_SOURCE` | 否 | `10` | 每源原始结果上限 |
-| `SOURCE_TIMEOUT_SECONDS` | 否 | `30` | 数据源超时 |
-| `SOURCE_QUERY_CONCURRENCY` | 否 | `2` | 每源并发数 |
-| `SOURCE_GLOBAL_CONCURRENCY` | 否 | `3` | 跨数据源并发上限 |
-| `EXTRACTION_TIMEOUT_SECONDS` | 否 | `180` | LLM 提取超时 |
 | `CACHE_DIR` | 否 | `.cache/ideago` | 缓存目录 |
-| `CACHE_TTL_HOURS` | 否 | `24` | 缓存有效期 |
-| `LANGGRAPH_CHECKPOINT_DB_PATH` | 否 | `.cache/ideago/langgraph-checkpoints.db` | LangGraph 检查点数据库 |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 否 | `""` | Supabase 客户端认证配置 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 否 | `""` | 后端高权限 Supabase 访问 |
-| `AUTH_SESSION_SECRET` / `AUTH_SESSION_EXPIRE_HOURS` | 否 | `""` / `720` | 后端会话签名配置 |
-| `FRONTEND_APP_URL` | 否 | `""` | 用于认证回调的前端公开地址 |
-| `LINUXDO_CLIENT_ID` / `LINUXDO_CLIENT_SECRET` | 否 | `""` | LinuxDo OAuth 客户端配置 |
-| `LINUXDO_AUTHORIZE_URL` / `LINUXDO_TOKEN_URL` / `LINUXDO_USERINFO_URL` / `LINUXDO_SCOPE` | 否 | 内置默认值 | LinuxDo OAuth 端点与 scope |
-| `CORS_ALLOW_ORIGINS` | 否 | `*` | CORS 允许来源 |
-| `HOST` / `PORT` | 否 | `0.0.0.0` / `8000` | 服务监听地址 |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 否 | `""` | Supabase 客户端 |
+| `CORS_ALLOW_ORIGINS` | 否 | `*` | 浏览器来源 |
+
+完整列表（超时、并发、Reddit/Product Hunt、LinuxDo OAuth 等）见 `.env.example`。
 
 ---
 
-## 项目结构
+## 🔒 安全说明（移除 `APP_API_KEY` 之后）
+
+`APP_API_KEY` / `X-API-Key` 已从各处移除。
+
+**内置**
+
+* `POST /api/v1/analyze` 限流（见上文）。
+* `CORS_ALLOW_ORIGINS` 控制跨域（公网勿滥用 `*`）。
+* FastAPI + Pydantic 校验；对客户端返回脱敏错误。
+
+**公网部署建议**
+
+* 前置反向代理或 API 网关（Nginx、Caddy、Cloudflare、Traefik 等）。
+* 在边缘终止 TLS，后端放在私有网络。
+* 密钥仅运行时注入，勿写入镜像。
+
+---
+
+## 📂 项目结构
 
 ```text
 .
-|-- src/ideago
-|   |-- api/             # FastAPI 应用、路由、Schema、依赖注入
-|   |-- auth/            # 认证依赖与 Supabase 辅助模块
-|   |-- cache/           # 缓存抽象与文件/Supabase 缓存
-|   |-- config/          # 运行时配置
-|   |-- contracts/       # 协议与接口
-|   |-- core/            # 共享运行时上下文
-|   |-- llm/             # 大模型客户端与 Prompt 模板
-|   |-- models/          # Pydantic 领域模型
-|   |-- observability/   # 日志配置
-|   |-- pipeline/        # LangGraph 引擎、节点、事件、状态
-|   |-- sources/         # 数据源插件（GitHub/Tavily/HN/AppStore/Product Hunt/Reddit）
-|   `-- utils/           # 共享工具函数
-|-- frontend/            # React + TypeScript 前端
-|   `-- src/
-|       |-- app/         # 应用壳层与路由
-|       |-- components/  # 共享 UI 组件
-|       |-- features/    # auth/history/home/landing/profile/reports
-|       |-- lib/         # api/auth/i18n/supabase/types/utils
-|       `-- styles/      # 全局样式
-|-- tests/               # Pytest 测试
-|-- scripts/             # 发布/开发脚本
-|-- ai_docs/             # 工程规范与使用指南
-`-- docs/                # 计划与设计资产
+├── src/ideago/          # FastAPI、LangGraph、数据源、模型
+├── frontend/src/        # React 19 应用
+├── tests/               # Pytest
+├── ai_docs/             # 工程规范
+└── docs/                # 设计资源
 ```
 
 ---
 
-## 开发与质量
+## 🛠️ 技术栈
 
-提交前建议运行相关检查：
+**后端：** Python 3.10+、FastAPI、LangGraph、LangChain OpenAI、Pydantic v2、可选 Supabase。
+
+**前端：** React 19、TypeScript、Vite 7、Tailwind 4、React Router 7、i18next、Supabase JS、Framer Motion、Recharts。
+
+---
+
+## 🤝 开发与质量
 
 ```bash
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
+
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
 
----
-
-## 容器与 CI 说明（移除 APP_API_KEY 之后）
-
-### Dockerfile
-
-- 不需要 `APP_API_KEY` 的 build arg 或环境变量。
-- Dockerfile 保持无密钥，密钥仅在运行时注入。
-- 现有镜像入口与运行流程已兼容移除变更。
-
-### docker-compose
-
-- `.env`、服务 `environment` 或 `env_file` 中不应包含 `APP_API_KEY`。
-- 若使用预构建镜像，保持：
-  - `image: <registry>/ideago:<tag>`
-  - `env_file: .env`
-- 若本地构建，请切换为：
-
-```yaml
-services:
-  ideago:
-    build:
-      context: .
-      dockerfile: Dockerfile
-```
-
-### CI 镜像构建与推送
-
-- 现有发布流程可保持不变。
-- 如仓库设置中仍有与 `APP_API_KEY` 相关的 CI Secrets/Vars，请移除。
-- 保留必要的运行时/提供方密钥（例如 `OPENAI_API_KEY` 仅用于发布说明生成，不用于镜像构建本身）。
+详见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)。
 
 ---
 
-## 路线图与文档
-
-- 变更记录：[CHANGELOG.md](CHANGELOG.md)
-- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
-- 后端规范：[ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
-- 工具规范：[ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
-- 配置指南：[ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
-- SDK 使用指南：[ai_docs/SDK_USAGE.md](ai_docs/SDK_USAGE.md)
-
----
-
-## 参与贡献
-
-欢迎提交 Issue 和 Pull Request。开始之前请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
----
-
-## 许可证
+## 📄 许可证
 
 MIT License。详见 [LICENSE](LICENSE)。
