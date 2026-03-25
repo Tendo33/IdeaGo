@@ -46,7 +46,7 @@ function LinuxDoIcon({ className }: { className?: string }) {
 }
 
 export function LoginPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   useDocumentTitle(t('auth.loginTitle', 'Sign In') + ' — IdeaGo')
 
   const navigate = useNavigate()
@@ -62,6 +62,7 @@ export function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [confirmSent, setConfirmSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
@@ -108,7 +109,15 @@ export function LoginPage() {
         }
         navigate(from, { replace: true })
       } else {
-        const { error: err } = await supabase.auth.signUp({ email, password })
+        const { error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              language: emailLanguage,
+            },
+          },
+        })
         if (err) {
           setError(err.message)
           return
