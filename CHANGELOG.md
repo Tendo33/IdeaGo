@@ -137,7 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-01-20
 
 ### Added
-- Initial release of Python Template
+- Initial public IdeaGo release
 - **Utils Module**
   - `logger_util`: Loguru-based logging configuration and management
   - `json_utils`: JSON read/write and serialization utilities

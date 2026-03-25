@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/icon_new.png" alt="IdeaGo Icon" width="120" />
+  <img src="docs/assets/icon.png" alt="IdeaGo Icon" width="120" />
 </div>
 
 # IdeaGo
