@@ -2,44 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
-const mockUser = { id: 'u1', email: 'test@test.com' }
-let authState: { user: typeof mockUser | null; loading: boolean } = {
-  user: mockUser,
-  loading: false,
-}
-
-vi.mock('@/lib/auth/useAuth', () => ({
-  useAuth: () => ({
-    session: authState.user ? { user: authState.user, access_token: 'tok' } : null,
-    user: authState.user,
-    loading: authState.loading,
-    signOut: vi.fn(),
-  }),
-}))
-
-vi.mock('@/lib/auth/AuthProvider', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-
-vi.mock('@/lib/auth/ProtectedRoute', () => ({
-  ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  AdminRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-
 vi.mock('@/features/home/HomePage', () => ({
   HomePage: () => <div>HOME PAGE</div>,
-}))
-
-vi.mock('@/features/landing/LandingPage', () => ({
-  LandingPage: () => <div>LANDING PAGE</div>,
-}))
-
-vi.mock('@/features/auth/LoginPage', () => ({
-  LoginPage: () => <div>LOGIN PAGE</div>,
-}))
-
-vi.mock('@/features/pricing/PricingPage', () => ({
-  PricingPage: () => <div>PRICING PAGE</div>,
 }))
 
 vi.mock('@/features/reports/ReportPage', async () => {
@@ -54,21 +18,6 @@ vi.mock('@/features/history/HistoryPage', async () => {
   return {
     HistoryPage: () => <div>HISTORY PAGE</div>,
   }
-})
-
-describe('App route loading', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    authState = { user: mockUser, loading: false }
-    window.history.pushState({}, '', '/reports/r-1')
-  })
-
-  it('shows route fallback before lazy page resolves', async () => {
-    render(<App />)
-
-    expect(screen.getByTestId('route-loading')).toBeInTheDocument()
-    expect(await screen.findByText('REPORT PAGE')).toBeInTheDocument()
-  })
 })
 
 function mockMatchMedia(matches: boolean) {
@@ -89,69 +38,46 @@ function mockMatchMedia(matches: boolean) {
   vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => mediaQueryList))
 }
 
-describe('App landing page', () => {
+describe('App route loading', () => {
   beforeEach(() => {
     localStorage.clear()
+    window.history.pushState({}, '', '/reports/r-1')
+  })
+
+  it('shows route fallback before lazy page resolves', async () => {
+    mockMatchMedia(false)
+    render(<App />)
+
+    expect(screen.getByTestId('route-loading')).toBeInTheDocument()
+    expect(await screen.findByText('REPORT PAGE')).toBeInTheDocument()
+  })
+})
+
+describe('App personal mode routes', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
     window.history.pushState({}, '', '/')
   })
 
-  it('shows landing page when not authenticated', async () => {
-    authState = { user: null, loading: false }
-    render(<App />)
-    expect(await screen.findByText('LANDING PAGE')).toBeInTheDocument()
-  })
-
-  it('shows home page when authenticated', async () => {
-    authState = { user: mockUser, loading: false }
+  it('shows home page on root without requiring authentication', async () => {
+    mockMatchMedia(false)
     render(<App />)
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
   })
 
-  it('hides pricing route behind not found', async () => {
-    authState = { user: null, loading: false }
-    window.history.pushState({}, '', '/pricing')
+  it('renders history route directly', async () => {
+    mockMatchMedia(false)
+    window.history.pushState({}, '', '/reports')
     render(<App />)
 
-    expect(await screen.findByText('404')).toBeInTheDocument()
-  })
-})
-
-describe('App signed-out navigation', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    authState = { user: null, loading: false }
-    window.history.pushState({}, '', '/login')
-  })
-
-  it('does not show pricing entry on login', async () => {
-    render(<App />)
-    expect(await screen.findByText('LOGIN PAGE')).toBeInTheDocument()
-
-    expect(screen.queryByRole('link', { name: /pricing|choose your plan/i })).not.toBeInTheDocument()
-  })
-})
-
-describe('App user menu', () => {
-  beforeEach(() => {
-    localStorage.clear()
-    authState = { user: mockUser, loading: false }
-    window.history.pushState({}, '', '/')
-  })
-
-  it('does not show upgrade entry in the user menu', async () => {
-    render(<App />)
-    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /user menu/i }))
-
-    expect(screen.queryByRole('menuitem', { name: /upgrade to pro/i })).not.toBeInTheDocument()
+    expect(await screen.findByText('HISTORY PAGE')).toBeInTheDocument()
   })
 })
 
 describe('App theme mode', () => {
   beforeEach(() => {
     localStorage.clear()
-    authState = { user: mockUser, loading: false }
     document.documentElement.classList.remove('dark')
     window.history.pushState({}, '', '/')
   })
@@ -188,7 +114,6 @@ describe('App theme mode', () => {
 describe('App nav branding', () => {
   beforeEach(() => {
     localStorage.clear()
-    authState = { user: mockUser, loading: false }
     window.history.pushState({}, '', '/')
   })
 

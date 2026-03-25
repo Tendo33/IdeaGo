@@ -28,7 +28,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.collect',
-            'We collect information you provide when creating an account (email, display name), your search queries for generating reports, and standard usage analytics (page views, feature usage).',
+            'We collect the idea queries you submit to generate reports, locally persisted report data, and standard operational telemetry needed to keep the service running.',
           )}
         </p>
 
@@ -36,7 +36,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.use',
-            'We use your information to provide and improve the Service, process payments, send important account notifications, and aggregate anonymized analytics.',
+            'We use this information to generate reports, improve retrieval and report quality, and keep the service stable.',
           )}
         </p>
 
@@ -44,7 +44,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.storage',
-            'Your data is stored securely using Supabase (PostgreSQL) with row-level security. We use HTTPS for all communications and never store payment card details — billing is handled entirely by Stripe.',
+            'On the main branch, reports are stored locally using file-based persistence and local SQLite checkpoints. We recommend HTTPS for public deployments and do not require payment or account data.',
           )}
         </p>
 
@@ -52,7 +52,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.sharing',
-            'We do not sell your personal data. We may share data with: Stripe (payment processing), Supabase (database hosting), and AI model providers (for report generation — queries only, not personal info).',
+            'We do not sell your personal data. Report queries may be sent to configured model and retrieval providers only to produce the report you requested.',
           )}
         </p>
 
@@ -60,7 +60,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.retention',
-            'Your reports and account data are retained as long as your account is active. Anonymous (non-authenticated) reports are automatically deleted after the configured TTL. You can delete your account and all associated data at any time from your profile settings.',
+            'Anonymous reports are retained according to the configured TTL for the local file cache. If you self-host the service, you control the stored files and retention policy.',
           )}
         </p>
 
@@ -68,7 +68,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.rights',
-            'You have the right to access, export, correct, and delete your personal data. You can delete your account from the Profile page, which will permanently remove all your data.',
+            'If you self-host the service, you control access, export, and deletion of locally stored report data. Export is available directly from the report page.',
           )}
         </p>
 
@@ -76,7 +76,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.cookies',
-            'We use essential cookies for authentication sessions. We do not use third-party advertising or tracking cookies.',
+            'The personal deployment does not require login cookies. We do not use third-party advertising cookies.',
           )}
         </p>
 
@@ -84,7 +84,7 @@ export function PrivacyPage() {
         <p>
           {t(
             'legal.privacy.changes',
-            'We may update this privacy policy from time to time. We will notify you of significant changes via email or in-app notification.',
+            'We may update this privacy policy from time to time by changing the documentation in the repository or deployed app.',
           )}
         </p>
 

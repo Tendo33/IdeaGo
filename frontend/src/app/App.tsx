@@ -1,45 +1,11 @@
 import { Button } from '@/components/ui/Button'
-import { Component, Suspense, lazy, useEffect, useState, type ReactNode, type ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
-import { History, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { Toaster } from 'sonner'
-import { AuthProvider } from '@/lib/auth/AuthProvider'
-import { ProtectedRoute, AdminRoute } from '@/lib/auth/ProtectedRoute'
-import { useAuth } from '@/lib/auth/useAuth'
-import { PRICING_ENABLED } from '@/lib/featureFlags'
-import { UserMenu } from '@/features/auth/components/UserMenu'
+import { Component, Suspense, lazy, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
+import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
+import { AlertTriangle, ArrowLeft, History } from 'lucide-react'
+import { HomePage } from '@/features/home/HomePage'
 import { ThemeModeMenu, type ThemeMode } from './ThemeModeMenu'
-
-const HomePage = lazy(async () => {
-  const page = await import('@/features/home/HomePage')
-  return { default: page.HomePage }
-})
-
-const LandingPage = lazy(async () => {
-  const page = await import('@/features/landing/LandingPage')
-  return { default: page.LandingPage }
-})
-
-const LoginPage = lazy(async () => {
-  const page = await import('@/features/auth/LoginPage')
-  return { default: page.LoginPage }
-})
-
-const AuthCallback = lazy(async () => {
-  const page = await import('@/features/auth/AuthCallback')
-  return { default: page.AuthCallback }
-})
-
-const ProfilePage = lazy(async () => {
-  const page = await import('@/features/profile/ProfilePage')
-  return { default: page.ProfilePage }
-})
-
-const PricingPage = lazy(async () => {
-  const page = await import('@/features/pricing/PricingPage')
-  return { default: page.PricingPage }
-})
 
 const ReportPage = lazy(async () => {
   const page = await import('@/features/reports/ReportPage')
@@ -49,21 +15,6 @@ const ReportPage = lazy(async () => {
 const HistoryPage = lazy(async () => {
   const page = await import('@/features/history/HistoryPage')
   return { default: page.HistoryPage }
-})
-
-const AdminPage = lazy(async () => {
-  const page = await import('@/features/admin/AdminPage')
-  return { default: page.AdminPage }
-})
-
-const TermsPage = lazy(async () => {
-  const page = await import('@/features/legal/TermsPage')
-  return { default: page.TermsPage }
-})
-
-const PrivacyPage = lazy(async () => {
-  const page = await import('@/features/legal/PrivacyPage')
-  return { default: page.PrivacyPage }
 })
 
 interface ErrorBoundaryState {
@@ -120,15 +71,6 @@ function getLanguageDisplayName(language: string, uiLanguage: string): string {
   } catch {
     return normalizedLanguage.toUpperCase()
   }
-}
-
-function useDocumentLanguageSync() {
-  const { i18n } = useTranslation()
-  const currentLanguage = i18n.resolvedLanguage ?? i18n.language
-
-  useEffect(() => {
-    document.documentElement.lang = resolveDocumentLanguage(currentLanguage)
-  }, [currentLanguage])
 }
 
 function useThemeMode() {
@@ -213,12 +155,9 @@ function NotFound() {
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
       <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-lg text-center">
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
-          <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
+        <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
         <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.notFoundMessage')}</p>
-        <Button
-          size="lg"
-          onClick={() => navigate('/')}
-        >
+        <Button size="lg" onClick={() => navigate('/')}>
           <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
           {t('error.backToHome')}
         </Button>
@@ -235,11 +174,14 @@ function NavBar({
   onSelectThemeMode: (mode: ThemeMode) => void
 }) {
   const { t, i18n } = useTranslation()
-  const { user } = useAuth()
   const currentLanguage = i18n.resolvedLanguage ?? i18n.language ?? 'en'
   const isChinese = currentLanguage.startsWith('zh')
   const nextLanguage = isChinese ? 'en' : 'zh'
   const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLanguage)
+
+  useEffect(() => {
+    document.documentElement.lang = resolveDocumentLanguage(currentLanguage)
+  }, [currentLanguage])
 
   const toggleLanguage = () => {
     i18n.changeLanguage(nextLanguage)
@@ -262,25 +204,14 @@ function NavBar({
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
-        {PRICING_ENABLED && (
-          <Link
-            to="/pricing"
-            className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          >
-            <span>{t('pricing.title')}</span>
-          </Link>
-        )}
-        {user && (
-          <Link
-            to="/reports"
-            className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-            aria-label={t('app.history')}
-          >
-            <History className="w-5 h-5 shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">{t('app.history')}</span>
-          </Link>
-        )}
-        <UserMenu />
+        <Link
+          to="/reports"
+          className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          aria-label={t('app.history')}
+        >
+          <History className="w-5 h-5 shrink-0" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('app.history')}</span>
+        </Link>
       </div>
     </nav>
   )
@@ -298,69 +229,32 @@ function RouteLoading() {
   )
 }
 
-function HomeOrLanding({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (mode: ThemeMode) => void }) {
-  const { user, loading } = useAuth()
-  if (loading) return <RouteLoading />
-  return user ? <HomePage /> : <LandingPage themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
-}
-
-function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (m: ThemeMode) => void }) {
-  const { t } = useTranslation()
-  const { user, loading } = useAuth()
-  const { pathname } = useLocation()
-  const showNavForSignedOutPublicRoute =
-    pathname === '/login' ||
-    pathname === '/terms' ||
-    pathname === '/privacy' ||
-    (PRICING_ENABLED && pathname === '/pricing')
-  const showNav = !loading && (user !== null || showNavForSignedOutPublicRoute)
-  useDocumentLanguageSync()
-
-  return (
-    <>
-      <a href="#main-content" className="skip-to-content">
-        {t('app.skipToContent')}
-      </a>
-      {showNav && <NavBar themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />}
-      <main
-        id="main-content"
-        className={`pb-16 min-h-screen bg-background text-foreground overflow-x-hidden ${showNav ? 'pt-24 sm:pt-32' : ''}`}
-      >
-        <Suspense fallback={<RouteLoading />}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/" element={<HomeOrLanding themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />} />
-            {PRICING_ENABLED && <Route path="/pricing" element={<PricingPage />} />}
-            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-            <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
-            <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </main>
-    </>
-  )
-}
-
 export default function App() {
   const { themeMode, selectThemeMode } = useThemeMode()
 
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <AppShell themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              className: 'border-2 border-border bg-background text-foreground font-bold shadow-lg',
-            }}
-          />
-        </AuthProvider>
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
+        <NavBar themeMode={themeMode} onSelectThemeMode={selectThemeMode} />
+        <main id="main-content" className="pb-16 pt-24 sm:pt-32 min-h-screen bg-background text-foreground overflow-x-hidden">
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/reports/:id" element={<ReportPage />} />
+              <Route path="/reports" element={<HistoryPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </main>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            className: 'border-2 border-border bg-background text-foreground font-bold shadow-lg',
+          }}
+        />
       </BrowserRouter>
     </ErrorBoundary>
   )

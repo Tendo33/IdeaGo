@@ -10,16 +10,13 @@ import {
   exportReport,
   getStreamUrl,
 } from '../client'
-import { saveCustomAuthSession, setAccessToken } from '@/lib/auth/token'
 
-const NativeURL = globalThis.URL
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 beforeEach(() => {
   mockFetch.mockReset()
   localStorage.clear()
-  setAccessToken(null)
 })
 
 describe('startAnalysis', () => {
@@ -170,30 +167,6 @@ describe('listReports', () => {
       expect.objectContaining({ signal: expect.anything() }),
     )
   })
-
-  it('falls back to the stored custom auth session when the in-memory token is not initialized yet', async () => {
-    saveCustomAuthSession({
-      access_token: 'stored-token',
-      provider: 'linuxdo',
-      user: { id: 'u1', email: 'user@example.com' },
-    })
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 0 }),
-    })
-
-    await listReports({ limit: 5, offset: 0 })
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/v1\/reports\?limit=5&offset=0$/),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer stored-token',
-        }),
-      }),
-    )
-  })
 })
 
 describe('deleteReport', () => {
@@ -242,7 +215,7 @@ describe('cancelAnalysis', () => {
 })
 
 describe('URL helpers', () => {
-  it('exportReport fetches with auth and triggers download', async () => {
+  it('exportReport triggers download in anonymous mode', async () => {
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:fake', revokeObjectURL })
 
@@ -254,7 +227,7 @@ describe('URL helpers', () => {
     await exportReport('abc')
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/reports/abc/export'),
-      expect.objectContaining({ headers: expect.any(Object) }),
+      expect.objectContaining({ signal: expect.anything() }),
     )
     expect(mockLink.click).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:fake')
@@ -262,57 +235,5 @@ describe('URL helpers', () => {
 
   it('getStreamUrl builds correct URL', () => {
     expect(getStreamUrl('abc')).toContain('/api/v1/reports/abc/stream')
-  })
-})
-
-describe('supabase fallback client', () => {
-  it('provides safe auth callbacks when Supabase env is missing', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    vi.resetModules()
-    vi.stubEnv('VITE_SUPABASE_URL', '')
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '')
-    vi.stubGlobal('URL', NativeURL)
-
-    try {
-      const { supabase } = await import('../../supabase/client')
-
-      await expect(supabase.auth.signOut()).resolves.toEqual({ error: null })
-      await expect(supabase.auth.getSession()).resolves.toEqual({
-        data: { session: null },
-        error: null,
-      })
-
-      const authState = supabase.auth.onAuthStateChange(() => {})
-      expect(authState.data.subscription.unsubscribe).toEqual(expect.any(Function))
-
-      const oauthResult = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-      } as never)
-      expect(oauthResult.error).toBeInstanceOf(Error)
-
-      const passwordResult = await supabase.auth.signInWithPassword({
-        email: 'user@example.com',
-        password: 'password',
-      })
-      expect(passwordResult.error).toBeInstanceOf(Error)
-
-      const signUpResult = await supabase.auth.signUp({
-        email: 'user@example.com',
-        password: 'password',
-      })
-      expect(signUpResult.error).toBeInstanceOf(Error)
-
-      const resetResult = await supabase.auth.resetPasswordForEmail('user@example.com')
-      expect(resetResult.error).toBeInstanceOf(Error)
-
-      expect(warn).toHaveBeenCalledWith(
-        'Supabase URL or anon key is missing — auth will not work.',
-      )
-    } finally {
-      warn.mockRestore()
-      vi.unstubAllEnvs()
-      vi.resetModules()
-    }
   })
 })

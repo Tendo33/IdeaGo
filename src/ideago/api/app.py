@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ideago import __version__
 from ideago.api.errors import AppError, ErrorCode
-from ideago.api.routes import admin, analyze, auth, billing, health, reports
+from ideago.api.routes import analyze, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -87,14 +87,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         with contextlib.suppress(asyncio.CancelledError):
             await _cleanup_task
     from ideago.api.dependencies import _cache, _orchestrator, shutdown_runtime_state
-    from ideago.auth.dependencies import close_auth_http_client
-    from ideago.auth.supabase_admin import close_supabase_admin_client
-    from ideago.observability.audit import close_audit_client
 
     await shutdown_runtime_state()
-    await close_auth_http_client()
-    await close_supabase_admin_client()
-    await close_audit_client()
     if _cache is not None and hasattr(_cache, "close"):
         await _cache.close()
     _rate_limit_store.clear()
@@ -172,7 +166,7 @@ def create_app() -> FastAPI:
         return response
 
     _CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-    _CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhook"}
+    _CSRF_EXEMPT_PATHS: set[str] = set()
 
     @app.middleware("http")
     async def csrf_protection(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
@@ -224,45 +218,9 @@ def create_app() -> FastAPI:
         timestamps.append(now)
         return False
 
-    _use_pg_rate_limit = bool(
-        settings.supabase_url and settings.supabase_service_role_key
-    )
-
-    async def _check_rate_limit_pg(
-        key: str, *, max_requests: int, window_seconds: int
-    ) -> bool:
-        """PG-backed sliding-window check via Supabase RPC."""
-        import httpx
-
-        url = f"{settings.supabase_url}/rest/v1/rpc/check_rate_limit"
-        headers = {
-            "apikey": settings.supabase_service_role_key,
-            "Authorization": f"Bearer {settings.supabase_service_role_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "p_key": key,
-            "p_max_requests": max_requests,
-            "p_window_seconds": window_seconds,
-        }
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code == 200:
-                return resp.json() is True
-        except Exception:
-            logger.debug("PG rate-limit RPC failed, falling back to in-memory")
-        return _check_rate_limit_memory(
-            key, max_requests=max_requests, window_seconds=window_seconds
-        )
-
     async def _check_rate_limit(
         key: str, *, max_requests: int, window_seconds: int
     ) -> bool:
-        if _use_pg_rate_limit:
-            return await _check_rate_limit_pg(
-                key, max_requests=max_requests, window_seconds=window_seconds
-            )
         return _check_rate_limit_memory(
             key, max_requests=max_requests, window_seconds=window_seconds
         )
@@ -271,11 +229,7 @@ def create_app() -> FastAPI:
     async def rate_limit_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
         """Sliding-window rate limiter for /analyze and /reports.
 
-        Uses PG-backed rate limiting when Supabase is configured (works across
-        multiple workers/nodes). Falls back to in-memory for dev mode.
-
-        Keys by authenticated user ID. Falls back to IP + session for
-        unauthenticated requests.
+        Uses in-memory rate limiting keyed by IP and optional session ID.
         """
         path = request.url.path
         limit_max: int | None = None
@@ -292,17 +246,7 @@ def create_app() -> FastAPI:
             prefix = "reports:"
 
         if limit_max is not None and limit_window is not None:
-            from ideago.auth.dependencies import get_optional_user
-
-            user_id = ""
-            try:
-                user = await get_optional_user(request)
-                if user is not None:
-                    user_id = user.id
-            except Exception:
-                pass
-
-            rate_key = prefix + _resolve_rate_key(request, user_id)
+            rate_key = prefix + _resolve_rate_key(request, "")
             if await _check_rate_limit(
                 rate_key, max_requests=limit_max, window_seconds=limit_window
             ):
@@ -385,11 +329,8 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health.router, prefix="/api/v1")
-    app.include_router(auth.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
-    app.include_router(billing.router, prefix="/api/v1")
-    app.include_router(admin.router, prefix="/api/v1")
 
     if _FRONTEND_DIST.is_dir():
         assets_dir = _FRONTEND_DIST / "assets"

@@ -23,9 +23,8 @@ logger = get_logger(__name__)
 class FileCache:
     """File-based cache that stores reports as JSON files with a central index.
 
-    **Development only** — not suitable for production deployments because it
-    lacks cross-process safety, RLS, and does not guarantee tenant isolation.
-    Use ``SupabaseReportRepository`` in production.
+    This is the default storage model for the personal deployment branch.
+    It is intentionally single-process and local-first.
     """
 
     def __init__(

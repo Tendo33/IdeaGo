@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, is_report_id_processing
@@ -19,31 +19,9 @@ from ideago.api.schemas import (
     ReportListItem,
     ReportRuntimeStatus,
 )
-from ideago.auth.dependencies import get_current_user
-from ideago.auth.models import AuthUser
-from ideago.cache.base import ReportRepository
 from ideago.models.research import ResearchReport
 
 router = APIRouter(tags=["reports"])
-
-
-async def _assert_report_owner(
-    cache: ReportRepository, report_id: str, user_id: str
-) -> None:
-    """Raise 403/404 if the report/status belongs to another user or has no owner.
-
-    Fail-close: when no owner can be resolved, treat the report as not found
-    to prevent unauthorized access to orphaned data.
-    """
-    owner_id = await cache.get_report_user_id(report_id)
-    if not owner_id:
-        status = await cache.get_status(report_id)
-        if status:
-            owner_id = status.get("user_id", "") or ""
-    if not owner_id:
-        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
-    if owner_id != user_id:
-        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
 
 
 def _parse_status_updated_at(raw_value: object) -> datetime | None:
@@ -63,14 +41,11 @@ _MAX_LIST_LIMIT = 100
 async def list_reports(
     limit: int = Query(default=20, ge=1, le=_MAX_LIST_LIMIT),
     offset: int = Query(default=0, ge=0),
-    user: AuthUser = Depends(get_current_user),
 ) -> PaginatedReportList:
-    """List research reports belonging to the authenticated user."""
+    """List cached research reports for the local personal deployment."""
     cache = get_cache()
     capped_limit = min(limit, _MAX_LIST_LIMIT)
-    entries, total = await cache.list_reports(
-        limit=capped_limit, offset=offset, user_id=user.id
-    )
+    entries, total = await cache.list_reports(limit=capped_limit, offset=offset)
     return PaginatedReportList(
         items=[
             ReportListItem(
@@ -94,13 +69,10 @@ async def list_reports(
 )
 async def get_report(
     report_id: str,
-    user: AuthUser = Depends(get_current_user),
 ) -> ReportDetailV2 | JSONResponse:
     """Get a completed report by ID. Returns 202 if still processing, 404 if not found."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-
-    report = await cache.get_by_id(report_id, user_id=user.id)
+    report = await cache.get_by_id(report_id)
     if report is not None:
         return ReportDetailV2.model_validate(report.model_dump(mode="python"))
 
@@ -131,21 +103,10 @@ async def get_report(
 @router.get("/reports/{report_id}/status", response_model=ReportRuntimeStatus)
 async def get_report_status(
     report_id: str,
-    user: AuthUser = Depends(get_current_user),
 ) -> ReportRuntimeStatus:
     """Get report runtime status for processing/failed/cancelled/complete/not_found."""
     cache = get_cache()
-    owner_id = await cache.get_report_user_id(report_id)
-    if not owner_id:
-        status_payload = await cache.get_status(report_id)
-        if status_payload:
-            owner_id = status_payload.get("user_id", "") or ""
-    if not owner_id:
-        return ReportRuntimeStatus(status="not_found", report_id=report_id)
-    if owner_id != user.id:
-        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
-
-    report = await cache.get_by_id(report_id, user_id=user.id)
+    report = await cache.get_by_id(report_id)
     if report is not None:
         return ReportRuntimeStatus(
             status="complete",
@@ -185,12 +146,10 @@ async def get_report_status(
 @router.delete("/reports/{report_id}")
 async def delete_report(
     report_id: str,
-    user: AuthUser = Depends(get_current_user),
 ) -> dict:
-    """Delete a cached report owned by the authenticated user."""
+    """Delete a cached report from the local personal deployment."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-    deleted = await cache.delete(report_id, user_id=user.id)
+    deleted = await cache.delete(report_id)
     if not deleted:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     return {"status": "deleted"}
@@ -199,12 +158,10 @@ async def delete_report(
 @router.get("/reports/{report_id}/export")
 async def export_report(
     report_id: str,
-    user: AuthUser = Depends(get_current_user),
 ) -> PlainTextResponse:
     """Export a report as Markdown."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-    report = await cache.get_by_id(report_id, user_id=user.id)
+    report = await cache.get_by_id(report_id)
     if report is None:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 

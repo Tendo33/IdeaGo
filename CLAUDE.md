@@ -4,27 +4,26 @@ Use this file as the default project contract for Claude Code.
 
 ## Workflow
 
-1. Understand the request and constraints.
+1. Understand the request and branch target.
 2. Read the relevant docs in `ai_docs/` before editing.
-3. Propose concise implementation steps.
-4. Implement with minimal, targeted changes.
-5. Run verification commands before claiming completion.
+3. Keep the change set small and typed.
+4. Update docs/config when behavior or structure changes.
+5. Run the required verification before claiming completion.
 
-## Engineering Rules
+## Branch Model
 
-- **Read `ai_docs/` for project standards before starting work.**
-- Core contract: `ai_docs/AI_TOOLING_STANDARDS.md`.
-- Backend rules: `ai_docs/BACKEND_STANDARDS.md`.
-- Frontend rules: `ai_docs/FRONTEND_STANDARDS.md`.
-- Models: `ai_docs/MODELS_GUIDE.md`.
-- Settings: `ai_docs/SETTINGS_GUIDE.md`.
-- SDK/import conventions: `ai_docs/SDK_USAGE.md`.
-- Scripts and versioning: `ai_docs/SCRIPTS_GUIDE.md`.
-- Pre-commit: `ai_docs/PRE_COMMIT_GUIDE.md`.
-- Keep functions small, typed, and testable.
-- Handle errors explicitly; avoid silent failures.
-- Prefer updating existing files over creating new files.
-- If behavior, workflow, or structure changes, update docs in the same task.
+- `main`: personal/open-source deployment only.
+- `saas`: same core product as `main`, plus auth, billing, profile, admin, and SaaS-only env vars.
+- Public/core product work flows `main -> saas`.
+- Do not add new SaaS runtime dependencies to `main`.
+
+## Current Product Contract
+
+- Product contract is Source Intelligence V2, decision-first.
+- Reports must stay ordered as: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, evidence, confidence.
+- `pipeline/merger.py` remains deterministic competitor dedupe only.
+- Whitespace and entry-wedge synthesis belong in `pipeline/aggregator.py`.
+- Report payloads and frontend shared report types are explicit contracts and must be updated together.
 
 ## Current Stack
 
@@ -34,9 +33,9 @@ Use this file as the default project contract for Claude Code.
 - `uv`, `ruff`, `pytest`, `mypy`
 - FastAPI + Pydantic v2
 - LangGraph + LangChain OpenAI
-- File cache + Supabase cache + SQLite checkpoints
-- Supabase-backed authentication/session support
-- Stripe SDK for billing integration
+- File cache for persisted reports
+- SQLite checkpoints for LangGraph runtime state
+- Anonymous analyze/history/report/export flow on `main`
 
 ### Frontend
 
@@ -45,54 +44,36 @@ Use this file as the default project contract for Claude Code.
 - Tailwind CSS 4
 - React Router 7
 - Vitest + Testing Library
-- `i18next`, `@supabase/supabase-js`, `framer-motion`, `recharts`
+- `i18next`, `framer-motion`, `recharts`
 
 ## Current Project Shape
-
-### Source Intelligence V2
-
-- The product is now an idea-validation system, not just a competitor lookup flow.
-- Persisted reports are decision-first: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, then evidence and confidence.
-- Competitor discovery remains required, but it is only one section inside the report contract.
-- `/api/v1/reports/{report_id}` and report exports should be treated as explicit contracts, not implicit `model_dump()` surfaces.
-- Pipeline state and evidence handoff should stay typed; do not introduce anonymous dict side channels for signal-rich report data.
-- `pipeline/merger.py` remains deterministic competitor dedupe only; whitespace and entry-wedge synthesis belong in `pipeline/aggregator.py`.
-- Fixed source roles: Tavily for broad recall, Reddit for pain/migration language, GitHub for open-source and ecosystem maturity, Hacker News for builder sentiment, App Store for review-cluster pain, Product Hunt for launch positioning.
-- Ranking direction is opportunity-first: pain, commercial, migration, and corroborated whitespace evidence should outrank simple popularity or SEO visibility.
 
 ### Backend package
 
 Main package: `src/ideago`
 
-- `api/`: FastAPI app, dependencies, schemas, errors, `auth` / `analyze` / `reports` / `billing` / `health` routes
-- `auth/`: auth dependencies, Supabase admin helpers, auth models
-- `billing/`: Stripe checkout, portal, webhook processing
-- `cache/`: cache abstractions (ReportRepository protocol), file cache, Supabase cache
-- `config/`: runtime settings (Pydantic)
+- `api/`: FastAPI app, dependencies, schemas, errors, `analyze` / `reports` / `health` routes
+- `cache/`: cache abstractions and local file cache
+- `config/`: runtime settings
 - `contracts/`: protocols and interfaces
 - `core/`: shared runtime context
-- `llm/`: model wrappers, prompt loader, prompt templates
+- `llm/`: model wrappers and prompt loading
 - `models/`: domain models
-- `observability/`: logging setup
+- `observability/`: logging and metrics
 - `pipeline/`: LangGraph engine, nodes, events, merger, extractor, intent parser
-- `sources/`: GitHub, Tavily, Hacker News, App Store, Product Hunt, Reddit sources
-- `utils/`: shared helper utilities
+- `sources/`: GitHub, Tavily, Hacker News, App Store, Product Hunt, Reddit
+- `utils/`: shared helpers
 
 ### Frontend layout
 
 - `frontend/src/app`: app shell and routing
-- `frontend/src/features/auth`: login and auth callback flow
 - `frontend/src/features/history`: report history
 - `frontend/src/features/home`: main search experience
-- `frontend/src/features/landing`: landing page
-- `frontend/src/features/pricing`: plan selection and Stripe checkout
-- `frontend/src/features/profile`: user profile and subscription management
-- `frontend/src/features/reports`: report details, compare views, charts, progress states
+- `frontend/src/features/legal`: legal pages
+- `frontend/src/features/reports`: report detail, compare views, charts, progress states
 - `frontend/src/components/ui`: shared UI primitives
-- `frontend/src/lib/api`: typed API client (incl. billing endpoints) and SSE hook
-- `frontend/src/lib/auth`: auth context, token helpers, protected route
-- `frontend/src/lib/i18n`: locale setup and translations (en, zh)
-- `frontend/src/lib/supabase`: Supabase client
+- `frontend/src/lib/api`: typed API client and SSE hook
+- `frontend/src/lib/i18n`: locale setup and translations
 - `frontend/src/lib/types`, `frontend/src/lib/utils`: shared types and utilities
 - `frontend/src/styles`: global styles
 
@@ -117,10 +98,8 @@ pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
-- Docker Compose uses the prebuilt image `simonsun3/ideago:latest`.
 - Current user flow is: submit idea -> create analysis job -> stream progress over SSE -> read persisted report/history.
-- Report detail and export consumers should expect the decision-first V2 shape, not a competitor-first payload.
-- Auth-related env already includes Supabase and LinuxDo OAuth settings.
+- `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
 
 ## Required Verification
 

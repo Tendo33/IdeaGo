@@ -344,82 +344,6 @@ class Settings(BaseSettings):
         description="Max retries when LLM returns invalid JSON / LLM 返回非法 JSON 时的最大重试次数",
     )
 
-    # --- Supabase Auth / 认证配置 ---
-    supabase_url: str = Field(
-        default="",
-        description="Supabase project URL / Supabase 项目地址",
-    )
-    supabase_anon_key: str = Field(
-        default="",
-        description="Supabase anon (publishable) key / Supabase 匿名密钥",
-    )
-    supabase_jwt_secret: str = Field(
-        default="",
-        description="Supabase JWT secret for local token verification "
-        "(Dashboard → Settings → API → JWT Secret)",
-    )
-    supabase_service_role_key: str = Field(
-        default="",
-        description="Supabase service_role key for backend-only DB operations "
-        "(Dashboard → Settings → API → service_role). NEVER expose to frontend.",
-    )
-    supabase_jwt_audience: str = Field(
-        default="authenticated",
-        description="Expected Supabase JWT audience for local JWKS verification",
-    )
-    supabase_jwks_cache_ttl_seconds: int = Field(
-        default=300,
-        ge=0,
-        le=86400,
-        description="How long to cache Supabase JWKS responses in memory",
-    )
-    supabase_db_url: str = Field(
-        default="",
-        description="Direct PostgreSQL connection string for Supabase DB "
-        "(Dashboard → Settings → Database → Connection string). "
-        "Used for LangGraph checkpoints and distributed state. "
-        "Use direct connection (port 5432), not pooler.",
-    )
-
-    auth_session_secret: str = Field(
-        default="",
-        description="Backend session JWT secret for custom OAuth providers",
-    )
-    auth_session_expire_hours: int = Field(
-        default=24 * 30,
-        ge=1,
-        le=24 * 365,
-        description="Backend session JWT expiration time in hours",
-    )
-    frontend_app_url: str = Field(
-        default="",
-        description="Public frontend base URL for OAuth callback redirects",
-    )
-    linuxdo_client_id: str = Field(
-        default="",
-        description="LinuxDoConnect OAuth client id",
-    )
-    linuxdo_client_secret: str = Field(
-        default="",
-        description="LinuxDoConnect OAuth client secret",
-    )
-    linuxdo_authorize_url: str = Field(
-        default="https://connect.linux.do/oauth2/authorize",
-        description="LinuxDoConnect OAuth authorize endpoint",
-    )
-    linuxdo_token_url: str = Field(
-        default="https://connect.linux.do/oauth2/token",
-        description="LinuxDoConnect OAuth token endpoint",
-    )
-    linuxdo_userinfo_url: str = Field(
-        default="https://connect.linux.do/api/user",
-        description="LinuxDoConnect user info endpoint",
-    )
-    linuxdo_scope: str = Field(
-        default="openid profile email",
-        description="LinuxDoConnect OAuth scopes",
-    )
-
     # --- Cache / 缓存配置 ---
     cache_dir: str = Field(
         default=".cache/ideago",
@@ -464,20 +388,6 @@ class Settings(BaseSettings):
         ge=10,
         le=3600,
         description="Rate-limit sliding window for report reads (seconds)",
-    )
-
-    # --- Stripe billing ---
-    stripe_secret_key: str = Field(
-        default="",
-        description="Stripe secret key (sk_live_... or sk_test_...)",
-    )
-    stripe_webhook_secret: str = Field(
-        default="",
-        description="Stripe webhook endpoint signing secret (whsec_...)",
-    )
-    stripe_pro_price_id: str = Field(
-        default="",
-        description="Stripe Price ID for the Pro plan (price_...)",
     )
 
     # --- Observability ---
@@ -539,12 +449,7 @@ class Settings(BaseSettings):
         """Ensure critical settings are present in production."""
         if self.environment != "production":
             return self
-        required = {
-            "auth_session_secret": self.auth_session_secret,
-            "supabase_url": self.supabase_url,
-            "supabase_service_role_key": self.supabase_service_role_key,
-            "frontend_app_url": self.frontend_app_url,
-        }
+        required = {"openai_api_key": self.openai_api_key}
         missing = [k for k, v in required.items() if not v.strip()]
         if missing:
             names = ", ".join(k.upper() for k in missing)
@@ -582,20 +487,6 @@ class Settings(BaseSettings):
             return ["*"]
         origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
         return origins or ["*"]
-
-    def get_supabase_jwks_url(self) -> str:
-        """Return the Supabase JWKS URL derived from the project URL."""
-        base = self.supabase_url.strip().rstrip("/")
-        if not base:
-            return ""
-        return f"{base}/auth/v1/.well-known/jwks.json"
-
-    def get_supabase_jwt_issuer(self) -> str:
-        """Return the expected Supabase JWT issuer."""
-        base = self.supabase_url.strip().rstrip("/")
-        if not base:
-            return ""
-        return f"{base}/auth/v1"
 
     def get_openai_fallback_endpoints(self) -> list[dict[str, Any]]:
         """Parse fallback endpoint JSON config for ChatModelClient."""
