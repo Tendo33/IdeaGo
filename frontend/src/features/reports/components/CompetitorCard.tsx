@@ -54,10 +54,14 @@ export const CompetitorCard = memo(function CompetitorCard({
   const featuresLimit = isExpanded ? competitor.features.length : 4
   const prosLimit = isExpanded ? competitor.strengths.length : 3
   const consLimit = isExpanded ? competitor.weaknesses.length : 3
+  const linksLimit = isExpanded ? competitor.links.length : 2
+  const hasStrengthsOrWeaknesses =
+    competitor.strengths.length > 0 || competitor.weaknesses.length > 0
   const hasMore =
     competitor.features.length > 4 ||
-    competitor.strengths.length > 0 ||
-    competitor.weaknesses.length > 0
+    competitor.strengths.length > 3 ||
+    competitor.weaknesses.length > 3 ||
+    competitor.links.length > 2
 
   return (
     <div
@@ -123,45 +127,38 @@ export const CompetitorCard = memo(function CompetitorCard({
       )}
 
       {/* Strengths / Weaknesses */}
-      <div
-        className="grid transition-[grid-template-rows] duration-300 ease-out"
-        style={{ gridTemplateRows: (isExpanded || isFeatured) ? '1fr' : '0fr' }}
-      >
-        <div className="overflow-hidden">
-          {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
-            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border transition-all duration-300 ease-out ${(isExpanded || isFeatured) ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
-              {competitor.strengths.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
-                    <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
-                  </div>
-                  <ul className="space-y-2.5">
-                    {competitor.strengths.slice(0, prosLimit).map((s, i) => (
-                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
-                        <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {competitor.weaknesses.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-3">
-                    <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
-                  </div>
-                  <ul className="space-y-2.5">
-                    {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
-                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
-                        <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+      {hasStrengthsOrWeaknesses && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border">
+          {competitor.strengths.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
+                <ThumbsUp className="w-3 h-3" /> {t('report.competitors.strengths')}
+              </div>
+              <ul className="space-y-2.5">
+                {competitor.strengths.slice(0, prosLimit).map((s, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                    <span className="text-success mt-0.5 shrink-0">&bull;</span> <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {competitor.weaknesses.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger mb-3">
+                <ThumbsDown className="w-3 h-3" /> {t('report.competitors.weaknesses')}
+              </div>
+              <ul className="space-y-2.5">
+                {competitor.weaknesses.slice(0, consLimit).map((w, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-snug">
+                    <span className="text-danger mt-0.5 shrink-0">&bull;</span> <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Footer */}
       <div className="mt-auto flex items-center justify-between pt-5 border-t-2 border-border gap-4 flex-wrap sm:flex-nowrap">
@@ -178,7 +175,7 @@ export const CompetitorCard = memo(function CompetitorCard({
             })}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
+            {competitor.links.slice(0, linksLimit).map((link, i) => (
               <LinkWithHost
                 key={i}
                 link={link}
