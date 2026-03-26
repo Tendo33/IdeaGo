@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import tomllib
 from pydantic import ValidationError
 
 from ideago.config.settings import Settings, get_settings, reload_settings
@@ -197,7 +196,6 @@ def test_production_settings_require_openai_api_key() -> None:
 def test_runtime_dependencies_pin_requests_to_patched_version() -> None:
     """Runtime deps should require a non-vulnerable requests release."""
     pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    dependencies = pyproject["project"]["dependencies"]
+    pyproject_text = pyproject_path.read_text(encoding="utf-8")
 
-    assert "requests>=2.33.0" in dependencies
+    assert '"requests>=2.33.0",' in pyproject_text
