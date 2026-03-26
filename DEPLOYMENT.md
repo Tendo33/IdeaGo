@@ -81,10 +81,11 @@ This serves the built frontend from the FastAPI app.
 
 ## 5. Docker Deployment
 
-Build and run:
+Pull and run the published image:
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
 
 Recommended persistent mounts:
@@ -96,6 +97,12 @@ If you manage Docker yourself, make sure these paths survive container restarts:
 
 - `CACHE_DIR`
 - parent directory of `LANGGRAPH_CHECKPOINT_DB_PATH`
+
+Optional: pin to a release tag instead of `latest`:
+
+```bash
+IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+```
 
 ## 6. Reverse Proxy
 
@@ -148,8 +155,8 @@ When updating a running `main` deployment:
 ```bash
 git checkout main
 git pull
-pnpm --prefix frontend build
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
 
 Or for a direct-process deployment:

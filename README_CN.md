@@ -144,6 +144,28 @@ uv run python -m ideago
 
 打开：[http://localhost:8000](http://localhost:8000)
 
+### 使用 Docker Compose 运行（远端镜像）
+
+默认的 `docker-compose.yml` 会使用已发布的 Docker Hub 镜像（`simonsun3/ideago`）。
+
+```bash
+cp .env.example .env
+docker compose pull
+docker compose up -d
+```
+
+可选：固定到某个发布版本，而不是 `latest`：
+
+```bash
+IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+```
+
+验证：
+
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
 ## 工作原理
 
 IdeaGo 会接收一条想法，完成意图理解、证据抓取、结构化提取、聚合整理，再生成一份

@@ -144,6 +144,28 @@ uv run python -m ideago
 
 Open: [http://localhost:8000](http://localhost:8000)
 
+### Run With Docker Compose (Remote Image)
+
+The default `docker-compose.yml` uses the published Docker Hub image (`simonsun3/ideago`).
+
+```bash
+cp .env.example .env
+docker compose pull
+docker compose up -d
+```
+
+Optional: pin to a release tag instead of `latest`:
+
+```bash
+IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+```
+
+Verify:
+
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
 ## How It Works
 
 IdeaGo takes a single idea, normalizes and interprets it, gathers source evidence, extracts relevant
