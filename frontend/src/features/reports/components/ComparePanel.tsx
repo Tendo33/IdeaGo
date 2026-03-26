@@ -97,7 +97,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
     >
       <div
         ref={panelRef}
-        className="flex max-h-[min(88vh,960px)] w-full flex-col overflow-hidden border-2 border-border bg-card shadow"
+        className="flex max-h-[min(88vh,960px)] w-full flex-col border-2 border-border bg-card shadow"
       >
         <div className="flex items-center justify-between px-6 py-5 border-b-2 border-border shrink-0 bg-muted/45">
           <h3 id={headingId} className="text-lg font-semibold font-heading text-foreground">

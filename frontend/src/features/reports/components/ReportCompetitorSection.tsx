@@ -100,7 +100,7 @@ export function ReportCompetitorSection({
           {t('report.competitors.title', { count: filteredCompetitors.length, total: allCompetitors.length })}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="interactive-surface flex items-center overflow-hidden mr-1">
+          <div className="interactive-surface flex items-center mr-1">
             <ViewModeToggleButton
               icon={LayoutGrid}
               active={viewMode === 'grid'}
