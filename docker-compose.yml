@@ -6,7 +6,7 @@ services:
     image: ideago:local
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
-    env_file: .env
+    env_file: .env.prod
     volumes:
       - ideago-cache:/app/${CACHE_DIR:-.cache/ideago}
     restart: unless-stopped
