@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
+import { getUserDisplayName, truncateMiddle } from '@/lib/auth/AuthContext'
 import {
   getMyProfile,
   getQuotaInfo,
@@ -21,7 +22,7 @@ export function ProfilePage() {
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
   useDocumentTitle(t('profile.title', 'Profile') + ' — IdeaGo')
-  const { user, signOut } = useAuth()
+  const { user, signOut, patchUser } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [quota, setQuota] = useState<QuotaInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -80,6 +81,7 @@ export function ProfilePage() {
         bio: bio.trim(),
       })
       setProfile(updated)
+      patchUser({ display_name: updated.display_name })
       setSuccess(t('profile.saved', 'Profile updated successfully'))
       toast.success(t('profile.saved', 'Profile updated successfully'))
       setTimeout(() => setSuccess(''), 3000)
@@ -105,7 +107,9 @@ export function ProfilePage() {
     )
   }
 
-  const avatarInitial = (displayName || user?.email || 'U').charAt(0).toUpperCase()
+  const preferredIdentity = profile?.display_name?.trim() || getUserDisplayName(user)
+  const avatarInitial = preferredIdentity.charAt(0).toUpperCase()
+  const displayEmail = truncateMiddle(user?.email ?? '', 38)
   const memberSince = profile?.created_at
     ? formatAppDate(profile.created_at, language, { year: 'numeric', month: 'long' })
     : ''
@@ -150,10 +154,10 @@ export function ProfilePage() {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-black truncate" title={displayName || user?.email || 'User'}>
-              {displayName || user?.email || 'User'}
+            <h2 className="text-xl font-black truncate" title={preferredIdentity}>
+              {preferredIdentity}
             </h2>
-            <p className="text-sm text-muted-foreground font-bold truncate" title={user?.email}>{user?.email}</p>
+            <p className="text-sm text-muted-foreground font-bold truncate" title={user?.email}>{displayEmail}</p>
             {memberSince && (
               <p className="text-xs text-muted-foreground mt-1">
                 {t('profile.memberSince', 'Member since')} {memberSince}
@@ -242,8 +246,9 @@ export function ProfilePage() {
             <input
               id="email-display"
               type="email"
-              value={user?.email ?? ''}
+              value={displayEmail}
               disabled
+              title={user?.email ?? ''}
               className="input w-full opacity-60 cursor-not-allowed"
             />
           </div>

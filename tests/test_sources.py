@@ -1206,9 +1206,9 @@ def test_reddit_available_with_credentials() -> None:
     assert src.is_available() is True
 
 
-def test_reddit_available_with_public_fallback_enabled_without_credentials() -> None:
+def test_reddit_not_available_without_credentials_by_default() -> None:
     src = RedditSource()
-    assert src.is_available() is True
+    assert src.is_available() is False
 
 
 def test_reddit_not_available_without_credentials() -> None:
@@ -1219,19 +1219,14 @@ def test_reddit_not_available_without_credentials() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reddit_search_without_credentials_uses_public_fallback() -> None:
+async def test_reddit_search_without_credentials_returns_empty_by_default() -> None:
     src = RedditSource()
-    mock_response = httpx.Response(200, json=MOCK_REDDIT_RESPONSE)
-    with patch.object(
-        src._public_client, "get", new_callable=AsyncMock, return_value=mock_response
-    ):
-        results = await src.search(["test"])
+    results = await src.search(["test"])
 
-    assert len(results) == 2
-    assert results[0].raw_data["auth_mode"] == "public_fallback"
+    assert results == []
     diagnostics = src.consume_last_search_diagnostics()
-    assert diagnostics["used_public_fallback"] is True
-    assert diagnostics["fallback_reason"] == "missing_credentials"
+    assert diagnostics["used_public_fallback"] is False
+    assert diagnostics["fallback_reason"] == "disabled_by_config"
 
 
 @pytest.mark.asyncio
@@ -1386,7 +1381,7 @@ async def test_reddit_search_partial_failure_returns_partial_results() -> None:
 
 @pytest.mark.asyncio
 async def test_reddit_public_fallback_partial_failure_marks_diagnostics() -> None:
-    src = RedditSource()
+    src = RedditSource(enable_public_fallback=True)
 
     async def fake_get(*_args, **kwargs):
         query = kwargs["params"]["q"]

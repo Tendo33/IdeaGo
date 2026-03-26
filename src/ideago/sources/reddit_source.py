@@ -80,7 +80,7 @@ class RedditSource:
         client_secret: str = "",
         timeout: int = 30,
         max_concurrent_queries: int = 2,
-        enable_public_fallback: bool = True,
+        enable_public_fallback: bool = False,
         public_fallback_limit: int = _PUBLIC_SEARCH_LIMIT_CAP,
         public_fallback_delay_seconds: float = _PUBLIC_INTER_REQUEST_DELAY,
     ) -> None:
@@ -410,6 +410,15 @@ class RedditSource:
         use_public_fallback, fallback_reason = self._should_use_public_fallback()
         if not self.is_available() and not use_public_fallback:
             self._reset_search_diagnostics(fallback_reason=fallback_reason)
+            if fallback_reason == "disabled_by_config":
+                logger.info(
+                    "Reddit search skipped because OAuth credentials are missing "
+                    "and public fallback is disabled"
+                )
+            elif fallback_reason == "partial_credentials":
+                logger.warning(
+                    "Reddit search skipped because OAuth credentials are incomplete"
+                )
             return []
 
         self._reset_search_diagnostics(

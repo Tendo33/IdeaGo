@@ -62,6 +62,11 @@ def test_langgraph_json_parse_max_retries_default() -> None:
     assert settings.langgraph_json_parse_max_retries == 1
 
 
+def test_reddit_public_fallback_disabled_by_default() -> None:
+    settings = Settings()
+    assert settings.reddit_enable_public_fallback is False
+
+
 def test_langgraph_json_parse_max_retries_bounds() -> None:
     with pytest.raises(ValidationError):
         Settings(langgraph_json_parse_max_retries=-1)

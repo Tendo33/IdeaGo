@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth/useAuth'
+import { getUserDisplayName, getUserInitial, truncateMiddle } from '@/lib/auth/AuthContext'
 import { PRICING_ENABLED } from '@/lib/featureFlags'
 import { LogIn, LogOut, UserCog, ShieldCheck, Crown } from 'lucide-react'
 
@@ -43,7 +44,9 @@ export function UserMenu() {
     )
   }
 
-  const initial = (user.email?.charAt(0) ?? 'U').toUpperCase()
+  const displayName = getUserDisplayName(user)
+  const initial = getUserInitial(user)
+  const truncatedEmail = truncateMiddle(user.email, 36)
 
   return (
     <div className="relative" ref={containerRef}>
@@ -58,8 +61,8 @@ export function UserMenu() {
         <div className="w-7 h-7 bg-primary text-primary-foreground flex items-center justify-center font-black text-sm border-2 border-border">
           {initial}
         </div>
-        <span className="hidden sm:inline max-w-[120px] truncate text-sm">
-          {user.email}
+        <span className="hidden sm:inline max-w-[140px] truncate text-sm" title={user.email}>
+          {displayName}
         </span>
       </button>
 
@@ -73,7 +76,8 @@ export function UserMenu() {
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {t('auth.signedInAs')}
             </p>
-            <p className="text-sm font-bold truncate">{user.email}</p>
+            <p className="text-sm font-bold truncate" title={displayName}>{displayName}</p>
+            <p className="text-xs text-muted-foreground truncate" title={user.email}>{truncatedEmail}</p>
           </div>
 
           <Link

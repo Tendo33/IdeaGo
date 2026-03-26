@@ -14,6 +14,7 @@ export interface CustomAuthSession {
   user: {
     id: string
     email: string
+    display_name?: string
   }
 }
 
@@ -36,11 +37,14 @@ export function readCustomAuthSession(): CustomAuthSession | null {
     if (!parsed.user || typeof parsed.user !== 'object') return null
     const userId = typeof parsed.user.id === 'string' ? parsed.user.id : ''
     const email = typeof parsed.user.email === 'string' ? parsed.user.email : ''
+    const displayName = typeof parsed.user.display_name === 'string'
+      ? parsed.user.display_name
+      : undefined
     if (!userId) return null
     return {
       access_token: parsed.access_token,
       provider: parsed.provider,
-      user: { id: userId, email },
+      user: { id: userId, email, ...(displayName ? { display_name: displayName } : {}) },
     }
   } catch {
     return null

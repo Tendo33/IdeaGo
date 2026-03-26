@@ -1,19 +1,27 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import App from './App'
+import { UserMenu } from '@/features/auth/components/UserMenu'
+import { ProfilePage } from '@/features/profile/ProfilePage'
 
-const mockUser = { id: 'u1', email: 'test@test.com' }
+const mockUser = { id: 'u1', email: 'test@test.com', display_name: '' }
 let authState: { user: typeof mockUser | null; loading: boolean } = {
   user: mockUser,
   loading: false,
 }
+const getMyProfileMock = vi.fn()
+const getQuotaInfoMock = vi.fn()
 
 vi.mock('@/lib/auth/useAuth', () => ({
   useAuth: () => ({
     session: authState.user ? { user: authState.user, access_token: 'tok' } : null,
     user: authState.user,
     loading: authState.loading,
+    role: 'user',
     signOut: vi.fn(),
+    applyCustomSession: vi.fn(),
+    patchUser: vi.fn(),
   }),
 }))
 
@@ -55,6 +63,25 @@ vi.mock('@/features/history/HistoryPage', async () => {
     HistoryPage: () => <div>HISTORY PAGE</div>,
   }
 })
+
+vi.mock('@/hooks/useDocumentTitle', () => ({
+  useDocumentTitle: vi.fn(),
+}))
+
+vi.mock('@/lib/api/client', () => ({
+  getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
+  getQuotaInfo: (...args: unknown[]) => getQuotaInfoMock(...args),
+  updateMyProfile: vi.fn(),
+  deleteAccount: vi.fn(),
+}))
+
+vi.mock('sonner', () => ({
+  Toaster: () => null,
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 describe('App route loading', () => {
   beforeEach(() => {
@@ -145,6 +172,63 @@ describe('App user menu', () => {
     fireEvent.click(screen.getByRole('button', { name: /user menu/i }))
 
     expect(screen.queryByRole('menuitem', { name: /upgrade to pro/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('Identity presentation', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    window.history.pushState({}, '', '/')
+    authState = {
+      user: {
+        id: 'u-long',
+        email: '4ca4ehmtfb5ldd803yab0w07bniuzev4bs8sga9tysa9r9web5@privaterelay.linux.do',
+        display_name: 'LinuxDoCoder',
+      },
+      loading: false,
+    }
+    getMyProfileMock.mockReset()
+    getQuotaInfoMock.mockReset()
+    getMyProfileMock.mockResolvedValue({
+      display_name: 'LinuxDoCoder',
+      avatar_url: '',
+      bio: '',
+      created_at: '2026-03-01T00:00:00Z',
+      role: 'user',
+    })
+    getQuotaInfoMock.mockResolvedValue({
+      usage_count: 0,
+      plan_limit: 5,
+      plan: 'free',
+      reset_at: '2026-03-27T08:00:00Z',
+    })
+  })
+
+  it('prefers display name in the top navigation instead of a long relay email', async () => {
+    const currentUser = authState.user!
+    render(
+      <MemoryRouter>
+        <UserMenu />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('button', { name: /user menu/i })).toHaveTextContent('LinuxDoCoder')
+    expect(screen.getByTitle(currentUser.email)).toBeInTheDocument()
+  })
+
+  it('truncates the profile email field while preserving the full value in a tooltip', async () => {
+    const currentUser = authState.user!
+    render(
+      <MemoryRouter>
+        <ProfilePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('LinuxDoCoder')).toBeInTheDocument()
+
+    const emailInput = screen.getByLabelText('Email') as HTMLInputElement
+    expect(emailInput.value).not.toBe(currentUser.email)
+    expect(emailInput).toHaveAttribute('title', currentUser.email)
   })
 })
 

@@ -251,7 +251,7 @@ class Settings(BaseSettings):
         description="Reddit OAuth client secret",
     )
     reddit_enable_public_fallback: bool = Field(
-        default=True,
+        default=False,
         description="Allow public read-only Reddit fallback when OAuth credentials are missing",
     )
     reddit_public_fallback_limit: int = Field(

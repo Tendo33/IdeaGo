@@ -56,6 +56,11 @@ print(settings.database_url)
 
 ## Reddit Source Notes
 
+- Update (2026-03): `REDDIT_ENABLE_PUBLIC_FALLBACK` should default to `false` in server environments.
+- Reason: unauthenticated Reddit `.json` search frequently returns 403 from hosted/server IPs and is no longer a stable production retrieval path.
+- Current backend behavior: when OAuth credentials are missing and public fallback is disabled, the Reddit source is skipped instead of retrying `search.json`.
+- Only enable `REDDIT_ENABLE_PUBLIC_FALLBACK=true` if you have explicitly verified that anonymous Reddit JSON access still works from your deployment environment.
+
 - `REDDIT_CLIENT_ID` 和 `REDDIT_CLIENT_SECRET` 仍然是 Reddit 数据源的首选配置方式。
 - 当这两个 OAuth 凭证缺失时，后端可以根据 `REDDIT_ENABLE_PUBLIC_FALLBACK` 自动退化到公开只读抓取模式。
 - 公开只读 fallback 仅用于有限的公开帖子搜索，结果稳定性和完整性低于 OAuth 模式。

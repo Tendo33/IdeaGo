@@ -72,6 +72,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshTimerRef.current = setTimeout(doRefresh, refreshAt)
   }, [])
 
+  const applyCustomSession = useCallback((nextSession: AuthSession) => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+    saveCustomAuthSession(nextSession)
+    setSession(nextSession)
+    setAccessToken(nextSession.access_token)
+    setRole('user')
+    setLoading(false)
+    scheduleTokenRefresh(nextSession.access_token)
+  }, [scheduleTokenRefresh])
+
+  const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
+    setSession(prev => {
+      if (!prev) return prev
+      const nextSession = {
+        ...prev,
+        user: {
+          ...prev.user,
+          ...updates,
+        },
+      }
+      if (prev.provider !== 'supabase') {
+        saveCustomAuthSession(nextSession)
+      }
+      return nextSession
+    })
+  }, [])
+
   useEffect(() => {
     if (initialCustomSession) {
       setAccessToken(initialCustomSession.access_token)
@@ -119,12 +146,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     let cancelled = false
     getMyProfile().then(profile => {
-      if (!cancelled && profile.role) {
-        setRole(profile.role)
+      if (!cancelled) {
+        if (profile.display_name) {
+          patchUser({ display_name: profile.display_name })
+        }
+        if (profile.role) {
+          setRole(profile.role)
+        }
       }
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [userId])
+  }, [patchUser, userId])
 
   const effectiveRole = userId ? role : 'user'
 
@@ -142,6 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: effectiveRole,
         loading,
         signOut,
+        applyCustomSession,
+        patchUser,
       }}
     >
       {children}
