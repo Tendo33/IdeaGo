@@ -127,7 +127,7 @@ export const CompetitorCard = memo(function CompetitorCard({
         className="grid transition-[grid-template-rows] duration-300 ease-out"
         style={{ gridTemplateRows: (isExpanded || isFeatured) ? '1fr' : '0fr' }}
       >
-        <div className="overflow-hidden">
+        <div>
           {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border transition-all duration-300 ease-out ${(isExpanded || isFeatured) ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
               {competitor.strengths.length > 0 && (

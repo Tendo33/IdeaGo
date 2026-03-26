@@ -104,7 +104,7 @@ export function PricingPage() {
         {t('nav.home')}
       </Link>
 
-      <div className="border-4 border-border bg-card p-8 md:p-12 mb-12 shadow-lg relative overflow-hidden group">
+      <div className="border-4 border-border bg-card p-8 md:p-12 mb-12 shadow-lg relative group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 group-hover:opacity-40 transition-opacity" />
         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 relative z-10">
           {t('pricing.title')}

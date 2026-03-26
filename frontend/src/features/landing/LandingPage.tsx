@@ -187,7 +187,7 @@ export function LandingPage({
             <div className="animate-fade-in [animation-delay:200ms] mt-12 lg:mt-0 relative w-full max-w-lg mx-auto lg:max-w-none">
               <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-border" />
               <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
-                <div className="flex items-center gap-4 mb-8 overflow-hidden">
+                <div className="flex items-center gap-4 mb-8">
                   <div className="w-4 h-4 bg-success border-4 border-border shrink-0 animate-pulse" />
                   <span className="text-sm font-black uppercase tracking-widest text-muted-foreground truncate" title={t('landing.mockLabel')}>
                     {t('landing.mockLabel')}
@@ -211,7 +211,7 @@ export function LandingPage({
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 px-4 py-3 bg-success border-4 border-border overflow-hidden mt-auto shadow transform -rotate-1">
+                <div className="flex items-center gap-3 px-4 py-3 bg-success border-4 border-border mt-auto shadow transform -rotate-1">
                   <Zap className="w-6 h-6 text-success-foreground shrink-0" />
                   <span className="text-base font-black uppercase tracking-widest text-success-foreground truncate" title={t('landing.mockVerdict')}>
                     {t('landing.mockVerdict')}
@@ -242,7 +242,7 @@ export function LandingPage({
           <p className="text-center text-sm font-black uppercase tracking-[0.4em] text-muted-foreground mb-10">
             {t('landing.sourcesLabel')}
           </p>
-          <div className="flex flex-wrap justify-center gap-8 sm:gap-16 overflow-hidden">
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-16 py-4">
             {DATA_SOURCES.map(({ icon: Icon, labelKey, color }, i) => {
               const label = t(labelKey)
               return (
@@ -277,7 +277,7 @@ export function LandingPage({
               { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc', mt: 'md:mt-48' },
             ] as const).map(({ icon: Icon, step, titleKey, descKey, mt }, i) => (
               <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`}>
-                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-3xl overflow-hidden flex flex-col min-w-0 group">
+                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-3xl flex flex-col min-w-0 group">
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Icon className="w-32 h-32" />
                   </div>
@@ -311,7 +311,7 @@ export function LandingPage({
           <div className="grid sm:grid-cols-12 gap-8 lg:gap-12 relative z-10">
             {/* Massive Hero Highlight Card */}
             <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8">
-              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative overflow-hidden group hover:-translate-y-2 hover:shadow-5xl transition-all duration-500">
+              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:shadow-5xl transition-all duration-500">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
                 <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
                   {t('landing.feat1Title')}
@@ -329,7 +329,7 @@ export function LandingPage({
               { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: 'rotate-1', shape: 'rounded-full' },
             ] as const).map(({ titleKey, descKey, accent, colSpan, rotation, shape }, i) => (
               <StaggerReveal key={titleKey} delay={i * 150} className={colSpan}>
-                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col overflow-hidden min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
+                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
                   <div className="flex items-center gap-6 mb-8">
                     <div
                       className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow`}
@@ -380,7 +380,7 @@ export function LandingPage({
 
       {/* ─── FOOTER ─── */}
       <footer className="border-t-4 border-border px-4 py-8">
-        <div className="app-shell flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden">
+        <div className="app-shell flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-sm font-bold text-muted-foreground truncate">
             &copy; {new Date().getFullYear()} IdeaGo
           </span>

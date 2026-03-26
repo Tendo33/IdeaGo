@@ -118,7 +118,7 @@ export function ConfidenceCard({ confidence }: ConfidenceCardProps) {
           </p>
           <p className="shrink-0 text-lg font-bold text-foreground">{score}/100</p>
         </div>
-        <div className="h-2 overflow-hidden rounded-none bg-secondary">
+        <div className="h-2 rounded-none bg-secondary">
           <div
             className={`h-2 transition-[width] duration-700 ease-out ${tone.progressClass}`}
             style={{ width: `${score}%` }}

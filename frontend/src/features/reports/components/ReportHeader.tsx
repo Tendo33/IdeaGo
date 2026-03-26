@@ -84,7 +84,7 @@ function Dropdown({
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 overflow-hidden rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-fade-in"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-fade-in"
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
               setOpen(false)
@@ -337,7 +337,7 @@ export function ReportHeader({ report }: ReportHeaderProps) {
 
       {copyError ? <p className="text-xs text-danger">{copyError}</p> : null}
 
-      <section className={`card overflow-hidden ${decisionTone.panelClass}`}>
+      <section className={`card ${decisionTone.panelClass}`}>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.9fr)]">
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-3">

@@ -25,7 +25,7 @@ export function MarketOverview({ summary }: MarketOverviewProps) {
   if (!summary) return null
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card">
       <div className="space-y-4">
         <div className="inline-flex items-center gap-2 border border-border bg-background px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
           <Activity className="h-3.5 w-3.5 text-cta" />

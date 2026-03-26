@@ -94,7 +94,7 @@ function StatCard({
 }) {
   const content = (
     <>
-      <div className="flex items-center gap-2.5 mb-2.5 overflow-hidden">
+      <div className="flex items-center gap-2.5 mb-2.5">
         <Icon className="w-5 h-5 text-text-dim shrink-0" aria-hidden="true" />
         <span className="text-sm text-text-dim font-medium truncate">{label}</span>
       </div>
@@ -162,7 +162,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
     <section id="section-summary" className="grid grid-cols-1 lg:grid-cols-5 gap-5">
       {/* Verdict Card — left 3/5 */}
       <div className={`lg:col-span-3 rounded-none border-2 border-border ${verdict.bg} p-8 sm:p-10 ${verdict.glow}`}>
-      <div className="flex items-start gap-5 mb-5 overflow-hidden">
+      <div className="flex items-start gap-5 mb-5">
           <div className={`w-16 h-16 rounded-none ${verdict.bg} border-2 ${verdict.ring} flex items-center justify-center shrink-0 shadow-[4px_4px_0px_0px_currentColor] ${verdict.text}`}>
             <span className="text-3xl font-black font-heading">
               {report.recommendation_type === 'go' ? '✓' : report.recommendation_type === 'no_go' ? '✗' : '!'}
@@ -203,7 +203,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
 
       {/* Stats Grid — right 2/5 */}
       <div className="lg:col-span-2 flex flex-col bg-card border-2 border-border shadow-md">
-        <div className="flex flex-1 border-b-2 border-border overflow-hidden">
+        <div className="flex flex-1 border-b-2 border-border">
           <div className="flex-1 border-r-2 border-border min-w-0">
             <StatCard value={competitorCount} label={t('report.hero.stats.competitors')} icon={Users} index={0} reduceMotion={reduceMotion} />
           </div>
@@ -211,7 +211,7 @@ export function HeroPanel({ report }: HeroPanelProps) {
             <StatCard value={`${avgRelevance}%`} label={t('report.hero.stats.avgRelevance')} icon={Target} index={1} reduceMotion={reduceMotion} />
           </div>
         </div>
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1">
           <div className="flex-1 border-r-2 border-border min-w-0">
             <StatCard value={`${intensity}/10`} label={t('report.hero.stats.competition')} icon={TrendingUp} index={2} reduceMotion={reduceMotion} />
           </div>
