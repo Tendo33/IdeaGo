@@ -593,6 +593,53 @@ async def test_extractor_filters_unverifiable_links() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extractor_backfills_strengths_and_weaknesses_when_missing() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [
+                    {
+                        "name": "ops-monitor",
+                        "links": ["https://example.com/ops-monitor"],
+                        "one_liner": "Monitor line throughput and alert on bottlenecks.",
+                        "features": ["throughput dashboard", "alerting", "line status"],
+                        "pricing": "Contact sales",
+                        "relevance_score": 0.84,
+                        "source_platforms": ["tavily"],
+                        "source_urls": ["https://example.com/ops-monitor"],
+                    }
+                ]
+            },
+            {},
+        )
+    )
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="ops-monitor",
+            url="https://example.com/ops-monitor",
+            platform=Platform.TAVILY,
+        )
+    ]
+
+    result = await extractor.extract(raw, _TEST_INTENT)
+
+    assert len(result) == 1
+    assert result[0].strengths
+    assert result[0].weaknesses
+    assert any(
+        "throughput" in item.lower() or "dashboard" in item.lower()
+        for item in result[0].strengths
+    )
+    assert any(
+        "single source" in item.lower() or "pricing" in item.lower()
+        for item in result[0].weaknesses
+    )
+
+
+@pytest.mark.asyncio
 async def test_extractor_empty_input_returns_empty() -> None:
     llm = MagicMock(spec=ChatModelClient)
     extractor = Extractor(llm)

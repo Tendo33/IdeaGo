@@ -10,6 +10,9 @@ import { AuthContext } from './AuthContext'
 import type { AuthSession } from './AuthContext'
 import { getMyProfile, refreshAuthToken } from '@/lib/api/client'
 
+const REFRESH_BUFFER_MS = 5 * 60 * 1000
+const MAX_TIMEOUT_MS = 2_147_483_647
+
 function decodeJwtExp(token: string): number | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
@@ -46,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const exp = decodeJwtExp(token)
     if (!exp) return
 
+    const getRemainingMs = (expirySeconds: number) =>
+      expirySeconds * 1000 - Date.now() - REFRESH_BUFFER_MS
+
     function doRefresh() {
       refreshAuthToken().then(newToken => {
         setAccessToken(newToken)
@@ -55,21 +61,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(prev => prev ? { ...prev, access_token: newToken } : prev)
         }
         const nextExp = decodeJwtExp(newToken)
-        if (nextExp) {
-          const delay = nextExp * 1000 - Date.now() - 5 * 60 * 1000
-          if (delay > 0) {
-            refreshTimerRef.current = setTimeout(doRefresh, delay)
-          }
-        }
+        if (!nextExp) return
+        scheduleRefreshCheck(getRemainingMs(nextExp))
       }).catch(() => signOutRef.current?.())
     }
 
-    const refreshAt = exp * 1000 - Date.now() - 5 * 60 * 1000
-    if (refreshAt <= 0) {
-      doRefresh()
-      return
+    const scheduleRefreshCheck = (remainingMs: number) => {
+      if (remainingMs <= 0) {
+        doRefresh()
+        return
+      }
+
+      const delay = Math.min(remainingMs, MAX_TIMEOUT_MS)
+      refreshTimerRef.current = setTimeout(() => {
+        if (remainingMs > MAX_TIMEOUT_MS) {
+          scheduleRefreshCheck(remainingMs - delay)
+          return
+        }
+        doRefresh()
+      }, delay)
     }
-    refreshTimerRef.current = setTimeout(doRefresh, refreshAt)
+
+    scheduleRefreshCheck(getRemainingMs(exp))
   }, [])
 
   const applyCustomSession = useCallback((nextSession: AuthSession) => {

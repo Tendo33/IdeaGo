@@ -1,12 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { useContext } from 'react'
 import { LoginPage } from './LoginPage'
 import { AuthCallback } from './AuthCallback'
+import { AuthContext } from '@/lib/auth/AuthContext'
+import { AuthProvider } from '@/lib/auth/AuthProvider'
 
 const navigateMock = vi.fn()
 const signUpMock = vi.fn()
 const applyCustomSessionMock = vi.fn()
+const getMyProfileMock = vi.fn()
+const refreshAuthTokenMock = vi.fn()
 
 let authUser: { id: string; email: string } | null = null
 let currentLanguage = 'zh-CN'
@@ -43,11 +48,16 @@ vi.mock('@/lib/auth/useAuth', () => ({
 vi.mock('@/lib/auth/token', () => ({
   saveCustomAuthSession: vi.fn(),
   setAccessToken: vi.fn(),
+  readCustomAuthSession: vi.fn(() => {
+    const raw = window.localStorage.getItem('ideago_custom_auth_session')
+    return raw ? JSON.parse(raw) : null
+  }),
+  clearCustomAuthSession: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
-    auth: {
+  auth: {
       signInWithOAuth: vi.fn(),
       signInWithPassword: vi.fn(),
       signUp: (...args: unknown[]) => signUpMock(...args),
@@ -63,6 +73,24 @@ vi.mock('@/lib/supabase/client', () => ({
   },
 }))
 
+vi.mock('@/lib/api/client', () => ({
+  getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
+  refreshAuthToken: (...args: unknown[]) => refreshAuthTokenMock(...args),
+}))
+
+function encodeJwt(payload: Record<string, unknown>) {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const body = btoa(JSON.stringify(payload))
+  return `${header}.${body}.signature`
+}
+
+function AuthStateProbe() {
+  const auth = useContext(AuthContext)
+  const user = auth?.user ?? null
+  const loading = auth?.loading ?? true
+  return <div>{loading ? 'loading' : (user?.id ?? 'anonymous')}</div>
+}
+
 describe('LoginPage registration locale metadata', () => {
   beforeEach(() => {
     authUser = null
@@ -70,9 +98,12 @@ describe('LoginPage registration locale metadata', () => {
     navigateMock.mockReset()
     signUpMock.mockReset()
     applyCustomSessionMock.mockReset()
+    getMyProfileMock.mockReset()
+    refreshAuthTokenMock.mockReset()
     signUpMock.mockResolvedValue({ error: null })
     window.history.replaceState({}, '', '/login')
     window.location.hash = ''
+    localStorage.clear()
   })
 
   it('passes the current UI language to Supabase signUp metadata', async () => {
@@ -129,5 +160,57 @@ describe('LoginPage registration locale metadata', () => {
     })
 
     expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
+  })
+})
+
+describe('AuthProvider token refresh scheduling', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    refreshAuthTokenMock.mockReset()
+    getMyProfileMock.mockReset()
+    getMyProfileMock.mockResolvedValue({
+      display_name: '',
+      avatar_url: '',
+      bio: '',
+      created_at: '2026-03-01T00:00:00Z',
+      role: 'user',
+    })
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not immediately refresh long-lived LinuxDo sessions', async () => {
+    const nowMs = Date.UTC(2026, 2, 26, 12, 0, 0)
+    vi.setSystemTime(nowMs)
+
+    const accessToken = encodeJwt({
+      sub: 'user-123',
+      email: 'linuxdo@example.com',
+      provider: 'linuxdo',
+      exp: Math.floor((nowMs + 30 * 24 * 60 * 60 * 1000) / 1000),
+    })
+
+    localStorage.setItem('ideago_custom_auth_session', JSON.stringify({
+      access_token: accessToken,
+      provider: 'linuxdo',
+      user: {
+        id: 'user-123',
+        email: 'linuxdo@example.com',
+      },
+    }))
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    )
+
+    expect(screen.getByText('user-123')).toBeInTheDocument()
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(refreshAuthTokenMock).not.toHaveBeenCalled()
   })
 })
