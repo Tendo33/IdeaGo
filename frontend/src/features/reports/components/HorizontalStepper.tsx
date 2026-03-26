@@ -136,7 +136,7 @@ export function HorizontalStepper({ events, isReconnecting = false }: Horizontal
           <AnimatedElapsedTimeContainer isDone={isDone} />
         </div>
 
-        <div className="relative overflow-x-auto no-scrollbar pb-4">
+        <div className="relative overflow-x-auto no-scrollbar pb-4 pt-4 -mt-4">
           <div className="min-w-[600px] relative">
             {/* Progress Track */}
             <div className="absolute top-[11px] left-[20px] right-[20px] h-[1px] bg-border/40">

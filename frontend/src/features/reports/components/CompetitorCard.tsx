@@ -62,7 +62,7 @@ export const CompetitorCard = memo(function CompetitorCard({
   return (
     <div
       id={elementId}
-      className={`relative bg-card text-card-foreground border transition-all duration-300 ${
+      className={`relative flex flex-col h-full bg-card text-card-foreground border transition-all duration-300 ${
         isFeatured
           ? 'border-2 border-border shadow p-6 sm:p-8 col-span-1 md:col-span-2 lg:col-span-3 mb-4'
           : 'border-2 border-border p-5'
@@ -127,7 +127,7 @@ export const CompetitorCard = memo(function CompetitorCard({
         className="grid transition-[grid-template-rows] duration-300 ease-out"
         style={{ gridTemplateRows: (isExpanded || isFeatured) ? '1fr' : '0fr' }}
       >
-        <div>
+        <div className="overflow-hidden">
           {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border transition-all duration-300 ease-out ${(isExpanded || isFeatured) ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
               {competitor.strengths.length > 0 && (
@@ -164,7 +164,7 @@ export const CompetitorCard = memo(function CompetitorCard({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-5 border-t-2 border-border gap-4 flex-wrap sm:flex-nowrap">
+      <div className="mt-auto flex items-center justify-between pt-5 border-t-2 border-border gap-4 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex flex-wrap gap-2 shrink-0 max-w-[200px]">
             {competitor.source_platforms.map(p => {
