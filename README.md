@@ -39,25 +39,15 @@ no Supabase requirement, no billing, and no account system.
 If you want the commercial version with auth, profile, billing, and admin flows, use the `saas`
 branch instead.
 
-## Screenshot Placeholders
-
-> Replace the placeholders below with your own screenshots when ready.
+## Screenshot
 
 ### Hero Screenshot
 
 ![Hero Screenshot Placeholder](assets/banner_new.png)
 
-`[Placeholder] Replace this image with a homepage or full workflow screenshot.`
-
 ### Report Detail Screenshot
 
 ![Report Screenshot Placeholder](assets/usage_new.png)
-
-`[Placeholder] Replace this image with a report detail or insights screenshot.`
-
-### Optional Extra Screenshot
-
-`[Placeholder] Add a third screenshot here for history, compare view, or SSE progress.`
 
 ## Why IdeaGo
 

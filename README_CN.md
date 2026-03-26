@@ -38,25 +38,16 @@ IdeaGo 当前这份 README 对应的是 `main` 分支，也就是本地部署 / 
 
 如果你要的是带认证、Profile、Billing、Admin 的商业化版本，请切换到 `saas` 分支。
 
-## 截图占位
-
-> 下面这些位置已经预留好，后面你可以直接替换成自己的截图。
+## 截图
 
 ### Hero 截图
 
 ![Hero Screenshot Placeholder](assets/banner_new.png)
 
-`[占位] 这里建议替换为首页或完整主流程截图。`
 
 ### 报告详情截图
 
 ![Report Screenshot Placeholder](assets/usage_new.png)
-
-`[占位] 这里建议替换为报告详情页、洞察卡片或结论区截图。`
-
-### 可选补充截图
-
-`[占位] 这里可以补一张 history、compare view 或 SSE 进度截图。`
 
 ## 为什么是 IdeaGo
 
