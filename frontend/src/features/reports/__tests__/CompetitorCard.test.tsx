@@ -36,4 +36,12 @@ describe('CompetitorCard', () => {
     render(<CompetitorCard competitor={invalidLinkCompetitor} rank={1} variant="standard" />)
     expect(screen.getByRole('link', { name: 'Open Example Product on link' })).toHaveTextContent('link')
   })
+
+  it('does not fully collapse strengths and weaknesses in standard cards', () => {
+    const { container } = render(
+      <CompetitorCard competitor={competitorFixture} rank={2} variant="standard" />,
+    )
+
+    expect(container.innerHTML).not.toContain('grid-template-rows: 0fr')
+  })
 })
