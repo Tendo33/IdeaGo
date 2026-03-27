@@ -2,12 +2,11 @@ import { Suspense, lazy, useMemo } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CommercialSignalsCard } from '@/features/reports/components/CommercialSignalsCard'
-import { CompareFloatingBar, ComparePanel } from '@/features/reports/components/ComparePanel'
+import { CompareFloatingBar } from '@/features/reports/components/CompareFloatingBar'
 import { EvidenceCostCard } from '@/features/reports/components/EvidenceCostCard'
 import { MarketOverview } from '@/features/reports/components/MarketOverview'
 import { PainSignalsCard } from '@/features/reports/components/PainSignalsCard'
 import { ReportHeader } from '@/features/reports/components/ReportHeader'
-import { ReportCompetitorSection } from '@/features/reports/components/ReportCompetitorSection'
 import { SectionNav } from '@/features/reports/components/SectionNav'
 import { WhitespaceOpportunityCard } from '@/features/reports/components/WhitespaceOpportunityCard'
 import { AllFailedState, BlueOceanState } from '@/features/reports/components/ReportStatusStates'
@@ -19,6 +18,16 @@ import { buttonVariants } from '@/components/ui/Button'
 const LandscapeChart = lazy(async () => {
   const chartModule = await import('@/features/reports/components/LandscapeChart')
   return { default: chartModule.LandscapeChart }
+})
+
+const ReportCompetitorSection = lazy(async () => {
+  const sectionModule = await import('@/features/reports/components/ReportCompetitorSection')
+  return { default: sectionModule.ReportCompetitorSection }
+})
+
+const ComparePanel = lazy(async () => {
+  const compareModule = await import('@/features/reports/components/ComparePanel')
+  return { default: compareModule.ComparePanel }
 })
 
 interface ReportContentPaneProps {
@@ -198,19 +207,28 @@ export function ReportContentPane({
         )}
 
         {hasCompetitorSection && (
-          <ReportCompetitorSection
-            allCompetitors={report.competitors}
-            filteredCompetitors={filteredCompetitors}
-            compareSet={compareSet}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            platformFilter={platformFilter}
-            togglePlatform={togglePlatform}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            toggleCompare={toggleCompare}
-            competitorRankById={competitorRankById}
-          />
+          <Suspense
+            fallback={(
+              <div
+                data-testid="competitor-section-loading"
+                className="h-64 rounded-none border-2 border-border bg-card animate-pulse"
+              />
+            )}
+          >
+            <ReportCompetitorSection
+              allCompetitors={report.competitors}
+              filteredCompetitors={filteredCompetitors}
+              compareSet={compareSet}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              platformFilter={platformFilter}
+              togglePlatform={togglePlatform}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              toggleCompare={toggleCompare}
+              competitorRankById={competitorRankById}
+            />
+          </Suspense>
         )}
 
         {!allFailed && (
@@ -231,11 +249,20 @@ export function ReportContentPane({
       />
 
       {showCompare && compareCompetitors.length >= 2 && (
-        <ComparePanel
-          competitors={compareCompetitors}
-          onRemove={removeFromCompare}
-          onClose={() => setShowCompare(false)}
-        />
+        <Suspense
+          fallback={(
+            <div
+              data-testid="compare-panel-loading"
+              className="fixed inset-0 z-50 bg-background/70"
+            />
+          )}
+        >
+          <ComparePanel
+            competitors={compareCompetitors}
+            onRemove={removeFromCompare}
+            onClose={() => setShowCompare(false)}
+          />
+        </Suspense>
       )}
     </>
   )
