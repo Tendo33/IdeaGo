@@ -52,16 +52,12 @@ export const CompetitorCard = memo(function CompetitorCard({
   const elementId = domId ?? getCompetitorDomId(competitor)
 
   const featuresLimit = isExpanded ? competitor.features.length : 4
-  const prosLimit = isExpanded ? competitor.strengths.length : 3
-  const consLimit = isExpanded ? competitor.weaknesses.length : 3
-  const linksLimit = isExpanded ? competitor.links.length : 2
-  const hasStrengthsOrWeaknesses =
-    competitor.strengths.length > 0 || competitor.weaknesses.length > 0
+  const prosLimit = isExpanded ? competitor.strengths.length : 2
+  const consLimit = isExpanded ? competitor.weaknesses.length : 2
   const hasMore =
     competitor.features.length > 4 ||
-    competitor.strengths.length > 3 ||
-    competitor.weaknesses.length > 3 ||
-    competitor.links.length > 2
+    competitor.strengths.length > 0 ||
+    competitor.weaknesses.length > 0
 
   return (
     <div
@@ -127,8 +123,8 @@ export const CompetitorCard = memo(function CompetitorCard({
       )}
 
       {/* Strengths / Weaknesses */}
-      {hasStrengthsOrWeaknesses && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border">
+      {(competitor.strengths.length > 0 || competitor.weaknesses.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 pt-5 border-t-2 border-border transition-all duration-300 ease-out">
           {competitor.strengths.length > 0 && (
             <div>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success mb-3">
@@ -175,7 +171,7 @@ export const CompetitorCard = memo(function CompetitorCard({
             })}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {competitor.links.slice(0, linksLimit).map((link, i) => (
+            {competitor.links.slice(0, isExpanded ? competitor.links.length : 2).map((link, i) => (
               <LinkWithHost
                 key={i}
                 link={link}

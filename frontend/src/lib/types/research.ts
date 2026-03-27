@@ -315,23 +315,23 @@ export type RecommendationType = 'go' | 'caution' | 'no_go'
 export interface ResearchReport {
   id: string
   query: string
+  created_at: string
+  updated_at: string
   intent: Intent
-  source_results: SourceResult[]
-  competitors: Competitor[]
+  recommendation_type: RecommendationType
+  go_no_go: string
+  market_summary: string
   pain_signals: PainSignal[]
   commercial_signals: CommercialSignal[]
   whitespace_opportunities: WhitespaceOpportunity[]
   opportunity_score: OpportunityScoreBreakdown
-  market_summary: string
-  go_no_go: string
-  recommendation_type: RecommendationType
+  competitors: Competitor[]
   differentiation_angles: string[]
-  confidence: ConfidenceMetrics
   evidence_summary: EvidenceSummary
+  confidence: ConfidenceMetrics
+  source_results: SourceResult[]
   cost_breakdown: CostBreakdown
   report_meta: ReportMeta
-  created_at: string
-  updated_at: string
 }
 
 export interface ReportListItem {

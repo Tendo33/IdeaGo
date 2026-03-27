@@ -11,7 +11,10 @@ from collections import OrderedDict
 from itertools import combinations
 from typing import Any
 
-from ideago.models.research import Intent, Platform
+from ideago.models.research import Intent, Platform, QueryPlan
+from ideago.pipeline.query_planning import (
+    adapt_query_plan_for_platform,
+)
 
 _MAX_QUERIES_PER_PLATFORM = 5
 _MAX_JOINED_KEYWORDS = 4
@@ -124,7 +127,10 @@ def infer_query_family(query: str) -> str:
 
 
 def build_query_families(
-    platform: Platform, intent: Intent
+    platform: Platform,
+    intent: Intent,
+    *,
+    query_plan: QueryPlan | None = None,
 ) -> dict[str, list[QueryString]]:
     """Build deterministic query groups keyed by research intent family."""
     keywords = _clean_keywords(intent.keywords_en)
@@ -154,14 +160,25 @@ def build_query_families(
         )
 
     raw_families = builder_fn(keywords, intent, hints)
+    planned_families = OrderedDict()
+    if query_plan is not None:
+        planned_families = _normalize_planned_families(
+            adapt_query_plan_for_platform(platform, query_plan, intent)
+        )
+    merged_families = _merge_query_families(planned_families, raw_families)
     return {
         family: deduped_queries
-        for family, queries in raw_families.items()
+        for family, queries in merged_families.items()
         if (deduped_queries := _dedup_and_cap(queries, family))
     }
 
 
-def build_queries(platform: Platform, intent: Intent) -> list[QueryString]:
+def build_queries(
+    platform: Platform,
+    intent: Intent,
+    *,
+    query_plan: QueryPlan | None = None,
+) -> list[QueryString]:
     """Generate platform-optimized search queries from semantic intent.
 
     Args:
@@ -171,7 +188,7 @@ def build_queries(platform: Platform, intent: Intent) -> list[QueryString]:
     Returns:
         Deduplicated list of search query strings, capped at _MAX_QUERIES_PER_PLATFORM.
     """
-    families = build_query_families(platform, intent)
+    families = build_query_families(platform, intent, query_plan=query_plan)
     return _flatten_families_with_cap(
         families,
         max_queries=_MAX_QUERIES_PER_PLATFORM,
@@ -474,3 +491,29 @@ def _normalize_query(
 
     query_family = getattr(query, "query_family", None) or family
     return QueryString(normalized, query_family=query_family)
+
+
+def _normalize_planned_families(
+    families: dict[str, list[str]],
+) -> OrderedDict[str, list[QueryString]]:
+    normalized: OrderedDict[str, list[QueryString]] = OrderedDict()
+    for family, queries in families.items():
+        normalized[family] = [
+            QueryString(query.strip(), query_family=family)
+            for query in queries
+            if query.strip()
+        ]
+    return normalized
+
+
+def _merge_query_families(
+    planned_families: OrderedDict[str, list[QueryString]],
+    legacy_families: OrderedDict[str, list[str]],
+) -> OrderedDict[str, list[str | QueryString]]:
+    merged: OrderedDict[str, list[str | QueryString]] = OrderedDict()
+    for family_name, planned_queries in planned_families.items():
+        merged[family_name] = list(planned_queries)
+    for family_name, legacy_queries in legacy_families.items():
+        existing: list[str | QueryString] = merged.setdefault(family_name, [])
+        existing.extend(legacy_queries)
+    return merged

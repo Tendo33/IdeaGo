@@ -84,7 +84,7 @@ class GitHubSource:
         try:
             resp = await self._client.get(
                 "/search/repositories",
-                params={"q": normalized_query, "sort": "stars", "per_page": limit},
+                params={"q": normalized_query, "per_page": limit},
             )
             if resp.status_code != 200:
                 logger.warning(
@@ -99,6 +99,23 @@ class GitHubSource:
                 )
 
             data = resp.json()
+            candidates = [
+                item
+                for item in data.get("items", [])
+                if item.get("html_url")
+                and int(item.get("stargazers_count", 0) or 0)
+                >= _min_stars_for_query(
+                    self._min_stars,
+                    resolved_query.family,
+                    query,
+                )
+                and _is_non_empty_repository(item)
+            ]
+            ranked_candidates = sorted(
+                candidates,
+                key=lambda item: _repository_rank(item, query=query),
+                reverse=True,
+            )
             return [
                 RawResult(
                     title=item.get("full_name", ""),
@@ -123,10 +140,7 @@ class GitHubSource:
                         "updated_at": item.get("updated_at"),
                     },
                 )
-                for item in data.get("items", [])
-                if item.get("html_url")
-                and int(item.get("stargazers_count", 0) or 0) >= self._min_stars
-                and _is_non_empty_repository(item)
+                for item in ranked_candidates
             ]
         except httpx.HTTPError as exc:
             logger.warning(
@@ -229,6 +243,96 @@ def _normalize_github_query(query: str) -> str:
     if not tokens:
         return stripped
     return " ".join(tokens[:8])
+
+
+def _repository_rank(item: dict[str, object], *, query: str) -> tuple[int, int, int]:
+    raw_topics = item.get("topics", [])
+    topics = raw_topics if isinstance(raw_topics, list) else []
+    text_blob = " ".join(
+        str(value).lower()
+        for value in (
+            item.get("full_name"),
+            item.get("description"),
+            " ".join(str(topic) for topic in topics),
+        )
+        if value
+    )
+    normalized_query = query.strip().lower()
+    exact_hit = 1 if normalized_query and normalized_query in text_blob else 0
+    query_tokens = [
+        token for token in normalized_query.replace('"', "").split() if token
+    ]
+    anchor_hits = sum(
+        1 for anchor in _extract_anchor_phrases(query) if anchor and anchor in text_blob
+    )
+    token_hits = sum(1 for token in query_tokens if token in text_blob)
+    freshness_bonus = _freshness_score(item.get("pushed_at") or item.get("updated_at"))
+    popularity = _safe_int(item.get("stargazers_count")) + _safe_int(
+        item.get("forks_count")
+    )
+    return (exact_hit * 10 + anchor_hits * 6 + token_hits, freshness_bonus, popularity)
+
+
+def _extract_anchor_phrases(query: str) -> list[str]:
+    quoted = [match.strip().lower() for match in re.findall(r'"([^"]+)"', query)]
+    if quoted:
+        return [phrase for phrase in quoted if phrase]
+    tokens = [token for token in re.findall(r"[A-Za-z0-9]+", query) if token]
+    if len(tokens) >= 2:
+        return [" ".join(tokens[:2]).lower()]
+    return []
+
+
+def _min_stars_for_query(default_min_stars: int, family: str, query: str) -> int:
+    normalized_family = family.strip().lower()
+    if normalized_family in {"direct_competitor", "workflow_interface"}:
+        return min(default_min_stars, 10)
+    if normalized_family in {"competitor_discovery", "workflow_discovery"} and (
+        '"' in query or _has_direct_anchor_phrase(query)
+    ):
+        return min(default_min_stars, 10)
+    return default_min_stars
+
+
+def _has_direct_anchor_phrase(query: str) -> bool:
+    lowered = query.lower()
+    return any(
+        token in lowered
+        for token in (" gui", " cli", " desktop", " interface", " workflow")
+    )
+
+
+def _freshness_score(value: object) -> int:
+    normalized = _normalize_iso8601(value)
+    if not normalized:
+        return 0
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return 0
+    delta_days = max((datetime.now(timezone.utc) - parsed).days, 0)
+    if delta_days <= 30:
+        return 3
+    if delta_days <= 180:
+        return 2
+    if delta_days <= 365:
+        return 1
+    return 0
+
+
+def _safe_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip() or "0")
+        except ValueError:
+            return 0
+    return 0
 
 
 def _is_non_empty_repository(item: dict[str, object]) -> bool:

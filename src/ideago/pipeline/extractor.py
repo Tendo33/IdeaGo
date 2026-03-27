@@ -32,6 +32,10 @@ from ideago.pipeline.exceptions import ExtractionError
 logger = get_logger(__name__)
 
 
+def _localized_text(output_language: str, zh: str, en: str) -> str:
+    return zh if output_language == "zh" else en
+
+
 class ExtractionOutput(BaseModel):
     """Typed extraction output for competitor and evidence signals."""
 
@@ -110,6 +114,7 @@ class Extractor:
             structured = self._parse_structured_output(
                 payload=data,
                 allowed_urls=allowed_urls,
+                output_language=intent.output_language,
             )
             self._store_structured_output_for_current_task(structured)
             logger.debug(
@@ -167,6 +172,7 @@ class Extractor:
         *,
         payload: object,
         allowed_urls: set[str],
+        output_language: str,
     ) -> ExtractionOutput:
         if not isinstance(payload, dict):
             raise ExtractionError("Extractor response payload must be a JSON object")
@@ -174,6 +180,7 @@ class Extractor:
         competitors = self._parse_competitors(
             raw_items=payload.get("competitors"),
             allowed_urls=allowed_urls,
+            output_language=output_language,
         )
         pain_signals = self._parse_pain_signals(
             raw_items=payload.get("pain_signals"),
@@ -204,6 +211,7 @@ class Extractor:
         *,
         raw_items: object,
         allowed_urls: set[str],
+        output_language: str,
     ) -> list[Competitor]:
         if not isinstance(raw_items, list):
             return []
@@ -226,18 +234,28 @@ class Extractor:
                     comp.name,
                 )
                 continue
+            if not any(_looks_like_product_page(url) for url in filtered_links):
+                logger.info(
+                    "Treating '{}' as evidence-only because links look like article/review pages",
+                    comp.name,
+                )
+                continue
             if len(filtered_links) < len(comp.links):
                 logger.info(
                     "Filtered {} fabricated links for competitor '{}'",
                     len(comp.links) - len(filtered_links),
                     comp.name,
                 )
+            normalized_comp = comp.model_copy(
+                update={
+                    "links": filtered_links,
+                    "source_urls": filtered_source_urls or filtered_links,
+                }
+            )
             result.append(
-                comp.model_copy(
-                    update={
-                        "links": filtered_links,
-                        "source_urls": filtered_source_urls or filtered_links,
-                    }
+                _backfill_competitor_tradeoffs(
+                    normalized_comp,
+                    output_language=output_language,
                 )
             )
         return result
@@ -342,7 +360,7 @@ class Extractor:
         evidence_items: list[EvidenceItem] = []
         for entry in raw_items:
             try:
-                evidence = EvidenceItem.model_validate(entry)
+                evidence = EvidenceItem.model_validate(_normalize_evidence_entry(entry))
             except Exception:
                 logger.warning("Skipping invalid evidence item: {}", entry)
                 continue
@@ -387,6 +405,23 @@ class Extractor:
         }
 
 
+def _normalize_evidence_entry(entry: object) -> object:
+    if not isinstance(entry, dict):
+        return entry
+    normalized = dict(entry)
+    for key in (
+        "title",
+        "url",
+        "snippet",
+        "freshness_hint",
+        "matched_query",
+        "query_family",
+    ):
+        if normalized.get(key) is None:
+            normalized[key] = ""
+    return normalized
+
+
 def _normalize_url(url: str) -> str:
     """Normalize URL for strict source-link verification."""
     if not url:
@@ -411,6 +446,127 @@ def _normalize_url(url: str) -> str:
 
 def _filter_allowed_urls(urls: list[str], allowed_urls: set[str]) -> list[str]:
     return [url for url in urls if _normalize_url(url) in allowed_urls]
+
+
+def _looks_like_product_page(url: str) -> bool:
+    lowered = url.lower()
+    return not any(
+        token in lowered
+        for token in ("/blog/", "/news/", "/article/", "/tutorial/", "/review/")
+    )
+
+
+def _backfill_competitor_tradeoffs(
+    competitor: Competitor,
+    *,
+    output_language: str,
+) -> Competitor:
+    strengths = _normalize_string_list(competitor.strengths)
+    weaknesses = _normalize_string_list(competitor.weaknesses)
+    features = _normalize_string_list(competitor.features)
+
+    if not strengths:
+        strengths = _build_fallback_strengths(
+            competitor=competitor,
+            features=features,
+            output_language=output_language,
+        )
+    if not weaknesses:
+        weaknesses = _build_fallback_weaknesses(
+            competitor=competitor,
+            features=features,
+            output_language=output_language,
+        )
+
+    return competitor.model_copy(
+        update={
+            "strengths": strengths,
+            "weaknesses": weaknesses,
+        }
+    )
+
+
+def _build_fallback_strengths(
+    *,
+    competitor: Competitor,
+    features: list[str],
+    output_language: str,
+) -> list[str]:
+    fallback: list[str] = []
+    if features:
+        lead_features = ", ".join(features[:2])
+        fallback.append(
+            _localized_text(
+                output_language,
+                f"覆盖的能力点较明确，重点包括 {lead_features}。",
+                f"Feature coverage is explicit, especially around {lead_features}.",
+            )
+        )
+    if competitor.pricing:
+        fallback.append(
+            _localized_text(
+                output_language,
+                "定价信息公开，便于采购方快速判断预算匹配度。",
+                "Pricing is explicitly stated, which helps buyers evaluate fit quickly.",
+            )
+        )
+    if not fallback and competitor.one_liner.strip():
+        fallback.append(
+            _localized_text(
+                output_language,
+                "定位描述相对清晰，能快速看出产品主要解决的问题。",
+                "The positioning is clear enough to understand the primary use case quickly.",
+            )
+        )
+    return fallback[:2]
+
+
+def _build_fallback_weaknesses(
+    *,
+    competitor: Competitor,
+    features: list[str],
+    output_language: str,
+) -> list[str]:
+    fallback: list[str] = []
+    if len(competitor.source_platforms) <= 1:
+        fallback.append(
+            _localized_text(
+                output_language,
+                "当前证据主要来自单一来源，集成深度、部署复杂度等细节仍不够明确。",
+                "Current evidence comes from a single source, so integration depth and deployment complexity remain unclear.",
+            )
+        )
+    if not competitor.pricing:
+        fallback.append(
+            _localized_text(
+                output_language,
+                "现有材料没有给出明确价格，采购门槛与商业模式仍需进一步核实。",
+                "Pricing is not explicit in the available evidence, so buying friction and business model still need verification.",
+            )
+        )
+    elif len(features) < 2:
+        fallback.append(
+            _localized_text(
+                output_language,
+                "公开信息对功能边界描述有限，暂时难以判断能力覆盖是否完整。",
+                "Public information only describes a narrow slice of functionality, making overall coverage harder to assess.",
+            )
+        )
+    if not fallback:
+        fallback.append(
+            _localized_text(
+                output_language,
+                "现有公开材料更偏概览描述，真实落地效果仍需要更多一手验证。",
+                "Available material is still high-level, so real-world execution quality needs more first-hand validation.",
+            )
+        )
+    return fallback[:2]
+
+
+def _normalize_string_list(values: list[str]) -> list[str]:
+    return [
+        value.strip() for value in values if isinstance(value, str) and value.strip()
+    ]
 
 
 def _serialize_raw_for_extraction(raw: RawResult) -> dict[str, Any]:

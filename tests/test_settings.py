@@ -142,8 +142,10 @@ def test_settings_path_and_origin_helpers(tmp_path: Path) -> None:
         log_file="logs/test.log", cors_allow_origins=" https://a.com, https://b.com "
     )
     absolute = Settings(log_file=str(tmp_path / "app.log"), cors_allow_origins="")
+    project_root = relative.get_project_root()
 
-    assert relative.get_project_root().name == "IdeaGo"
+    assert (project_root / "pyproject.toml").exists()
+    assert (project_root / "src").exists()
     assert relative.get_log_file_path().name == "test.log"
     assert absolute.get_log_file_path() == tmp_path / "app.log"
     assert relative.get_cors_allow_origins() == ["https://a.com", "https://b.com"]

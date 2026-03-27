@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { CompetitorCard } from '@/features/reports/components/CompetitorCard'
 import type { Competitor } from '@/lib/types/research'
@@ -37,11 +37,18 @@ describe('CompetitorCard', () => {
     expect(screen.getByRole('link', { name: 'Open Example Product on link' })).toHaveTextContent('link')
   })
 
-  it('does not fully collapse strengths and weaknesses in standard cards', () => {
-    const { container } = render(
+  it('shows a preview of strengths and weaknesses in standard cards before expansion', () => {
+    render(
       <CompetitorCard competitor={competitorFixture} rank={2} variant="standard" />,
     )
 
-    expect(container.innerHTML).not.toContain('grid-template-rows: 0fr')
+    expect(screen.getByText('Strengths')).toBeInTheDocument()
+    expect(screen.getByText('Weaknesses')).toBeInTheDocument()
+    expect(screen.getByText('fast')).toBeInTheDocument()
+    expect(screen.getByText('new market')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument()
   })
 })

@@ -444,6 +444,81 @@ async def test_github_search_partial_failure_returns_partial_results() -> None:
     assert diagnostics["failed_queries"] == ["bad"]
 
 
+@pytest.mark.asyncio
+async def test_github_search_prefers_exact_anchor_hit_over_generic_match() -> None:
+    src = GitHubSource(token="", min_stars=0)
+    anchor_response = {
+        "items": [
+            {
+                "full_name": "user/generic-editor",
+                "description": "A visual editor for AI workflows",
+                "html_url": "https://github.com/user/generic-editor",
+                "stargazers_count": 200,
+                "language": "TypeScript",
+                "topics": ["editor", "workflow"],
+                "forks_count": 10,
+                "size": 400,
+                "pushed_at": "2026-02-01T00:00:00Z",
+                "updated_at": "2026-02-01T00:00:00Z",
+            },
+            {
+                "full_name": "user/claude-code-gui",
+                "description": "GUI for Claude Code CLI",
+                "html_url": "https://github.com/user/claude-code-gui",
+                "stargazers_count": 80,
+                "language": "TypeScript",
+                "topics": ["claude-code", "gui"],
+                "forks_count": 4,
+                "size": 240,
+                "pushed_at": "2026-02-01T00:00:00Z",
+                "updated_at": "2026-02-01T00:00:00Z",
+            },
+        ]
+    }
+    with patch.object(
+        src._client,
+        "get",
+        new_callable=AsyncMock,
+        return_value=httpx.Response(200, json=anchor_response),
+    ):
+        results = await src.search(['"Claude Code" gui'], limit=10)
+
+    assert results[0].title == "user/claude-code-gui"
+
+
+@pytest.mark.asyncio
+async def test_github_search_relaxes_min_stars_for_direct_competitor_family() -> None:
+    src = GitHubSource(token="", min_stars=500)
+    response = {
+        "items": [
+            {
+                "full_name": "user/claude-code-gui",
+                "description": "GUI for Claude Code CLI",
+                "html_url": "https://github.com/user/claude-code-gui",
+                "stargazers_count": 80,
+                "language": "TypeScript",
+                "topics": ["claude-code", "gui"],
+                "forks_count": 4,
+                "size": 240,
+                "pushed_at": "2026-02-01T00:00:00Z",
+                "updated_at": "2026-02-01T00:00:00Z",
+            }
+        ]
+    }
+    with patch.object(
+        src._client,
+        "get",
+        new_callable=AsyncMock,
+        return_value=httpx.Response(200, json=response),
+    ):
+        results = await src.search(
+            [{"query": '"Claude Code" gui', "query_family": "competitor_discovery"}],
+            limit=10,
+        )
+
+    assert len(results) == 1
+
+
 # ---------- TavilySource ----------
 
 
@@ -564,6 +639,33 @@ async def test_tavily_search_times_out_slow_queries() -> None:
                 src.search(["slow tavily query"], limit=5),
                 timeout=0.2,
             )
+
+
+@pytest.mark.asyncio
+async def test_tavily_search_prefers_product_pages_over_blog_articles() -> None:
+    src = TavilySource(api_key="tvly-test")
+    mock_tavily_response = {
+        "results": [
+            {
+                "title": "Why Claude Code changed my mind",
+                "url": "https://blog.example.com/claude-code-editor-review",
+                "content": "Long-form blog review of editor experiences.",
+                "score": 0.95,
+            },
+            {
+                "title": "Claude Code GUI",
+                "url": "https://claudecodegui.example.com",
+                "content": "A visual interface for Claude Code.",
+                "score": 0.82,
+            },
+        ]
+    }
+    with patch.object(
+        src._client, "search", new_callable=AsyncMock, return_value=mock_tavily_response
+    ):
+        results = await src.search(['"Claude Code" gui'], limit=10)
+
+    assert results[0].title == "Claude Code GUI"
 
 
 @pytest.mark.asyncio
