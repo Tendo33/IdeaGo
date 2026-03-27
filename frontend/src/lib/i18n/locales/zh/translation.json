@@ -54,7 +54,13 @@
     "callbackError": "登录失败",
     "signingIn": "正在登录...",
     "unexpectedError": "发生了一个意外错误",
-    "legalNotice": "继续即表示您同意我们的"
+    "legalNotice": "继续即表示您同意我们的",
+    "humanVerification": "人机验证",
+    "turnstileVerifying": "正在验证您是否为真人...",
+    "turnstileSuccess": "验证已完成。",
+    "turnstileExpired": "验证已过期，请等待重新验证。",
+    "turnstileError": "验证失败，正在重试...",
+    "turnstileConfigMissing": "人机验证尚未配置，请联系支持人员。"
   },
   "profile": {
     "title": "个人资料",
