@@ -54,7 +54,18 @@ describe('LandingPage', () => {
     const sourceLabel = screen.getByText('Product Hunt')
     expect(sourceLabel.className).not.toContain('truncate')
 
-    const ctaDescription = screen.getByText(i18n.t('landing.ctaDesc'))
-    expect(ctaDescription.className).not.toContain('line-clamp')
+    const heroDescription = screen.getByText(i18n.t('landing.heroDesc'))
+    expect(heroDescription.className).not.toContain('line-clamp')
+  })
+
+  it('removes repetitive feature and duplicate final cta sections', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage themeMode="system" onSelectThemeMode={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByRole('heading', { name: i18n.t('landing.featuresTitle') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: i18n.t('landing.ctaTitle') })).not.toBeInTheDocument()
   })
 })
