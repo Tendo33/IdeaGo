@@ -54,7 +54,13 @@
     "callbackError": "Sign-in Failed",
     "signingIn": "Signing you in...",
     "unexpectedError": "An unexpected error occurred",
-    "legalNotice": "By continuing, you agree to our"
+    "legalNotice": "By continuing, you agree to our",
+    "humanVerification": "Human verification",
+    "turnstileVerifying": "Verifying you are human...",
+    "turnstileSuccess": "Verification complete.",
+    "turnstileExpired": "Verification expired. Please wait for a new check.",
+    "turnstileError": "Verification failed. Retrying...",
+    "turnstileConfigMissing": "Human verification is not configured yet. Please contact support."
   },
   "profile": {
     "title": "Profile",

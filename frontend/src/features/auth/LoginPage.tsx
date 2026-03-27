@@ -1,5 +1,5 @@
 import { Button, buttonVariants } from '@/components/ui/Button'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
@@ -9,6 +9,172 @@ import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucid
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type AuthMode = 'login' | 'register' | 'reset'
+type TurnstileStatus = 'verifying' | 'success' | 'expired' | 'error' | 'unsupported'
+
+type TurnstileRenderOptions = {
+  sitekey: string
+  callback?: (token: string) => void
+  'expired-callback'?: () => void
+  'error-callback'?: () => void
+  appearance?: 'always' | 'execute' | 'interaction-only'
+  execution?: 'render' | 'execute'
+  retry?: 'auto' | 'never'
+  'refresh-expired'?: 'auto' | 'manual' | 'never'
+  theme?: 'light' | 'dark' | 'auto'
+}
+
+type TurnstileApi = {
+  render: (container: HTMLElement, options: TurnstileRenderOptions) => string
+  reset: (widgetId?: string) => void
+  remove?: (widgetId?: string) => void
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi
+    __ideagoTurnstileOnLoad?: () => void
+  }
+}
+
+const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script'
+const TURNSTILE_SCRIPT_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+
+function getTurnstileMessage(t: ReturnType<typeof useTranslation>['t'], status: TurnstileStatus): string {
+  switch (status) {
+    case 'success':
+      return t('auth.turnstileSuccess', 'Verification complete.')
+    case 'expired':
+      return t('auth.turnstileExpired', 'Verification expired. Please wait for a new check.')
+    case 'error':
+      return t('auth.turnstileError', 'Verification failed. Retrying...')
+    case 'unsupported':
+      return t(
+        'auth.turnstileConfigMissing',
+        'Human verification is not configured yet. Please contact support.',
+      )
+    default:
+      return t('auth.turnstileVerifying', 'Verifying you are human...')
+  }
+}
+
+function TurnstilePanel({
+  siteKey,
+  status,
+  onTokenChange,
+  onStatusChange,
+  t,
+}: {
+  siteKey: string
+  status: TurnstileStatus
+  onTokenChange: (token: string | null) => void
+  onStatusChange: (status: TurnstileStatus) => void
+  t: ReturnType<typeof useTranslation>['t']
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const widgetIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!siteKey) {
+      onTokenChange(null)
+      onStatusChange('unsupported')
+      return
+    }
+
+    let disposed = false
+
+    const renderWidget = () => {
+      if (disposed || !containerRef.current || !window.turnstile || widgetIdRef.current) {
+        return
+      }
+
+      onStatusChange('verifying')
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        appearance: 'always',
+        execution: 'render',
+        retry: 'auto',
+        'refresh-expired': 'auto',
+        theme: 'light',
+        callback: token => {
+          if (disposed) {
+            return
+          }
+          onTokenChange(token)
+          onStatusChange('success')
+        },
+        'expired-callback': () => {
+          if (disposed) {
+            return
+          }
+          onTokenChange(null)
+          onStatusChange('expired')
+          window.turnstile?.reset(widgetIdRef.current ?? undefined)
+        },
+        'error-callback': () => {
+          if (disposed) {
+            return
+          }
+          onTokenChange(null)
+          onStatusChange('error')
+          window.turnstile?.reset(widgetIdRef.current ?? undefined)
+        },
+      })
+    }
+
+    if (window.turnstile) {
+      renderWidget()
+    } else {
+      window.__ideagoTurnstileOnLoad = renderWidget
+      let script = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null
+
+      if (!script) {
+        script = document.createElement('script')
+        script.id = TURNSTILE_SCRIPT_ID
+        script.src = TURNSTILE_SCRIPT_SRC
+        script.async = true
+        script.defer = true
+        script.onload = () => window.__ideagoTurnstileOnLoad?.()
+        script.onerror = () => {
+          if (disposed) {
+            return
+          }
+          onTokenChange(null)
+          onStatusChange('error')
+        }
+        document.head.appendChild(script)
+      } else {
+        script.addEventListener('load', window.__ideagoTurnstileOnLoad)
+      }
+    }
+
+    return () => {
+      disposed = true
+      if (widgetIdRef.current) {
+        window.turnstile?.remove?.(widgetIdRef.current)
+        widgetIdRef.current = null
+      }
+    }
+  }, [onStatusChange, onTokenChange, siteKey])
+
+  return (
+    <div className="space-y-3">
+      <div className="border-2 border-border bg-background/80 p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+              {t('auth.humanVerification', 'Human verification')}
+            </p>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              {getTurnstileMessage(t, siteKey ? status : 'unsupported')}
+            </p>
+          </div>
+        </div>
+        <div ref={containerRef} className="mt-4 min-h-[65px]" aria-live="polite" />
+      </div>
+    </div>
+  )
+}
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -62,11 +228,24 @@ export function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [confirmSent, setConfirmSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaStatus, setCaptchaStatus] = useState<TurnstileStatus>('verifying')
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? ''
   const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  const registerBlocked =
+    mode === 'register' &&
+    (!turnstileSiteKey || captchaStatus !== 'success' || !captchaToken)
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
   }, [user, from, navigate])
+
+  useEffect(() => {
+    if (!turnstileSiteKey) {
+      setCaptchaToken(null)
+      setCaptchaStatus('unsupported')
+    }
+  }, [turnstileSiteKey])
 
   if (user) return null
 
@@ -109,10 +288,25 @@ export function LoginPage() {
         }
         navigate(from, { replace: true })
       } else {
+        if (!turnstileSiteKey) {
+          setError(
+            t(
+              'auth.turnstileConfigMissing',
+              'Human verification is not configured yet. Please contact support.',
+            ),
+          )
+          return
+        }
+        if (captchaStatus !== 'success' || !captchaToken) {
+          setError(getTurnstileMessage(t, captchaStatus))
+          return
+        }
+
         const { error: err } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            captchaToken,
             data: {
               language: emailLanguage,
             },
@@ -122,6 +316,8 @@ export function LoginPage() {
           setError(err.message)
           return
         }
+        setCaptchaToken(null)
+        setCaptchaStatus('verifying')
         setConfirmSent(true)
       }
     } catch {
@@ -339,7 +535,20 @@ export function LoginPage() {
             </div>
           )}
 
-          <Button type="submit" className="w-full" size="lg" disabled={anyLoading}>
+          <TurnstilePanel
+            siteKey={turnstileSiteKey}
+            status={captchaStatus}
+            onTokenChange={setCaptchaToken}
+            onStatusChange={setCaptchaStatus}
+            t={t}
+          />
+
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            disabled={anyLoading || registerBlocked}
+          >
             {loading ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : mode === 'login' ? (

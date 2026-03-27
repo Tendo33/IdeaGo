@@ -13,9 +13,37 @@ const applyCustomSessionMock = vi.fn()
 const getMyProfileMock = vi.fn()
 const getMeMock = vi.fn()
 const getSessionMock = vi.fn()
+const turnstileRenderMock = vi.fn()
+const turnstileResetMock = vi.fn()
+const turnstileRemoveMock = vi.fn()
+
+type TurnstileRenderOptions = {
+  callback?: (token: string) => void
+  'expired-callback'?: () => void
+  'error-callback'?: () => void
+}
 
 let authUser: { id: string; email: string } | null = null
 let currentLanguage = 'zh-CN'
+let latestTurnstileOptions: TurnstileRenderOptions | null = null
+
+function installTurnstileMock() {
+  turnstileRenderMock.mockImplementation(
+    (_element: string | HTMLElement, options: TurnstileRenderOptions) => {
+      latestTurnstileOptions = options
+      return 'widget-1'
+    },
+  )
+  Object.defineProperty(window, 'turnstile', {
+    configurable: true,
+    writable: true,
+    value: {
+      render: turnstileRenderMock,
+      reset: turnstileResetMock,
+      remove: turnstileRemoveMock,
+    },
+  })
+}
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -89,12 +117,18 @@ describe('LoginPage registration locale metadata', () => {
   beforeEach(() => {
     authUser = null
     currentLanguage = 'zh-CN'
+    latestTurnstileOptions = null
     navigateMock.mockReset()
     signUpMock.mockReset()
     applyCustomSessionMock.mockReset()
     getMyProfileMock.mockReset()
     getMeMock.mockReset()
     getSessionMock.mockReset()
+    turnstileRenderMock.mockReset()
+    turnstileResetMock.mockReset()
+    turnstileRemoveMock.mockReset()
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'test-site-key')
+    installTurnstileMock()
     signUpMock.mockResolvedValue({ error: null })
     getSessionMock.mockResolvedValue({ data: { session: null } })
     window.history.replaceState({}, '', '/login')
@@ -102,7 +136,23 @@ describe('LoginPage registration locale metadata', () => {
     localStorage.clear()
   })
 
-  it('passes the current UI language to Supabase signUp metadata', async () => {
+  it('renders the turnstile widget immediately and blocks register until verified', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Human verification')).toBeInTheDocument()
+    expect(screen.getByText('Verifying you are human...')).toBeInTheDocument()
+    expect(turnstileRenderMock).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+
+    expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeDisabled()
+  })
+
+  it('passes captchaToken and the current UI language to Supabase signUp metadata', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <LoginPage />
@@ -110,6 +160,8 @@ describe('LoginPage registration locale metadata', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    latestTurnstileOptions?.callback?.('turnstile-token')
+
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'user@example.com' },
     })
@@ -123,12 +175,36 @@ describe('LoginPage registration locale metadata', () => {
         email: 'user@example.com',
         password: 'password123',
         options: {
+          captchaToken: 'turnstile-token',
           data: {
             language: 'zh',
           },
         },
       })
     })
+  })
+
+  it('blocks registration again when the captcha expires', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    latestTurnstileOptions?.callback?.('turnstile-token')
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeEnabled()
+    })
+
+    latestTurnstileOptions?.['expired-callback']?.()
+
+    await waitFor(() => {
+      expect(screen.getByText('Verification expired. Please wait for a new check.')).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeDisabled()
+    expect(turnstileResetMock).toHaveBeenCalled()
   })
 
   it('verifies LinuxDo callback session via backend and redirects immediately', async () => {
