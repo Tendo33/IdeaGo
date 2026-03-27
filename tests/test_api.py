@@ -1753,7 +1753,22 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
     assert first.headers["X-Trace-Id"] == "trace-123"
     assert first.headers["X-Content-Type-Options"] == "nosniff"
     assert first.headers["X-Frame-Options"] == "DENY"
-    assert "script-src 'self';" in first.headers["Content-Security-Policy"]
+    assert (
+        "script-src 'self' https://challenges.cloudflare.com;"
+        in first.headers["Content-Security-Policy"]
+    )
+    assert (
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;"
+        in first.headers["Content-Security-Policy"]
+    )
+    assert (
+        "frame-src 'self' https://challenges.cloudflare.com;"
+        in first.headers["Content-Security-Policy"]
+    )
+    assert (
+        "font-src 'self' data: https://fonts.gstatic.com;"
+        in first.headers["Content-Security-Policy"]
+    )
     assert "Strict-Transport-Security" in first.headers
     assert second.status_code == 429
     assert second.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"

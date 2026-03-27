@@ -38,6 +38,10 @@ _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 
+_TURNSTILE_ORIGIN = "https://challenges.cloudflare.com"
+_GOOGLE_FONTS_STYLES_ORIGIN = "https://fonts.googleapis.com"
+_GOOGLE_FONTS_ASSETS_ORIGIN = "https://fonts.gstatic.com"
+
 
 _cleanup_task: asyncio.Task[None] | None = None
 _CLEANUP_INTERVAL_SECONDS = 3600
@@ -253,10 +257,12 @@ def create_app() -> FastAPI:
     _CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhook"}
     _STRICT_CSP = (
         "default-src 'self'; "
-        "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; "
+        f"script-src 'self' {_TURNSTILE_ORIGIN}; "
+        f"style-src 'self' 'unsafe-inline' {_GOOGLE_FONTS_STYLES_ORIGIN}; "
         "img-src 'self' data: https:; "
         "connect-src 'self' https:; "
+        f"frame-src 'self' {_TURNSTILE_ORIGIN}; "
+        f"font-src 'self' data: {_GOOGLE_FONTS_ASSETS_ORIGIN}; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"
