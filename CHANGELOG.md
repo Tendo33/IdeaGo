@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-03-27
+
+### Added
+- Introduced a typed `query_planning_rewriting` stage so retrieval now flows through explicit intent parsing, query planning, platform adaptation, extraction, and aggregation.
+
+### Changed
+- Improved competitor discovery prompts, intent anchors, and platform-specific query shaping to preserve exact entities such as `Claude Code`.
+- Updated GitHub and Tavily retrieval heuristics to favor exact-anchor and product-page matches over generic or blog-heavy results.
+- Aligned shared report contracts and reusable report card UI between backend and frontend.
+- Unified release version markers across backend, frontend, and version tooling.
+
+### Fixed
+- Hardened extractor evidence normalization so optional fields like `None` no longer cause valid evidence items to be skipped.
+- Ensured the main-branch orchestration wiring instantiates the new query planner cleanly.
+
 ## [0.3.4] - 2026-03-19
 
 ### Changed

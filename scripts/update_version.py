@@ -4,6 +4,7 @@
 This script updates the version number across all relevant files in the project:
 - pyproject.toml
 - src/ideago/__init__.py
+- frontend/package.json
 
 该脚本用于更新项目中所有相关文件的版本号。
 
@@ -57,6 +58,12 @@ class VersionUpdater:
                 path=project_root / "src" / "ideago" / "__init__.py",
                 pattern=r'^__version__ = "([^"]+)"',
                 replacement='__version__ = "{version}"',
+            ),
+            VersionTarget(
+                path=project_root / "frontend" / "package.json",
+                pattern=r'^  "version": "([^"]+)",',
+                replacement='  "version": "{version}",',
+                optional=True,
             ),
         ]
 
@@ -113,7 +120,7 @@ class VersionUpdater:
 
         if not file_path.exists():
             if target.optional:
-                return "SKIP", f"Optional file not found: {file_path}"
+                return "SKIP", ""
             return "ERROR", f"Required file not found: {file_path}"
 
         try:
@@ -124,10 +131,7 @@ class VersionUpdater:
             match = re.search(pattern, content, re.MULTILINE)
             if not match:
                 if target.optional:
-                    return (
-                        "SKIP",
-                        f"Version pattern not found in optional file: {file_path}",
-                    )
+                    return ("SKIP", "")
                 return "ERROR", f"Version pattern not found in {file_path}"
 
             old_version = match.group(1)
@@ -197,7 +201,8 @@ class VersionUpdater:
                 else:
                     messages.append(f"[DRY RUN] {message}")
             elif status == "SKIP":
-                messages.append(f"[INFO] {message}")
+                if message:
+                    messages.append(f"[INFO] {message}")
             else:
                 messages.append(f"[ERROR] {message}")
 
