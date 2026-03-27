@@ -122,6 +122,14 @@ describe('App landing page', () => {
     window.history.pushState({}, '', '/')
   })
 
+  it('renders landing immediately while signed-out auth bootstrap is in progress', async () => {
+    authState = { user: null, loading: true }
+    render(<App />)
+
+    expect(await screen.findByText('LANDING PAGE')).toBeInTheDocument()
+    expect(screen.queryByTestId('route-loading')).not.toBeInTheDocument()
+  })
+
   it('shows landing page when not authenticated', async () => {
     authState = { user: null, loading: false }
     render(<App />)

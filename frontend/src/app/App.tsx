@@ -299,8 +299,7 @@ function RouteLoading() {
 }
 
 function HomeOrLanding({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSelectThemeMode: (mode: ThemeMode) => void }) {
-  const { user, loading } = useAuth()
-  if (loading) return <RouteLoading />
+  const { user } = useAuth()
   return user ? <HomePage /> : <LandingPage themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />
 }
 
