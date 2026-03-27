@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -45,6 +46,9 @@ _STATUS_ONLY_MAX_PINGS = (
     _STATUS_ONLY_MAX_WAIT_SECONDS // _STATUS_ONLY_PING_INTERVAL_SECONDS
 )
 _ACTIVE_STREAM_PING_INTERVAL_SECONDS = 15
+_EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS = 10.5
+_EXISTING_SLOT_CONFIRM_POLL_SECONDS = 0.1
+_RESERVE_RETRY_MAX = 3
 
 
 async def _mark_cancelled(report_id: str) -> None:
@@ -148,23 +152,40 @@ async def start_analysis(
     user: AuthUser = Depends(get_current_user),
 ) -> AnalyzeResponse:
     """Start a competitor research pipeline for the given idea."""
+    query = request.query.strip()
+
+    query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
+    report_id = ""
+    for _ in range(_RESERVE_RETRY_MAX):
+        candidate_report_id = str(uuid.uuid4())
+        existing_report_id = await reserve_processing_report(
+            query_hash, candidate_report_id, user_id=user.id
+        )
+        if existing_report_id is None:
+            report_id = candidate_report_id
+            break
+        if await _confirm_existing_report_is_active(existing_report_id):
+            return AnalyzeResponse(report_id=existing_report_id)
+        logger.info(
+            "Detected stale dedup reservation for report {}. Retrying reserve.",
+            existing_report_id,
+        )
+
+    if not report_id:
+        raise AppError(
+            503,
+            ErrorCode.INTERNAL_ERROR,
+            "Unable to reserve analysis slot. Please retry.",
+        )
+
     quota = await check_and_increment_quota(user.id)
     if not quota.allowed:
+        await release_processing_report(report_id)
         raise AppError(
             429,
             ErrorCode.QUOTA_EXCEEDED,
             f"Daily limit reached ({quota.plan_limit} analyses per day)",
         )
-
-    query = request.query.strip()
-
-    query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
-    report_id = str(uuid.uuid4())
-    existing_report_id = await reserve_processing_report(
-        query_hash, report_id, user_id=user.id
-    )
-    if existing_report_id is not None:
-        return AnalyzeResponse(report_id=existing_report_id)
 
     cache = get_cache()
     await cache.put_status(
@@ -221,6 +242,32 @@ async def _status_terminal_event(report_id: str) -> PipelineEvent | None:
             },
         )
     return None
+
+
+async def _confirm_existing_report_is_active(report_id: str) -> bool:
+    """Confirm dedup hit points to a still-active report.
+
+    When the original request fails quota, it releases processing slot before
+    writing processing status. This probe waits until the slot is either
+    confirmed active (status written) or released (stale dedup hit).
+    """
+    cache = get_cache()
+    deadline = time.monotonic() + _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS
+    while True:
+        status = await cache.get_status(report_id)
+        if status:
+            status_value = str(status.get("status", "")).strip().lower()
+            if status_value == "processing":
+                return True
+            if status_value in {"complete", "failed", "cancelled"}:
+                return False
+        if not await is_processing_report(report_id):
+            return False
+        if time.monotonic() >= deadline:
+            # Slot still held after quota-timeout window; treat as active to
+            # avoid duplicate task creation under transient visibility delay.
+            return True
+        await asyncio.sleep(_EXISTING_SLOT_CONFIRM_POLL_SECONDS)
 
 
 async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:

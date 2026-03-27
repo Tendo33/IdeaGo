@@ -14,6 +14,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +25,7 @@ from ideago import __version__
 from ideago.api.errors import AppError, ErrorCode
 from ideago.api.routes import admin, analyze, auth, billing, health, reports
 from ideago.config.settings import get_settings
+from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
@@ -39,6 +41,70 @@ _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 
 _cleanup_task: asyncio.Task[None] | None = None
 _CLEANUP_INTERVAL_SECONDS = 3600
+_rate_limit_http_client: httpx.AsyncClient | None = None
+
+
+def _get_rate_limit_http_client() -> httpx.AsyncClient:
+    global _rate_limit_http_client
+    if _rate_limit_http_client is None:
+        _rate_limit_http_client = httpx.AsyncClient(
+            timeout=3.0,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+        )
+    return _rate_limit_http_client
+
+
+async def _cleanup_pg_rate_limit_hits() -> int:
+    """Cleanup stale PG-backed rate-limit rows. Returns removed row count."""
+    settings = get_settings()
+    supabase_url = getattr(settings, "supabase_url", "")
+    service_role_key = getattr(settings, "supabase_service_role_key", "")
+    if not supabase_url or not service_role_key:
+        return 0
+    try:
+        response = await _get_rate_limit_http_client().post(
+            f"{supabase_url}/rest/v1/rpc/cleanup_rate_limit_hits",
+            headers={
+                "apikey": service_role_key,
+                "Authorization": f"Bearer {service_role_key}",
+                "Content-Type": "application/json",
+            },
+            json={"p_max_age_seconds": max(_CLEANUP_INTERVAL_SECONDS * 2, 7200)},
+        )
+        if response.status_code == 200:
+            payload = response.json()
+            return payload if isinstance(payload, int) and payload > 0 else 0
+        log_error_event(
+            logger,
+            error_code="RATE_LIMIT_PG_CLEANUP_FAILED",
+            subsystem="rate_limit",
+            details={"status_code": response.status_code},
+            message="cleanup_rate_limit_hits RPC returned non-200",
+        )
+    except httpx.TimeoutException:
+        log_error_event(
+            logger,
+            error_code="RATE_LIMIT_PG_CLEANUP_TIMEOUT",
+            subsystem="rate_limit",
+            message="cleanup_rate_limit_hits RPC timeout",
+        )
+    except httpx.HTTPError:
+        log_error_event(
+            logger,
+            error_code="RATE_LIMIT_PG_CLEANUP_HTTP_ERROR",
+            subsystem="rate_limit",
+            message="cleanup_rate_limit_hits HTTP error",
+            include_exception=True,
+        )
+    except Exception:
+        log_error_event(
+            logger,
+            error_code="RATE_LIMIT_PG_CLEANUP_UNEXPECTED",
+            subsystem="rate_limit",
+            message="cleanup_rate_limit_hits unexpected error",
+            include_exception=True,
+        )
+    return 0
 
 
 def _evict_stale_rate_limit_keys() -> int:
@@ -70,7 +136,16 @@ async def _periodic_cleanup() -> None:
             if removed > 0:
                 logger.info("Cleaned up {} expired reports", removed)
         except Exception:
-            logger.opt(exception=True).warning("Cleanup task error")
+            log_error_event(
+                logger,
+                error_code="CACHE_CLEANUP_FAILED",
+                subsystem="maintenance",
+                message="periodic cache cleanup failed",
+                include_exception=True,
+            )
+        pg_removed = await _cleanup_pg_rate_limit_hits()
+        if pg_removed > 0:
+            logger.debug("Cleaned up {} stale PG rate-limit rows", pg_removed)
         evicted = _evict_stale_rate_limit_keys()
         if evicted > 0:
             logger.debug("Evicted {} stale rate-limit keys", evicted)
@@ -79,7 +154,7 @@ async def _periodic_cleanup() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup / shutdown logic."""
-    global _cleanup_task
+    global _cleanup_task, _rate_limit_http_client
     _cleanup_task = asyncio.create_task(_periodic_cleanup())
     yield
     if _cleanup_task is not None:
@@ -97,6 +172,9 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_audit_client()
     if _cache is not None and hasattr(_cache, "close"):
         await _cache.close()
+    if _rate_limit_http_client is not None:
+        await _rate_limit_http_client.aclose()
+        _rate_limit_http_client = None
     _rate_limit_store.clear()
 
     if _orchestrator is None:
@@ -109,7 +187,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 logger.warning("Failed to close source {}", source.platform.value)
 
 
-def _init_sentry(settings: Settings) -> None:  # type: ignore[name-defined]  # noqa: F821
+def _init_sentry(settings) -> None:
     """Initialize Sentry SDK if a DSN is configured."""
     if not settings.sentry_dsn:
         return
@@ -173,6 +251,28 @@ def create_app() -> FastAPI:
 
     _CSRF_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
     _CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhook"}
+    _STRICT_CSP = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    _DOCS_CSP = (
+        "default-src 'self' https:; "
+        "script-src 'self' 'unsafe-inline' https:; "
+        "style-src 'self' 'unsafe-inline' https:; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https:; "
+        "font-src 'self' data: https:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    _DOCS_PATHS = {path for path in (app.docs_url, app.redoc_url) if path}
 
     @app.middleware("http")
     async def csrf_protection(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
@@ -232,8 +332,6 @@ def create_app() -> FastAPI:
         key: str, *, max_requests: int, window_seconds: int
     ) -> bool:
         """PG-backed sliding-window check via Supabase RPC."""
-        import httpx
-
         url = f"{settings.supabase_url}/rest/v1/rpc/check_rate_limit"
         headers = {
             "apikey": settings.supabase_service_role_key,
@@ -246,12 +344,43 @@ def create_app() -> FastAPI:
             "p_window_seconds": window_seconds,
         }
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                resp = await client.post(url, json=payload, headers=headers)
+            resp = await _get_rate_limit_http_client().post(
+                url,
+                json=payload,
+                headers=headers,
+            )
             if resp.status_code == 200:
                 return resp.json() is True
+            log_error_event(
+                logger,
+                error_code="RATE_LIMIT_PG_RPC_FAILED",
+                subsystem="rate_limit",
+                details={"status_code": resp.status_code},
+                message="check_rate_limit RPC returned non-200",
+            )
+        except httpx.TimeoutException:
+            log_error_event(
+                logger,
+                error_code="RATE_LIMIT_PG_RPC_TIMEOUT",
+                subsystem="rate_limit",
+                message="check_rate_limit RPC timeout",
+            )
+        except httpx.HTTPError:
+            log_error_event(
+                logger,
+                error_code="RATE_LIMIT_PG_RPC_HTTP_ERROR",
+                subsystem="rate_limit",
+                message="check_rate_limit RPC HTTP error",
+                include_exception=True,
+            )
         except Exception:
-            logger.debug("PG rate-limit RPC failed, falling back to in-memory")
+            log_error_event(
+                logger,
+                error_code="RATE_LIMIT_PG_RPC_UNEXPECTED",
+                subsystem="rate_limit",
+                message="check_rate_limit RPC unexpected error",
+                include_exception=True,
+            )
         return _check_rate_limit_memory(
             key, max_requests=max_requests, window_seconds=window_seconds
         )
@@ -286,7 +415,12 @@ def create_app() -> FastAPI:
             limit_max = settings.rate_limit_analyze_max
             limit_window = settings.rate_limit_analyze_window_seconds
             prefix = "analyze:"
-        elif path.startswith("/api/") and "/reports" in path:
+        elif (
+            request.method == "GET"
+            and path.startswith("/api/v1/reports")
+            and not path.endswith("/status")
+            and not path.endswith("/stream")
+        ):
             limit_max = settings.rate_limit_reports_max
             limit_window = settings.rate_limit_reports_window_seconds
             prefix = "reports:"
@@ -300,7 +434,14 @@ def create_app() -> FastAPI:
                 if user is not None:
                     user_id = user.id
             except Exception:
-                pass
+                log_error_event(
+                    logger,
+                    error_code="RATE_LIMIT_USER_RESOLVE_FAILED",
+                    subsystem="rate_limit",
+                    trace_id=getattr(request.state, "trace_id", ""),
+                    message="resolve user in rate-limit middleware failed",
+                    include_exception=True,
+                )
 
             rate_key = prefix + _resolve_rate_key(request, user_id)
             if await _check_rate_limit(
@@ -327,6 +468,9 @@ def create_app() -> FastAPI:
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
         )
+        response.headers["Content-Security-Policy"] = (
+            _DOCS_CSP if request.url.path in _DOCS_PATHS else _STRICT_CSP
+        )
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
@@ -334,7 +478,15 @@ def create_app() -> FastAPI:
         return response
 
     @app.exception_handler(AppError)
-    async def _app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+    async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        log_error_event(
+            logger,
+            error_code=exc.code.value,
+            subsystem="api",
+            trace_id=getattr(request.state, "trace_id", ""),
+            message="application error",
+            details={"status_code": exc.status_code},
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": exc.detail},
@@ -349,14 +501,20 @@ def create_app() -> FastAPI:
     }
 
     @app.exception_handler(HTTPException)
-    async def _http_error_handler(
-        _request: Request, exc: HTTPException
-    ) -> JSONResponse:
+    async def _http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
         """Normalise plain HTTPException into the unified error envelope."""
         if isinstance(exc, AppError):
-            return await _app_error_handler(_request, exc)
+            return await _app_error_handler(request, exc)
         code = _STATUS_TO_ERROR_CODE.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
         message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        log_error_event(
+            logger,
+            error_code=code.value,
+            subsystem="api",
+            trace_id=getattr(request.state, "trace_id", ""),
+            message="http exception",
+            details={"status_code": exc.status_code},
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": code.value, "message": message}},
@@ -364,7 +522,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error_handler(
-        _request: Request, exc: RequestValidationError
+        request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         """Return 422 validation errors in the unified error envelope."""
         errors = exc.errors()
@@ -374,6 +532,14 @@ def create_app() -> FastAPI:
             message = f"{loc}: {first.get('msg', 'Validation error')}"
         else:
             message = "Request validation failed"
+        log_error_event(
+            logger,
+            error_code=ErrorCode.VALIDATION_ERROR.value,
+            subsystem="api",
+            trace_id=getattr(request.state, "trace_id", ""),
+            message="request validation failed",
+            details={"errors_count": len(errors)},
+        )
         return JSONResponse(
             status_code=422,
             content={

@@ -17,6 +17,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 
 from ideago.auth.models import AuthUser
+from ideago.auth.session import AUTH_SESSION_COOKIE_NAME
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -295,14 +296,24 @@ def extract_token_subject(token: str) -> str:
 
 
 async def get_optional_user(request: Request) -> AuthUser | None:
-    """Extract and verify the user from the Authorization header."""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return None
-    token = auth_header.removeprefix("Bearer ").strip()
-    if not token:
+    """Extract and verify the user from bearer token or auth cookie."""
+    auth_header = request.headers.get("Authorization", "")
+    bearer_token = auth_header.removeprefix("Bearer ").strip()
+    cookie_jar = getattr(request, "cookies", {}) or {}
+    cookie_token = str(cookie_jar.get(AUTH_SESSION_COOKIE_NAME, "")).strip()
+    candidate_tokens = [token for token in (bearer_token, cookie_token) if token]
+    if not candidate_tokens:
         return None
 
+    for token in candidate_tokens:
+        user = await _authenticate_token(token)
+        if user is not None:
+            return user
+    return None
+
+
+async def _authenticate_token(token: str) -> AuthUser | None:
+    """Best-effort token authentication for one candidate token."""
     settings = get_settings()
 
     if settings.auth_session_secret and _should_try_ideago_jwt(token):

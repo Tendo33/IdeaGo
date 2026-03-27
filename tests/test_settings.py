@@ -62,8 +62,11 @@ def test_langgraph_json_parse_max_retries_default() -> None:
     assert settings.langgraph_json_parse_max_retries == 1
 
 
-def test_reddit_public_fallback_disabled_by_default() -> None:
-    settings = Settings()
+def test_reddit_public_fallback_disabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("REDDIT_ENABLE_PUBLIC_FALLBACK", raising=False)
+    settings = Settings(_env_file=None)
     assert settings.reddit_enable_public_fallback is False
 
 

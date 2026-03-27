@@ -17,7 +17,7 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -540,6 +540,7 @@ def test_list_reports(client) -> None:
         limit=20,
         offset=0,
         user_id="test-user-id",
+        q="",
     )
 
 
@@ -574,6 +575,7 @@ def test_list_reports_with_pagination_query_params(client) -> None:
         limit=1,
         offset=20,
         user_id="test-user-id",
+        q="",
     )
 
 
@@ -646,7 +648,7 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
     assert "state=" in location
 
 
-def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None:
+def test_linuxdo_callback_sets_cookie_and_redirects_to_callback(client) -> None:
     fake_settings = type(
         "Settings",
         (),
@@ -688,9 +690,11 @@ def test_linuxdo_callback_redirects_with_internal_token_fragment(client) -> None
 
     assert response.status_code == 302
     location = response.headers["location"]
-    assert location.startswith("https://ideago.simonsun.cc/auth/callback#")
-    assert "access_token=ideago-token" in location
-    assert "provider=linuxdo" in location
+    assert location == "https://ideago.simonsun.cc/auth/callback"
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "ideago_session=ideago-token" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "SameSite=lax" in set_cookie
 
 
 def test_auth_me_accepts_backend_session_jwt() -> None:
@@ -957,26 +961,32 @@ async def test_refresh_token_success_and_error_paths() -> None:
         algorithm="HS256",
     )
     good_request = type(
-        "Req", (), {"headers": {"Authorization": f"Bearer {valid_token}"}}
+        "Req",
+        (),
+        {"headers": {"Authorization": f"Bearer {valid_token}"}, "cookies": {}},
     )()
-    empty_request = type("Req", (), {"headers": {}})()
+    empty_request = type("Req", (), {"headers": {}, "cookies": {}})()
     stale_request = type(
-        "Req", (), {"headers": {"Authorization": f"Bearer {stale_token}"}}
+        "Req",
+        (),
+        {"headers": {"Authorization": f"Bearer {stale_token}"}, "cookies": {}},
     )()
     invalid_request = type(
-        "Req", (), {"headers": {"Authorization": "Bearer invalid"}}
+        "Req", (), {"headers": {"Authorization": "Bearer invalid"}, "cookies": {}}
     )()
 
     with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
-        refreshed = await auth_route.refresh_token(good_request)
+        refreshed_response = Response()
+        refreshed = await auth_route.refresh_token(good_request, refreshed_response)
         with pytest.raises(HTTPException) as missing:
-            await auth_route.refresh_token(empty_request)
+            await auth_route.refresh_token(empty_request, Response())
         with pytest.raises(HTTPException) as invalid:
-            await auth_route.refresh_token(invalid_request)
+            await auth_route.refresh_token(invalid_request, Response())
         with pytest.raises(HTTPException) as stale:
-            await auth_route.refresh_token(stale_request)
+            await auth_route.refresh_token(stale_request, Response())
 
     assert "access_token" in refreshed
+    assert "ideago_session=" in refreshed_response.headers.get("set-cookie", "")
     assert missing.value.status_code == 401
     assert invalid.value.status_code == 401
     assert stale.value.status_code == 401
@@ -1487,6 +1497,10 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
             "ideago.api.routes.analyze.reserve_processing_report",
             new=AsyncMock(return_value="existing-report"),
         ),
+        patch(
+            "ideago.api.routes.analyze._confirm_existing_report_is_active",
+            new=AsyncMock(return_value=True),
+        ),
     ):
         existing = await analyze_route.start_analysis(request, user)
     assert existing.report_id == "existing-report"
@@ -1530,6 +1544,60 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
     assert status is not None
     assert status["status"] == "processing"
     quota_warning.assert_awaited_once()
+    register_task.assert_awaited_once_with(created.report_id, fake_task)
+
+
+@pytest.mark.asyncio
+async def test_start_analysis_retries_when_dedup_hit_is_stale(tmp_path) -> None:
+    user = analyze_route.AuthUser(id="user-1", email="user@example.com")
+    request = analyze_route.AnalyzeRequest(query="build a useful app")
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    quota_low = type(
+        "Quota",
+        (),
+        {"allowed": True, "plan_limit": 5, "plan": "daily", "usage_count": 1},
+    )()
+    fake_task = object()
+
+    def fake_create_task(coro):
+        coro.close()
+        return fake_task
+
+    with (
+        patch(
+            "ideago.api.routes.analyze.reserve_processing_report",
+            new=AsyncMock(side_effect=["stale-report", None]),
+        ) as reserve_mock,
+        patch(
+            "ideago.api.routes.analyze._confirm_existing_report_is_active",
+            new=AsyncMock(return_value=False),
+        ) as confirm_mock,
+        patch(
+            "ideago.api.routes.analyze.check_and_increment_quota",
+            new=AsyncMock(return_value=quota_low),
+        ),
+        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.analyze.get_or_create_report_run",
+            return_value=deps.get_or_create_report_run("created-report"),
+        ),
+        patch(
+            "ideago.api.routes.analyze.asyncio.create_task",
+            side_effect=fake_create_task,
+        ),
+        patch(
+            "ideago.api.routes.analyze.register_pipeline_task",
+            new=AsyncMock(return_value=None),
+        ) as register_task,
+    ):
+        created = await analyze_route.start_analysis(request, user)
+
+    assert created.report_id != "stale-report"
+    confirm_mock.assert_awaited_once_with("stale-report")
+    assert reserve_mock.await_count == 2
+    status = await cache.get_status(created.report_id)
+    assert status is not None
+    assert status["status"] == "processing"
     register_task.assert_awaited_once_with(created.report_id, fake_task)
 
 
@@ -1677,6 +1745,7 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
                 },
             )
             static_file = local_client.get("/logo.svg")
+            docs_response = local_client.get("/docs")
             api_not_found = local_client.get("/api/unknown")
             suffix_not_found = local_client.get("/missing.js")
 
@@ -1684,6 +1753,7 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
     assert first.headers["X-Trace-Id"] == "trace-123"
     assert first.headers["X-Content-Type-Options"] == "nosniff"
     assert first.headers["X-Frame-Options"] == "DENY"
+    assert "script-src 'self';" in first.headers["Content-Security-Policy"]
     assert "Strict-Transport-Security" in first.headers
     assert second.status_code == 429
     assert second.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
@@ -1691,6 +1761,11 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
     assert reports_second.status_code == 429
     assert static_file.status_code == 200
     assert "<svg" in static_file.text
+    assert docs_response.status_code == 200
+    assert (
+        "script-src 'self' 'unsafe-inline' https:;"
+        in docs_response.headers["Content-Security-Policy"]
+    )
     assert api_not_found.status_code == 404
     assert suffix_not_found.status_code == 404
 
@@ -3298,7 +3373,7 @@ async def test_auth_route_remaining_error_branches() -> None:
         with pytest.raises(HTTPException) as linuxdo_start_not_configured:
             await auth_route.linuxdo_start(request, redirect_to=None)
         with pytest.raises(HTTPException) as refresh_not_configured:
-            await auth_route.refresh_token(request)
+            await auth_route.refresh_token(request, Response())
 
     assert parse_secret_missing.value.status_code == 503
     assert exchange_not_configured.value.status_code == 503
@@ -3399,13 +3474,13 @@ async def test_auth_route_remaining_error_branches() -> None:
     bad_refresh_request = type(
         "Req",
         (),
-        {"headers": {"Authorization": f"Bearer {bad_payload}"}},
+        {"headers": {"Authorization": f"Bearer {bad_payload}"}, "cookies": {}},
     )()
     with (
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         pytest.raises(HTTPException) as invalid_payload,
     ):
-        await auth_route.refresh_token(bad_refresh_request)
+        await auth_route.refresh_token(bad_refresh_request, Response())
     assert invalid_payload.value.status_code == 401
 
     user = auth_route.AuthUser(id="uid", email="u@example.com")
@@ -3868,9 +3943,9 @@ async def test_admin_routes_and_notifications() -> None:
     count_response.headers["content-range"] = "0-9/10"
     plan_client = AsyncMock()
     plan_client.head = AsyncMock(return_value=count_response)
-    plan_client.get = AsyncMock(
+    plan_client.post = AsyncMock(
         return_value=_AdminFakeResponse(
-            200, payload=[{"plan": "free"}, {"plan": "pro"}]
+            200, payload=[{"plan": "free", "count": 1}, {"plan": "pro", "count": 1}]
         )
     )
 

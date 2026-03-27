@@ -1,5 +1,6 @@
 """Observability package public API."""
 
+from .error_catalog import ERROR_LEVEL_BY_CODE, AlertLevel, log_error_event
 from .log_config import (
     configure_json_logging,
     critical,
@@ -16,6 +17,9 @@ from .log_config import (
 __all__ = [
     "setup_logging",
     "get_logger",
+    "log_error_event",
+    "AlertLevel",
+    "ERROR_LEVEL_BY_CODE",
     "configure_json_logging",
     "get_default_logger",
     "debug",

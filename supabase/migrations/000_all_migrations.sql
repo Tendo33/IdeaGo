@@ -54,6 +54,25 @@ begin
 end;
 $$;
 
+-- ============================================================================
+-- 013_plan_breakdown_rpc.sql
+-- ============================================================================
+
+-- Aggregate plan breakdown for admin dashboard without full-table scans via REST.
+CREATE OR REPLACE FUNCTION public.get_plan_breakdown()
+RETURNS TABLE(plan text, count int)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT
+    COALESCE(NULLIF(p.plan, ''), 'free') AS plan,
+    COUNT(*)::int AS count
+  FROM public.profiles p
+  GROUP BY COALESCE(NULLIF(p.plan, ''), 'free')
+  ORDER BY count DESC;
+$$;
+
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();

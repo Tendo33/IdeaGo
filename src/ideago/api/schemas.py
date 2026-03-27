@@ -95,15 +95,15 @@ class ReportDetailV2(BaseModel):
 
     id: str = Field(description="Unique report ID")
     query: str = Field(description="Original user query")
+    created_at: datetime = Field(description="Report creation timestamp")
+    updated_at: datetime = Field(description="Report last update timestamp")
     intent: Intent = Field(description="Parsed research intent")
-    source_results: list[SourceResult] = Field(
-        default_factory=list,
-        description="Per-source execution status and extraction results",
+    recommendation_type: RecommendationType = Field(
+        default=RecommendationType.GO,
+        description="Structured recommendation outcome",
     )
-    competitors: list[Competitor] = Field(
-        default_factory=list,
-        description="Deduplicated competitors in the final report",
-    )
+    go_no_go: str = Field(default="", description="Recommendation narrative")
+    market_summary: str = Field(default="", description="Market synthesis summary")
     pain_signals: list[PainSignal] = Field(
         default_factory=list,
         description="Decision-first pain signals",
@@ -120,23 +120,25 @@ class ReportDetailV2(BaseModel):
         default_factory=OpportunityScoreBreakdown,
         description="Deterministic opportunity score breakdown",
     )
-    market_summary: str = Field(default="", description="Market synthesis summary")
-    go_no_go: str = Field(default="", description="Recommendation narrative")
-    recommendation_type: RecommendationType = Field(
-        default=RecommendationType.GO,
-        description="Structured recommendation outcome",
+    competitors: list[Competitor] = Field(
+        default_factory=list,
+        description="Deduplicated competitors in the final report",
     )
     differentiation_angles: list[str] = Field(
         default_factory=list,
         description="Suggested differentiation angles",
     )
+    evidence_summary: EvidenceSummary = Field(
+        default_factory=EvidenceSummary,
+        description="Evidence summary with trust-oriented UI fields",
+    )
     confidence: ConfidenceMetrics = Field(
         default_factory=ConfidenceMetrics,
         description="Trust/confidence metrics for the report",
     )
-    evidence_summary: EvidenceSummary = Field(
-        default_factory=EvidenceSummary,
-        description="Evidence summary with trust-oriented UI fields",
+    source_results: list[SourceResult] = Field(
+        default_factory=list,
+        description="Per-source execution status and extraction results",
     )
     cost_breakdown: CostBreakdown = Field(
         default_factory=CostBreakdown,
@@ -146,5 +148,3 @@ class ReportDetailV2(BaseModel):
         default_factory=ReportMeta,
         description="Supplemental report metadata",
     )
-    created_at: datetime = Field(description="Report creation timestamp")
-    updated_at: datetime = Field(description="Report last update timestamp")

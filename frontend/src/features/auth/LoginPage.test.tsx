@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { useContext } from 'react'
 import { LoginPage } from './LoginPage'
@@ -11,7 +11,8 @@ const navigateMock = vi.fn()
 const signUpMock = vi.fn()
 const applyCustomSessionMock = vi.fn()
 const getMyProfileMock = vi.fn()
-const refreshAuthTokenMock = vi.fn()
+const getMeMock = vi.fn()
+const getSessionMock = vi.fn()
 
 let authUser: { id: string; email: string } | null = null
 let currentLanguage = 'zh-CN'
@@ -48,20 +49,18 @@ vi.mock('@/lib/auth/useAuth', () => ({
 vi.mock('@/lib/auth/token', () => ({
   saveCustomAuthSession: vi.fn(),
   setAccessToken: vi.fn(),
-  readCustomAuthSession: vi.fn(() => {
-    const raw = window.localStorage.getItem('ideago_custom_auth_session')
-    return raw ? JSON.parse(raw) : null
-  }),
+  readCustomAuthSession: vi.fn(() => null),
   clearCustomAuthSession: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
-  auth: {
+    auth: {
       signInWithOAuth: vi.fn(),
       signInWithPassword: vi.fn(),
       signUp: (...args: unknown[]) => signUpMock(...args),
       resetPasswordForEmail: vi.fn(),
+      getSession: (...args: unknown[]) => getSessionMock(...args),
       onAuthStateChange: vi.fn(() => ({
         data: {
           subscription: {
@@ -75,14 +74,9 @@ vi.mock('@/lib/supabase/client', () => ({
 
 vi.mock('@/lib/api/client', () => ({
   getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
-  refreshAuthToken: (...args: unknown[]) => refreshAuthTokenMock(...args),
+  getMe: (...args: unknown[]) => getMeMock(...args),
+  logoutAuthSession: vi.fn(),
 }))
-
-function encodeJwt(payload: Record<string, unknown>) {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const body = btoa(JSON.stringify(payload))
-  return `${header}.${body}.signature`
-}
 
 function AuthStateProbe() {
   const auth = useContext(AuthContext)
@@ -99,8 +93,10 @@ describe('LoginPage registration locale metadata', () => {
     signUpMock.mockReset()
     applyCustomSessionMock.mockReset()
     getMyProfileMock.mockReset()
-    refreshAuthTokenMock.mockReset()
+    getMeMock.mockReset()
+    getSessionMock.mockReset()
     signUpMock.mockResolvedValue({ error: null })
+    getSessionMock.mockResolvedValue({ data: { session: null } })
     window.history.replaceState({}, '', '/login')
     window.location.hash = ''
     localStorage.clear()
@@ -135,12 +131,9 @@ describe('LoginPage registration locale metadata', () => {
     })
   })
 
-  it('applies LinuxDo callback session immediately without requiring a manual refresh', async () => {
-    window.history.replaceState(
-      {},
-      '',
-      '/auth/callback#access_token=test-token&provider=linuxdo&user_id=user-123&email=linuxdo@example.com',
-    )
+  it('verifies LinuxDo callback session via backend and redirects immediately', async () => {
+    getMeMock.mockResolvedValue({ id: 'user-123', email: 'linuxdo@example.com' })
+    window.history.replaceState({}, '', '/auth/callback')
 
     render(
       <MemoryRouter initialEntries={['/auth/callback']}>
@@ -149,14 +142,7 @@ describe('LoginPage registration locale metadata', () => {
     )
 
     await waitFor(() => {
-      expect(applyCustomSessionMock).toHaveBeenCalledWith({
-        access_token: 'test-token',
-        provider: 'linuxdo',
-        user: {
-          id: 'user-123',
-          email: 'linuxdo@example.com',
-        },
-      })
+      expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
     })
 
     expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
@@ -165,9 +151,11 @@ describe('LoginPage registration locale metadata', () => {
 
 describe('AuthProvider token refresh scheduling', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
-    refreshAuthTokenMock.mockReset()
     getMyProfileMock.mockReset()
+    getMeMock.mockReset()
+    getSessionMock.mockReset()
+    getSessionMock.mockResolvedValue({ data: { session: null } })
+    getMeMock.mockResolvedValue({ id: 'user-123', email: 'linuxdo@example.com' })
     getMyProfileMock.mockResolvedValue({
       display_name: '',
       avatar_url: '',
@@ -178,29 +166,23 @@ describe('AuthProvider token refresh scheduling', () => {
     localStorage.clear()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
+  it('boots LinuxDo session from backend /auth/me when supabase session is absent', async () => {
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('user-123')).toBeInTheDocument()
+    })
+    expect(getSessionMock).toHaveBeenCalled()
+    expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
   })
 
-  it('does not immediately refresh long-lived LinuxDo sessions', async () => {
-    const nowMs = Date.UTC(2026, 2, 26, 12, 0, 0)
-    vi.setSystemTime(nowMs)
-
-    const accessToken = encodeJwt({
-      sub: 'user-123',
-      email: 'linuxdo@example.com',
-      provider: 'linuxdo',
-      exp: Math.floor((nowMs + 30 * 24 * 60 * 60 * 1000) / 1000),
-    })
-
-    localStorage.setItem('ideago_custom_auth_session', JSON.stringify({
-      access_token: accessToken,
-      provider: 'linuxdo',
-      user: {
-        id: 'user-123',
-        email: 'linuxdo@example.com',
-      },
-    }))
+  it('does not stay stuck in loading when getSession throws', async () => {
+    getSessionMock.mockRejectedValueOnce(new Error('session bootstrap failed'))
+    getMeMock.mockRejectedValueOnce(new Error('Unauthorized'))
 
     render(
       <AuthProvider>
@@ -208,9 +190,10 @@ describe('AuthProvider token refresh scheduling', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByText('user-123')).toBeInTheDocument()
-    await vi.advanceTimersByTimeAsync(1000)
-
-    expect(refreshAuthTokenMock).not.toHaveBeenCalled()
+    await waitFor(() => {
+      expect(screen.getByText('anonymous')).toBeInTheDocument()
+    })
+    expect(getSessionMock).toHaveBeenCalled()
+    expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
   })
 })

@@ -1,183 +1,140 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import type { Session as SupabaseSession } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
-import {
-  clearCustomAuthSession,
-  readCustomAuthSession,
-  saveCustomAuthSession,
-  setAccessToken,
-} from '@/lib/auth/token'
+import { setAccessToken } from '@/lib/auth/token'
 import { AuthContext } from './AuthContext'
 import type { AuthSession } from './AuthContext'
-import { getMyProfile, refreshAuthToken } from '@/lib/api/client'
+import { getMe, getMyProfile, logoutAuthSession } from '@/lib/api/client'
 
-const REFRESH_BUFFER_MS = 5 * 60 * 1000
-const MAX_TIMEOUT_MS = 2_147_483_647
-
-function decodeJwtExp(token: string): number | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return typeof payload.exp === 'number' ? payload.exp : null
-  } catch {
-    return null
+function toSupabaseSession(session: SupabaseSession): AuthSession {
+  return {
+    access_token: session.access_token,
+    provider: 'supabase',
+    user: {
+      id: session.user.id,
+      email: session.user.email ?? '',
+    },
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [initialCustomSession] = useState<AuthSession | null>(() => readCustomAuthSession())
-  const [session, setSession] = useState<AuthSession | null>(initialCustomSession)
-  const [loading, setLoading] = useState(initialCustomSession === null)
+  const [session, setSession] = useState<AuthSession | null>(null)
+  const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<string>('user')
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const signOutRef = useRef<(() => Promise<void>) | undefined>(undefined)
+
+  const applySupabaseSession = useCallback((nextSession: SupabaseSession) => {
+    setSession(toSupabaseSession(nextSession))
+    setAccessToken(nextSession.access_token)
+    setRole('user')
+  }, [])
+
+  const applyCustomSession = useCallback((nextSession: AuthSession) => {
+    setSession(nextSession)
+    setAccessToken(nextSession.access_token || null)
+    setRole('user')
+    setLoading(false)
+  }, [])
 
   const signOut = useCallback(async () => {
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-    clearCustomAuthSession()
-    await supabase.auth.signOut()
+    await Promise.allSettled([
+      logoutAuthSession(),
+      supabase.auth.signOut(),
+    ])
     setSession(null)
     setAccessToken(null)
     setRole('user')
   }, [])
 
-  useEffect(() => {
-    signOutRef.current = signOut
-  }, [signOut])
-
-  const scheduleTokenRefresh = useCallback((token: string) => {
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-
-    const exp = decodeJwtExp(token)
-    if (!exp) return
-
-    const getRemainingMs = (expirySeconds: number) =>
-      expirySeconds * 1000 - Date.now() - REFRESH_BUFFER_MS
-
-    function doRefresh() {
-      refreshAuthToken().then(newToken => {
-        setAccessToken(newToken)
-        const stored = readCustomAuthSession()
-        if (stored) {
-          saveCustomAuthSession({ ...stored, access_token: newToken })
-          setSession(prev => prev ? { ...prev, access_token: newToken } : prev)
-        }
-        const nextExp = decodeJwtExp(newToken)
-        if (!nextExp) return
-        scheduleRefreshCheck(getRemainingMs(nextExp))
-      }).catch(() => signOutRef.current?.())
-    }
-
-    const scheduleRefreshCheck = (remainingMs: number) => {
-      if (remainingMs <= 0) {
-        doRefresh()
-        return
-      }
-
-      const delay = Math.min(remainingMs, MAX_TIMEOUT_MS)
-      refreshTimerRef.current = setTimeout(() => {
-        if (remainingMs > MAX_TIMEOUT_MS) {
-          scheduleRefreshCheck(remainingMs - delay)
-          return
-        }
-        doRefresh()
-      }, delay)
-    }
-
-    scheduleRefreshCheck(getRemainingMs(exp))
-  }, [])
-
-  const applyCustomSession = useCallback((nextSession: AuthSession) => {
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-    saveCustomAuthSession(nextSession)
-    setSession(nextSession)
-    setAccessToken(nextSession.access_token)
-    setRole('user')
-    setLoading(false)
-    scheduleTokenRefresh(nextSession.access_token)
-  }, [scheduleTokenRefresh])
-
   const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
-    setSession(prev => {
-      if (!prev) return prev
-      const nextSession = {
-        ...prev,
+    setSession(previous => {
+      if (!previous) return previous
+      return {
+        ...previous,
         user: {
-          ...prev.user,
+          ...previous.user,
           ...updates,
         },
       }
-      if (prev.provider !== 'supabase') {
-        saveCustomAuthSession(nextSession)
-      }
-      return nextSession
     })
   }, [])
 
   useEffect(() => {
-    if (initialCustomSession) {
-      setAccessToken(initialCustomSession.access_token)
-      scheduleTokenRefresh(initialCustomSession.access_token)
-      return
+    let cancelled = false
+
+    const bootstrap = async () => {
+      try {
+        const { data: { session: supabaseSession } } = await supabase.auth.getSession()
+        if (cancelled) return
+
+        if (supabaseSession?.access_token && supabaseSession.user?.id) {
+          applySupabaseSession(supabaseSession)
+          setLoading(false)
+          return
+        }
+      } catch {
+        // Ignore Supabase session bootstrap failure and fall back to cookie-backed /auth/me.
+      }
+
+      setAccessToken(null)
+      try {
+        const me = await getMe({ allowUnauthorized: true })
+        if (cancelled) return
+        setSession({
+          access_token: '',
+          provider: 'linuxdo',
+          user: { id: me.id, email: me.email ?? '' },
+        })
+      } catch {
+        if (cancelled) return
+        setSession(null)
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (s?.access_token && s.user?.id) {
-        setSession({
-          access_token: s.access_token,
-          provider: 'supabase',
-          user: { id: s.user.id, email: s.user.email ?? '' },
-        })
-        setAccessToken(s.access_token)
-      } else {
-        setSession(null)
-        setAccessToken(null)
-      }
-      setLoading(false)
-    })
+    void bootstrap()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (readCustomAuthSession()) return
-      if (s?.access_token && s.user?.id) {
-        setSession({
-          access_token: s.access_token,
-          provider: 'supabase',
-          user: { id: s.user.id, email: s.user.email ?? '' },
-        })
-        setAccessToken(s.access_token)
-      } else {
-        setSession(null)
-        setAccessToken(null)
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (nextSession?.access_token && nextSession.user?.id) {
+        applySupabaseSession(nextSession)
+        return
       }
+
+      setAccessToken(null)
+      setSession(previous => (previous?.provider === 'linuxdo' ? previous : null))
     })
 
-    return () => subscription.unsubscribe()
-  }, [initialCustomSession, scheduleTokenRefresh])
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [applySupabaseSession])
 
   const userId = session?.user?.id
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    getMyProfile().then(profile => {
-      if (!cancelled) {
+    getMyProfile()
+      .then(profile => {
+        if (cancelled) return
         if (profile.display_name) {
           patchUser({ display_name: profile.display_name })
         }
         if (profile.role) {
           setRole(profile.role)
         }
-      }
-    }).catch(() => {})
-    return () => { cancelled = true }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [patchUser, userId])
 
   const effectiveRole = userId ? role : 'user'
-
-  useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
-    }
-  }, [])
 
   return (
     <AuthContext.Provider

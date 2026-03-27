@@ -66,6 +66,7 @@ class ReportRepository(Protocol):
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
+        q: str = "",
     ) -> tuple[list[ReportIndex], int]:
         """List reports, optionally filtered by user, sorted newest-first.
 

@@ -35,6 +35,7 @@ Rules:
 - Keep `pipeline/merger.py` limited to deterministic competitor dedupe.
 - Keep whitespace, entry-wedge, and trust synthesis in `pipeline/aggregator.py`.
 - Keep V2 pipeline state and aggregation carriers typed; do not add anonymous dict side channels for extracted signals or evidence.
+- Keep LangGraph node entrypoints in `pipeline/nodes.py`, and place helper logic in split modules (`nodes_orchestration.py`, `nodes_extraction.py`, `nodes_confidence.py`, `nodes_report_assembly.py`) to control complexity.
 
 ## API Conventions
 
@@ -65,6 +66,7 @@ Rules:
 ## Logging and Observability
 
 - Use `loguru` for structured logs.
+- Use centralized `error_code + subsystem + trace_id` structured fields for machine aggregation.
 - Include request or trace identifiers in logs.
 - Log failures with actionable context (operation, entity id, reason).
 - Avoid logging PII, tokens, passwords, or raw secrets.

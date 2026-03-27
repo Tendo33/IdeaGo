@@ -20,8 +20,8 @@ def setup_logging(
     retention: str = "1 week",
     compression: str = "gz",
     serialize: bool = False,
-    backtrace: bool = True,
-    diagnose: bool = True,
+    backtrace: bool | None = None,
+    diagnose: bool | None = None,
     enqueue: bool = False,
     catch: bool = True,
 ) -> None:
@@ -35,8 +35,10 @@ def setup_logging(
         retention: Log retention policy
         compression: Compression format for rotated logs
         serialize: Whether to serialize logs as JSON
-        backtrace: Whether to include backtrace in exception logs
-        diagnose: Whether to include variable values in exception logs
+        backtrace: Whether to include backtrace in exception logs.
+            Defaults to False in production and True otherwise.
+        diagnose: Whether to include variable values in exception logs.
+            Defaults to False in production and True otherwise.
         enqueue: Whether to enqueue log messages
         catch: Whether to catch errors during logging
     """
@@ -66,6 +68,19 @@ def setup_logging(
                 "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
                 "<level>{message}</level>"
             )
+
+    if backtrace is None or diagnose is None:
+        is_production = False
+        try:
+            from ideago.config.settings import get_settings
+
+            is_production = get_settings().environment == "production"
+        except Exception:
+            is_production = False
+        if backtrace is None:
+            backtrace = not is_production
+        if diagnose is None:
+            diagnose = not is_production
 
     # 控制台输出处理器
     logger.add(

@@ -10,7 +10,7 @@ import {
   exportReport,
   getStreamUrl,
 } from '../client'
-import { saveCustomAuthSession, setAccessToken } from '@/lib/auth/token'
+import { setAccessToken } from '@/lib/auth/token'
 
 const NativeURL = globalThis.URL
 const mockFetch = vi.fn()
@@ -171,13 +171,7 @@ describe('listReports', () => {
     )
   })
 
-  it('falls back to the stored custom auth session when the in-memory token is not initialized yet', async () => {
-    saveCustomAuthSession({
-      access_token: 'stored-token',
-      provider: 'linuxdo',
-      user: { id: 'u1', email: 'user@example.com' },
-    })
-
+  it('uses cookie credentials and does not attach legacy bearer token headers', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 0 }),
@@ -188,9 +182,8 @@ describe('listReports', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/v1\/reports\?limit=5&offset=0$/),
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer stored-token',
-        }),
+        credentials: 'include',
+        headers: {},
       }),
     )
   })

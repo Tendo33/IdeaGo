@@ -180,6 +180,7 @@ class FileCache:
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
+        q: str = "",
     ) -> tuple[list[ReportIndex], int]:
         """List cached reports, excluding expired entries.
 
@@ -190,13 +191,16 @@ class FileCache:
             Tuple of (entries, total_count) where total_count is the full
             count before pagination.
         """
-        return await asyncio.to_thread(self._list_reports_sync, limit, offset, user_id)
+        return await asyncio.to_thread(
+            self._list_reports_sync, limit, offset, user_id, q
+        )
 
     def _list_reports_sync(
         self,
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
+        q: str = "",
     ) -> tuple[list[ReportIndex], int]:
         with self._index_lock:
             index = self._read_index()
@@ -207,6 +211,9 @@ class FileCache:
         ]
         if user_id:
             reports = [e for e in reports if e.user_id == user_id]
+        normalized_q = q.strip().lower()
+        if normalized_q:
+            reports = [e for e in reports if normalized_q in e.query.lower()]
         reports.sort(key=lambda entry: entry.created_at, reverse=True)
         total = len(reports)
         if offset > 0:

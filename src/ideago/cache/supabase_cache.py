@@ -180,6 +180,7 @@ class SupabaseReportRepository:
         limit: int | None = None,
         offset: int = 0,
         user_id: str = "",
+        q: str = "",
     ) -> tuple[list[ReportIndex], int]:
         client = self._get_client()
         params: dict[str, str] = {
@@ -188,6 +189,9 @@ class SupabaseReportRepository:
         }
         if user_id:
             params["user_id"] = f"eq.{user_id}"
+        normalized_q = q.strip().replace("*", "")
+        if normalized_q:
+            params["query"] = f"ilike.*{normalized_q}*"
         if limit is not None:
             params["limit"] = str(limit)
         if offset > 0:

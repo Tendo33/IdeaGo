@@ -9,13 +9,18 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from ideago.api.errors import AppError, ErrorCode
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
+from ideago.auth.session import (
+    AUTH_SESSION_COOKIE_NAME,
+    clear_auth_session_cookie,
+    set_auth_session_cookie,
+)
 from ideago.auth.supabase_admin import (
     delete_user_data,
     ensure_profile_exists,
@@ -285,16 +290,9 @@ async def linuxdo_callback(
         metadata={"provider": "linuxdo", "email": email},
         ip_address=request.client.host if request.client else None,
     )
-
-    fragment = urlencode(
-        {
-            "access_token": app_access_token,
-            "provider": "linuxdo",
-            "user_id": user_id,
-            "email": email,
-        }
-    )
-    return RedirectResponse(url=f"{redirect_to}#{fragment}", status_code=302)
+    response = RedirectResponse(url=redirect_to, status_code=302)
+    set_auth_session_cookie(response, request, app_access_token)
+    return response
 
 
 @router.get("/auth/me")
@@ -307,7 +305,7 @@ _REFRESH_GRACE_HOURS = 24 * 7
 
 
 @router.post("/auth/refresh")
-async def refresh_token(request: Request) -> dict:
+async def refresh_token(request: Request, response: Response) -> dict:
     """Issue a fresh JWT for custom OAuth sessions (LinuxDo).
 
     Accepts tokens that are expired within a grace period so that
@@ -322,6 +320,9 @@ async def refresh_token(request: Request) -> dict:
 
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.removeprefix("Bearer ").strip()
+    if not token:
+        cookie_jar = getattr(request, "cookies", {}) or {}
+        token = str(cookie_jar.get(AUTH_SESSION_COOKIE_NAME, "")).strip()
     if not token:
         raise HTTPException(status_code=401, detail="Missing token")
 
@@ -350,7 +351,25 @@ async def refresh_token(request: Request) -> dict:
         email=payload.get("email", ""),
         provider=payload.get("provider", ""),
     )
+    set_auth_session_cookie(response, request, new_token)
     return {"access_token": new_token}
+
+
+@router.post("/auth/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    user: AuthUser = Depends(get_current_user),
+) -> dict:
+    """Clear backend-managed auth session cookie."""
+    clear_auth_session_cookie(response, request)
+    await log_audit_event(
+        actor_id=user.id,
+        action="auth.logout",
+        metadata={"provider": "custom_session"},
+        ip_address=request.client.host if request.client else None,
+    )
+    return {"status": "logged_out"}
 
 
 @router.get("/auth/quota")

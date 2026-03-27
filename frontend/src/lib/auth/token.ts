@@ -27,34 +27,14 @@ export function getAccessToken(): string | null {
 }
 
 export function readCustomAuthSession(): CustomAuthSession | null {
-  try {
-    const raw = window.localStorage.getItem(CUSTOM_AUTH_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<CustomAuthSession>
-    if (!parsed || typeof parsed !== 'object') return null
-    if (typeof parsed.access_token !== 'string' || !parsed.access_token) return null
-    if (typeof parsed.provider !== 'string' || !parsed.provider) return null
-    if (!parsed.user || typeof parsed.user !== 'object') return null
-    const userId = typeof parsed.user.id === 'string' ? parsed.user.id : ''
-    const email = typeof parsed.user.email === 'string' ? parsed.user.email : ''
-    const displayName = typeof parsed.user.display_name === 'string'
-      ? parsed.user.display_name
-      : undefined
-    if (!userId) return null
-    return {
-      access_token: parsed.access_token,
-      provider: parsed.provider,
-      user: { id: userId, email, ...(displayName ? { display_name: displayName } : {}) },
-    }
-  } catch {
-    return null
-  }
+  // Custom OAuth sessions are now cookie-backed and no longer persisted in browser storage.
+  return null
 }
 
 export function saveCustomAuthSession(session: CustomAuthSession): void {
-  window.localStorage.setItem(CUSTOM_AUTH_STORAGE_KEY, JSON.stringify(session))
+  void session
 }
 
 export function clearCustomAuthSession(): void {
-  window.localStorage.removeItem(CUSTOM_AUTH_STORAGE_KEY)
+  // Keep API compatibility for old call sites; no local storage state to clear.
 }

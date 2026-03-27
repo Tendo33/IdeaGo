@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, memo, useRef } from 'react'
+import { useCallback, useEffect, useState, memo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
@@ -90,6 +90,7 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(() => initialCache === null)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [reportToDelete, setReportToDelete] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -105,30 +106,37 @@ export function HistoryPage() {
   const [pageIndex, setPageIndex] = useState(() => initialCache?.pageIndex ?? 0)
   const [hasNextPage, setHasNextPage] = useState(() => initialCache?.hasNextPage ?? false)
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim())
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [debouncedQuery])
+
   const loadPage = useCallback(async (targetPage: number, signal?: AbortSignal) => {
     const { items, total } = await listReports({
       limit: PAGE_SIZE,
       offset: targetPage * PAGE_SIZE,
+      q: debouncedQuery,
       signal,
     })
     return {
       reports: items,
       hasNext: (targetPage + 1) * PAGE_SIZE < total,
     }
-  }, [])
-
-  const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return reports
-    const q = searchQuery.toLowerCase()
-    return reports.filter(r => r.query.toLowerCase().includes(q))
-  }, [reports, searchQuery])
+  }, [debouncedQuery])
 
   useEffect(() => {
     const controller = new AbortController()
     const canHydrateFromCache =
       !initialCacheUsedRef.current &&
       initialCache !== null &&
-      initialCache.pageIndex === pageIndex
+      initialCache.pageIndex === pageIndex &&
+      debouncedQuery.length === 0
 
     initialCacheUsedRef.current = true
     if (!canHydrateFromCache) {
@@ -144,11 +152,13 @@ export function HistoryPage() {
         setReports(nextReports)
         setHasNextPage(hasNext)
         setError(null)
-        writeHistoryCache({
-          pageIndex,
-          hasNextPage: hasNext,
-          reports: nextReports,
-        })
+        if (!debouncedQuery) {
+          writeHistoryCache({
+            pageIndex,
+            hasNextPage: hasNext,
+            reports: nextReports,
+          })
+        }
       })
       .catch(error => {
         if (isRequestAbortError(error)) return
@@ -160,7 +170,7 @@ export function HistoryPage() {
         }
       })
     return () => controller.abort()
-  }, [initialCache, loadPage, pageIndex, t])
+  }, [debouncedQuery, initialCache, loadPage, pageIndex, t])
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -281,9 +291,9 @@ export function HistoryPage() {
           </div>
         )}
 
-        {filtered.length > 0 && (
+        {reports.length > 0 && (
           <div className="space-y-4">
-            {filtered.map(report => (
+            {reports.map(report => (
               <HistoryReportCard
                 key={report.id}
                 report={report}
@@ -297,7 +307,7 @@ export function HistoryPage() {
           </div>
         )}
 
-        {!loading && reports.length > 0 && filtered.length === 0 && searchQuery.trim() && (
+        {!loading && reports.length === 0 && searchQuery.trim() && (
           <div className="py-12 text-center border-2 border-dashed border-border bg-muted/20">
             <p className="text-base font-bold uppercase tracking-widest text-muted-foreground">
               {t('history.noMatch', { query: searchQuery })}

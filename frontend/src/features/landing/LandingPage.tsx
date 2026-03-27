@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { buttonVariants } from '@/components/ui/Button'
@@ -26,6 +26,29 @@ function HackerNewsIcon({ className }: { className?: string }) {
   )
 }
 
+const revealCallbacks = new Map<Element, () => void>()
+const sharedRevealObservers = new Map<number, IntersectionObserver>()
+
+function getSharedRevealObserver(threshold: number): IntersectionObserver {
+  const normalizedThreshold = Math.max(0.05, Math.min(0.3, threshold))
+  const cached = sharedRevealObservers.get(normalizedThreshold)
+  if (cached) {
+    return cached
+  }
+  const observer = new IntersectionObserver(
+    entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const callback = revealCallbacks.get(entry.target)
+        if (callback) callback()
+      }
+    },
+    { threshold: normalizedThreshold },
+  )
+  sharedRevealObservers.set(normalizedThreshold, observer)
+  return observer
+}
+
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLElement>(null)
   const [visible, setVisible] = useState(false)
@@ -33,36 +56,84 @@ function useInView(threshold = 0.15) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold },
-    )
+    const observer = getSharedRevealObserver(threshold)
+    const onIntersect = () => {
+      setVisible(true)
+      revealCallbacks.delete(el)
+      observer.unobserve(el)
+    }
+    revealCallbacks.set(el, onIntersect)
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      revealCallbacks.delete(el)
+      observer.unobserve(el)
+    }
   }, [threshold])
 
   return { ref, visible }
 }
 
-function StaggerReveal({ children, delay = 0, className = '' }: {
+type MotionMode = 'full' | 'light' | 'none'
+
+function StaggerReveal({ children, delay = 0, className = '', motionMode = 'full' }: {
   children: React.ReactNode
   delay?: number
   className?: string
+  motionMode?: MotionMode
 }) {
-  const { ref, visible } = useInView()
+  const threshold = motionMode === 'light' ? 0.08 : 0.15
+  const { ref, visible } = useInView(threshold)
+  const transitionDelayMs = motionMode === 'none' ? 0 : motionMode === 'light' ? Math.round(delay * 0.35) : delay
+  const translateY = motionMode === 'none' ? 0 : motionMode === 'light' ? 10 : 24
+  const transitionDurationMs = motionMode === 'none' ? 0 : motionMode === 'light' ? 260 : 600
   return (
     <div
       ref={ref as React.RefObject<HTMLDivElement>}
       className={className}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(24px)',
-        transition: `opacity 600ms ease-out ${delay}ms, transform 600ms ease-out ${delay}ms`,
+        transform: visible ? 'translateY(0)' : `translateY(${translateY}px)`,
+        transition: `opacity ${transitionDurationMs}ms ease-out ${transitionDelayMs}ms, transform ${transitionDurationMs}ms ease-out ${transitionDelayMs}ms`,
       }}
     >
       {children}
     </div>
   )
+}
+
+function useLandingMotionMode(): MotionMode {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = (event: MediaQueryListEvent) => setPrefersReducedMotion(event.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+
+  const isLowPerformanceDevice = useMemo(() => {
+    if (typeof navigator === 'undefined') {
+      return false
+    }
+    const hardwareConcurrency = navigator.hardwareConcurrency ?? 8
+    const navWithMemory = navigator as Navigator & { deviceMemory?: number }
+    const deviceMemory = navWithMemory.deviceMemory ?? 8
+    return hardwareConcurrency <= 4 || deviceMemory <= 4
+  }, [])
+
+  return useMemo(() => {
+    if (prefersReducedMotion) return 'none'
+    if (isLowPerformanceDevice) return 'light'
+    return 'full'
+  }, [isLowPerformanceDevice, prefersReducedMotion])
 }
 
 const DATA_SOURCES = [
@@ -108,6 +179,7 @@ export function LandingPage({
   const isChinese = currentLang.startsWith('zh')
   const nextLanguage = isChinese ? 'en' : 'zh'
   const languageToggleLabel = getLanguageDisplayName(nextLanguage, currentLang)
+  const motionMode = useLandingMotionMode()
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -246,7 +318,7 @@ export function LandingPage({
             {DATA_SOURCES.map(({ icon: Icon, labelKey, color }, i) => {
               const label = t(labelKey)
               return (
-                <StaggerReveal key={labelKey} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default">
+                <StaggerReveal key={labelKey} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default" motionMode={motionMode}>
                   <div className="p-3 border-4 border-border bg-background shadow group-hover:-translate-y-2 group-hover:shadow-lg transition-all duration-300" style={{ color }}>
                     <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
                   </div>
@@ -261,7 +333,7 @@ export function LandingPage({
       {/* ─── HOW IT WORKS ─── */}
       <section id="how-it-works" className="px-4 py-24 sm:py-32">
         <div className="app-shell">
-          <StaggerReveal>
+          <StaggerReveal motionMode={motionMode}>
             <h2 className="text-center mb-4 text-[clamp(2.5rem,5vw,4.5rem)]">
               {t('landing.howTitle')}
             </h2>
@@ -276,7 +348,7 @@ export function LandingPage({
               { icon: Zap, step: '02', titleKey: 'landing.step2Title', descKey: 'landing.step2Desc', mt: 'md:mt-24' },
               { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc', mt: 'md:mt-48' },
             ] as const).map(({ icon: Icon, step, titleKey, descKey, mt }, i) => (
-              <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`}>
+              <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`} motionMode={motionMode}>
                 <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-3xl flex flex-col min-w-0 group">
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Icon className="w-32 h-32" />
@@ -302,7 +374,7 @@ export function LandingPage({
       <section className="px-4 py-32 sm:py-48 bg-muted border-y-8 border-border relative">
         <div className="absolute inset-0 bg-[radial-gradient(var(--border)_2px,transparent_2px)] [background-size:32px_32px] opacity-10" />
         <div className="app-shell relative z-10">
-          <StaggerReveal>
+          <StaggerReveal motionMode={motionMode}>
             <h2 className="mb-20 max-w-4xl text-[clamp(2.5rem,5vw,4.5rem)] leading-none">
               {t('landing.featuresTitle')}
             </h2>
@@ -310,7 +382,7 @@ export function LandingPage({
 
           <div className="grid sm:grid-cols-12 gap-8 lg:gap-12 relative z-10">
             {/* Massive Hero Highlight Card */}
-            <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8">
+            <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8" motionMode={motionMode}>
               <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:shadow-5xl transition-all duration-500">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
                 <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
@@ -328,7 +400,7 @@ export function LandingPage({
               { titleKey: 'landing.feat2Title', descKey: 'landing.feat2Desc', accent: 'var(--success)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: '-rotate-1', shape: 'rounded-none' },
               { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: 'rotate-1', shape: 'rounded-full' },
             ] as const).map(({ titleKey, descKey, accent, colSpan, rotation, shape }, i) => (
-              <StaggerReveal key={titleKey} delay={i * 150} className={colSpan}>
+              <StaggerReveal key={titleKey} delay={i * 150} className={colSpan} motionMode={motionMode}>
                 <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
                   <div className="flex items-center gap-6 mb-8">
                     <div
@@ -354,7 +426,7 @@ export function LandingPage({
         <div className="absolute top-1/2 right-0 w-96 h-96 bg-destructive/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
         <div className="app-shell relative z-10">
-          <StaggerReveal>
+          <StaggerReveal motionMode={motionMode}>
             <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-4xl text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:shadow-5xl transition-all duration-500 relative">
               <div className="absolute -top-6 -right-6 w-12 h-12 bg-warning border-4 border-border rotate-12" />
               <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />

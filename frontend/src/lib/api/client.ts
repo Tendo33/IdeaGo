@@ -1,8 +1,6 @@
 import type { PaginatedReportList, ReportRuntimeStatus, ResearchReport } from '../types/research'
 import {
-  clearCustomAuthSession,
   getAccessToken,
-  readCustomAuthSession,
   setAccessToken,
 } from '../auth/token'
 import { supabase } from '../supabase/client'
@@ -32,7 +30,7 @@ export function isApiError(error: unknown): error is ApiError {
 }
 
 function authHeaders(): Record<string, string> {
-  const token = getAccessToken() ?? readCustomAuthSession()?.access_token ?? null
+  const token = getAccessToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -43,11 +41,13 @@ function mutationHeaders(): Record<string, string> {
 export interface RequestOptions {
   signal?: AbortSignal
   timeoutMs?: number
+  allowUnauthorized?: boolean
 }
 
 export interface ListReportsOptions extends RequestOptions {
   limit?: number
   offset?: number
+  q?: string
 }
 
 export function isRequestAbortError(error: unknown): boolean {
@@ -151,9 +151,12 @@ async function fetchWithTimeout(
       ...init,
       headers: init.headers,
       signal: timeoutController.signal,
+      credentials: 'include',
     })
     if (res.status === 401) {
-      clearCustomAuthSession()
+      if (options.allowUnauthorized) {
+        return res
+      }
       setAccessToken(null)
       supabase.auth.signOut().catch(() => {})
       const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
@@ -222,13 +225,16 @@ export async function getReportRuntimeStatus(
 }
 
 export async function listReports(options: ListReportsOptions = {}): Promise<PaginatedReportList> {
-  const { limit, offset, ...requestOptions } = options
+  const { limit, offset, q, ...requestOptions } = options
   const params = new URLSearchParams()
   if (typeof limit === 'number') {
     params.set('limit', String(limit))
   }
   if (typeof offset === 'number') {
     params.set('offset', String(offset))
+  }
+  if (typeof q === 'string' && q.trim().length > 0) {
+    params.set('q', q.trim())
   }
   const query = params.toString()
   const url = query ? `${API_BASE}/reports?${query}` : `${API_BASE}/reports`
@@ -296,6 +302,27 @@ export async function refreshAuthToken(options: RequestOptions = {}): Promise<st
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Token refresh failed'))
   const data = await res.json()
   return data.access_token
+}
+
+export interface CurrentUser {
+  id: string
+  email: string
+}
+
+export async function getMe(options: RequestOptions = {}): Promise<CurrentUser> {
+  const res = await fetchWithTimeout(`${API_BASE}/auth/me`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load current user'))
+  return res.json()
+}
+
+export async function logoutAuthSession(options: RequestOptions = {}): Promise<void> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/auth/logout`,
+    { method: 'POST', headers: mutationHeaders() },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to logout'))
 }
 
 export async function getQuotaInfo(options: RequestOptions = {}): Promise<QuotaInfo> {

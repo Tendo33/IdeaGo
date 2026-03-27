@@ -63,13 +63,17 @@ _MAX_LIST_LIMIT = 100
 async def list_reports(
     limit: int = Query(default=20, ge=1, le=_MAX_LIST_LIMIT),
     offset: int = Query(default=0, ge=0),
+    q: str = Query(default="", max_length=200),
     user: AuthUser = Depends(get_current_user),
 ) -> PaginatedReportList:
     """List research reports belonging to the authenticated user."""
     cache = get_cache()
     capped_limit = min(limit, _MAX_LIST_LIMIT)
     entries, total = await cache.list_reports(
-        limit=capped_limit, offset=offset, user_id=user.id
+        limit=capped_limit,
+        offset=offset,
+        user_id=user.id,
+        q=q.strip(),
     )
     return PaginatedReportList(
         items=[

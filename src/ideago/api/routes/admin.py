@@ -103,15 +103,32 @@ async def admin_system_stats(
         }
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    f"{settings.supabase_url}/rest/v1/profiles",
-                    headers={**headers, "Accept": "application/json"},
-                    params={"select": "plan"},
+                resp = await client.post(
+                    f"{settings.supabase_url}/rest/v1/rpc/get_plan_breakdown",
+                    headers={
+                        **headers,
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    json={},
                 )
             if resp.status_code == 200:
-                for row in resp.json():
-                    plan = row.get("plan", "free")
-                    plan_breakdown[plan] = plan_breakdown.get(plan, 0) + 1
+                rows = resp.json()
+                if isinstance(rows, list):
+                    for row in rows:
+                        if not isinstance(row, dict):
+                            continue
+                        plan = str(row.get("plan") or "free")
+                        count = row.get("count")
+                        if isinstance(count, int):
+                            plan_breakdown[plan] = max(0, count)
+                if not plan_breakdown:
+                    logger.warning("Plan breakdown RPC returned empty payload")
+            else:
+                logger.warning(
+                    "Plan breakdown RPC failed: status={}",
+                    resp.status_code,
+                )
         except Exception:
             logger.debug("Failed to fetch plan breakdown")
 

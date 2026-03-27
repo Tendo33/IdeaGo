@@ -2,36 +2,22 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth/useAuth'
+import { getMe } from '@/lib/api/client'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/Button'
 
 export function AuthCallback() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { applyCustomSession } = useAuth()
   const [searchParams] = useSearchParams()
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, '')
-    if (!hash) return
-    const params = new URLSearchParams(hash)
-    const accessToken = params.get('access_token')
-    if (!accessToken) return
-
-    const provider = params.get('provider') || 'linuxdo'
-    const userId = params.get('user_id') || ''
-    const email = params.get('email') || ''
-    if (!userId) return
-
-    applyCustomSession({
-      access_token: accessToken,
-      provider,
-      user: { id: userId, email },
-    })
-    navigate('/', { replace: true })
-  }, [applyCustomSession, navigate])
+    if (searchParams.get('error')) return
+    getMe({ allowUnauthorized: true })
+      .then(() => navigate('/', { replace: true }))
+      .catch(() => {})
+  }, [navigate, searchParams])
 
   const urlError = useMemo(() => {
     const errorParam = searchParams.get('error')

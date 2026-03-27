@@ -75,6 +75,8 @@ Main package: `src/ideago`
 - `models/`: domain models
 - `observability/`: logging setup
 - `pipeline/`: LangGraph engine, nodes, events, merger, extractor, intent parser
+  - `nodes.py` keeps graph-node orchestration entry points
+  - `nodes_orchestration.py` / `nodes_extraction.py` / `nodes_confidence.py` / `nodes_report_assembly.py` hold split helper logic
 - `sources/`: GitHub, Tavily, Hacker News, App Store, Product Hunt, Reddit sources
 - `utils/`: shared helper utilities
 

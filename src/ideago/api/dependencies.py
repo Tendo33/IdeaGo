@@ -15,6 +15,7 @@ import httpx
 from ideago.cache.base import ReportRepository
 from ideago.config.settings import get_settings
 from ideago.llm.chat_model import ChatModelClient
+from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.aggregator import Aggregator
 from ideago.pipeline.events import EventType, PipelineEvent
@@ -266,9 +267,36 @@ async def _pg_reserve(key: str, report_id: str, user_id: str) -> str | None:
         if resp.status_code == 200:
             result = resp.json()
             return result if isinstance(result, str) else None
-        logger.warning("PG reserve_processing_slot failed: {}", resp.status_code)
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RESERVE_FAILED",
+            subsystem="processing_dedup",
+            details={"status_code": resp.status_code},
+            message="reserve_processing_slot RPC returned non-200",
+        )
+    except httpx.TimeoutException:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RESERVE_TIMEOUT",
+            subsystem="processing_dedup",
+            message="reserve_processing_slot RPC timeout",
+        )
+    except httpx.HTTPError:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RESERVE_HTTP_ERROR",
+            subsystem="processing_dedup",
+            message="reserve_processing_slot RPC HTTP error",
+            include_exception=True,
+        )
     except Exception:
-        logger.opt(exception=True).warning("PG dedup reserve error")
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RESERVE_UNEXPECTED",
+            subsystem="processing_dedup",
+            message="reserve_processing_slot RPC unexpected error",
+            include_exception=True,
+        )
     return None
 
 
@@ -281,8 +309,29 @@ async def _pg_release(report_id: str) -> None:
             headers=_dedup_headers(),
             json={"p_report_id": report_id},
         )
+    except httpx.TimeoutException:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RELEASE_TIMEOUT",
+            subsystem="processing_dedup",
+            message="release_processing_slot RPC timeout",
+        )
+    except httpx.HTTPError:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RELEASE_HTTP_ERROR",
+            subsystem="processing_dedup",
+            message="release_processing_slot RPC HTTP error",
+            include_exception=True,
+        )
     except Exception:
-        logger.opt(exception=True).warning("PG dedup release error")
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_RELEASE_UNEXPECTED",
+            subsystem="processing_dedup",
+            message="release_processing_slot RPC unexpected error",
+            include_exception=True,
+        )
 
 
 async def _pg_is_processing(report_id: str) -> bool:
@@ -296,8 +345,36 @@ async def _pg_is_processing(report_id: str) -> bool:
         )
         if resp.status_code == 200:
             return resp.json() is True
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_IS_PROCESSING_FAILED",
+            subsystem="processing_dedup",
+            details={"status_code": resp.status_code},
+            message="is_report_processing RPC returned non-200",
+        )
+    except httpx.TimeoutException:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_IS_PROCESSING_TIMEOUT",
+            subsystem="processing_dedup",
+            message="is_report_processing RPC timeout",
+        )
+    except httpx.HTTPError:
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_IS_PROCESSING_HTTP_ERROR",
+            subsystem="processing_dedup",
+            message="is_report_processing RPC HTTP error",
+            include_exception=True,
+        )
     except Exception:
-        logger.opt(exception=True).warning("PG dedup is_processing error")
+        log_error_event(
+            logger,
+            error_code="DEDUP_PG_IS_PROCESSING_UNEXPECTED",
+            subsystem="processing_dedup",
+            message="is_report_processing RPC unexpected error",
+            include_exception=True,
+        )
     return False
 
 
