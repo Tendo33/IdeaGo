@@ -157,7 +157,7 @@ docker compose up -d
 Optional: pin to a release tag instead of `latest`:
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
 ```
 
 Verify:
@@ -168,32 +168,45 @@ curl http://localhost:8000/api/v1/health
 
 ## How It Works
 
-IdeaGo takes a single idea, normalizes and interprets it, gathers source evidence, extracts relevant
-signals, and assembles a structured report that can be reopened from history later.
+IdeaGo takes a single idea and pushes it through an explicit retrieval chain:
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`.
+That chain produces a decision-first report that can be reopened from history later.
 
 ```mermaid
 flowchart TD
     A["User idea"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph engine"]
     C --> D["Intent parsing"]
-    D --> E{"Cache hit?"}
-    E -->|Yes| F["Return persisted report"]
-    E -->|No| G["Fetch source data"]
-    G --> H["Extract structured signals"]
-    H --> I["Aggregate findings"]
-    I --> J["Assemble report"]
-    J --> K["Persist report + status"]
-    K --> L["Report detail / history / export"]
-    C -.-> M["SSE progress stream"]
+    D --> E["Query planning + rewriting"]
+    E --> F["Platform adaptation"]
+    F --> G{"Cache hit?"}
+    G -->|Yes| H["Return persisted report"]
+    G -->|No| I["Fetch source data"]
+    I --> J["Extract structured signals"]
+    J --> K["Aggregate findings"]
+    K --> L["Assemble report"]
+    L --> M["Persist report + status"]
+    M --> N["Report detail / history / export"]
+    C -.-> O["SSE progress stream with query planning stage"]
 ```
 
 Runtime model on `main`:
 
 - API routes: `/api/v1/analyze`, `/api/v1/reports`, `/api/v1/health`
+- explicit query-planning stage before source fetch
 - report persistence: local `FileCache`
 - runtime checkpoints: local SQLite
 - progress updates: SSE
 - user flow: submit idea -> stream progress -> read report -> reopen from history -> export markdown
+
+Fixed source-role split on `main`:
+
+- Tavily for broad recall
+- Reddit for pain and migration language
+- GitHub for open-source maturity and ecosystem signals
+- Hacker News for builder sentiment
+- App Store for review-cluster pain
+- Product Hunt for launch positioning
 
 ## API Overview
 

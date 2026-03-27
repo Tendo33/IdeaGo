@@ -157,7 +157,7 @@ docker compose up -d
 可选：固定到某个发布版本，而不是 `latest`：
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
 ```
 
 验证：
@@ -168,32 +168,45 @@ curl http://localhost:8000/api/v1/health
 
 ## 工作原理
 
-IdeaGo 会接收一条想法，完成意图理解、证据抓取、结构化提取、聚合整理，再生成一份
-之后可以从历史记录重新打开的验证报告。
+IdeaGo 会把一条想法送入一条明确的检索链路：
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`。
+这条链路最终会生成一份决策优先的验证报告，之后也可以从历史记录里重新打开。
 
 ```mermaid
 flowchart TD
     A["用户想法"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph 引擎"]
     C --> D["意图解析"]
-    D --> E{"是否命中缓存"}
-    E -->|是| F["返回已持久化报告"]
-    E -->|否| G["抓取外部数据源"]
-    G --> H["提取结构化信号"]
-    H --> I["聚合洞察"]
-    I --> J["组装报告"]
-    J --> K["持久化报告与状态"]
-    K --> L["报告详情 / 历史 / 导出"]
-    C -.-> M["SSE 实时进度流"]
+    D --> E["查询规划与改写"]
+    E --> F["平台适配"]
+    F --> G{"是否命中缓存"}
+    G -->|是| H["返回已持久化报告"]
+    G -->|否| I["抓取外部数据源"]
+    I --> J["提取结构化信号"]
+    J --> K["聚合洞察"]
+    K --> L["组装报告"]
+    L --> M["持久化报告与状态"]
+    M --> N["报告详情 / 历史 / 导出"]
+    C -.-> O["带 query planning 阶段的 SSE 实时进度流"]
 ```
 
 `main` 分支的运行模型：
 
 - API 路由：`/api/v1/analyze`、`/api/v1/reports`、`/api/v1/health`
+- source 抓取前会先经过显式的 query planning 阶段
 - 报告持久化：本地 `FileCache`
 - 运行 checkpoint：本地 SQLite
 - 进度更新方式：SSE
 - 用户流程：提交想法 -> 查看进度 -> 阅读报告 -> 从 history 重开 -> 导出 markdown
+
+`main` 分支固定的数据源分工：
+
+- Tavily：广覆盖召回
+- Reddit：痛点与迁移语言
+- GitHub：开源成熟度与生态信号
+- Hacker News：开发者/建设者情绪
+- App Store：评论聚类痛点
+- Product Hunt：发布定位与市场切入方式
 
 ## API 概览
 
