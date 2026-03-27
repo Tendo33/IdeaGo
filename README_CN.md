@@ -147,6 +147,10 @@ cp frontend/.env.example frontend/.env
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_TURNSTILE_SITE_KEY`
+
+对于 Docker 部署，这些 `VITE_*` 变量属于前端构建期输入。
+必须在执行 `docker compose build` 或 `docker compose up --build` 之前提供，只有运行期容器环境变量是不够的。
 
 Billing 对本地开发不是硬依赖，但如果要启用生产计费流，还需要：
 
@@ -186,34 +190,48 @@ uv run python -m ideago
 
 ## 工作原理
 
-分析引擎本身仍然是决策优先，但在托管版里，外面多包了一层用户身份、数据归属、配额与后台操作。
+分析引擎本身仍然是决策优先，但检索链路已经明确升级为：
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`。
+在 `saas` 分支里，这条链路外围再包上用户身份、数据归属、配额与后台运营能力。
 
 ```mermaid
 flowchart TD
     A["登录用户"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph 引擎"]
     C --> D["意图解析"]
-    D --> E{"缓存 / 共享状态"}
-    E -->|命中| F["返回已持久化报告"]
-    E -->|未命中| G["抓取外部数据源"]
-    G --> H["提取结构化信号"]
-    H --> I["聚合洞察"]
-    I --> J["组装报告"]
-    J --> K["持久化报告与运行状态"]
-    K --> L["报告工作区 / 历史 / 导出"]
-    A --> M["认证、资料、配额"]
-    A --> N["管理后台 / 计费能力"]
-    C -.-> O["SSE 实时进度流"]
+    D --> E["查询规划与改写"]
+    E --> F["平台适配"]
+    F --> G{"缓存 / 共享状态"}
+    G -->|命中| H["返回已持久化报告"]
+    G -->|未命中| I["抓取外部数据源"]
+    I --> J["提取结构化信号"]
+    J --> K["聚合洞察"]
+    K --> L["组装报告"]
+    L --> M["持久化报告与运行状态"]
+    M --> N["报告工作区 / 历史 / 导出"]
+    A --> O["认证、资料、配额"]
+    A --> P["管理后台 / 计费能力"]
+    C -.-> Q["带 query planning 阶段的 SSE 实时进度流"]
 ```
 
 `saas` 分支的运行模型：
 
 - 认证后的分析流程
+- source 抓取前会先经过显式的 query planning 进度阶段
 - 受保护的报告详情与历史页面
 - profile 与 quota 管理
 - 管理员后台与运维接口
 - 基于 Supabase 的用户数据与共享持久化
 - 支持 PostgreSQL checkpoint 的分布式运行时状态
+
+托管版依然保持固定的数据源分工：
+
+- Tavily：广覆盖召回
+- Reddit：痛点与迁移语言
+- GitHub：开源成熟度与生态信号
+- Hacker News：开发者/建设者讨论氛围
+- App Store：评论聚类痛点
+- Product Hunt：发布定位与市场切入方式
 
 ## API 概览
 

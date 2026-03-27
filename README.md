@@ -150,6 +150,10 @@ Frontend auth configuration:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_TURNSTILE_SITE_KEY`
+
+For Docker deployments, these `VITE_*` values are build-time inputs for the frontend bundle.
+Set them before `docker compose build` or `docker compose up --build`; runtime-only container env vars are not enough.
 
 Billing is optional for local development, but production billing flows also need:
 
@@ -189,35 +193,48 @@ For deployment-shaped setup, use [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## How It Works
 
-The analysis pipeline is still decision-first, but the hosted flow adds identity, ownership, quota,
-and admin operations around it.
+The analysis pipeline is still decision-first, but it now uses an explicit retrieval chain:
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`.
+On `saas`, that chain is wrapped by identity, ownership, quota, and admin operations.
 
 ```mermaid
 flowchart TD
     A["Signed-in user"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph engine"]
     C --> D["Intent parsing"]
-    D --> E{"Cache / shared state"}
-    E -->|Hit| F["Return persisted report"]
-    E -->|Miss| G["Fetch source data"]
-    G --> H["Extract structured signals"]
-    H --> I["Aggregate findings"]
-    I --> J["Assemble report"]
-    J --> K["Persist report + runtime status"]
-    K --> L["Report workspace / history / export"]
-    A --> M["Auth, profile, quota"]
-    A --> N["Admin / billing surfaces"]
-    C -.-> O["SSE progress stream"]
+    D --> E["Query planning + rewriting"]
+    E --> F["Platform adaptation"]
+    F --> G{"Cache / shared state"}
+    G -->|Hit| H["Return persisted report"]
+    G -->|Miss| I["Fetch source data"]
+    I --> J["Extract structured signals"]
+    J --> K["Aggregate findings"]
+    K --> L["Assemble report"]
+    L --> M["Persist report + runtime status"]
+    M --> N["Report workspace / history / export"]
+    A --> O["Auth, profile, quota"]
+    A --> P["Admin / billing surfaces"]
+    C -.-> Q["SSE progress stream with query planning stage"]
 ```
 
 Runtime model on `saas`:
 
 - authenticated analyze flow
+- explicit query-planning progress step before source fetch
 - protected report history and report detail pages
 - profile and quota management
 - admin dashboards and operational APIs
 - Supabase-backed user data and shared persistence
 - PostgreSQL checkpoint support for distributed runtime state
+
+Source-role split stays fixed across the hosted product:
+
+- Tavily for broad recall
+- Reddit for pain and switching language
+- GitHub for open-source maturity and ecosystem signals
+- Hacker News for builder sentiment
+- App Store for review-cluster pain
+- Product Hunt for launch positioning
 
 ## API Overview
 
