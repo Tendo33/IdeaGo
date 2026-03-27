@@ -2,8 +2,18 @@ FROM node:20-slim AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
+ARG VITE_API_BASE_URL=""
+ARG VITE_SUPABASE_URL=""
+ARG VITE_SUPABASE_ANON_KEY=""
+ARG VITE_TURNSTILE_SITE_KEY=""
+ARG SUPABASE_URL=""
+ARG SUPABASE_ANON_KEY=""
 COPY frontend/ .
-RUN pnpm build
+RUN export VITE_API_BASE_URL="${VITE_API_BASE_URL}" \
+    && export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$SUPABASE_URL}" \
+    && export VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-$SUPABASE_ANON_KEY}" \
+    && export VITE_TURNSTILE_SITE_KEY="${VITE_TURNSTILE_SITE_KEY}" \
+    && pnpm build
 
 FROM python:3.13-slim
 WORKDIR /app

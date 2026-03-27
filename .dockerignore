@@ -3,6 +3,8 @@
 .env
 .env.*
 !.env.example
+!frontend/.env
+!frontend/.env.*
 .cache
 .pytest_cache
 .mypy_cache
