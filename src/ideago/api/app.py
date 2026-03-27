@@ -25,7 +25,7 @@ from ideago import __version__
 from ideago.api.errors import AppError, ErrorCode
 from ideago.api.routes import admin, analyze, auth, billing, health, reports
 from ideago.config.settings import get_settings
-from ideago.observability.error_catalog import log_error_event
+from ideago.observability.error_catalog import AlertLevel, log_error_event
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
@@ -507,6 +507,7 @@ def create_app() -> FastAPI:
             return await _app_error_handler(request, exc)
         code = _STATUS_TO_ERROR_CODE.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
         message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        alert_level = AlertLevel.WARNING if exc.status_code in {401, 403} else None
         log_error_event(
             logger,
             error_code=code.value,
@@ -514,6 +515,7 @@ def create_app() -> FastAPI:
             trace_id=getattr(request.state, "trace_id", ""),
             message="http exception",
             details={"status_code": exc.status_code},
+            alert_level=alert_level,
         )
         return JSONResponse(
             status_code=exc.status_code,

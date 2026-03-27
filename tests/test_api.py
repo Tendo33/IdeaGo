@@ -1978,12 +1978,110 @@ def test_sentry_and_exception_handlers_cover_remaining_branches(tmp_path) -> Non
     assert validation_response.status_code == 422
     assert "Request validation failed" in validation_response.body.decode()
 
+
+def test_http_401_handler_downgrades_expected_unauthorized_logs(tmp_path) -> None:
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    index_path = dist_dir / "index.html"
+    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+    fake_settings = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret="test-session-secret-0123456789abcdef",
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
+
+    with (
+        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
+        patch.object(app_module, "_FRONTEND_INDEX", index_path),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.app._init_sentry"),
+        patch("ideago.api.app.log_error_event") as log_error_event_mock,
+    ):
+        app = create_app()
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/auth/me",
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "client": ("127.0.0.1", 1234),
+            "scheme": "http",
+        }
+        starlette_request = Request(scope)
+        starlette_request.state.trace_id = "trace-401"
+        http_handler = app.exception_handlers[HTTPException]
+
+        response = asyncio.run(
+            http_handler(
+                starlette_request,
+                HTTPException(status_code=401, detail="Not authenticated"),
+            )
+        )
+
+        assert response.status_code == 401
+        assert json.loads(response.body)["error"]["code"] == "NOT_AUTHORIZED"
+        log_error_event_mock.assert_called_once()
+        assert log_error_event_mock.call_args.kwargs["alert_level"].value == "warning"
+
     with TestClient(app) as local_client:
         api_fallback = local_client.get("/api/ghost")
         missing_asset = local_client.get("/missing.js")
 
     assert api_fallback.status_code == 404
     assert missing_asset.status_code == 404
+
+
+def test_http_403_handler_downgrades_expected_forbidden_logs(tmp_path) -> None:
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    index_path = dist_dir / "index.html"
+    index_path.write_text("<html><body>SPA</body></html>", encoding="utf-8")
+    fake_settings = Settings(
+        _env_file=None,
+        environment="development",
+        auth_session_secret="test-session-secret-0123456789abcdef",
+        supabase_url="",
+        supabase_anon_key="",
+        supabase_service_role_key="",
+    )
+
+    with (
+        patch.object(app_module, "_FRONTEND_DIST", dist_dir),
+        patch.object(app_module, "_FRONTEND_INDEX", index_path),
+        patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.app._init_sentry"),
+        patch("ideago.api.app.log_error_event") as log_error_event_mock,
+    ):
+        app = create_app()
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/reports/blocked",
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "client": ("127.0.0.1", 1234),
+            "scheme": "http",
+        }
+        starlette_request = Request(scope)
+        starlette_request.state.trace_id = "trace-403"
+        http_handler = app.exception_handlers[HTTPException]
+
+        response = asyncio.run(
+            http_handler(
+                starlette_request,
+                HTTPException(status_code=403, detail="Forbidden"),
+            )
+        )
+
+        assert response.status_code == 403
+        assert json.loads(response.body)["error"]["code"] == "NOT_AUTHORIZED"
+        log_error_event_mock.assert_called_once()
+        assert log_error_event_mock.call_args.kwargs["alert_level"].value == "warning"
 
 
 class _AdminFakeResponse:
