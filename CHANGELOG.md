@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-03-27
+
+### Changed
+- Refined query planner enum alias handling so planner output stays compatible with the typed `QueryPlan` contract.
+- Added the explicit query-planning progress stage to the pipeline progress flow so report streaming reflects the new retrieval step.
+
+### Fixed
+- Prevented planner outputs that use legacy family labels such as `adjacent_analogue` or `workflow_interface_variant` from unnecessarily falling back to rule-based planning.
+- Kept pipeline progress reporting aligned with the rebuilt retrieval chain on `main`.
+
 ## [0.3.7] - 2026-03-27
 
 ### Added
