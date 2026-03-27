@@ -167,7 +167,9 @@ describe('HistoryPage', () => {
       expect(screen.getByText('Report 1')).toBeInTheDocument()
     })
     expect(screen.queryByText('Report 21')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled()
+    })
   })
 
   it('falls back to open attribute when dialog methods are unavailable', async () => {
