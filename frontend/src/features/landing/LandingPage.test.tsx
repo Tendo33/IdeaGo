@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { LandingPage } from './LandingPage'
+import i18n from '@/lib/i18n/i18n'
 
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root = null
@@ -38,5 +39,22 @@ describe('LandingPage', () => {
     )
 
     expect(screen.getByRole('button', { name: /theme|主题/i })).toBeInTheDocument()
+  })
+
+  it('keeps key landing copy readable without forced truncation or line clamps', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage themeMode="system" onSelectThemeMode={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    const mockQuery = screen.getByTitle(i18n.t('landing.mockQuery'))
+    expect(mockQuery.className).not.toContain('line-clamp')
+
+    const sourceLabel = screen.getByText('Product Hunt')
+    expect(sourceLabel.className).not.toContain('truncate')
+
+    const ctaDescription = screen.getByText(i18n.t('landing.ctaDesc'))
+    expect(ctaDescription.className).not.toContain('line-clamp')
   })
 })

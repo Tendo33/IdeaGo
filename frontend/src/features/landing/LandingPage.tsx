@@ -185,7 +185,7 @@ export function LandingPage({
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* ─── TOP BAR ─── */}
       <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background/95 backdrop-blur-sm px-4 py-4 md:px-8 flex items-center justify-between min-w-0">
-        <Link to="/" className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm truncate max-w-[50vw] sm:max-w-none text-xs sm:text-base hover:bg-foreground transition-colors">
+        <Link to="/" className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm max-w-[60vw] sm:max-w-none text-xs sm:text-base break-words hover:bg-foreground transition-colors">
           {t('app.title')} {t('app.titleHighlight')}
         </Link>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -261,11 +261,11 @@ export function LandingPage({
               <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-4 h-4 bg-success border-4 border-border shrink-0 animate-pulse" />
-                  <span className="text-sm font-black uppercase tracking-widest text-muted-foreground truncate" title={t('landing.mockLabel')}>
+                  <span className="text-sm font-black uppercase tracking-widest text-muted-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockLabel')}>
                     {t('landing.mockLabel')}
                   </span>
                 </div>
-                <p className="text-2xl font-black text-foreground mb-8 border-l-8 border-primary pl-6 line-clamp-3 leading-tight" title={t('landing.mockQuery')}>
+                <p className="text-2xl font-black text-foreground mb-8 border-l-8 border-primary pl-6 leading-tight break-words [overflow-wrap:anywhere]" title={t('landing.mockQuery')}>
                   &ldquo;{t('landing.mockQuery')}&rdquo;
                 </p>
                 <div className="flex flex-wrap border-t-4 border-border/20 pt-6 gap-y-6 mb-8">
@@ -276,8 +276,8 @@ export function LandingPage({
                     { val: '4m', label: t('landing.mockTime') },
                   ].map(stat => (
                     <div key={stat.label} className="w-1/2 flex flex-col pr-4 group cursor-default">
-                      <span className="block text-4xl font-black text-primary leading-none truncate mb-2 group-hover:scale-105 transition-transform origin-left" title={stat.val}>{stat.val}</span>
-                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground block truncate" title={stat.label}>
+                      <span className="block text-4xl font-black text-primary leading-none mb-2 group-hover:scale-105 transition-transform origin-left break-words" title={stat.val}>{stat.val}</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground block break-words [overflow-wrap:anywhere]" title={stat.label}>
                         {stat.label}
                       </span>
                     </div>
@@ -285,7 +285,7 @@ export function LandingPage({
                 </div>
                 <div className="flex items-center gap-3 px-4 py-3 bg-success border-4 border-border mt-auto shadow transform -rotate-1">
                   <Zap className="w-6 h-6 text-success-foreground shrink-0" />
-                  <span className="text-base font-black uppercase tracking-widest text-success-foreground truncate" title={t('landing.mockVerdict')}>
+                  <span className="text-base font-black uppercase tracking-widest text-success-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockVerdict')}>
                     {t('landing.mockVerdict')}
                   </span>
                 </div>
@@ -322,7 +322,7 @@ export function LandingPage({
                   <div className="p-3 border-4 border-border bg-background shadow group-hover:-translate-y-2 group-hover:shadow-lg transition-all duration-300" style={{ color }}>
                     <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
                   </div>
-                  <span className="text-lg sm:text-xl font-black uppercase tracking-widest truncate group-hover:text-primary transition-colors">{label}</span>
+                  <span className="text-lg sm:text-xl font-black uppercase tracking-widest break-words [overflow-wrap:anywhere] group-hover:text-primary transition-colors">{label}</span>
                 </StaggerReveal>
               )
             })}
@@ -359,8 +359,8 @@ export function LandingPage({
                       <Icon className="w-7 h-7" />
                     </div>
                   </div>
-                  <h3 className="text-2xl sm:text-3xl mb-4 truncate relative z-10" title={t(titleKey)}>{t(titleKey)}</h3>
-                  <p className="text-lg font-medium text-muted-foreground leading-relaxed flex-1 line-clamp-4 relative z-10">
+                  <h3 className="text-2xl sm:text-3xl mb-4 relative z-10 break-words [overflow-wrap:anywhere]" title={t(titleKey)}>{t(titleKey)}</h3>
+                  <p className="text-lg font-medium text-muted-foreground leading-relaxed flex-1 relative z-10 break-words [overflow-wrap:anywhere]">
                     {t(descKey)}
                   </p>
                 </div>
@@ -407,9 +407,9 @@ export function LandingPage({
                       className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow`}
                       style={{ backgroundColor: accent }}
                     />
-                    <h3 className="text-2xl sm:text-3xl truncate group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
+                    <h3 className="text-2xl sm:text-3xl break-words [overflow-wrap:anywhere] group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
                   </div>
-                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed flex-1 line-clamp-4">
+                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed flex-1 break-words [overflow-wrap:anywhere]">
                     {t(descKey)}
                   </p>
                 </div>
@@ -432,7 +432,7 @@ export function LandingPage({
               <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />
 
               <h2 className="mb-8 text-[clamp(2.5rem,6vw,5rem)] leading-none">{t('landing.ctaTitle')}</h2>
-              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 line-clamp-3 min-w-0 break-words leading-relaxed">
+              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere]">
                 {t('landing.ctaDesc')}
               </p>
               <Link
@@ -453,7 +453,7 @@ export function LandingPage({
       {/* ─── FOOTER ─── */}
       <footer className="border-t-4 border-border px-4 py-8">
         <div className="app-shell flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-sm font-bold text-muted-foreground truncate">
+          <span className="text-sm font-bold text-muted-foreground break-words">
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
           <div className="flex items-center gap-4">
@@ -464,7 +464,7 @@ export function LandingPage({
               {t('legal.privacyTitle', 'Privacy')}
             </Link>
           </div>
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground truncate" title={t('landing.footerTagline')}>
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground break-words [overflow-wrap:anywhere]" title={t('landing.footerTagline')}>
             {t('landing.footerTagline')}
           </span>
         </div>

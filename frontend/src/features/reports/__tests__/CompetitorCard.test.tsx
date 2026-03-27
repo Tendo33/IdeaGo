@@ -51,4 +51,22 @@ describe('CompetitorCard', () => {
 
     expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument()
   })
+
+  it('keeps long company names readable without truncating and keeps external links touch-friendly', () => {
+    const longNameCompetitor: Competitor = {
+      ...competitorFixture,
+      name: 'A very long competitor name with multilingual copy 产品名称非常长并且需要完整显示',
+    }
+
+    render(<CompetitorCard competitor={longNameCompetitor} rank={3} variant="standard" />)
+
+    const heading = screen.getByRole('heading', { level: 3, name: longNameCompetitor.name })
+    expect(heading.className).not.toContain('truncate')
+    expect(heading.className).toContain('break-words')
+
+    const sourceLink = screen.getByRole('link', {
+      name: `Open ${longNameCompetitor.name} on example.com`,
+    })
+    expect(sourceLink.className).toContain('min-h-[44px]')
+  })
 })

@@ -27,7 +27,7 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
       <div className="flex gap-4 items-start">
         <span aria-hidden="true" className="text-3xl font-black text-muted-foreground/30 leading-none shrink-0">0{idx + 1}</span>
         <div className="min-w-0">
-          <p className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-2 break-words" title={report.query}>
+          <p className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors break-words [overflow-wrap:anywhere]" title={report.query}>
             {report.query}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
@@ -118,10 +118,10 @@ export function HomePage() {
                       key={prompt}
                       variant="ghost"
                       onClick={() => handleSubmit(prompt)}
-                      className="text-sm font-medium normal-case tracking-normal px-3 py-1.5 min-h-[44px] h-auto text-muted-foreground hover:text-foreground"
+                      className="text-left text-sm font-medium normal-case tracking-normal px-3 py-1.5 min-h-[44px] h-auto text-muted-foreground hover:text-foreground"
                       title={prompt}
                     >
-                      <span className="truncate max-w-[200px]">{prompt}</span>
+                      <span className="block max-w-[260px] whitespace-normal break-words [overflow-wrap:anywhere]">{prompt}</span>
                     </Button>
                   )
                 })}

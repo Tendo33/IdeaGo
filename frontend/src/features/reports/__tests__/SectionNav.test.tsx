@@ -50,6 +50,7 @@ describe('SectionNav', () => {
       'Evidence',
     ])
     expect(buttons[0]).toHaveAttribute('aria-current', 'location')
+    expect(buttons[0].className).toContain('min-h-[44px]')
     expect(screen.getByText('8')).toBeInTheDocument()
 
     sectionElements.forEach(section => section.remove())

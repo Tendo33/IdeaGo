@@ -29,7 +29,7 @@ function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; a
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 text-xs text-cta hover:text-cta-hover transition-colors duration-200 cursor-pointer min-h-[32px] px-2 py-1 -ml-2 rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      className="inline-flex min-h-[44px] items-center gap-1.5 px-2 py-1 text-xs text-cta transition-colors duration-200 cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none hover:text-cta-hover"
       aria-label={ariaLabel.replace('{{host}}', hostname).replace('{{name}}', name)}
     >
       <ExternalLink className="w-3 h-3" />
@@ -83,13 +83,13 @@ export const CompetitorCard = memo(function CompetitorCard({
               </Badge>
             )}
             <h3
-              className={`font-black font-heading text-foreground truncate min-w-0 ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
+              className={`font-black font-heading text-foreground min-w-0 break-words [overflow-wrap:anywhere] ${isFeatured ? 'text-3xl tracking-tight' : 'text-xl tracking-tight'}`}
               title={competitor.name}
             >
               {competitor.name}
             </h3>
           </div>
-          <p className="text-sm text-muted-foreground leading-relaxed" title={competitor.one_liner}>
+          <p className="text-sm text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]" title={competitor.one_liner}>
             {competitor.one_liner}
           </p>
         </div>

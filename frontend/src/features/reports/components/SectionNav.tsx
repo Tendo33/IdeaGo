@@ -80,7 +80,7 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
               key={s.id}
               onClick={() => handleClick(s.id)}
               className={[
-                'group inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-[1.15rem] border px-3.5 py-2 text-xs font-semibold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:text-sm',
+                'group inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[1.15rem] border px-3.5 py-2 text-xs font-semibold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:text-sm',
                 resolvedActiveId === s.id
                   ? 'border-primary/20 bg-primary text-primary-foreground shadow-[0_10px_20px_-16px_color-mix(in_oklch,var(--primary)_65%,transparent)]'
                   : 'border-transparent bg-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground',
