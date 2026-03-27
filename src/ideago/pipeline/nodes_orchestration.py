@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from ideago.models.research import Intent, Platform
+from ideago.models.research import Intent, Platform, QueryPlan
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.query_builder import (
     QueryString,
@@ -33,12 +33,17 @@ def build_orchestrated_queries(
     *,
     platform: Platform,
     intent: Intent,
+    query_plan: QueryPlan | None,
     source_query_caps: dict[str, int],
     family_default_weights: dict[str, float],
     orchestration_profiles: dict[str, dict[str, object]],
 ) -> tuple[list[str], dict[str, object]]:
     """Build weighted, capped query list for one source platform."""
-    families = build_query_families(platform=platform, intent=intent)
+    families = build_query_families(
+        platform=platform,
+        intent=intent,
+        query_plan=query_plan,
+    )
     if not families:
         return [], {
             "source_role": _SOURCE_ROLE_BY_PLATFORM.get(platform, "general"),

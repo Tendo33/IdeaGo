@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import NamedTuple
+from urllib.parse import urlsplit
 
 from tavily import AsyncTavilyClient
 
@@ -87,6 +88,11 @@ class TavilySource:
                 ),
                 timeout=self._timeout,
             )
+            ranked_items = sorted(
+                response.get("results", []),
+                key=_tavily_result_rank,
+                reverse=True,
+            )
             return [
                 RawResult(
                     title=item.get("title", ""),
@@ -103,7 +109,7 @@ class TavilySource:
                         "raw_content": item.get("raw_content"),
                     },
                 )
-                for item in response.get("results", [])
+                for item in ranked_items
                 if item.get("url")
             ]
         except asyncio.TimeoutError:
@@ -220,3 +226,61 @@ def _extract_query_family(query: object) -> str:
         return value.strip() if isinstance(value, str) and value.strip() else ""
     value = getattr(query, "query_family", None) or getattr(query, "family", None)
     return value.strip() if isinstance(value, str) and value.strip() else ""
+
+
+def _tavily_result_rank(item: dict[str, object]) -> tuple[int, float]:
+    url = str(item.get("url", "") or "")
+    title = str(item.get("title", "") or "")
+    content = str(item.get("content", "") or "")
+    product_bias = _product_page_bias(url=url, title=title, content=content)
+    raw_score = item.get("score")
+    native_score = float(raw_score) if isinstance(raw_score, int | float) else 0.0
+    return (product_bias, native_score)
+
+
+def _product_page_bias(*, url: str, title: str, content: str) -> int:
+    parsed = urlsplit(url)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    combined = f"{title} {content}".lower()
+
+    score = 0
+    if (
+        host.startswith("github.com")
+        or "producthunt.com" in host
+        or "apps.apple.com" in host
+    ):
+        score += 6
+    if any(
+        token in path
+        for token in (
+            "/product",
+            "/products",
+            "/app",
+            "/apps",
+            "/download",
+            "/pricing",
+            "/docs",
+        )
+    ):
+        score += 4
+    if any(
+        token in combined
+        for token in ("official", "pricing", "product", "download", "docs")
+    ):
+        score += 2
+    if any(
+        token in host for token in ("blog.", "medium.com", "substack.com", "dev.to")
+    ):
+        score -= 6
+    if any(
+        token in path
+        for token in ("/blog", "/news", "/article", "/tutorial", "/review")
+    ):
+        score -= 5
+    if any(
+        token in combined
+        for token in ("review", "tutorial", "changed my mind", "case study")
+    ):
+        score -= 3
+    return score

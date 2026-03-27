@@ -60,6 +60,11 @@ from ideago.pipeline.nodes_report_assembly import (
     build_report_meta,
 )
 from ideago.pipeline.pre_filter import filter_raw_results
+from ideago.pipeline.query_planning import (
+    QueryPlanner,
+    build_plan_anchor_coverage,
+    build_plan_family_coverage,
+)
 from ideago.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
@@ -217,6 +222,7 @@ class PipelineNodes:
         self,
         *,
         intent_parser: IntentParser,
+        query_planner: QueryPlanner,
         extractor: Extractor,
         aggregator: Aggregator,
         registry: SourceRegistry,
@@ -230,6 +236,7 @@ class PipelineNodes:
         source_runtime_metrics: dict[str, dict[str, Any]],
     ) -> None:
         self._intent_parser = intent_parser
+        self._query_planner = query_planner
         self._extractor = extractor
         self._aggregator = aggregator
         self._registry = registry
@@ -295,6 +302,17 @@ class PipelineNodes:
             "llm_usage": llm_usage,
         }
 
+    async def plan_queries_node(self, state: GraphState) -> GraphState:
+        """Create a typed query plan before platform adaptation and source fetch."""
+        intent = state["intent"]
+        llm_usage = _normalize_llm_usage(state.get("llm_usage"))
+        query_plan = await self._query_planner.plan(intent)
+        llm_usage = _merge_llm_usage(
+            llm_usage,
+            _safe_pop_task_llm_metrics(self._query_planner),
+        )
+        return {"query_plan": query_plan, "llm_usage": llm_usage}
+
     async def cache_lookup_node(self, state: GraphState) -> GraphState:
         """Resolve cache hit/miss for parsed intent."""
         intent = state["intent"]
@@ -321,6 +339,7 @@ class PipelineNodes:
     async def fetch_sources_node(self, state: GraphState) -> GraphState:
         """Fetch raw results from all available sources concurrently."""
         intent = state["intent"]
+        query_plan = state.get("query_plan")
         source_results: list[SourceResult] = []
         raw_by_source: dict[str, list[RawResult]] = {}
         runtime_orchestration_by_source: dict[str, dict[str, Any]] = {}
@@ -338,6 +357,7 @@ class PipelineNodes:
             base_queries, orchestration_payload = build_orchestrated_queries(
                 platform=source.platform,
                 intent=intent,
+                query_plan=query_plan,
                 source_query_caps=self._source_query_caps,
                 family_default_weights=self._family_default_weights,
                 orchestration_profiles=self._orchestration_profiles,
@@ -519,11 +539,21 @@ class PipelineNodes:
             (degraded_like_count / total_sources) if total_sources > 0 else 0.0
         )
         status_counts = dict(Counter(result.status.value for result in source_results))
+        planner_family_coverage = (
+            build_plan_family_coverage(query_plan) if query_plan is not None else {}
+        )
+        planner_anchor_coverage = (
+            build_plan_anchor_coverage(query_plan)
+            if query_plan is not None
+            else {"exact_entities": [], "comparison_anchors": []}
+        )
         emit_observability_event(
             logger,
             "retrieval_orchestration_summary",
             {
                 "query_family_coverage": query_family_coverage,
+                "planner_family_coverage": planner_family_coverage,
+                "planner_anchor_coverage": planner_anchor_coverage,
                 "source_role_budget_usage": source_role_budget_usage,
                 "degraded_ratio": round(degraded_ratio, 3),
                 "status_counts": status_counts,

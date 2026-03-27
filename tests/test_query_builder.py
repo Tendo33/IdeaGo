@@ -12,6 +12,10 @@ from ideago.pipeline.query_builder import (
     build_query_families,
     infer_query_family,
 )
+from ideago.pipeline.query_planning import (
+    adapt_query_plan_for_platform,
+    build_query_plan,
+)
 
 
 def _make_intent(
@@ -230,6 +234,88 @@ class TestBuildQueriesEdgeCases:
         queries = build_queries(Platform.GOOGLE_TRENDS, _make_intent())
         assert len(queries) >= 1
         assert "markdown" in queries[0]
+
+
+class TestQueryPlanningRewriting:
+    def test_build_query_plan_preserves_exact_entities_and_comparison_anchors(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["visual editor", "agent IDE"],
+            keywords_zh=["可视化编辑器"],
+            app_type="web",
+            target_scenario="为 Claude Code 提供可视化界面",
+            output_language="zh",
+            exact_entities=["Claude Code"],
+            comparison_anchors=["Cursor"],
+            search_goal="find_direct_competitors",
+            cache_key="query-plan",
+        )
+
+        plan = build_query_plan(intent)
+
+        assert plan.query_groups
+        direct_group = next(
+            group for group in plan.query_groups if group.family == "direct_competitor"
+        )
+        assert "Claude Code" in direct_group.anchor_terms
+        assert "Cursor" in direct_group.comparison_anchors
+        assert any(
+            "claude code" in rewrite.query.lower()
+            for rewrite in direct_group.rewritten_queries
+        )
+
+    def test_platform_adaptation_generates_repo_and_product_discovery_queries(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["visual editor", "agent IDE"],
+            app_type="web",
+            target_scenario="为 Claude Code 提供可视化界面",
+            output_language="en",
+            exact_entities=["Claude Code"],
+            comparison_anchors=["Cursor"],
+            search_goal="find_direct_competitors",
+            cache_key="query-plan",
+        )
+        plan = build_query_plan(intent)
+
+        github_queries = adapt_query_plan_for_platform(Platform.GITHUB, plan, intent)
+        tavily_queries = adapt_query_plan_for_platform(Platform.TAVILY, plan, intent)
+
+        assert any(
+            "claude code" in query.lower()
+            for query in github_queries["competitor_discovery"]
+        )
+        assert any(
+            "topic:" in query or "gui" in query.lower()
+            for query in github_queries["workflow_discovery"]
+        )
+        assert any(
+            "visual interface for claude code" in query.lower()
+            or "claude code gui" in query.lower()
+            for query in tavily_queries["competitor_discovery"]
+        )
+
+    def test_query_builder_does_not_run_implicit_planning_without_query_plan(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["visual editor"],
+            app_type="web",
+            target_scenario="为 Claude Code 提供可视化界面",
+            output_language="zh",
+            exact_entities=["Claude Code"],
+            comparison_anchors=["Cursor"],
+            search_goal="find_direct_competitors",
+            cache_key="query-plan",
+        )
+
+        families = build_query_families(Platform.TAVILY, intent, query_plan=None)
+
+        competitor_queries = families.get("competitor_discovery", [])
+        assert competitor_queries
+        assert all("claude code" not in query.lower() for query in competitor_queries)
 
 
 class TestHelpers:

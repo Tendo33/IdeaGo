@@ -234,6 +234,12 @@ class Extractor:
                     comp.name,
                 )
                 continue
+            if not any(_looks_like_product_page(url) for url in filtered_links):
+                logger.info(
+                    "Treating '{}' as evidence-only because links look like article/review pages",
+                    comp.name,
+                )
+                continue
             if len(filtered_links) < len(comp.links):
                 logger.info(
                     "Filtered {} fabricated links for competitor '{}'",
@@ -354,7 +360,7 @@ class Extractor:
         evidence_items: list[EvidenceItem] = []
         for entry in raw_items:
             try:
-                evidence = EvidenceItem.model_validate(entry)
+                evidence = EvidenceItem.model_validate(_normalize_evidence_entry(entry))
             except Exception:
                 logger.warning("Skipping invalid evidence item: {}", entry)
                 continue
@@ -399,6 +405,23 @@ class Extractor:
         }
 
 
+def _normalize_evidence_entry(entry: object) -> object:
+    if not isinstance(entry, dict):
+        return entry
+    normalized = dict(entry)
+    for key in (
+        "title",
+        "url",
+        "snippet",
+        "freshness_hint",
+        "matched_query",
+        "query_family",
+    ):
+        if normalized.get(key) is None:
+            normalized[key] = ""
+    return normalized
+
+
 def _normalize_url(url: str) -> str:
     """Normalize URL for strict source-link verification."""
     if not url:
@@ -423,6 +446,14 @@ def _normalize_url(url: str) -> str:
 
 def _filter_allowed_urls(urls: list[str], allowed_urls: set[str]) -> list[str]:
     return [url for url in urls if _normalize_url(url) in allowed_urls]
+
+
+def _looks_like_product_page(url: str) -> bool:
+    lowered = url.lower()
+    return not any(
+        token in lowered
+        for token in ("/blog/", "/news/", "/article/", "/tutorial/", "/review/")
+    )
 
 
 def _backfill_competitor_tradeoffs(

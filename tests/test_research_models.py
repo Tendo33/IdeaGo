@@ -18,8 +18,13 @@ from ideago.models.research import (
     OpportunityScoreBreakdown,
     PainSignal,
     Platform,
+    QueryFamily,
+    QueryGroup,
+    QueryPlan,
+    QueryRewrite,
     RawResult,
     RecommendationType,
+    RelevanceKind,
     ReportMeta,
     ResearchReport,
     SearchQuery,
@@ -98,6 +103,9 @@ def test_intent_valid() -> None:
         app_type="browser-extension",
         target_scenario="Take markdown notes on web pages",
         output_language="en",
+        exact_entities=["Browser Extension"],
+        comparison_anchors=["Notion Web Clipper"],
+        search_goal="find_direct_competitors",
         search_queries=[
             SearchQuery(platform=Platform.GITHUB, queries=["markdown notes extension"]),
         ],
@@ -105,6 +113,9 @@ def test_intent_valid() -> None:
     assert len(intent.keywords_en) == 3
     assert intent.keywords_zh == []
     assert intent.output_language == "en"
+    assert intent.exact_entities == ["Browser Extension"]
+    assert intent.comparison_anchors == ["Notion Web Clipper"]
+    assert intent.search_goal == "find_direct_competitors"
     assert intent.cache_key == ""
 
 
@@ -153,8 +164,22 @@ def test_competitor_valid() -> None:
     )
     assert c.name == "Markdownify"
     assert c.relevance_score == 0.5
+    assert c.relevance_kind == RelevanceKind.DIRECT
     assert c.pricing is None
     assert c.features == []
+
+
+def test_competitor_supports_adjacent_relevance_kind() -> None:
+    competitor = Competitor(
+        name="Cursor",
+        links=["https://cursor.com"],
+        one_liner="AI-first code editor",
+        relevance_kind="adjacent",
+        source_platforms=[Platform.TAVILY],
+        source_urls=["https://cursor.com"],
+    )
+
+    assert competitor.relevance_kind == RelevanceKind.ADJACENT
 
 
 def test_competitor_requires_at_least_one_link() -> None:
@@ -337,6 +362,26 @@ def test_richer_evidence_item_defaults() -> None:
     assert item.freshness_hint == ""
     assert item.matched_query == ""
     assert item.query_family == ""
+
+
+def test_query_plan_models_are_typed() -> None:
+    rewrite = QueryRewrite(
+        query='"claude code" gui',
+        family=QueryFamily.DIRECT_COMPETITOR,
+        purpose="Find direct GUI wrappers around Claude Code.",
+    )
+    group = QueryGroup(
+        family=QueryFamily.DIRECT_COMPETITOR,
+        anchor_terms=["Claude Code"],
+        comparison_anchors=["Cursor"],
+        rewritten_queries=[rewrite],
+    )
+    plan = QueryPlan(query_groups=[group])
+
+    assert plan.query_groups[0].family == QueryFamily.DIRECT_COMPETITOR
+    assert plan.query_groups[0].anchor_terms == ["Claude Code"]
+    assert plan.query_groups[0].comparison_anchors == ["Cursor"]
+    assert plan.query_groups[0].rewritten_queries[0].query == '"claude code" gui'
 
 
 def test_richer_evidence_summary_defaults() -> None:

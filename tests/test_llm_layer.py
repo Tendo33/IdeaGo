@@ -24,12 +24,20 @@ from ideago.llm.chat_model import (
     _safe_non_negative_int,
 )
 from ideago.llm.prompt_loader import load_prompt
-from ideago.models.research import Competitor, Intent, Platform, RawResult
+from ideago.models.research import (
+    Competitor,
+    Intent,
+    Platform,
+    QueryFamily,
+    QueryPlan,
+    RawResult,
+)
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.exceptions import AggregationError, IntentParsingError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.merger import merge_competitors
+from ideago.pipeline.query_planning import QueryPlanner
 
 _TEST_INTENT = Intent(
     keywords_en=["markdown", "notes"],
@@ -46,6 +54,8 @@ def test_load_prompt_intent_parser() -> None:
     prompt = load_prompt("intent_parser", query="I want to build a markdown clipper")
     assert "markdown clipper" in prompt
     assert "keywords_en" in prompt
+    assert "exact_entities" in prompt
+    assert "comparison_anchors" in prompt
     assert "output_language" in prompt
     assert "app_type" in prompt
     assert "target_scenario" in prompt
@@ -440,6 +450,9 @@ def test_backoff_delay_is_non_negative() -> None:
 
 MOCK_INTENT_LLM_RESPONSE = {
     "keywords_en": ["markdown", "notes", "browser extension"],
+    "exact_entities": ["Browser Extension"],
+    "comparison_anchors": ["Notion Web Clipper"],
+    "search_goal": "find_direct_competitors",
     "keywords_zh": ["Markdown 笔记", "浏览器插件"],
     "output_language": "zh",
     "app_type": "browser-extension",
@@ -477,6 +490,9 @@ async def test_intent_parser_returns_intent() -> None:
     assert "markdown" in intent.keywords_en
     assert intent.app_type == "browser-extension"
     assert intent.output_language == "zh"
+    assert intent.exact_entities == ["Browser Extension"]
+    assert intent.comparison_anchors == ["Notion Web Clipper"]
+    assert intent.search_goal == "find_direct_competitors"
     assert len(intent.search_queries) == 5
     assert len(intent.cache_key) == 16
 
@@ -493,6 +509,102 @@ async def test_intent_parser_error_and_metrics_paths() -> None:
     parser._store_metrics_for_current_task({"llm_calls": 1})
     assert parser.pop_llm_metrics_for_current_task() == {"llm_calls": 1}
     assert parser.pop_llm_metrics_for_current_task() == {}
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_normalizes_search_goal_and_backfills_anchor_keywords() -> (
+    None
+):
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": ["visual editor", "AI coding assistant"],
+                "keywords_zh": ["可视化编辑器"],
+                "exact_entities": [" Claude Code ", "claude code"],
+                "comparison_anchors": [" Cursor ", "cursor"],
+                "search_goal": "something_unknown",
+                "app_type": "web",
+                "target_scenario": "为 Claude Code 提供可视化界面",
+                "output_language": "zh",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse("我想开发一个 Claude Code 的可视化编辑器")
+
+    assert intent.search_goal == "find_direct_competitors"
+    assert intent.exact_entities == ["Claude Code"]
+    assert intent.comparison_anchors == ["Cursor"]
+    assert any(keyword.lower() == "claude code" for keyword in intent.keywords_en)
+
+
+@pytest.mark.asyncio
+async def test_query_planner_prefers_llm_output_and_returns_typed_plan() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "query_groups": [
+                    {
+                        "family": "direct_competitor",
+                        "anchor_terms": ["Claude Code"],
+                        "comparison_anchors": ["Cursor"],
+                        "rewritten_queries": [
+                            {
+                                "query": '"Claude Code" gui',
+                                "family": "direct_competitor",
+                                "purpose": "Find direct GUI wrappers.",
+                            }
+                        ],
+                    }
+                ]
+            },
+            {"llm_calls": 1},
+        )
+    )
+    planner = QueryPlanner(llm)
+    intent = Intent(
+        keywords_en=["visual editor"],
+        app_type="web",
+        target_scenario="为 Claude Code 提供可视化界面",
+        output_language="zh",
+        exact_entities=["Claude Code"],
+        comparison_anchors=["Cursor"],
+        cache_key="plan-intent",
+    )
+
+    plan = await planner.plan(intent)
+
+    assert isinstance(plan, QueryPlan)
+    assert plan.query_groups[0].family == QueryFamily.DIRECT_COMPETITOR
+    assert plan.query_groups[0].anchor_terms == ["Claude Code"]
+    assert plan.query_groups[0].rewritten_queries[0].query == '"Claude Code" gui'
+
+
+@pytest.mark.asyncio
+async def test_query_planner_falls_back_to_rule_planner_on_invalid_payload() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(return_value=({"bad": "payload"}, {}))
+    planner = QueryPlanner(llm)
+    intent = Intent(
+        keywords_en=["visual editor", "agent IDE"],
+        app_type="web",
+        target_scenario="为 Claude Code 提供可视化界面",
+        output_language="zh",
+        exact_entities=["Claude Code"],
+        comparison_anchors=["Cursor"],
+        cache_key="plan-intent",
+    )
+
+    plan = await planner.plan(intent)
+
+    assert plan.query_groups
+    assert any(
+        group.family == QueryFamily.DIRECT_COMPETITOR for group in plan.query_groups
+    )
 
 
 # ---------- Extractor ----------
@@ -723,6 +835,45 @@ async def test_extractor_non_appstore_payload_unchanged() -> None:
     assert "Output language: en" in prompt
     assert "appstore_meta" not in prompt
     assert "stargazers_count" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_extractor_normalizes_nullable_evidence_fields() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [],
+                "evidence_items": [
+                    {
+                        "title": "Claude Code article",
+                        "url": "https://example.com/claude-code",
+                        "platform": "tavily",
+                        "snippet": "Mentions integrated editor workflows.",
+                        "category": "market",
+                        "freshness_hint": None,
+                        "matched_query": "Claude Code 编辑器体验",
+                        "query_family": "competitor_discovery",
+                    }
+                ],
+            },
+            {},
+        )
+    )
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="Claude Code article",
+            url="https://example.com/claude-code",
+            platform=Platform.TAVILY,
+        )
+    ]
+
+    structured = await extractor.extract_structured(raw, _TEST_INTENT)
+
+    assert len(structured.evidence_items) == 1
+    assert structured.evidence_items[0].freshness_hint == ""
 
 
 # ---------- Aggregator ----------

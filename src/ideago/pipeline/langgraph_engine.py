@@ -23,6 +23,7 @@ from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.nodes import PipelineNodes
+from ideago.pipeline.query_planning import QueryPlanner
 from ideago.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
@@ -40,6 +41,7 @@ class LangGraphEngine:
     def __init__(
         self,
         intent_parser: IntentParser,
+        query_planner: QueryPlanner,
         extractor: Extractor,
         aggregator: Aggregator,
         registry: SourceRegistry,
@@ -53,6 +55,7 @@ class LangGraphEngine:
         checkpoint_db_url: str = "",
     ) -> None:
         self._intent_parser = intent_parser
+        self._query_planner = query_planner
         self._extractor = extractor
         self._aggregator = aggregator
         self._registry = registry
@@ -96,6 +99,7 @@ class LangGraphEngine:
         per_run_metrics: dict[str, dict[str, Any]] = {}
         nodes = PipelineNodes(
             intent_parser=self._intent_parser,
+            query_planner=self._query_planner,
             extractor=self._extractor,
             aggregator=self._aggregator,
             registry=self._registry,
@@ -182,6 +186,7 @@ class LangGraphEngine:
         builder = StateGraph(GraphState)
         builder.add_node("parse_intent", nodes.parse_intent_node)
         builder.add_node("cache_lookup", nodes.cache_lookup_node)
+        builder.add_node("plan_queries", nodes.plan_queries_node)
         builder.add_node("fetch_sources", nodes.fetch_sources_node)
         builder.add_node("pre_filter", nodes.pre_filter_node)
         builder.add_node("extract_map", nodes.extract_map_node)
@@ -198,9 +203,10 @@ class LangGraphEngine:
             self._route_after_cache,
             {
                 "cached": END,
-                "fetch": "fetch_sources",
+                "fetch": "plan_queries",
             },
         )
+        builder.add_edge("plan_queries", "fetch_sources")
         builder.add_edge("fetch_sources", "pre_filter")
         builder.add_edge("pre_filter", "extract_map")
         builder.add_edge("extract_map", "merge")

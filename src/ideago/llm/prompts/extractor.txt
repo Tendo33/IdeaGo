@@ -12,8 +12,9 @@ You are a competitor analysis expert. Your task is to extract structured competi
 
 ## Instructions
 1. For each result that represents a real product, project, or tool relevant to the user's intent above, extract competitor information.
-2. Skip results that are clearly irrelevant (e.g. unrelated blog posts, generic tutorials).
-3. **CRITICAL: Only use URLs that appear in the provided data. NEVER fabricate or guess URLs.**
+2. Prioritize results that clearly match the user's exact anchor entities and intended relationship. For example, if the user asks for a tool "for Claude Code", do not treat a generic AI editor as a direct competitor unless it is actually built for or tightly integrated with Claude Code.
+3. Skip results that are clearly irrelevant (e.g. unrelated blog posts, generic tutorials).
+4. **CRITICAL: Only use URLs that appear in the provided data. NEVER fabricate or guess URLs.**
 4. If a result lacks enough information, extract what you can and leave optional fields empty.
 5. Assign a relevance_score (0.0-1.0) based on:
    - How closely it matches the user's intent keywords and target scenario (0.8-1.0 = direct competitor)
@@ -26,8 +27,15 @@ You are a competitor analysis expert. Your task is to extract structured competi
    - `evidence_items`: inspectable evidence snippets with category labels.
 7. `evidence_items[].category` must be one of:
    - `competitor`, `pain`, `commercial`, `migration`, `whitespace`, `market`
-8. Write all natural-language fields in the specified `output_language`.
-9. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
+8. Distinguish between direct competitors and adjacent analogues in a typed way:
+   - Direct competitor: clearly solves the same problem for the same anchor ecosystem.
+   - Adjacent analogue: similar product shape or UX pattern, but not the same anchor ecosystem.
+   - Set competitor `relevance_kind` to exactly `direct` or `adjacent`.
+   - If an item is only an adjacent analogue, keep relevance_score lower unless the evidence strongly supports direct substitution.
+9. Blog posts, essays, reviews, and tutorials are evidence-only by default. They may produce `pain_signals`, `commercial_signals`, `migration_signals`, or `evidence_items`, but should not become competitors unless they clearly point to a concrete product/tool page.
+10. Write all natural-language fields in the specified `output_language`.
+11. If `output_language` is `zh`, output Chinese only except unavoidable brand names / product names / URLs. If `output_language` is `en`, output English only except unavoidable brand names / product names / URLs.
+12. For optional string fields, output `""` instead of `null`.
 
 ## Output Format
 Return a JSON object:
@@ -42,6 +50,7 @@ Return a JSON object:
       "strengths": ["strength1"],
       "weaknesses": ["weakness1"],
       "relevance_score": 0.8,
+      "relevance_kind": "direct",
       "source_platforms": ["{platform}"],
       "source_urls": ["https://exact-url-from-data"]
     }

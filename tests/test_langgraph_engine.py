@@ -21,6 +21,10 @@ from ideago.models.research import (
     OpportunityScoreBreakdown,
     PainSignal,
     Platform,
+    QueryFamily,
+    QueryGroup,
+    QueryPlan,
+    QueryRewrite,
     RawResult,
     RecommendationType,
     ResearchReport,
@@ -37,6 +41,7 @@ from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.langgraph_engine import LangGraphEngine
 from ideago.pipeline.query_builder import infer_query_family
+from ideago.pipeline.query_planning import QueryPlanner
 from ideago.sources.registry import SourceRegistry
 
 MOCK_INTENT = Intent(
@@ -928,9 +933,15 @@ def _build_engine(
     source_global_concurrency: int = 3,
     extractor_override: object | None = None,
     aggregator_override: object | None = None,
+    planner_override: object | None = None,
 ) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
     intent_parser.parse = AsyncMock(return_value=intent_override or MOCK_INTENT)
+    if planner_override is not None:
+        query_planner = planner_override
+    else:
+        query_planner = MagicMock(spec=QueryPlanner)
+        query_planner.plan = AsyncMock(return_value=QueryPlan())
 
     if extractor_override is not None:
         extractor = extractor_override
@@ -986,6 +997,7 @@ def _build_engine(
 
     engine = LangGraphEngine(
         intent_parser=intent_parser,
+        query_planner=query_planner,
         extractor=extractor,
         aggregator=aggregator,
         registry=registry,
@@ -1025,6 +1037,131 @@ async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
         e for e in collector.events if e.type == EventType.INTENT_PARSED
     )
     assert intent_event.data.get("target_scenario") == MOCK_INTENT.target_scenario
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_runs_independent_query_planner_before_fetch(
+    tmp_path,
+) -> None:
+    source = CapturingSource(Platform.TAVILY)
+    planner = MagicMock(spec=QueryPlanner)
+    planner.plan = AsyncMock(
+        return_value=QueryPlan(
+            query_groups=[
+                QueryGroup(
+                    family=QueryFamily.DIRECT_COMPETITOR,
+                    anchor_terms=["Claude Code"],
+                    comparison_anchors=["Cursor"],
+                    rewritten_queries=[
+                        QueryRewrite(
+                            query='"Claude Code" gui',
+                            family=QueryFamily.DIRECT_COMPETITOR,
+                            purpose="Find direct GUI wrappers for Claude Code.",
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    intent_override = Intent(
+        keywords_en=["visual editor"],
+        app_type="web",
+        target_scenario="为 Claude Code 提供可视化界面",
+        output_language="zh",
+        exact_entities=["Claude Code"],
+        comparison_anchors=["Cursor"],
+        cache_key="planner-test",
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        intent_override=intent_override,
+        planner_override=planner,
+    )
+
+    await engine.run("我想开发一个 Claude Code 的可视化编辑器")
+
+    planner.plan.assert_awaited_once()
+    assert any("claude code" in query.lower() for query in source.last_queries)
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_retrieval_observability_includes_query_plan_coverage(
+    tmp_path,
+) -> None:
+    source = CapturingSource(Platform.TAVILY)
+    planner = MagicMock(spec=QueryPlanner)
+    planner.plan = AsyncMock(
+        return_value=QueryPlan(
+            query_groups=[
+                QueryGroup(
+                    family=QueryFamily.DIRECT_COMPETITOR,
+                    anchor_terms=["Claude Code"],
+                    comparison_anchors=["Cursor"],
+                    rewritten_queries=[
+                        QueryRewrite(
+                            query='"Claude Code" gui',
+                            family=QueryFamily.DIRECT_COMPETITOR,
+                            purpose="Find GUI wrappers.",
+                        )
+                    ],
+                ),
+                QueryGroup(
+                    family=QueryFamily.ADJACENT_ANALOGY,
+                    anchor_terms=["Claude Code"],
+                    comparison_anchors=["Cursor"],
+                    rewritten_queries=[
+                        QueryRewrite(
+                            query="cursor for claude code",
+                            family=QueryFamily.ADJACENT_ANALOGY,
+                            purpose="Find analogous products.",
+                        )
+                    ],
+                ),
+            ]
+        )
+    )
+    intent_override = Intent(
+        keywords_en=["visual editor"],
+        app_type="web",
+        target_scenario="为 Claude Code 提供可视化界面",
+        output_language="zh",
+        exact_entities=["Claude Code"],
+        comparison_anchors=["Cursor"],
+        cache_key="planner-observability",
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        intent_override=intent_override,
+        planner_override=planner,
+    )
+
+    with patch.object(pipeline_nodes.logger, "info") as info_log:
+        await engine.run("我想开发一个 Claude Code 的可视化编辑器")
+
+    observability_calls = [
+        call.args
+        for call in info_log.call_args_list
+        if call.args and call.args[0] == "observability_event={} payload={}"
+    ]
+    retrieval_payload = next(
+        (
+            args[2]
+            for args in observability_calls
+            if len(args) >= 3 and args[1] == "retrieval_orchestration_summary"
+        ),
+        None,
+    )
+    assert isinstance(retrieval_payload, dict)
+    assert retrieval_payload["planner_family_coverage"] == {
+        "direct_competitor": 1,
+        "adjacent_analogy": 1,
+    }
+    assert retrieval_payload["planner_anchor_coverage"] == {
+        "exact_entities": ["Claude Code"],
+        "comparison_anchors": ["Cursor"],
+    }
 
 
 @pytest.mark.asyncio

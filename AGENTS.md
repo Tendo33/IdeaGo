@@ -75,8 +75,10 @@ Main package: `src/ideago`
 - `models/`: domain models
 - `observability/`: logging setup
 - `pipeline/`: LangGraph engine, nodes, events, merger, extractor, intent parser
+  - Query flow is now `intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`
   - `nodes.py` keeps graph-node orchestration entry points
   - `nodes_orchestration.py` / `nodes_extraction.py` / `nodes_confidence.py` / `nodes_report_assembly.py` hold split helper logic
+  - `query_planning.py` owns typed query planning/rewrite plus LLM-first planner fallback
 - `sources/`: GitHub, Tavily, Hacker News, App Store, Product Hunt, Reddit sources
 - `utils/`: shared helper utilities
 

@@ -10,6 +10,7 @@ from ideago.models.research import (
     EvidenceItem,
     Intent,
     PainSignal,
+    QueryPlan,
     RawResult,
     ResearchReport,
     SourceResult,
@@ -25,6 +26,7 @@ class GraphState(TypedDict, total=False):
     user_id: str
 
     intent: Intent
+    query_plan: QueryPlan
     raw_by_source: dict[str, list[RawResult]]
     filtered_by_source: dict[str, list[RawResult]]
     source_results: list[SourceResult]

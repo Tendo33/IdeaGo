@@ -64,6 +64,18 @@ class Intent(BaseModel):
         default_factory=list,
         description="Chinese keywords if applicable",
     )
+    exact_entities: list[str] = Field(
+        default_factory=list,
+        description="Exact multi-word entities or product names preserved from input",
+    )
+    comparison_anchors: list[str] = Field(
+        default_factory=list,
+        description="Explicit comparison anchors such as similar products or incumbents",
+    )
+    search_goal: str = Field(
+        default="",
+        description="Normalized research goal such as finding direct competitors",
+    )
     app_type: str = Field(
         description="App form: web / mobile / browser-extension / cli / api / desktop",
     )
@@ -89,8 +101,70 @@ class Intent(BaseModel):
         Same keywords in different order produce the same key.
         """
         normalized = sorted(k.lower().strip() for k in self.keywords_en)
-        raw = f"{self.app_type.lower()}::{'|'.join(normalized)}"
+        exact_entities = sorted(
+            entity.lower().strip() for entity in self.exact_entities
+        )
+        comparison_anchors = sorted(
+            anchor.lower().strip() for anchor in self.comparison_anchors
+        )
+        raw = (
+            f"{self.app_type.lower()}::{'|'.join(normalized)}"
+            f"::{'|'.join(exact_entities)}::{'|'.join(comparison_anchors)}"
+        )
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+class RelevanceKind(str, Enum):
+    """Typed competitor relevance relative to the user's anchored ecosystem."""
+
+    DIRECT = "direct"
+    ADJACENT = "adjacent"
+
+
+class QueryFamily(str, Enum):
+    """Planning-stage query families for intent-aware search expansion."""
+
+    DIRECT_COMPETITOR = "direct_competitor"
+    ADJACENT_ANALOGY = "adjacent_analogy"
+    WORKFLOW_INTERFACE = "workflow_interface"
+    PAIN_DISCOVERY = "pain_discovery"
+    COMMERCIAL_DISCOVERY = "commercial_discovery"
+    DISCUSSION_DISCOVERY = "discussion_discovery"
+
+
+class QueryRewrite(BaseModel):
+    """One rewritten query generated during planning."""
+
+    query: str = Field(description="One concrete rewritten query string")
+    family: QueryFamily = Field(description="Planning family for this query")
+    purpose: str = Field(description="Short rationale for why this query exists")
+
+
+class QueryGroup(BaseModel):
+    """A family of rewritten queries anchored to explicit entities."""
+
+    family: QueryFamily = Field(description="Planning family represented by this group")
+    anchor_terms: list[str] = Field(
+        default_factory=list,
+        description="Exact entities that must remain visible in rewrites",
+    )
+    comparison_anchors: list[str] = Field(
+        default_factory=list,
+        description="Comparison products or analogues that shape rewrites",
+    )
+    rewritten_queries: list[QueryRewrite] = Field(
+        default_factory=list,
+        description="Concrete rewrites generated for this group",
+    )
+
+
+class QueryPlan(BaseModel):
+    """Structured query-planning output before platform adaptation."""
+
+    query_groups: list[QueryGroup] = Field(
+        default_factory=list,
+        description="Planned query groups for downstream platform adaptation",
+    )
 
 
 class Competitor(BaseModel):
@@ -117,6 +191,10 @@ class Competitor(BaseModel):
         ge=0.0,
         le=1.0,
         description="0-1 relevance score, higher = more relevant",
+    )
+    relevance_kind: RelevanceKind = Field(
+        default=RelevanceKind.DIRECT,
+        description="Whether this product is a direct competitor or adjacent analogue",
     )
     source_platforms: list[Platform] = Field(
         description="Platforms where this competitor was found",
