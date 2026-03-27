@@ -1030,6 +1030,8 @@ async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
 
     event_types = [e.type for e in collector.events]
     assert EventType.INTENT_PARSED in event_types
+    assert EventType.QUERY_PLANNING_STARTED in event_types
+    assert EventType.QUERY_PLANNING_COMPLETED in event_types
     assert EventType.SOURCE_STARTED in event_types
     assert EventType.SOURCE_COMPLETED in event_types
     assert EventType.REPORT_READY in event_types

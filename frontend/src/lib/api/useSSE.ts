@@ -10,6 +10,8 @@ const RETRYABLE_HTTP_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504])
 const STREAM_EVENT_TYPES = new Set([
   'intent_started',
   'intent_parsed',
+  'query_planning_started',
+  'query_planning_completed',
   'source_started',
   'source_completed',
   'source_failed',

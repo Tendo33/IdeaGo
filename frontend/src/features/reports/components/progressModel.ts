@@ -7,7 +7,7 @@ import {
 } from '@/lib/types/research'
 
 export type ProgressStepStatus = 'pending' | 'active' | 'done' | 'failed' | 'cancelled'
-export type ProgressStageKey = 'intent' | 'source' | 'extraction' | 'aggregation' | 'complete' | 'failed' | 'cancelled'
+export type ProgressStageKey = 'intent' | 'planning' | 'source' | 'extraction' | 'aggregation' | 'complete' | 'failed' | 'cancelled'
 
 export interface ProgressStep {
   id: string
@@ -109,6 +109,12 @@ function deriveSteps(events: PipelineEvent[], t: TFunction): ProgressStep[] {
       shortLabel: t('report.stepper.steps.intent.short'),
       status: 'pending',
     },
+    {
+      id: 'planning',
+      label: t('report.stepper.steps.planning.label'),
+      shortLabel: t('report.stepper.steps.planning.short'),
+      status: 'pending',
+    },
     ...orderedPlatforms.map(platform => ({
       id: platform,
       label: t(`report.stepper.steps.${platform}.label`, { defaultValue: platform }),
@@ -152,6 +158,12 @@ function deriveSteps(events: PipelineEvent[], t: TFunction): ProgressStep[] {
         break
       case 'intent_parsed':
         updateStep('intent', 'done')
+        break
+      case 'query_planning_started':
+        updateStep('planning', 'active')
+        break
+      case 'query_planning_completed':
+        updateStep('planning', 'done')
         break
       case 'source_started': {
         const platform = getSourcePlatformFromEvent(event)
@@ -210,6 +222,9 @@ function deriveCurrentStage(events: PipelineEvent[]): ProgressStageKey {
     case 'intent_started':
     case 'intent_parsed':
       return 'intent'
+    case 'query_planning_started':
+    case 'query_planning_completed':
+      return 'planning'
     case 'source_started':
     case 'source_completed':
     case 'source_failed':
@@ -240,6 +255,10 @@ function describeEvent(event: PipelineEvent, t: TFunction): ProgressFeedItem {
       return { id: `${event.timestamp}|${event.type}`, label: t('report.progress.feed.intentStarted'), tone: 'live' }
     case 'intent_parsed':
       return { id: `${event.timestamp}|${event.type}`, label: t('report.progress.feed.intentParsed'), tone: 'success' }
+    case 'query_planning_started':
+      return { id: `${event.timestamp}|${event.type}`, label: t('report.progress.feed.planningStarted'), tone: 'live' }
+    case 'query_planning_completed':
+      return { id: `${event.timestamp}|${event.type}`, label: t('report.progress.feed.planningCompleted'), tone: 'success' }
     case 'source_started':
       return {
         id: `${event.timestamp}|${event.type}|${platform ?? 'source'}`,
@@ -313,6 +332,14 @@ function deriveCurrentCopy(
         currentDescription: t('report.progress.current.sourceDescription'),
         focusLabel: platformLabel,
       }
+    }
+  }
+
+  if (stage === 'planning') {
+    return {
+      currentTitle: t('report.progress.current.planningTitle'),
+      currentDescription: t('report.progress.current.planningDescription'),
+      focusLabel: t('report.progress.focus.planning'),
     }
   }
 
@@ -409,7 +436,7 @@ export function deriveProgressModel(events: PipelineEvent[], t: TFunction): Prog
   }
 
   const sourcePreviews = steps
-    .filter(step => step.id !== 'intent' && step.id !== 'extraction' && step.id !== 'aggregation' && step.id !== 'complete')
+    .filter(step => step.id !== 'intent' && step.id !== 'planning' && step.id !== 'extraction' && step.id !== 'aggregation' && step.id !== 'complete')
     .map(step => ({
       platform: step.id,
       label: getPlatformLabel(t, step.id),

@@ -17,6 +17,8 @@ class EventType(str, Enum):
 
     INTENT_STARTED = "intent_started"
     INTENT_PARSED = "intent_parsed"
+    QUERY_PLANNING_STARTED = "query_planning_started"
+    QUERY_PLANNING_COMPLETED = "query_planning_completed"
     SOURCE_STARTED = "source_started"
     SOURCE_COMPLETED = "source_completed"
     SOURCE_FAILED = "source_failed"

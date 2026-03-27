@@ -5,6 +5,8 @@ export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 export type EventType =
   | 'intent_started'
   | 'intent_parsed'
+  | 'query_planning_started'
+  | 'query_planning_completed'
   | 'source_started'
   | 'source_completed'
   | 'source_failed'
@@ -50,6 +52,8 @@ export interface ProgressExtractionCompletedData {
 const PIPELINE_EVENT_TYPES: EventType[] = [
   'intent_started',
   'intent_parsed',
+  'query_planning_started',
+  'query_planning_completed',
   'source_started',
   'source_completed',
   'source_failed',

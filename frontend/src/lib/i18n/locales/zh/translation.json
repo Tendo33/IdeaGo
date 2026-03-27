@@ -276,6 +276,7 @@
       },
       "focus": {
         "intent": "意图拆解",
+        "planning": "查询规划",
         "extraction": "结构化提取",
         "aggregation": "市场汇总",
         "complete": "准备展示报告",
@@ -285,6 +286,8 @@
       "current": {
         "intentTitle": "正在拆解您的想法",
         "intentDescription": "提炼产品类型、关键词与目标场景，生成后续查询策略。",
+        "planningTitle": "正在规划检索查询",
+        "planningDescription": "围绕核心锚点改写并组织查询，再分发到各个平台执行。",
         "sourceTitleSingle": "正在扫描 {{platform}}",
         "sourceTitleMulti": "正在并行扫描 {{count}} 个来源",
         "sourceDescription": "持续拉取候选产品、社区讨论和市场信号，为下一步结构化提取做准备。",
@@ -303,6 +306,8 @@
       "feed": {
         "intentStarted": "开始拆解想法",
         "intentParsed": "已识别产品类型与核心关键词",
+        "planningStarted": "开始规划检索查询集",
+        "planningCompleted": "已完成检索查询规划",
         "sourceStarted": "开始查询 {{platform}}",
         "sourceCompleted": "{{platform}} 返回 {{count}} 条候选结果",
         "sourceFailed": "{{platform}} 查询失败",
@@ -339,6 +344,10 @@
         "intent": {
           "label": "拆解需求意图",
           "short": "意图拆解"
+        },
+        "planning": {
+          "label": "规划检索查询",
+          "short": "查询规划"
         },
         "github": {
           "label": "扫描 GitHub 仓库",

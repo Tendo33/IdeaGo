@@ -306,10 +306,26 @@ class PipelineNodes:
         """Create a typed query plan before platform adaptation and source fetch."""
         intent = state["intent"]
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
+        await _emit(
+            self._callback,
+            EventType.QUERY_PLANNING_STARTED,
+            "query_planning",
+            "Planning retrieval queries...",
+        )
         query_plan = await self._query_planner.plan(intent)
         llm_usage = _merge_llm_usage(
             llm_usage,
             _safe_pop_task_llm_metrics(self._query_planner),
+        )
+        await _emit(
+            self._callback,
+            EventType.QUERY_PLANNING_COMPLETED,
+            "query_planning",
+            f"Planned {len(query_plan.query_groups)} query groups",
+            {
+                "count": len(query_plan.query_groups),
+                "families": [group.family.value for group in query_plan.query_groups],
+            },
         )
         return {"query_plan": query_plan, "llm_usage": llm_usage}
 
