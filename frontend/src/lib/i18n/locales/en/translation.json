@@ -355,6 +355,7 @@
       },
       "focus": {
         "intent": "Idea parsing",
+        "planning": "Query planning",
         "extraction": "Structured extraction",
         "aggregation": "Market synthesis",
         "complete": "Preparing report",
@@ -364,6 +365,8 @@
       "current": {
         "intentTitle": "Breaking down your idea",
         "intentDescription": "Identifying product type, keywords, and target scenario to build the search plan.",
+        "planningTitle": "Planning the retrieval strategy",
+        "planningDescription": "Rewriting and grouping focused search queries before each platform-specific fetch begins.",
         "sourceTitleSingle": "Scanning {{platform}}",
         "sourceTitleMulti": "Scanning {{count}} sources in parallel",
         "sourceDescription": "Pulling candidate products, community discussion, and market signals for structured extraction.",
@@ -382,6 +385,8 @@
       "feed": {
         "intentStarted": "Started parsing the idea",
         "intentParsed": "Captured product type and core keywords",
+        "planningStarted": "Started planning the retrieval query set",
+        "planningCompleted": "Finished planning the retrieval query set",
         "sourceStarted": "Querying {{platform}}",
         "sourceCompleted": "{{platform}} returned {{count}} candidates",
         "sourceFailed": "{{platform}} failed to respond",
@@ -418,6 +423,10 @@
         "intent": {
           "label": "Understanding your idea",
           "short": "Understand"
+        },
+        "planning": {
+          "label": "Planning search queries",
+          "short": "Plan"
         },
         "github": {
           "label": "Scanning GitHub repositories",

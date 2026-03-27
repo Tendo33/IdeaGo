@@ -24,6 +24,10 @@ logger = get_logger(__name__)
 _MAX_REWRITES_PER_GROUP = 4
 _MAX_GROUPS = 6
 _MIN_GROUPS = 2
+_QUERY_FAMILY_ALIASES = {
+    "adjacent_analogue": QueryFamily.ADJACENT_ANALOGY.value,
+    "workflow_interface_variant": QueryFamily.WORKFLOW_INTERFACE.value,
+}
 
 
 class QueryPlanner:
@@ -49,8 +53,9 @@ class QueryPlanner:
                 system="You are a search strategist. Return only valid JSON.",
             )
             self._store_metrics_for_current_task(llm_metrics)
+            normalized_data = _normalize_query_plan_payload(data)
             normalized = _normalize_query_plan(
-                QueryPlan.model_validate(data),
+                QueryPlan.model_validate(normalized_data),
                 fallback_plan=fallback_plan,
             )
             if normalized.query_groups:
@@ -430,6 +435,23 @@ def _normalize_query_plan(
                 break
 
     return QueryPlan(query_groups=normalized_groups[:_MAX_GROUPS])
+
+
+def _normalize_query_plan_payload(payload: Any) -> Any:
+    """Normalize known LLM family aliases before typed validation."""
+    if isinstance(payload, dict):
+        normalized_payload: dict[str, Any] = {}
+        for key, value in payload.items():
+            if key == "family" and isinstance(value, str):
+                normalized_payload[key] = _QUERY_FAMILY_ALIASES.get(
+                    value.strip(), value.strip()
+                )
+            else:
+                normalized_payload[key] = _normalize_query_plan_payload(value)
+        return normalized_payload
+    if isinstance(payload, list):
+        return [_normalize_query_plan_payload(item) for item in payload]
+    return payload
 
 
 def _normalize_rewrites(

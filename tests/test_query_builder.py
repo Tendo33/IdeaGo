@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
-from ideago.models.research import Intent, Platform
+from ideago.models.research import Intent, Platform, QueryFamily
 from ideago.pipeline.query_builder import (
     _clean_keywords,
     _slugify,
@@ -13,6 +15,7 @@ from ideago.pipeline.query_builder import (
     infer_query_family,
 )
 from ideago.pipeline.query_planning import (
+    QueryPlanner,
     adapt_query_plan_for_platform,
     build_query_plan,
 )
@@ -237,6 +240,71 @@ class TestBuildQueriesEdgeCases:
 
 
 class TestQueryPlanningRewriting:
+    @pytest.mark.asyncio
+    async def test_query_planner_normalizes_known_family_aliases_from_llm(self) -> None:
+        intent = Intent(
+            keywords_en=["video ad removal software"],
+            app_type="desktop",
+            target_scenario="Remove or skip ad segments from local video files.",
+            output_language="en",
+            exact_entities=["video ad removal software"],
+            comparison_anchors=[],
+            cache_key="planner-aliases",
+        )
+        planner = QueryPlanner(MagicMock())
+        llm_payload = {
+            "query_groups": [
+                {
+                    "family": "adjacent_analogue",
+                    "anchor_terms": ["video ad removal software"],
+                    "comparison_anchors": [],
+                    "rewritten_queries": [
+                        {
+                            "query": "adjacent analogue query",
+                            "family": "adjacent_analogue",
+                            "purpose": "Find adjacent analogue products.",
+                        }
+                    ],
+                },
+                {
+                    "family": "workflow_interface_variant",
+                    "anchor_terms": ["video ad removal software"],
+                    "comparison_anchors": [],
+                    "rewritten_queries": [
+                        {
+                            "query": "video ad removal software workflow interface variant",
+                            "family": "workflow_interface_variant",
+                            "purpose": "Find workflow UI variants.",
+                        }
+                    ],
+                },
+            ]
+        }
+
+        with (
+            patch(
+                "ideago.pipeline.query_planning.load_prompt",
+                return_value="planner-prompt",
+            ),
+            patch(
+                "ideago.pipeline.query_planning.invoke_json_with_optional_meta",
+                new=AsyncMock(return_value=(llm_payload, {"llm_calls": 1})),
+            ),
+        ):
+            plan = await planner.plan(intent)
+
+        assert [group.family for group in plan.query_groups] == [
+            QueryFamily.ADJACENT_ANALOGY,
+            QueryFamily.WORKFLOW_INTERFACE,
+        ]
+        assert (
+            plan.query_groups[0].rewritten_queries[0].query == "adjacent analogue query"
+        )
+        assert (
+            plan.query_groups[1].rewritten_queries[0].query
+            == "video ad removal software workflow interface variant"
+        )
+
     def test_build_query_plan_preserves_exact_entities_and_comparison_anchors(
         self,
     ) -> None:

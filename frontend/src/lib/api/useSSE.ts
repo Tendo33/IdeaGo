@@ -12,6 +12,8 @@ const MAX_DELAY_MS = 15000
 const STREAM_EVENT_TYPES = new Set([
   'intent_started',
   'intent_parsed',
+  'query_planning_started',
+  'query_planning_completed',
   'source_started',
   'source_completed',
   'source_failed',
