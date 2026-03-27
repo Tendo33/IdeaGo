@@ -340,6 +340,8 @@ export function HistoryPage() {
 
       <dialog
         ref={dialogRef}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
         className="fixed inset-0 z-50 m-auto bg-transparent p-4 open:animate-fade-in backdrop:bg-foreground/45"
         onCancel={() => setReportToDelete(null)}
         onClick={(e) => {
@@ -353,7 +355,7 @@ export function HistoryPage() {
           <h3 id="delete-dialog-title" className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
             {t('history.deleteConfirmTitle')}
           </h3>
-          <p className="text-sm font-medium text-muted-foreground mb-6">
+          <p id="delete-dialog-description" className="text-sm font-medium text-muted-foreground mb-6">
             {t('history.deleteConfirm')}
           </p>
           <div className="flex gap-3 justify-end">

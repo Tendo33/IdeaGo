@@ -131,6 +131,33 @@ describe('ReportHeader dropdown accessibility', () => {
     })
   })
 
+  it('supports arrow-key navigation and closes on Escape', async () => {
+    render(
+      <MemoryRouter>
+        <ReportHeader report={report} />
+      </MemoryRouter>,
+    )
+
+    const exportButton = screen.getByRole('button', { name: /export/i })
+    fireEvent.click(exportButton)
+
+    const menuItems = screen.getAllByRole('menuitem')
+    expect(menuItems.length).toBeGreaterThan(1)
+    expect(menuItems[0]).toHaveFocus()
+
+    fireEvent.keyDown(menuItems[0], { key: 'ArrowDown' })
+    expect(menuItems[1]).toHaveFocus()
+
+    fireEvent.keyDown(menuItems[1], { key: 'ArrowUp' })
+    expect(menuItems[0]).toHaveFocus()
+
+    fireEvent.keyDown(menuItems[0], { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+    expect(exportButton).toHaveFocus()
+  })
+
   it('prefers english keywords in english UI even if output language is zh', async () => {
     await i18n.changeLanguage('en')
     const reportWithBothKeywordLists: ResearchReport = {

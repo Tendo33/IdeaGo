@@ -11,7 +11,10 @@ export function UserMenu() {
   const { user, role, signOut } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuItemRefs = useRef<Array<HTMLElement | null>>([])
 
   useEffect(() => {
     if (!open) return
@@ -30,6 +33,73 @@ export function UserMenu() {
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [open])
+
+  const menuItemCount = 1 + (PRICING_ENABLED ? 1 : 0) + (role === 'admin' ? 1 : 0) + 1
+
+  const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveIndex(0)
+      setOpen(true)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveIndex(menuItemCount - 1)
+      setOpen(true)
+      return
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      setActiveIndex(0)
+      setOpen(true)
+    }
+  }
+
+  const focusMenuItem = (index: number) => {
+    const next = (index + menuItemCount) % menuItemCount
+    setActiveIndex(next)
+    menuItemRefs.current[next]?.focus()
+  }
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      focusMenuItem(activeIndex + 1)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusMenuItem(activeIndex - 1)
+      return
+    }
+    if (event.key === 'Home') {
+      event.preventDefault()
+      focusMenuItem(0)
+      return
+    }
+    if (event.key === 'End') {
+      event.preventDefault()
+      focusMenuItem(menuItemCount - 1)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+      return
+    }
+    if (event.key === 'Tab') {
+      setOpen(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    requestAnimationFrame(() => {
+      menuItemRefs.current[activeIndex]?.focus()
+    })
+  }, [activeIndex, open])
 
   if (!user) {
     return (
@@ -51,8 +121,10 @@ export function UserMenu() {
   return (
     <div className="relative" ref={containerRef}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(prev => !prev)}
+        onKeyDown={onTriggerKeyDown}
         className="topbar-action min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         aria-label={t('nav.userMenu')}
         aria-haspopup="menu"
@@ -70,6 +142,7 @@ export function UserMenu() {
         <div
           role="menu"
           aria-label={t('nav.userOptions')}
+          onKeyDown={onMenuKeyDown}
           className="absolute right-0 top-full mt-2 w-56 border-2 border-border bg-background p-2 shadow z-50"
         >
           <div className="px-3 py-2 border-b-2 border-border mb-2">
@@ -83,6 +156,10 @@ export function UserMenu() {
           <Link
             to="/profile"
             role="menuitem"
+            ref={node => {
+              menuItemRefs.current[0] = node
+            }}
+            tabIndex={activeIndex === 0 ? 0 : -1}
             onClick={() => setOpen(false)}
             className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
           >
@@ -94,6 +171,10 @@ export function UserMenu() {
             <Link
               to="/pricing"
               role="menuitem"
+              ref={node => {
+                menuItemRefs.current[1] = node
+              }}
+              tabIndex={activeIndex === 1 ? 0 : -1}
               onClick={() => setOpen(false)}
               className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-primary border-2 border-transparent transition-all cursor-pointer hover:bg-primary/10 hover:border-primary"
             >
@@ -106,6 +187,10 @@ export function UserMenu() {
             <Link
               to="/admin"
               role="menuitem"
+              ref={node => {
+                menuItemRefs.current[PRICING_ENABLED ? 2 : 1] = node
+              }}
+              tabIndex={activeIndex === (PRICING_ENABLED ? 2 : 1) ? 0 : -1}
               onClick={() => setOpen(false)}
               className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
             >
@@ -117,6 +202,10 @@ export function UserMenu() {
           <button
             type="button"
             role="menuitem"
+            ref={node => {
+              menuItemRefs.current[menuItemCount - 1] = node
+            }}
+            tabIndex={activeIndex === menuItemCount - 1 ? 0 : -1}
             onClick={async () => {
               setOpen(false)
               await signOut()

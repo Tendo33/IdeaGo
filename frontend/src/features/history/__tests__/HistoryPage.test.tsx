@@ -223,6 +223,8 @@ describe('HistoryPage', () => {
       await waitFor(() => {
         expect(dialog).toHaveAttribute('open')
       })
+      expect(dialog).toHaveAttribute('aria-labelledby', 'delete-dialog-title')
+      expect(dialog).toHaveAttribute('aria-describedby', 'delete-dialog-description')
 
       fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
 

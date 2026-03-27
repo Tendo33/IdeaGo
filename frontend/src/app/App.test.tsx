@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -181,6 +181,30 @@ describe('App user menu', () => {
 
     expect(screen.queryByRole('menuitem', { name: /upgrade to pro/i })).not.toBeInTheDocument()
   })
+
+  it('supports arrow-key navigation and closes on Escape', async () => {
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+
+    const menuButton = screen.getByRole('button', { name: /user menu/i })
+    fireEvent.keyDown(menuButton, { key: 'ArrowDown' })
+
+    const menuItems = screen.getAllByRole('menuitem')
+    expect(menuItems).toHaveLength(2)
+    await waitFor(() => {
+      expect(menuItems[0]).toHaveFocus()
+    })
+
+    fireEvent.keyDown(menuItems[0], { key: 'ArrowDown' })
+    expect(menuItems[1]).toHaveFocus()
+
+    fireEvent.keyDown(menuItems[1], { key: 'ArrowUp' })
+    expect(menuItems[0]).toHaveFocus()
+
+    fireEvent.keyDown(menuItems[0], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(menuButton).toHaveFocus()
+  })
 })
 
 describe('Identity presentation', () => {
@@ -274,6 +298,34 @@ describe('App theme mode', () => {
     render(<App />)
     expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
     expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('supports arrow-key navigation in theme menu', async () => {
+    mockMatchMedia(false)
+    render(<App />)
+    expect(await screen.findByText('HOME PAGE')).toBeInTheDocument()
+
+    const themeButton = screen.getByLabelText('Toggle theme mode')
+    fireEvent.keyDown(themeButton, { key: 'ArrowDown' })
+
+    const options = screen.getAllByRole('menuitemradio')
+    expect(options).toHaveLength(3)
+    await waitFor(() => {
+      expect(options[0]).toHaveFocus()
+    })
+
+    fireEvent.keyDown(options[0], { key: 'ArrowDown' })
+    expect(options[1]).toHaveFocus()
+
+    fireEvent.keyDown(options[1], { key: 'Home' })
+    expect(options[0]).toHaveFocus()
+
+    fireEvent.keyDown(options[0], { key: 'End' })
+    expect(options[2]).toHaveFocus()
+
+    fireEvent.keyDown(options[2], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(themeButton).toHaveFocus()
   })
 })
 
