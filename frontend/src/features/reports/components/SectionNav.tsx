@@ -73,17 +73,17 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
       <div className="mx-auto flex max-w-5xl justify-center">
         <nav
           aria-label={t('report.sections.navigation')}
-          className="flex w-fit max-w-full items-center gap-1.5 overflow-x-auto rounded-[1.75rem] border border-border/60 bg-background/88 px-2.5 py-2 shadow-[0_12px_28px_-18px_color-mix(in_oklch,var(--foreground)_26%,transparent)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/78"
+          className="flex w-fit max-w-full items-center gap-1.5 overflow-x-auto rounded-none border-2 border-border bg-card px-2 py-2 shadow"
         >
           {sections.map(s => (
             <button
               key={s.id}
               onClick={() => handleClick(s.id)}
               className={[
-                'group inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[1.15rem] border px-3.5 py-2 text-xs font-semibold tracking-tight transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:text-sm',
+                'group inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-none border-2 px-3.5 py-2 text-xs font-semibold tracking-normal transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:text-sm',
                 resolvedActiveId === s.id
-                  ? 'border-primary/20 bg-primary text-primary-foreground shadow-[0_10px_20px_-16px_color-mix(in_oklch,var(--primary)_65%,transparent)]'
-                  : 'border-transparent bg-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground',
+                  ? 'border-border bg-primary text-primary-foreground shadow-sm'
+                  : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
               ].join(' ')}
               aria-current={resolvedActiveId === s.id ? 'location' : undefined}
             >
@@ -91,10 +91,10 @@ export function SectionNav({ sections, sectionIdsKey }: SectionNavProps) {
               {s.count !== undefined && (
                 <span
                   className={[
-                    'inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none',
+                    'inline-flex min-w-[1.5rem] items-center justify-center rounded-none px-1.5 py-0.5 text-[10px] font-bold leading-none',
                     resolvedActiveId === s.id
-                      ? 'bg-primary-foreground/16 text-primary-foreground'
-                      : 'bg-muted text-muted-foreground group-hover:bg-background/80 group-hover:text-foreground',
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground',
                   ].join(' ')}
                 >
                   {s.count}

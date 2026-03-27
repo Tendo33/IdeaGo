@@ -39,7 +39,10 @@ describe('SectionNav', () => {
 
     fireEvent.scroll(window)
 
-    expect(screen.getByRole('navigation', { name: 'Report sections' })).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Report sections' })
+    expect(nav).toBeInTheDocument()
+    expect(nav.className).not.toContain('backdrop-blur')
+    expect(nav.className).toContain('rounded-none')
     const buttons = screen.getAllByRole('button')
     expect(buttons.map(button => button.textContent)).toEqual([
       'Should we build this?',
@@ -51,6 +54,7 @@ describe('SectionNav', () => {
     ])
     expect(buttons[0]).toHaveAttribute('aria-current', 'location')
     expect(buttons[0].className).toContain('min-h-[44px]')
+    expect(buttons[0].className).toContain('rounded-none')
     expect(screen.getByText('8')).toBeInTheDocument()
 
     sectionElements.forEach(section => section.remove())

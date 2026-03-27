@@ -163,7 +163,7 @@ function Dropdown({
           id={menuId}
           role="menu"
           ref={menuRef}
-          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-fade-in"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 rounded-none border-2 border-border bg-card py-1.5 shadow-md outline-none animate-fade-in"
           onKeyDown={onMenuKeyDown}
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {

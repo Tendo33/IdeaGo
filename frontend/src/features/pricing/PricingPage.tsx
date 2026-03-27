@@ -105,7 +105,7 @@ export function PricingPage() {
       </Link>
 
       <div className="border-4 border-border bg-card p-8 md:p-12 mb-12 shadow-lg relative group">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary rounded-full blur-[50px] opacity-20 group-hover:opacity-40 transition-opacity" />
+        <div className="absolute top-0 right-0 h-8 w-20 bg-primary/20 border-l-4 border-b-4 border-border" />
         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 relative z-10">
           {t('pricing.title')}
         </h1>
@@ -117,7 +117,7 @@ export function PricingPage() {
             <span className="font-bold">{error}</span>
           </Alert>
         )}
-        <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-success border-4 border-border rounded-full opacity-50 rotate-12 group-hover:rotate-45 transition-transform duration-700" />
+        <div className="absolute -bottom-4 -right-4 h-7 w-16 bg-success/25 border-4 border-border transition-colors group-hover:bg-success/35" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 md:gap-8">
@@ -126,7 +126,7 @@ export function PricingPage() {
           return (
             <div
               key={plan.name}
-              className={`border-4 bg-card p-6 md:p-8 transition-all duration-300 hover:translate-x-[-4px] hover:translate-y-[-4px] ${
+              className={`border-4 bg-card p-6 md:p-8 transition-all duration-300 hover:translate-x-[-2px] hover:translate-y-[-2px] ${
                 plan.highlighted
                   ? 'border-primary shadow-xl shadow-primary hover:shadow-2xl'
                   : 'border-border shadow-md hover:shadow-xl'

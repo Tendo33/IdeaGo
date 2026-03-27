@@ -99,7 +99,9 @@ describe('ReportHeader dropdown accessibility', () => {
     fireEvent.click(shareButton)
 
     expect(shareButton).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('menu')).toBeInTheDocument()
+    const menu = screen.getByRole('menu')
+    expect(menu).toBeInTheDocument()
+    expect(menu.className).not.toContain('backdrop-blur')
 
     fireEvent.keyDown(document, { key: 'Escape' })
 
