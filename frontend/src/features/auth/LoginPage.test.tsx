@@ -21,6 +21,7 @@ type TurnstileRenderOptions = {
   callback?: (token: string) => void
   'expired-callback'?: () => void
   'error-callback'?: () => void
+  theme?: 'light' | 'dark' | 'auto'
 }
 
 let authUser: { id: string; email: string } | null = null
@@ -136,20 +137,38 @@ describe('LoginPage registration locale metadata', () => {
     localStorage.clear()
   })
 
-  it('renders the turnstile widget immediately and blocks register until verified', async () => {
+  it('renders turnstile only in register mode and blocks register until verified', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <LoginPage />
       </MemoryRouter>,
     )
 
+    expect(screen.queryByText('Human verification')).not.toBeInTheDocument()
+    expect(turnstileRenderMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
     expect(await screen.findByText('Human verification')).toBeInTheDocument()
     expect(screen.getByText('Verifying you are human...')).toBeInTheDocument()
     expect(turnstileRenderMock).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
-
     expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeDisabled()
+  })
+
+  it('passes dark theme to turnstile when app is in dark mode', async () => {
+    document.documentElement.classList.add('dark')
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    await screen.findByText('Human verification')
+
+    expect(latestTurnstileOptions?.theme).toBe('dark')
+    document.documentElement.classList.remove('dark')
   })
 
   it('passes captchaToken and the current UI language to Supabase signUp metadata', async () => {

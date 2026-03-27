@@ -10,6 +10,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type AuthMode = 'login' | 'register' | 'reset'
 type TurnstileStatus = 'verifying' | 'success' | 'expired' | 'error' | 'unsupported'
+type TurnstileTheme = 'light' | 'dark'
 
 type TurnstileRenderOptions = {
   sitekey: string
@@ -61,12 +62,14 @@ function getTurnstileMessage(t: ReturnType<typeof useTranslation>['t'], status: 
 function TurnstilePanel({
   siteKey,
   status,
+  theme,
   onTokenChange,
   onStatusChange,
   t,
 }: {
   siteKey: string
   status: TurnstileStatus
+  theme: TurnstileTheme
   onTokenChange: (token: string | null) => void
   onStatusChange: (status: TurnstileStatus) => void
   t: ReturnType<typeof useTranslation>['t']
@@ -95,7 +98,7 @@ function TurnstilePanel({
         execution: 'render',
         retry: 'auto',
         'refresh-expired': 'auto',
-        theme: 'light',
+        theme,
         callback: token => {
           if (disposed) {
             return
@@ -155,7 +158,7 @@ function TurnstilePanel({
         widgetIdRef.current = null
       }
     }
-  }, [onStatusChange, onTokenChange, siteKey])
+  }, [onStatusChange, onTokenChange, siteKey, theme])
 
   return (
     <div className="space-y-3">
@@ -230,6 +233,11 @@ export function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [captchaStatus, setCaptchaStatus] = useState<TurnstileStatus>('verifying')
+  const [turnstileTheme, setTurnstileTheme] = useState<TurnstileTheme>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+      ? 'dark'
+      : 'light',
+  )
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? ''
   const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
   const registerBlocked =
@@ -246,6 +254,25 @@ export function LoginPage() {
       setCaptchaStatus('unsupported')
     }
   }, [turnstileSiteKey])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const syncTheme = () => {
+      setTurnstileTheme(root.classList.contains('dark') ? 'dark' : 'light')
+    }
+
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (mode === 'register') return
+    setCaptchaToken(null)
+    setCaptchaStatus(turnstileSiteKey ? 'verifying' : 'unsupported')
+  }, [mode, turnstileSiteKey])
 
   if (user) return null
 
@@ -535,13 +562,16 @@ export function LoginPage() {
             </div>
           )}
 
-          <TurnstilePanel
-            siteKey={turnstileSiteKey}
-            status={captchaStatus}
-            onTokenChange={setCaptchaToken}
-            onStatusChange={setCaptchaStatus}
-            t={t}
-          />
+          {mode === 'register' && (
+            <TurnstilePanel
+              siteKey={turnstileSiteKey}
+              status={captchaStatus}
+              theme={turnstileTheme}
+              onTokenChange={setCaptchaToken}
+              onStatusChange={setCaptchaStatus}
+              t={t}
+            />
+          )}
 
           <Button
             type="submit"
