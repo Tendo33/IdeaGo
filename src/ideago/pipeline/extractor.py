@@ -86,6 +86,7 @@ class Extractor:
             allowed_urls = {
                 _normalize_url(r.url) for r in raw_results if _normalize_url(r.url)
             }
+            raw_competitor_count = 0
             raw_json = json.dumps(
                 [
                     _serialize_raw_for_extraction(raw_result)
@@ -110,6 +111,8 @@ class Extractor:
                 prompt=prompt,
                 system="You are a competitor analysis expert. Return only valid JSON.",
             )
+            if isinstance(data, dict) and isinstance(data.get("competitors"), list):
+                raw_competitor_count = len(data["competitors"])
             self._store_metrics_for_current_task(llm_metrics)
             structured = self._parse_structured_output(
                 payload=data,
@@ -119,10 +122,12 @@ class Extractor:
             self._store_structured_output_for_current_task(structured)
             logger.debug(
                 (
-                    "Extractor LLM response for {}: competitors={}, pain={}, "
+                    "Extractor LLM response for {}: raw_competitors={}, "
+                    "kept_competitors={}, pain={}, "
                     "commercial={}, migration={}, evidence={}"
                 ),
                 platform.value,
+                raw_competitor_count,
                 len(structured.competitors),
                 len(structured.pain_signals),
                 len(structured.commercial_signals),
@@ -216,11 +221,15 @@ class Extractor:
         if not isinstance(raw_items, list):
             return []
         result: list[Competitor] = []
+        invalid_entries = 0
+        dropped_unverifiable = 0
+        filtered_fabricated_links = 0
         for entry in raw_items:
             try:
                 comp = Competitor.model_validate(entry)
             except Exception:
                 logger.warning("Skipping invalid competitor entry: {}", entry)
+                invalid_entries += 1
                 continue
             filtered_links = [
                 link for link in comp.links if _normalize_url(link) in allowed_urls
@@ -233,12 +242,7 @@ class Extractor:
                     "Dropping competitor '{}' due to unverifiable links",
                     comp.name,
                 )
-                continue
-            if not any(_looks_like_product_page(url) for url in filtered_links):
-                logger.info(
-                    "Treating '{}' as evidence-only because links look like article/review pages",
-                    comp.name,
-                )
+                dropped_unverifiable += 1
                 continue
             if len(filtered_links) < len(comp.links):
                 logger.info(
@@ -246,6 +250,7 @@ class Extractor:
                     len(comp.links) - len(filtered_links),
                     comp.name,
                 )
+                filtered_fabricated_links += len(comp.links) - len(filtered_links)
             normalized_comp = comp.model_copy(
                 update={
                     "links": filtered_links,
@@ -258,6 +263,14 @@ class Extractor:
                     output_language=output_language,
                 )
             )
+        logger.info(
+            "Competitor candidate validation: raw={}, kept={}, invalid={}, dropped_unverifiable={}, filtered_fabricated_links={}",
+            len(raw_items),
+            len(result),
+            invalid_entries,
+            dropped_unverifiable,
+            filtered_fabricated_links,
+        )
         return result
 
     def _parse_pain_signals(
@@ -446,14 +459,6 @@ def _normalize_url(url: str) -> str:
 
 def _filter_allowed_urls(urls: list[str], allowed_urls: set[str]) -> list[str]:
     return [url for url in urls if _normalize_url(url) in allowed_urls]
-
-
-def _looks_like_product_page(url: str) -> bool:
-    lowered = url.lower()
-    return not any(
-        token in lowered
-        for token in ("/blog/", "/news/", "/article/", "/tutorial/", "/review/")
-    )
 
 
 def _backfill_competitor_tradeoffs(

@@ -231,6 +231,7 @@ class PipelineNodes:
         source_timeout: int,
         extraction_timeout: int,
         max_results_per_source: int,
+        extractor_max_results_per_source: int,
         max_concurrent_llm: int,
         source_global_concurrency: int,
         source_runtime_metrics: dict[str, dict[str, Any]],
@@ -244,7 +245,8 @@ class PipelineNodes:
         self._callback = callback
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
-        self._max_results = max_results_per_source
+        self._fetch_max_results = max_results_per_source
+        self._extractor_max_results = extractor_max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
         self._source_semaphore = asyncio.Semaphore(max(1, source_global_concurrency))
         self._adaptive = _SourceAdaptiveController(
@@ -406,7 +408,7 @@ class PipelineNodes:
             try:
                 async with self._source_semaphore:
                     results = await asyncio.wait_for(
-                        source.search(queries, limit=self._max_results),
+                        source.search(queries, limit=self._fetch_max_results),
                         timeout=self._source_timeout,
                     )
                 duration_ms = int((time.monotonic() - start) * 1000)
@@ -586,12 +588,13 @@ class PipelineNodes:
         raw_by_source = state.get("raw_by_source", {})
         filtered = filter_raw_results(
             raw_by_source,
-            max_per_source=self._max_results,
+            max_per_source=self._extractor_max_results,
         )
         total_before = sum(len(v) for v in raw_by_source.values())
         total_after = sum(len(v) for v in filtered.values())
         logger.info(
-            "Pre-filter: {} → {} results across {} sources",
+            "Ranked and selected top {} per source: {} → {} results across {} sources",
+            self._extractor_max_results,
             total_before,
             total_after,
             len(filtered),
@@ -628,6 +631,11 @@ class PipelineNodes:
                 EventType.EXTRACTION_STARTED,
                 f"{platform_name}_extraction",
                 f"Extracting insights from {platform_name}...",
+            )
+            logger.info(
+                "Extractor input for {}: {} ranked results",
+                platform_name,
+                len(raw_results),
             )
             try:
                 async with self._llm_semaphore:

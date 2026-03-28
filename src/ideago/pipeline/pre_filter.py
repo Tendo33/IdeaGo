@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from ideago.models.research import OpportunityScoreBreakdown, Platform, RawResult
 
-_DEFAULT_MAX_PER_SOURCE = 8
+_DEFAULT_MAX_PER_SOURCE = 15
 _PAIN_TERMS = (
     "pain",
     "complaint",

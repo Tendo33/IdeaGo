@@ -705,6 +705,46 @@ async def test_extractor_filters_unverifiable_links() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extractor_keeps_verifiable_review_page_competitors() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [
+                    {
+                        "name": "Ultrahuman - Caffeine Window",
+                        "links": [
+                            "https://example.com/review/ultrahuman-caffeine-window"
+                        ],
+                        "one_liner": "Tracks caffeine timing for energy management.",
+                        "source_platforms": ["tavily"],
+                        "source_urls": [
+                            "https://example.com/review/ultrahuman-caffeine-window"
+                        ],
+                    }
+                ]
+            },
+            {},
+        )
+    )
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="Ultrahuman review",
+            url="https://example.com/review/ultrahuman-caffeine-window",
+            platform=Platform.TAVILY,
+        )
+    ]
+
+    result = await extractor.extract(raw, _TEST_INTENT)
+
+    assert len(result) == 1
+    assert result[0].name == "Ultrahuman - Caffeine Window"
+    assert result[0].links == ["https://example.com/review/ultrahuman-caffeine-window"]
+
+
+@pytest.mark.asyncio
 async def test_extractor_backfills_strengths_and_weaknesses_when_missing() -> None:
     llm = MagicMock(spec=ChatModelClient)
     llm.invoke_json_with_meta = AsyncMock(

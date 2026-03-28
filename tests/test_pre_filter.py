@@ -39,6 +39,11 @@ class TestFilterRawResults:
         filtered = filter_raw_results({"github": results}, max_per_source=3)
         assert len(filtered["github"]) == 3
 
+    def test_keeps_top_15_ranked_results_for_extractor_budget(self) -> None:
+        results = [_raw(Platform.GITHUB, title=f"r{i}") for i in range(20)]
+        filtered = filter_raw_results({"github": results}, max_per_source=15)
+        assert len(filtered["github"]) == 15
+
     def test_sorts_by_quality_descending(self) -> None:
         low = _raw(Platform.GITHUB, title="low", stargazers_count=1)
         high = _raw(Platform.GITHUB, title="high", stargazers_count=5000)

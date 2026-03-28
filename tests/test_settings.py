@@ -87,6 +87,21 @@ def test_source_global_concurrency_default_and_bounds() -> None:
         Settings(source_global_concurrency=9)
 
 
+def test_source_and_extractor_result_caps_defaults_and_bounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MAX_RESULTS_PER_SOURCE", raising=False)
+    monkeypatch.delenv("EXTRACTOR_MAX_RESULTS_PER_SOURCE", raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.max_results_per_source == 20
+    assert settings.extractor_max_results_per_source == 15
+
+    with pytest.raises(ValidationError):
+        Settings(max_results_per_source=0)
+    with pytest.raises(ValidationError):
+        Settings(extractor_max_results_per_source=0)
+
+
 def test_source_query_caps_defaults_and_overrides() -> None:
     defaults = Settings().get_source_query_caps()
     assert defaults["github"] >= 1

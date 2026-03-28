@@ -49,7 +49,8 @@ class LangGraphEngine:
         checkpoint_db_path: str,
         source_timeout: int = 30,
         extraction_timeout: int = 60,
-        max_results_per_source: int = 10,
+        max_results_per_source: int = 20,
+        extractor_max_results_per_source: int = 15,
         max_concurrent_llm: int = 3,
         source_global_concurrency: int = 3,
         checkpoint_db_url: str = "",
@@ -69,6 +70,7 @@ class LangGraphEngine:
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
         self._max_results_per_source = max_results_per_source
+        self._extractor_max_results_per_source = extractor_max_results_per_source
         self._max_concurrent_llm = max_concurrent_llm
         self._source_global_concurrency = max(1, source_global_concurrency)
 
@@ -108,6 +110,7 @@ class LangGraphEngine:
             source_timeout=self._source_timeout,
             extraction_timeout=self._extraction_timeout,
             max_results_per_source=self._max_results_per_source,
+            extractor_max_results_per_source=self._extractor_max_results_per_source,
             max_concurrent_llm=self._max_concurrent_llm,
             source_global_concurrency=self._source_global_concurrency,
             source_runtime_metrics=per_run_metrics,

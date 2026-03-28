@@ -793,9 +793,11 @@ class CapturingSource(MockSource):
     def __init__(self, platform: Platform):
         super().__init__(platform)
         self.last_queries: list[str] = []
+        self.last_limit: int | None = None
 
     async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
         self.last_queries = list(queries)
+        self.last_limit = limit
         return MOCK_RAW_RESULTS
 
 
@@ -923,6 +925,31 @@ class EventCollector:
         self.events.append(event)
 
 
+class CountingExtractor(Extractor):
+    def __init__(self) -> None:
+        super().__init__(llm=MagicMock())
+        self.last_raw_count = 0
+
+    async def extract_structured(
+        self,
+        raw_results: list[RawResult],
+        intent: Intent,
+    ) -> ExtractionOutput:
+        self.last_raw_count = len(raw_results)
+        return ExtractionOutput(
+            competitors=[
+                Competitor(
+                    name="captured",
+                    links=["https://example.com/captured"],
+                    one_liner="Captured for test",
+                    source_platforms=[Platform.TAVILY],
+                    source_urls=["https://example.com/captured"],
+                    relevance_score=0.6,
+                )
+            ]
+        )
+
+
 def _build_engine(
     tmp_path,
     sources: list | None = None,
@@ -1039,6 +1066,38 @@ async def test_langgraph_engine_full_pipeline(tmp_path) -> None:
         e for e in collector.events if e.type == EventType.INTENT_PARSED
     )
     assert intent_event.data.get("target_scenario") == MOCK_INTENT.target_scenario
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_uses_fetch_20_and_extract_top_15(tmp_path) -> None:
+    source = CapturingSource(Platform.TAVILY)
+    extractor = CountingExtractor()
+    raw_results = [
+        RawResult(
+            title=f"candidate-{idx}",
+            description="Users discuss switching due to pricing friction.",
+            url=f"https://example.com/tool-{idx}",
+            platform=Platform.TAVILY,
+            raw_data={
+                "score": max(0.0, 1 - idx / 30),
+                "query_family": "migration_discovery",
+                "matched_query": "tool migration alternative",
+            },
+        )
+        for idx in range(20)
+    ]
+    source.search = AsyncMock(return_value=raw_results)
+
+    engine, collector, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        extractor_override=extractor,
+    )
+
+    await engine.run("test idea", callback=collector)
+
+    assert source.search.await_args.kwargs["limit"] == 20
+    assert extractor.last_raw_count == 15
 
 
 @pytest.mark.asyncio

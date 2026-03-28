@@ -269,10 +269,19 @@ class Settings(BaseSettings):
 
     # --- Pipeline / 管道配置 ---
     max_results_per_source: int = Field(
-        default=10,
+        default=20,
         ge=1,
         le=50,
-        description="Max results per data source / 每个数据源最大结果数",
+        description="Max fetched results per data source / 每个数据源抓取结果上限",
+    )
+    extractor_max_results_per_source: int = Field(
+        default=15,
+        ge=1,
+        le=50,
+        description=(
+            "Max ranked results per data source sent to extractor / "
+            "每个数据源送入提取器的排序后结果上限"
+        ),
     )
     source_timeout_seconds: int = Field(
         default=60,

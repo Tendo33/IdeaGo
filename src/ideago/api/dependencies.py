@@ -185,6 +185,7 @@ def get_orchestrator() -> LangGraphEngine:
             source_timeout=settings.source_timeout_seconds,
             extraction_timeout=settings.extraction_timeout_seconds,
             max_results_per_source=settings.max_results_per_source,
+            extractor_max_results_per_source=settings.extractor_max_results_per_source,
             source_global_concurrency=settings.source_global_concurrency,
             checkpoint_db_url=settings.supabase_db_url,
         )

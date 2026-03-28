@@ -65,3 +65,9 @@ print(settings.database_url)
 - 当这两个 OAuth 凭证缺失时，后端可以根据 `REDDIT_ENABLE_PUBLIC_FALLBACK` 自动退化到公开只读抓取模式。
 - 公开只读 fallback 仅用于有限的公开帖子搜索，结果稳定性和完整性低于 OAuth 模式。
 - 可通过 `REDDIT_PUBLIC_FALLBACK_LIMIT` 和 `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS` 控制 fallback 的结果数和请求节奏。
+
+## Pipeline Result Caps
+
+- `MAX_RESULTS_PER_SOURCE` controls how many raw results each source fetches before pre-ranking. Current default: `20`.
+- `EXTRACTOR_MAX_RESULTS_PER_SOURCE` controls how many ranked results per source are sent into the extractor prompt after pre-filtering. Current default: `15`.
+- Keep these two knobs separate: fetch budget affects source cost/latency, extractor budget affects prompt size and LLM extraction recall.
