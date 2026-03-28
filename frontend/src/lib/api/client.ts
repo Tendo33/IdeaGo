@@ -3,6 +3,7 @@ import {
   getAccessToken,
   setAccessToken,
 } from '../auth/token'
+import { readCurrentReturnTo } from '../auth/redirect'
 import { supabase } from '../supabase/client'
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
@@ -159,7 +160,7 @@ async function fetchWithTimeout(
       }
       setAccessToken(null)
       supabase.auth.signOut().catch(() => {})
-      const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
+      const returnTo = encodeURIComponent(readCurrentReturnTo())
       window.location.href = `/login?returnTo=${returnTo}`
       throw new Error('Session expired. Redirecting to login.')
     }
@@ -313,14 +314,20 @@ export async function startLinuxDoAuth(
   { redirectTo, captchaToken }: StartLinuxDoAuthOptions,
   options: RequestOptions = {},
 ): Promise<string> {
-  const params = new URLSearchParams({
-    redirect_to: redirectTo,
-    captcha_token: captchaToken,
-    prefetch: 'true',
-  })
   const res = await fetchWithTimeout(
-    `${API_BASE}/auth/linuxdo/start?${params.toString()}`,
-    { headers: authHeaders() },
+    `${API_BASE}/auth/linuxdo/start`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...mutationHeaders(),
+      },
+      body: JSON.stringify({
+        redirect_to: redirectTo,
+        captcha_token: captchaToken,
+        prefetch: true,
+      }),
+    },
     { ...options, allowUnauthorized: true },
     DEFAULT_TIMEOUT_MS,
   )

@@ -27,6 +27,30 @@ from ideago.models.research import ResearchReport
 router = APIRouter(tags=["reports"])
 
 
+def _report_to_detail_v2(report: ResearchReport) -> ReportDetailV2:
+    return ReportDetailV2(
+        id=report.id,
+        query=report.query,
+        created_at=report.created_at,
+        updated_at=report.updated_at,
+        intent=report.intent,
+        recommendation_type=report.recommendation_type,
+        go_no_go=report.go_no_go,
+        market_summary=report.market_summary,
+        pain_signals=list(report.pain_signals),
+        commercial_signals=list(report.commercial_signals),
+        whitespace_opportunities=list(report.whitespace_opportunities),
+        opportunity_score=report.opportunity_score,
+        competitors=list(report.competitors),
+        differentiation_angles=list(report.differentiation_angles),
+        evidence_summary=report.evidence_summary,
+        confidence=report.confidence,
+        source_results=list(report.source_results),
+        cost_breakdown=report.cost_breakdown,
+        report_meta=report.report_meta,
+    )
+
+
 async def _assert_report_owner(
     cache: ReportRepository, report_id: str, user_id: str
 ) -> None:
@@ -106,7 +130,7 @@ async def get_report(
 
     report = await cache.get_by_id(report_id, user_id=user.id)
     if report is not None:
-        return ReportDetailV2.model_validate(report.model_dump(mode="python"))
+        return _report_to_detail_v2(report)
 
     if is_report_id_processing(report_id):
         return JSONResponse(

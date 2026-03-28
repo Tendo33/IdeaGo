@@ -41,6 +41,10 @@ function createFallbackSupabaseClient(): SupabaseClientType {
         data: {},
         error: authError(),
       }),
+      updateUser: async () => ({
+        data: { user: null },
+        error: authError(),
+      }),
     },
   } as unknown as SupabaseClientType
 }

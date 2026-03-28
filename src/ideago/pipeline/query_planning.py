@@ -79,11 +79,14 @@ class QueryPlanner:
 
 def build_query_plan(intent: Intent) -> QueryPlan:
     """Create a typed query plan from intent anchors, comparisons, and keywords."""
-    anchor_terms = _dedupe_preserve_order(intent.exact_entities) or _fallback_anchors(
-        intent
-    )
+    explicit_anchor_terms = _dedupe_preserve_order(intent.exact_entities)
+    anchor_terms = explicit_anchor_terms or _fallback_anchors(intent)
     comparison_anchors = _dedupe_preserve_order(intent.comparison_anchors)
     keywords = _clean_keywords(intent.keywords_en)
+    generic_base_terms = _build_generic_base_terms(
+        anchor_terms=explicit_anchor_terms,
+        keywords=keywords,
+    )
 
     groups: list[QueryGroup] = []
     if anchor_terms:
@@ -95,6 +98,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
                 rewritten_queries=_build_direct_competitor_rewrites(
                     anchor_terms=anchor_terms,
                     keywords=keywords,
+                    app_type=intent.app_type,
                 ),
             )
         )
@@ -106,6 +110,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
                 rewritten_queries=_build_workflow_interface_rewrites(
                     anchor_terms=anchor_terms,
                     keywords=keywords,
+                    app_type=intent.app_type,
                 ),
             )
         )
@@ -130,7 +135,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.PAIN_DISCOVERY,
-                    base_terms=anchor_terms or keywords[:1],
+                    base_terms=generic_base_terms,
                     suffixes=["pain points", "friction", "complaints"],
                     purpose="Find recurring user pain signals around the product shape.",
                 ),
@@ -143,7 +148,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.COMMERCIAL_DISCOVERY,
-                    base_terms=anchor_terms or keywords[:1],
+                    base_terms=generic_base_terms,
                     suffixes=["pricing", "paid plan", "buying intent"],
                     purpose="Find demand and monetization evidence.",
                 ),
@@ -156,7 +161,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.DISCUSSION_DISCOVERY,
-                    base_terms=anchor_terms or keywords[:1],
+                    base_terms=generic_base_terms,
                     suffixes=["discussion", "recommend", "review"],
                     purpose="Find discussion and recommendation threads.",
                 ),
@@ -192,6 +197,12 @@ def adapt_query_plan_for_platform(
             if not platform_query:
                 continue
             families.setdefault(family_name, []).append(platform_query)
+            if _should_duplicate_into_competitor_discovery(
+                platform=platform,
+                family=group.family,
+                query=platform_query,
+            ):
+                families.setdefault("competitor_discovery", []).append(platform_query)
 
     return families
 
@@ -225,19 +236,39 @@ def _fallback_anchors(intent: Intent) -> list[str]:
     return []
 
 
+def _build_generic_base_terms(
+    *,
+    anchor_terms: list[str],
+    keywords: list[str],
+) -> list[str]:
+    if anchor_terms:
+        return anchor_terms
+    joined_keywords = " ".join(keywords[:3]).strip()
+    return [joined_keywords] if joined_keywords else []
+
+
 def _build_direct_competitor_rewrites(
     *,
     anchor_terms: list[str],
     keywords: list[str],
+    app_type: str,
 ) -> list[QueryRewrite]:
     anchor = anchor_terms[0]
-    keyword = keywords[0] if keywords else "tool"
+    keyword = _select_keyword_hint(keywords, anchor=anchor, fallback="tool")
     candidates = [
         f'"{anchor}" {keyword}',
-        f"{anchor} visual editor",
-        f"{anchor} gui",
-        f"{anchor} interface",
+        f"{anchor} competitor",
+        f"{anchor} alternative",
     ]
+    if _prefer_ui_rewrites(keywords, app_type):
+        candidates.extend([f"{anchor} visual editor", f"{anchor} gui"])
+    else:
+        candidates.extend(
+            [
+                f"{anchor} workflow",
+                f"{anchor} automation",
+            ]
+        )
     return _make_rewrites(
         QueryFamily.DIRECT_COMPETITOR,
         candidates,
@@ -249,15 +280,33 @@ def _build_workflow_interface_rewrites(
     *,
     anchor_terms: list[str],
     keywords: list[str],
+    app_type: str,
 ) -> list[QueryRewrite]:
     anchor = anchor_terms[0]
-    keyword = keywords[0] if keywords else "workflow"
-    candidates = [
-        f"visual interface for {anchor}",
-        f"{anchor} workflow editor",
-        f"gui for {anchor}",
-        f"{anchor} {keyword}",
-    ]
+    keyword = _select_keyword_hint(keywords, anchor=anchor, fallback="workflow")
+    if _prefer_ui_rewrites(keywords, app_type):
+        candidates = [
+            f"visual interface for {anchor}",
+            f"{anchor} workflow editor",
+            f"gui for {anchor}",
+            f"{anchor} workflow",
+            f"{anchor} automation",
+            f"{anchor} {keyword}",
+        ]
+    elif app_type.lower() in {"api", "cli"}:
+        candidates = [
+            f"{anchor} workflow",
+            f"{anchor} automation",
+            f"{anchor} {keyword}",
+            f"{anchor} developer workflow",
+        ]
+    else:
+        candidates = [
+            f"{anchor} workflow",
+            f"{anchor} automation",
+            f"{anchor} {keyword}",
+            f"{anchor} user workflow",
+        ]
     return _make_rewrites(
         QueryFamily.WORKFLOW_INTERFACE,
         candidates,
@@ -366,6 +415,8 @@ def _adapt_rewrite_for_platform(
         return rewrite_query.strip()
 
     if platform == Platform.TAVILY:
+        if rewrite_query.lower().startswith("gui for ") and anchor:
+            return f"{anchor} gui".strip()
         return rewrite_query.strip()
 
     if platform == Platform.REDDIT:
@@ -520,4 +571,38 @@ def _clean_keywords(keywords: list[str]) -> list[str]:
 def _slugify(text: str) -> str:
     return "-".join(
         part for part in text.lower().strip().replace("_", " ").split() if part
+    )
+
+
+def _prefer_ui_rewrites(keywords: list[str], app_type: str) -> bool:
+    ui_markers = ("visual", "editor", "gui", "interface", "dashboard", "frontend")
+    if any(marker in keyword for keyword in keywords for marker in ui_markers):
+        return True
+    return app_type.lower() in {"desktop", "mobile", "browser-extension"}
+
+
+def _select_keyword_hint(keywords: list[str], *, anchor: str, fallback: str) -> str:
+    normalized_anchor = anchor.strip().lower()
+    for keyword in keywords:
+        cleaned = keyword.strip()
+        if not cleaned:
+            continue
+        if cleaned.lower() == normalized_anchor:
+            continue
+        return cleaned
+    return fallback
+
+
+def _should_duplicate_into_competitor_discovery(
+    *,
+    platform: Platform,
+    family: QueryFamily,
+    query: str,
+) -> bool:
+    if platform != Platform.TAVILY or family != QueryFamily.WORKFLOW_INTERFACE:
+        return False
+    normalized = query.lower()
+    return any(
+        marker in normalized
+        for marker in ("visual interface", "gui", "workflow editor")
     )

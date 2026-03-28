@@ -334,7 +334,7 @@ export function ProfilePage() {
                   setDeleteError('')
                   try {
                     await deleteAccount()
-                    signOut()
+                    await signOut().catch(() => {})
                     window.location.href = '/'
                   } catch (err) {
                     setDeleteError(

@@ -12,6 +12,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import jwt
@@ -366,6 +367,33 @@ def test_get_report_route_uses_explicit_v2_response_model() -> None:
     assert route.responses[202]["model"] is ReportRuntimeStatus
 
 
+def test_get_report_uses_explicit_contract_mapping_without_model_dump(
+    client, tmp_path
+) -> None:
+    report = _make_test_report()
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+
+    asyncio.run(cache.put(report, user_id="test-user-id"))
+
+    with (
+        patch.object(
+            ResearchReport,
+            "model_dump",
+            side_effect=AssertionError("model_dump should not be used"),
+        ),
+        patch.object(cache, "get_by_id", AsyncMock(return_value=report)),
+        patch("ideago.api.dependencies._cache", cache),
+        patch("ideago.api.dependencies.get_cache", return_value=cache),
+        patch("ideago.api.routes.reports.get_cache", return_value=cache),
+    ):
+        response = client.get(f"/api/v1/reports/{report.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == report.id
+    assert data["recommendation_type"] == report.recommendation_type.value
+
+
 def test_get_report_processing_returns_202_runtime_status(client, tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     report_id = "processing-report-detail"
@@ -642,8 +670,13 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
             new=AsyncMock(return_value=True),
         ),
     ):
-        response = client.get(
-            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=test-token",
+        response = client.post(
+            "/api/v1/auth/linuxdo/start",
+            headers={"X-Requested-With": "IdeaGo"},
+            json={
+                "redirect_to": "https://ideago.simonsun.cc/auth/callback",
+                "captcha_token": "test-token",
+            },
             follow_redirects=False,
         )
 
@@ -675,8 +708,14 @@ def test_linuxdo_start_prefetch_returns_authorize_url_json(client) -> None:
             new=AsyncMock(return_value=True),
         ),
     ):
-        response = client.get(
-            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=test-token&prefetch=true",
+        response = client.post(
+            "/api/v1/auth/linuxdo/start",
+            headers={"X-Requested-With": "IdeaGo"},
+            json={
+                "redirect_to": "https://ideago.simonsun.cc/auth/callback",
+                "captcha_token": "test-token",
+                "prefetch": True,
+            },
             follow_redirects=False,
         )
 
@@ -701,8 +740,10 @@ def test_linuxdo_start_requires_captcha_token(client) -> None:
         },
     )()
     with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
-        response = client.get(
-            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback",
+        response = client.post(
+            "/api/v1/auth/linuxdo/start",
+            headers={"X-Requested-With": "IdeaGo"},
+            json={"redirect_to": "https://ideago.simonsun.cc/auth/callback"},
             follow_redirects=False,
         )
 
@@ -733,8 +774,14 @@ def test_linuxdo_start_prefetch_returns_error_payload_for_invalid_captcha(
             new=AsyncMock(return_value=False),
         ),
     ):
-        response = client.get(
-            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=bad-token&prefetch=true",
+        response = client.post(
+            "/api/v1/auth/linuxdo/start",
+            headers={"X-Requested-With": "IdeaGo"},
+            json={
+                "redirect_to": "https://ideago.simonsun.cc/auth/callback",
+                "captcha_token": "bad-token",
+                "prefetch": True,
+            },
             follow_redirects=False,
         )
 
@@ -850,13 +897,14 @@ def test_frontend_callback_url_falls_back_to_request_base_url() -> None:
         )
 
 
-def test_is_safe_redirect_accepts_same_frontend_host() -> None:
+def test_is_safe_redirect_accepts_only_same_frontend_scheme_and_host() -> None:
     fake_settings = type(
         "Settings", (), {"frontend_app_url": "https://app.example.com"}
     )()
 
     with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
         assert auth_route._is_safe_redirect("https://app.example.com/auth/callback")
+        assert not auth_route._is_safe_redirect("http://app.example.com/auth/callback")
         assert not auth_route._is_safe_redirect("javascript:alert(1)")
         assert not auth_route._is_safe_redirect("https://evil.example.com/callback")
 
@@ -3579,7 +3627,9 @@ async def test_auth_route_remaining_error_branches() -> None:
                 redirect_uri="https://api.example.com/callback",
             )
         with pytest.raises(HTTPException) as linuxdo_start_not_configured:
-            await auth_route.linuxdo_start(request, redirect_to=None)
+            await auth_route.linuxdo_start(
+                request, auth_route.LinuxDoStartRequest(redirect_to=None)
+            )
         with pytest.raises(HTTPException) as refresh_not_configured:
             await auth_route.refresh_token(request, Response())
 
@@ -3607,7 +3657,10 @@ async def test_auth_route_remaining_error_branches() -> None:
             auth_route._parse_state_token("not-a-jwt")
         with pytest.raises(HTTPException) as invalid_redirect:
             await auth_route.linuxdo_start(
-                request, redirect_to="ftp://evil.example.com", captcha_token="ok"
+                request,
+                auth_route.LinuxDoStartRequest(
+                    redirect_to="ftp://evil.example.com", captcha_token="ok"
+                ),
             )
     assert invalid_state.value.status_code == 400
     assert invalid_redirect.value.status_code == 400
@@ -3618,8 +3671,10 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         await auth_route.linuxdo_start(
             request,
-            redirect_to="https://app.example.com/auth/callback",
-            captcha_token=None,
+            auth_route.LinuxDoStartRequest(
+                redirect_to="https://app.example.com/auth/callback",
+                captcha_token=None,
+            ),
         )
     assert missing_captcha.value.status_code == 400
 
@@ -3633,8 +3688,10 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         await auth_route.linuxdo_start(
             request,
-            redirect_to="https://app.example.com/auth/callback",
-            captcha_token="bad-token",
+            auth_route.LinuxDoStartRequest(
+                redirect_to="https://app.example.com/auth/callback",
+                captcha_token="bad-token",
+            ),
         )
     assert invalid_captcha.value.status_code == 401
 
@@ -3647,8 +3704,10 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         redirect_response = await auth_route.linuxdo_start(
             request,
-            redirect_to="https://app.example.com/auth/callback",
-            captcha_token="good-token",
+            auth_route.LinuxDoStartRequest(
+                redirect_to="https://app.example.com/auth/callback",
+                captcha_token="good-token",
+            ),
         )
     assert redirect_response.status_code == 302
     assert redirect_response.headers["location"].startswith(
@@ -3690,7 +3749,27 @@ async def test_auth_route_remaining_error_branches() -> None:
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
-            return_value={"redirect_to": "https://app.example.com/auth/callback"},
+            return_value={"redirect_to": "http://app.example.com/auth/callback"},
+        ),
+    ):
+        downgraded_redirect = await auth_route.linuxdo_callback(
+            request,
+            code="ok",
+            state=state,
+            error="access_denied",
+            error_description="provider denied",
+        )
+    assert downgraded_redirect.headers["location"].startswith(
+        "https://app.example.com/auth/callback?"
+    )
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._parse_state_token",
+            return_value={
+                "redirect_to": "https://app.example.com/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1"
+            },
         ),
         patch(
             "ideago.api.routes.auth._exchange_linuxdo_code",
@@ -3700,7 +3779,15 @@ async def test_auth_route_remaining_error_branches() -> None:
         exchange_error = await auth_route.linuxdo_callback(
             request, code="ok", state=state, error=None, error_description=None
         )
-    assert "boom" in exchange_error.headers["location"]
+    exchange_error_url = urlparse(exchange_error.headers["location"])
+    exchange_error_query = parse_qs(exchange_error_url.query)
+    assert exchange_error_url.scheme == "https"
+    assert exchange_error_url.netloc == "app.example.com"
+    assert exchange_error_url.path == "/auth/callback"
+    assert exchange_error_query["provider"] == ["linuxdo"]
+    assert exchange_error_query["returnTo"] == ["/reports/r-1"]
+    assert exchange_error_query["error"] == ["linuxdo_auth"]
+    assert exchange_error_query["error_description"] == ["boom"]
 
     with (
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),

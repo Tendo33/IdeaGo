@@ -87,6 +87,16 @@ def test_source_global_concurrency_default_and_bounds() -> None:
         Settings(source_global_concurrency=9)
 
 
+def test_aggregation_timeout_default_and_bounds() -> None:
+    settings = Settings()
+    assert settings.aggregation_timeout_seconds == 180
+
+    with pytest.raises(ValidationError):
+        Settings(aggregation_timeout_seconds=0)
+    with pytest.raises(ValidationError):
+        Settings(aggregation_timeout_seconds=301)
+
+
 def test_source_and_extractor_result_caps_defaults_and_bounds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

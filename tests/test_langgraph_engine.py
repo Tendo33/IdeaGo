@@ -28,6 +28,7 @@ from ideago.models.research import (
     RawResult,
     RecommendationType,
     ResearchReport,
+    SourceResult,
     SourceStatus,
     WhitespaceOpportunity,
 )
@@ -40,6 +41,7 @@ from ideago.pipeline.extractor import ExtractionOutput, Extractor
 from ideago.pipeline.graph_state import GraphState
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.langgraph_engine import LangGraphEngine
+from ideago.pipeline.nodes_confidence import build_confidence_metrics
 from ideago.pipeline.query_builder import infer_query_family
 from ideago.pipeline.query_planning import QueryPlanner
 from ideago.sources.registry import SourceRegistry
@@ -917,6 +919,11 @@ class EmptySource:
         return []
 
 
+class SetterFailureSource(MockSource):
+    def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
+        raise RuntimeError("runtime concurrency update failed")
+
+
 class EventCollector:
     def __init__(self):
         self.events: list[PipelineEvent] = []
@@ -961,6 +968,7 @@ def _build_engine(
     extractor_override: object | None = None,
     aggregator_override: object | None = None,
     planner_override: object | None = None,
+    aggregation_timeout: int = 5,
 ) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
     intent_parser.parse = AsyncMock(return_value=intent_override or MOCK_INTENT)
@@ -1032,6 +1040,7 @@ def _build_engine(
         checkpoint_db_path=str(tmp_path / "checkpoint.db"),
         source_timeout=5,
         extraction_timeout=5,
+        aggregation_timeout=aggregation_timeout,
         source_global_concurrency=source_global_concurrency,
     )
     collector = EventCollector()
@@ -2379,6 +2388,31 @@ async def test_langgraph_engine_extraction_failure_degrades(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_langgraph_engine_unexpected_extraction_error_degrades_source(
+    tmp_path,
+) -> None:
+    extractor = MagicMock(spec=Extractor)
+    extractor.extract = AsyncMock(side_effect=RuntimeError("unexpected extractor bug"))
+    extractor.extract_structured = AsyncMock(
+        side_effect=RuntimeError("unexpected extractor bug")
+    )
+
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        extractor_override=extractor,
+    )
+    report = await engine.run("test idea")
+
+    assert len(report.competitors) >= 1
+    assert len(report.source_results) == 1
+    assert report.source_results[0].status == SourceStatus.DEGRADED
+    assert (
+        report.source_results[0].error_msg
+        == "Extraction unavailable; showing raw results."
+    )
+
+
+@pytest.mark.asyncio
 async def test_langgraph_engine_degraded_competitor_sanitizes_html_one_liner(
     tmp_path,
 ) -> None:
@@ -2407,7 +2441,8 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
     report = await engine.run("test idea")
 
     assert report.competitors
-    assert "Analysis failed" in report.market_summary
+    assert "Aggregation failed" in report.market_summary
+    assert report.recommendation_type == RecommendationType.CAUTION
     assert report.confidence.sample_size >= 1
     assert report.cost_breakdown.llm_calls >= 0
     assert report.evidence_summary.top_evidence
@@ -2437,7 +2472,7 @@ async def test_langgraph_engine_chinese_fallback_content(tmp_path) -> None:
     report = await engine.run("帮我做一个 Markdown 笔记插件")
 
     assert "分析失败" in report.market_summary
-    assert "无法给出明确结论" in report.go_no_go
+    assert "CAUTION" in report.go_no_go
     assert "生成" in report.confidence.freshness_hint
 
 
@@ -2774,12 +2809,88 @@ async def test_langgraph_engine_downgrades_go_when_evidence_is_weak(tmp_path) ->
     report = await engine.run("test idea")
 
     assert report.recommendation_type == RecommendationType.CAUTION
+    assert not report.go_no_go.lower().startswith("go")
     assert "insufficient evidence" in report.go_no_go.lower()
     assert report.report_meta.quality_warnings
     assert any(
         "low evidence confidence" in warning.lower()
         for warning in report.report_meta.quality_warnings
     )
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_aggregation_failure_returns_caution_with_v2_fallbacks(
+    tmp_path,
+) -> None:
+    class SignalRichExtractor(Extractor):
+        def __init__(self) -> None:
+            super().__init__(llm=MagicMock())
+
+        async def extract_structured(
+            self,
+            raw_results: list[RawResult],
+            intent: Intent,
+        ) -> ExtractionOutput:
+            return ExtractionOutput(
+                competitors=[MOCK_COMPETITOR],
+                pain_signals=[
+                    PainSignal(
+                        theme="Slow onboarding",
+                        summary="Users struggle to get started quickly.",
+                        intensity=0.82,
+                        frequency=0.71,
+                        evidence_urls=["https://example.com/thread"],
+                        source_platforms=[Platform.REDDIT],
+                    )
+                ],
+                commercial_signals=[
+                    CommercialSignal(
+                        theme="Teams compare paid onboarding tools",
+                        summary="Buyers discuss budget and activation speed.",
+                        intent_strength=0.77,
+                        monetization_hint="Premium onboarding package",
+                        evidence_urls=["https://example.com/pricing"],
+                        source_platforms=[Platform.TAVILY],
+                    )
+                ],
+                evidence_items=[
+                    EvidenceItem(
+                        title="Setup complaint thread",
+                        url="https://example.com/thread",
+                        platform=Platform.REDDIT,
+                        snippet="Setup still takes more than an hour.",
+                        category=EvidenceCategory.PAIN,
+                        query_family="pain_discovery",
+                    )
+                ],
+            )
+
+    source = MockSource(Platform.REDDIT)
+    source.search = AsyncMock(
+        return_value=[
+            RawResult(
+                title="Setup complaint thread",
+                description="Users complain setup still takes too long.",
+                url="https://example.com/thread",
+                platform=Platform.REDDIT,
+            )
+        ]
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        extractor_override=SignalRichExtractor(),
+        aggregation_side_effect=AggregationError("aggregation failed"),
+    )
+
+    report = await engine.run("test idea")
+
+    assert report.recommendation_type == RecommendationType.CAUTION
+    assert "unable to determine" not in report.go_no_go.lower()
+    assert report.pain_signals
+    assert report.commercial_signals
+    assert report.whitespace_opportunities
+    assert report.opportunity_score.score > 0.0
 
 
 @pytest.mark.asyncio
@@ -2897,3 +3008,82 @@ async def test_langgraph_engine_adaptive_metrics_isolated_per_run(tmp_path) -> N
     await engine.run("test idea 3", report_id="adaptive-3")
 
     assert source.last_queries_count == full_query_count
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_records_failed_source_when_orchestration_raises(
+    tmp_path,
+) -> None:
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[SetterFailureSource(Platform.TAVILY)],
+    )
+
+    report = await engine.run("test idea")
+
+    assert len(report.source_results) == 1
+    assert report.source_results[0].platform == Platform.TAVILY
+    assert report.source_results[0].status == SourceStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_confidence_uses_merged_competitors_for_sample_size(
+    tmp_path,
+) -> None:
+    source_a = MockSource(Platform.GITHUB)
+    source_b = MockSource(Platform.TAVILY)
+    source_a.search = AsyncMock(
+        return_value=[
+            RawResult(
+                title="markdown-clipper",
+                url="https://github.com/user/markdown-clipper",
+                platform=Platform.GITHUB,
+            )
+        ]
+    )
+    source_b.search = AsyncMock(
+        return_value=[
+            RawResult(
+                title="markdown-clipper",
+                url="https://github.com/user/markdown-clipper",
+                platform=Platform.TAVILY,
+            )
+        ]
+    )
+
+    engine, _, _, _ = _build_engine(tmp_path, sources=[source_a, source_b])
+
+    report = await engine.run("test idea")
+
+    assert len(report.competitors) == 1
+    assert report.confidence.sample_size == 1
+
+
+def test_build_confidence_metrics_excludes_empty_successful_sources_from_diversity() -> (
+    None
+):
+    confidence = build_confidence_metrics(
+        [],
+        [
+            SourceResult(
+                platform=Platform.GITHUB,
+                status=SourceStatus.OK,
+                raw_count=0,
+            ),
+            SourceResult(
+                platform=Platform.TAVILY,
+                status=SourceStatus.OK,
+                raw_count=0,
+            ),
+            SourceResult(
+                platform=Platform.REDDIT,
+                status=SourceStatus.OK,
+                raw_count=0,
+            ),
+        ],
+        output_language="en",
+    )
+
+    assert confidence.source_coverage == 3
+    assert confidence.source_diversity == 0
+    assert not any("Evidence spans" in reason for reason in confidence.reasons)

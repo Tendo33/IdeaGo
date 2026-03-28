@@ -136,6 +136,7 @@ def test_intent_cache_key_deterministic() -> None:
         app_type="browser-extension",
         target_scenario="test",
         output_language="en",
+        search_goal="find_direct_competitors",
         search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["test"])],
     )
     key = intent.compute_cache_key()
@@ -144,11 +145,33 @@ def test_intent_cache_key_deterministic() -> None:
     intent2 = Intent(
         keywords_en=["browser extension", "markdown", "notes"],
         app_type="browser-extension",
-        target_scenario="totally different text",
-        output_language="zh",
+        target_scenario="test",
+        output_language="en",
+        search_goal="find_direct_competitors",
         search_queries=[SearchQuery(platform=Platform.TAVILY, queries=["other"])],
     )
     assert intent2.compute_cache_key() == key
+
+
+def test_intent_cache_key_changes_when_report_semantics_change() -> None:
+    base_intent = Intent(
+        keywords_en=["notes", "markdown", "browser extension"],
+        app_type="browser-extension",
+        target_scenario="take markdown notes",
+        output_language="en",
+        search_goal="find_direct_competitors",
+        search_queries=[SearchQuery(platform=Platform.GITHUB, queries=["test"])],
+    )
+
+    zh_intent = base_intent.model_copy(update={"output_language": "zh"})
+    scenario_intent = base_intent.model_copy(
+        update={"target_scenario": "capture team knowledge"}
+    )
+    goal_intent = base_intent.model_copy(update={"search_goal": "find_market_evidence"})
+
+    assert zh_intent.compute_cache_key() != base_intent.compute_cache_key()
+    assert scenario_intent.compute_cache_key() != base_intent.compute_cache_key()
+    assert goal_intent.compute_cache_key() != base_intent.compute_cache_key()
 
 
 # --- Competitor ---

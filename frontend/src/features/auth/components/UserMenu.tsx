@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
 import { getUserDisplayName, getUserInitial, truncateMiddle } from '@/lib/auth/AuthContext'
 import { PRICING_ENABLED } from '@/lib/featureFlags'
@@ -208,8 +209,13 @@ export function UserMenu() {
             tabIndex={activeIndex === menuItemCount - 1 ? 0 : -1}
             onClick={async () => {
               setOpen(false)
-              await signOut()
-              navigate('/')
+              try {
+                await signOut()
+                navigate('/')
+              } catch (error) {
+                const message = error instanceof Error ? error.message : t('auth.signOut')
+                toast.error(message)
+              }
             }}
             className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-destructive border-2 border-transparent transition-all cursor-pointer hover:bg-destructive/10 hover:border-destructive"
           >

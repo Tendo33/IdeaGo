@@ -336,6 +336,12 @@ class Settings(BaseSettings):
         le=300,
         description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",
     )
+    aggregation_timeout_seconds: int = Field(
+        default=180,
+        ge=1,
+        le=300,
+        description="Aggregation timeout / 聚合分析超时秒数",
+    )
     langgraph_checkpoint_db_path: str = Field(
         default=".cache/ideago/langgraph-checkpoints.db",
         description="LangGraph checkpoint SQLite path / LangGraph 检查点数据库路径",

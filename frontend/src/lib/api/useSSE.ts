@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from 'react'
 import i18n from '@/lib/i18n/i18n'
 import { parsePipelineEvent, type PipelineEvent } from '@/lib/types/research'
 import { getStreamUrl } from '@/lib/api/client'
+import { readCurrentReturnTo } from '@/lib/auth/redirect'
 import { getAccessToken, setAccessToken } from '@/lib/auth/token'
 import { supabase } from '@/lib/supabase/client'
 import { findLastSseBoundary, parseSseChunk, shouldRetrySseStatus } from '@/lib/api/sse/parser'
@@ -47,7 +48,7 @@ function clearReconnectTimer(timerRef: React.RefObject<ReturnType<typeof setTime
 function redirectToLogin(): void {
   setAccessToken(null)
   supabase.auth.signOut().catch(() => {})
-  const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
+  const returnTo = encodeURIComponent(readCurrentReturnTo())
   window.location.href = `/login?returnTo=${returnTo}`
 }
 

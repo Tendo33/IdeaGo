@@ -249,11 +249,18 @@ describe('startLinuxDoAuth', () => {
     })
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining(
-        '/api/v1/auth/linuxdo/start?redirect_to=https%3A%2F%2Fideago.simonsun.cc%2Fauth%2Fcallback&captcha_token=turnstile-token&prefetch=true',
-      ),
+      expect.stringContaining('/api/v1/auth/linuxdo/start'),
       expect.objectContaining({
-        headers: {},
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'IdeaGo',
+        },
+        body: JSON.stringify({
+          redirect_to: 'https://ideago.simonsun.cc/auth/callback',
+          captcha_token: 'turnstile-token',
+          prefetch: true,
+        }),
         credentials: 'include',
       }),
     )
@@ -340,6 +347,11 @@ describe('supabase fallback client', () => {
 
       const resetResult = await supabase.auth.resetPasswordForEmail('user@example.com')
       expect(resetResult.error).toBeInstanceOf(Error)
+
+      const updateResult = await supabase.auth.updateUser({
+        password: 'new-password',
+      } as never)
+      expect(updateResult.error).toBeInstanceOf(Error)
 
       expect(warn).toHaveBeenCalledWith(
         'Supabase URL or anon key is missing — auth will not work.',

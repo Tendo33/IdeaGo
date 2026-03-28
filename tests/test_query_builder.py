@@ -385,6 +385,66 @@ class TestQueryPlanningRewriting:
         assert competitor_queries
         assert all("claude code" not in query.lower() for query in competitor_queries)
 
+    def test_build_query_plan_avoids_repeated_single_word_anchor_rewrites(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["Figma", "competitor"],
+            app_type="web",
+            target_scenario="Find design tool competitors",
+            output_language="en",
+            exact_entities=["Figma"],
+            comparison_anchors=[],
+            search_goal="find_direct_competitors",
+            cache_key="query-plan",
+        )
+
+        plan = build_query_plan(intent)
+        rewrites = [
+            rewrite.query
+            for group in plan.query_groups
+            for rewrite in group.rewritten_queries
+        ]
+
+        assert '"Figma" figma' not in rewrites
+        assert "Figma figma" not in rewrites
+        assert '"Figma" competitor' in rewrites
+
+    def test_build_query_plan_preserves_multi_term_generic_idea_in_signal_queries(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["expense", "approval", "workflow"],
+            app_type="web",
+            target_scenario="Automate internal expense approvals",
+            output_language="en",
+            exact_entities=[],
+            comparison_anchors=[],
+            cache_key="query-plan-generic",
+        )
+
+        plan = build_query_plan(intent)
+        family_to_queries = {
+            group.family: [rewrite.query for rewrite in group.rewritten_queries]
+            for group in plan.query_groups
+        }
+
+        assert (
+            "expense approval workflow pain points"
+            in family_to_queries[QueryFamily.PAIN_DISCOVERY]
+        )
+        assert (
+            "expense approval workflow pricing"
+            in family_to_queries[QueryFamily.COMMERCIAL_DISCOVERY]
+        )
+        assert (
+            "expense approval workflow discussion"
+            in family_to_queries[QueryFamily.DISCUSSION_DISCOVERY]
+        )
+        assert (
+            "expense pain points" not in family_to_queries[QueryFamily.PAIN_DISCOVERY]
+        )
+
 
 class TestHelpers:
     def test_clean_keywords_deduplicates(self) -> None:

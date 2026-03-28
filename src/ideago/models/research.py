@@ -107,9 +107,13 @@ class Intent(BaseModel):
         comparison_anchors = sorted(
             anchor.lower().strip() for anchor in self.comparison_anchors
         )
+        target_scenario = " ".join(self.target_scenario.lower().strip().split())
+        output_language = self.output_language.lower().strip() or "en"
+        search_goal = self.search_goal.lower().strip()
         raw = (
             f"{self.app_type.lower()}::{'|'.join(normalized)}"
             f"::{'|'.join(exact_entities)}::{'|'.join(comparison_anchors)}"
+            f"::{target_scenario}::{output_language}::{search_goal}"
         )
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 

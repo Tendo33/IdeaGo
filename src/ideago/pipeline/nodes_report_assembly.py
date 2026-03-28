@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -146,6 +147,10 @@ def apply_recommendation_quality_guard(
 
     if low_evidence and recommendation_type == RecommendationType.GO:
         adjusted_type = RecommendationType.CAUTION
+        adjusted_text = _rewrite_low_evidence_recommendation_text(
+            adjusted_text,
+            output_language=output_language,
+        )
         warnings.append(
             _localized_text(
                 output_language,
@@ -155,6 +160,10 @@ def apply_recommendation_quality_guard(
         )
     elif low_evidence and recommendation_type == RecommendationType.NO_GO:
         adjusted_type = RecommendationType.CAUTION
+        adjusted_text = _rewrite_low_evidence_recommendation_text(
+            adjusted_text,
+            output_language=output_language,
+        )
         warnings.append(
             _localized_text(
                 output_language,
@@ -173,6 +182,36 @@ def apply_recommendation_quality_guard(
             adjusted_text = f"{adjusted_text} {guardrail_note}".strip()
 
     return adjusted_type, adjusted_text, warnings
+
+
+def _rewrite_low_evidence_recommendation_text(
+    text: str,
+    *,
+    output_language: str,
+) -> str:
+    rationale = _strip_recommendation_prefix(text)
+    if output_language == "zh":
+        if rationale:
+            return f"CAUTION：{rationale} 当前证据不足。"
+        return "CAUTION：当前证据不足。"
+    if rationale:
+        return f"Caution: {rationale} Current evidence is insufficient."
+    return "Caution: current evidence is insufficient."
+
+
+def _strip_recommendation_prefix(text: str) -> str:
+    normalized = text.strip()
+    if not normalized:
+        return ""
+    stripped = re.sub(
+        r"^(go|no[\s-]?go|caution)\s*[:\-]\s*",
+        "",
+        normalized,
+        flags=re.IGNORECASE,
+    ).strip()
+    if stripped == normalized:
+        return normalized
+    return stripped
 
 
 def _truncate_text(value: str, limit: int) -> str:

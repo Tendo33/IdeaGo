@@ -4,6 +4,13 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/useAuth'
+import {
+  DEFAULT_AUTH_RETURN_TO,
+  buildAuthCallbackUrl,
+  buildLoginRedirectTarget,
+  buildReturnToFromLocation,
+  normalizeAuthReturnTo,
+} from '@/lib/auth/redirect'
 import { startLinuxDoAuth } from '@/lib/api/client'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 
@@ -222,7 +229,13 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
+  const stateFrom = (location.state as {
+    from?: { pathname?: string; search?: string; hash?: string }
+  } | null)?.from
+  const searchParams = new URLSearchParams(location.search)
+  const from = normalizeAuthReturnTo(
+    searchParams.get('returnTo') ?? buildReturnToFromLocation(stateFrom),
+  )
 
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
@@ -241,14 +254,20 @@ export function LoginPage() {
   )
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? ''
   const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
-  const authBlocked =
-    mode !== 'reset' &&
-    (!turnstileSiteKey || captchaStatus !== 'success' || !captchaToken)
+  const authBlocked = !turnstileSiteKey || captchaStatus !== 'success' || !captchaToken
 
   const resetCaptcha = useCallback(() => {
     setCaptchaToken(null)
     setCaptchaStatus(turnstileSiteKey ? 'verifying' : 'unsupported')
   }, [turnstileSiteKey])
+  const authCallbackUrl = buildAuthCallbackUrl(window.location.origin, 'supabase', from)
+  const loginHref = buildLoginRedirectTarget(from)
+  const linuxDoCallbackUrl = buildAuthCallbackUrl(window.location.origin, 'linuxdo', from)
+  const passwordResetCallbackUrl = buildAuthCallbackUrl(
+    window.location.origin,
+    'supabase',
+    DEFAULT_AUTH_RETURN_TO,
+  ) + '&type=recovery'
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
@@ -274,11 +293,6 @@ export function LoginPage() {
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    if (mode !== 'reset') return
-    resetCaptcha()
-  }, [mode, resetCaptcha])
-
   if (user) return null
 
   const requireCaptcha = () => {
@@ -300,20 +314,16 @@ export function LoginPage() {
 
   const handleOAuth = async (provider: 'github' | 'google') => {
     setError('')
-    if (!requireCaptcha()) {
-      return
-    }
     setOauthLoading(provider)
     try {
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo: authCallbackUrl },
       })
       if (err) {
         setError(err.message)
         return
       }
-      resetCaptcha()
     } catch {
       setError(t('auth.unexpectedError'))
     } finally {
@@ -330,7 +340,7 @@ export function LoginPage() {
     setOauthLoading('linuxdo')
     try {
       const redirectUrl = await startLinuxDoAuth({
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: linuxDoCallbackUrl,
         captchaToken: nextCaptchaToken,
       })
       resetCaptcha()
@@ -378,23 +388,32 @@ export function LoginPage() {
           return
         }
         let err: { message: string } | null = null
+        let activeSession = false
         try {
           const result = await supabase.auth.signUp({
             email,
             password,
             options: {
               captchaToken: nextCaptchaToken,
+              emailRedirectTo: authCallbackUrl,
               data: {
                 language: emailLanguage,
               },
             },
           })
           err = result.error
+          activeSession = Boolean(
+            result.data?.session?.access_token && result.data.session.user?.id,
+          )
         } finally {
           resetCaptcha()
         }
         if (err) {
           setError(err.message)
+          return
+        }
+        if (activeSession) {
+          navigate(from, { replace: true })
           return
         }
         setConfirmSent(true)
@@ -411,8 +430,13 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
+      const nextCaptchaToken = requireCaptcha()
+      if (!nextCaptchaToken) {
+        return
+      }
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: passwordResetCallbackUrl,
+        captchaToken: nextCaptchaToken,
       })
       if (err) {
         setError(err.message)
@@ -422,6 +446,7 @@ export function LoginPage() {
     } catch {
       setError(t('auth.unexpectedError'))
     } finally {
+      resetCaptcha()
       setLoading(false)
     }
   }
@@ -461,7 +486,7 @@ export function LoginPage() {
             <br />
             <span className="text-foreground">{email}</span>
           </p>
-          <Button onClick={() => navigate('/login')} variant="outline">
+          <Button onClick={() => navigate(loginHref)} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
             {t('auth.backToLogin', 'Back to login')}
           </Button>
@@ -614,16 +639,14 @@ export function LoginPage() {
             </div>
           )}
 
-          {mode !== 'reset' && (
-            <TurnstilePanel
-              siteKey={turnstileSiteKey}
-              status={captchaStatus}
-              theme={turnstileTheme}
-              onTokenChange={setCaptchaToken}
-              onStatusChange={setCaptchaStatus}
-              t={t}
-            />
-          )}
+          <TurnstilePanel
+            siteKey={turnstileSiteKey}
+            status={captchaStatus}
+            theme={turnstileTheme}
+            onTokenChange={setCaptchaToken}
+            onStatusChange={setCaptchaStatus}
+            t={t}
+          />
 
           <Button
             type="submit"

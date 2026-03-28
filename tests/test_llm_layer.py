@@ -31,6 +31,7 @@ from ideago.models.research import (
     QueryFamily,
     QueryPlan,
     RawResult,
+    RecommendationType,
 )
 from ideago.pipeline.aggregator import AggregationResult, Aggregator
 from ideago.pipeline.exceptions import AggregationError, IntentParsingError
@@ -542,6 +543,150 @@ async def test_intent_parser_normalizes_search_goal_and_backfills_anchor_keyword
 
 
 @pytest.mark.asyncio
+async def test_intent_parser_recovers_single_word_exact_entity_from_query() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": ["figma", "competitor"],
+                "keywords_zh": [],
+                "exact_entities": [],
+                "comparison_anchors": [],
+                "search_goal": "find_direct_competitors",
+                "app_type": "web",
+                "target_scenario": "Find design tool competitors",
+                "output_language": "en",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse("Looking for Figma competitor")
+
+    assert intent.exact_entities == ["Figma"]
+    assert "Looking for Figma" not in intent.exact_entities
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_does_not_recover_generic_ui_token_as_entity() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": ["visual editor", "gui"],
+                "keywords_zh": [],
+                "exact_entities": [],
+                "comparison_anchors": [],
+                "search_goal": "find_direct_competitors",
+                "app_type": "web",
+                "target_scenario": "Build a GUI wrapper",
+                "output_language": "en",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse("Build a GUI for Claude Code")
+
+    assert intent.exact_entities == ["Claude Code"]
+    assert "GUI" not in intent.exact_entities
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_strips_sentence_leading_verb_from_recovered_entity() -> (
+    None
+):
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": ["notion", "alternative"],
+                "keywords_zh": [],
+                "exact_entities": [],
+                "comparison_anchors": [],
+                "search_goal": "find_direct_competitors",
+                "app_type": "web",
+                "target_scenario": "Find note-taking alternatives",
+                "output_language": "en",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse("Compare Notion alternatives")
+
+    assert intent.exact_entities == ["Notion"]
+    assert "Compare Notion" not in intent.exact_entities
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "keywords_en"),
+    [
+        ("I want Markdown Notes plugin", ["markdown", "notes", "plugin"]),
+        ("Build React Dashboard template", ["react", "dashboard", "template"]),
+        ("Need Python API monitoring tool", ["python", "api", "monitoring"]),
+        ("Create Chrome Extension analytics app", ["chrome", "extension", "analytics"]),
+        ("Build a React Native app", ["react native", "mobile", "app"]),
+        ("Create a Google Chrome plugin", ["google chrome", "plugin", "browser"]),
+    ],
+)
+async def test_intent_parser_does_not_promote_generic_tech_terms_to_exact_entities(
+    query: str,
+    keywords_en: list[str],
+) -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": keywords_en,
+                "keywords_zh": [],
+                "exact_entities": [],
+                "comparison_anchors": [],
+                "search_goal": "find_direct_competitors",
+                "app_type": "web",
+                "target_scenario": "Explore a product idea",
+                "output_language": "en",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse(query)
+
+    assert intent.exact_entities == []
+
+
+@pytest.mark.asyncio
+async def test_intent_parser_still_recovers_product_name_with_plugin_context() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "keywords_en": ["notion", "plugin"],
+                "keywords_zh": [],
+                "exact_entities": [],
+                "comparison_anchors": [],
+                "search_goal": "find_direct_competitors",
+                "app_type": "web",
+                "target_scenario": "Find plugin competitors",
+                "output_language": "en",
+            },
+            {},
+        )
+    )
+
+    parser = IntentParser(llm)
+    intent = await parser.parse("Need a Notion plugin")
+
+    assert intent.exact_entities == ["Notion"]
+
+
+@pytest.mark.asyncio
 async def test_query_planner_prefers_llm_output_and_returns_typed_plan() -> None:
     llm = MagicMock(spec=ChatModelClient)
     llm.invoke_json_with_meta = AsyncMock(
@@ -988,7 +1133,9 @@ async def test_aggregator_empty_competitors() -> None:
     result = await agg.aggregate([], "test", output_language="zh")
     assert result.competitors == []
     assert "竞品" in result.market_summary
-    assert "探索" in result.go_no_go
+    assert result.recommendation_type == RecommendationType.CAUTION
+    assert "CAUTION" in result.go_no_go
+    assert result.uncertainty_notes
     llm.invoke_json.assert_not_called()
 
 

@@ -41,5 +41,4 @@ class GraphState(TypedDict, total=False):
     llm_usage: dict[str, object]
 
     is_cache_hit: bool
-    error_code: str
     cancelled: bool

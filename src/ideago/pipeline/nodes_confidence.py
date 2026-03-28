@@ -255,6 +255,7 @@ def _count_supporting_platforms(
         source_result.platform
         for source_result in source_results
         if source_result.status in {SourceStatus.OK, SourceStatus.CACHED}
+        and source_result.raw_count > 0
     )
     return len(supporting_platforms)
 

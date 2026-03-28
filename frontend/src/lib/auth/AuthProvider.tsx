@@ -6,8 +6,6 @@ import { AuthContext } from './AuthContext'
 import type { AuthSession } from './AuthContext'
 import { getMe, getMyProfile, logoutAuthSession } from '@/lib/api/client'
 
-const COOKIE_RECOVERY_ROUTE_PREFIXES = ['/profile', '/reports', '/admin'] as const
-
 function toSupabaseSession(session: SupabaseSession): AuthSession {
   return {
     access_token: session.access_token,
@@ -20,9 +18,7 @@ function toSupabaseSession(session: SupabaseSession): AuthSession {
 }
 
 function shouldRecoverCookieSession(pathname: string): boolean {
-  return COOKIE_RECOVERY_ROUTE_PREFIXES.some(prefix => (
-    pathname === prefix || pathname.startsWith(`${prefix}/`)
-  ))
+  return pathname !== '/auth/callback'
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,14 +40,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    await Promise.allSettled([
-      logoutAuthSession(),
-      supabase.auth.signOut(),
-    ])
+    if (!session) return
+
+    if (session.provider === 'supabase') {
+      const result = await supabase.auth.signOut()
+      if (result.error) {
+        throw result.error
+      }
+    } else {
+      await logoutAuthSession()
+      await supabase.auth.signOut().catch(() => {})
+    }
+
     setSession(null)
     setAccessToken(null)
     setRole('user')
-  }, [])
+  }, [session])
 
   const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
     setSession(previous => {

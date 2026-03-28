@@ -25,7 +25,10 @@ from ideago.models.research import (
     SourceStatus,
 )
 from ideago.observability.log_config import emit_observability_event, get_logger
-from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.aggregator import (
+    Aggregator,
+    build_failed_aggregation_result,
+)
 from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.exceptions import (
     AggregationError,
@@ -230,6 +233,7 @@ class PipelineNodes:
         callback: ProgressCallback | None,
         source_timeout: int,
         extraction_timeout: int,
+        aggregation_timeout: int,
         max_results_per_source: int,
         extractor_max_results_per_source: int,
         max_concurrent_llm: int,
@@ -245,6 +249,7 @@ class PipelineNodes:
         self._callback = callback
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
+        self._aggregation_timeout = aggregation_timeout
         self._fetch_max_results = max_results_per_source
         self._extractor_max_results = extractor_max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
@@ -512,11 +517,18 @@ class PipelineNodes:
             *[_fetch_source(source) for source in sources],
             return_exceptions=True,
         )
-        for result in fetch_results:
+        for source, result in zip(sources, fetch_results, strict=False):
             if isinstance(result, SourceResult):
                 source_results.append(result)
             elif isinstance(result, Exception):
                 logger.error("Unexpected fetch error: {}", result)
+                source_results.append(
+                    SourceResult(
+                        platform=source.platform,
+                        status=SourceStatus.FAILED,
+                        error_msg=str(result),
+                    )
+                )
 
         query_family_coverage: dict[str, int] = {}
         source_role_budget_usage: dict[str, dict[str, Any]] = {}
@@ -615,6 +627,27 @@ class PipelineNodes:
         extracted_count_by_source: dict[str, int] = {}
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
 
+        def _degrade_source_extraction(
+            platform_name: str,
+            raw_results: list[RawResult],
+        ) -> list[Competitor]:
+            degraded = degrade_raw_to_competitors(
+                raw_results,
+                output_language=intent.output_language,
+            )
+            for source_result in source_results:
+                if source_result.platform.value == platform_name:
+                    source_result.status = SourceStatus.DEGRADED
+                    source_result.error_msg = extraction_degraded_message(
+                        intent.output_language
+                    )
+            logger.info(
+                "Falling back to {} degraded competitors from {}",
+                len(degraded),
+                platform_name,
+            )
+            return degraded
+
         async def _extract_for_source(
             platform_name: str,
             raw_results: list[RawResult],
@@ -669,21 +702,23 @@ class PipelineNodes:
                     platform_name,
                     exc,
                 )
-                degraded = degrade_raw_to_competitors(
-                    raw_results,
-                    output_language=intent.output_language,
+                degraded = _degrade_source_extraction(platform_name, raw_results)
+                return (
+                    platform_name,
+                    degraded,
+                    [],
+                    [],
+                    [],
+                    _safe_pop_task_llm_metrics(self._extractor),
                 )
-                for source_result in source_results:
-                    if source_result.platform.value == platform_name:
-                        source_result.status = SourceStatus.DEGRADED
-                        source_result.error_msg = extraction_degraded_message(
-                            intent.output_language
-                        )
-                logger.info(
-                    "Falling back to {} degraded competitors from {}",
-                    len(degraded),
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception(
+                    "Unexpected extraction error for {}, degrading to raw results",
                     platform_name,
                 )
+                degraded = _degrade_source_extraction(platform_name, raw_results)
                 return (
                     platform_name,
                     degraded,
@@ -782,7 +817,7 @@ class PipelineNodes:
                         query,
                         **analyze_kwargs,
                     ),
-                    timeout=self._extraction_timeout,
+                    timeout=self._aggregation_timeout,
                 )
             llm_usage = _merge_llm_usage(
                 llm_usage,
@@ -796,21 +831,12 @@ class PipelineNodes:
                 type(exc).__name__,
                 round(elapsed, 2),
             )
-            agg_result = AggregationResult(
+            agg_result = build_failed_aggregation_result(
                 competitors=merged,
+                output_language=output_language,
                 pain_signals=list(extracted_pain_signals),
                 commercial_signals=list(extracted_commercial_signals),
                 evidence_items=list(extracted_evidence_items),
-                market_summary=_localized_text(
-                    output_language,
-                    "分析失败，当前展示的是未深度加工的结果。",
-                    "Analysis failed - showing unprocessed results.",
-                ),
-                go_no_go=_localized_text(
-                    output_language,
-                    "暂时无法给出明确结论，原因是分析阶段出错。",
-                    "Unable to determine - analysis error.",
-                ),
             )
             llm_usage = _merge_llm_usage(
                 llm_usage,
@@ -836,7 +862,6 @@ class PipelineNodes:
         """Assemble final report object from graph state."""
         agg_result = state["aggregation_result"]
         source_results = state.get("source_results", [])
-        all_competitors = state.get("all_competitors", [])
         llm_usage = _normalize_llm_usage(state.get("llm_usage"))
         started_at_ms = int(
             state.get("pipeline_started_at_ms", int(time.monotonic() * 1000))
@@ -858,7 +883,7 @@ class PipelineNodes:
             else list(state.get("extracted_evidence_items", []))
         )
         confidence = build_confidence_metrics(
-            all_competitors,
+            agg_result.competitors,
             source_results,
             evidence_items=report_evidence_items,
             pain_signals=report_pain_signals,
@@ -962,11 +987,6 @@ class PipelineNodes:
             {"report_id": report.id},
         )
         return {}
-
-    async def terminal_error_node(self, state: GraphState) -> GraphState:
-        """Terminal node for graph-level controlled failures."""
-        error_code = state.get("error_code", "PIPELINE_FAILURE")
-        raise RuntimeError(error_code)
 
 
 def _empty_llm_usage() -> dict[str, Any]:

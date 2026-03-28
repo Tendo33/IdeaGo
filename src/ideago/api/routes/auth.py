@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import httpx
 import jwt
@@ -43,6 +43,12 @@ class LinuxDoStartPayload(BaseModel):
     url: str
 
 
+class LinuxDoStartRequest(BaseModel):
+    redirect_to: str | None = None
+    captcha_token: str | None = None
+    prefetch: bool = False
+
+
 def _frontend_callback_url(request: Request) -> str:
     settings = get_settings()
     base = settings.frontend_app_url.strip().rstrip("/")
@@ -67,8 +73,11 @@ def _is_safe_redirect(url: str) -> bool:
     if not configured:
         return False
     try:
-        configured_host = urlparse(configured).netloc
-        return parsed.netloc == configured_host
+        configured_parsed = urlparse(configured)
+        return (
+            parsed.scheme == configured_parsed.scheme
+            and parsed.netloc == configured_parsed.netloc
+        )
     except ValueError:
         return False
 
@@ -195,8 +204,18 @@ def _issue_auth_token(*, user_id: str, email: str, provider: str) -> str:
 
 def _redirect_error(redirect_to: str, message: str) -> RedirectResponse:
     safe_message = message or "Authentication failed"
-    query = urlencode({"error": "linuxdo_auth", "error_description": safe_message})
-    return RedirectResponse(url=f"{redirect_to}?{query}", status_code=302)
+    parsed = urlparse(redirect_to)
+    query_items = parse_qsl(parsed.query, keep_blank_values=True)
+    query_items.extend(
+        [
+            ("error", "linuxdo_auth"),
+            ("error_description", safe_message),
+        ]
+    )
+    return RedirectResponse(
+        url=urlunparse(parsed._replace(query=urlencode(query_items))),
+        status_code=302,
+    )
 
 
 async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -> bool:
@@ -234,16 +253,17 @@ async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -
     return bool(data.get("success") is True)
 
 
-@router.get("/auth/linuxdo/start", response_model=None)
+@router.post("/auth/linuxdo/start", response_model=None)
 async def linuxdo_start(
     request: Request,
-    redirect_to: str | None = Query(default=None),
-    captcha_token: str | None = Query(default=None),
-    prefetch: bool = False,
+    payload: LinuxDoStartRequest,
 ) -> RedirectResponse | LinuxDoStartPayload:
     settings = get_settings()
     if not settings.linuxdo_client_id:
         raise HTTPException(status_code=503, detail="LinuxDo OAuth is not configured")
+    redirect_to = payload.redirect_to
+    captcha_token = payload.captcha_token
+    prefetch = payload.prefetch
     if not captcha_token:
         raise HTTPException(status_code=400, detail="Missing captcha token")
 

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import { LoginPage } from './LoginPage'
 import { AuthCallback } from './AuthCallback'
 import { AuthContext } from '@/lib/auth/AuthContext'
@@ -11,11 +11,16 @@ const navigateMock = vi.fn()
 const signUpMock = vi.fn()
 const signInWithPasswordMock = vi.fn()
 const signInWithOAuthMock = vi.fn()
+const resetPasswordForEmailMock = vi.fn()
+const supabaseSignOutMock = vi.fn()
+const updateUserMock = vi.fn()
+const onAuthStateChangeMock = vi.fn()
 const applyCustomSessionMock = vi.fn()
 const getMyProfileMock = vi.fn()
 const getMeMock = vi.fn()
 const getSessionMock = vi.fn()
 const startLinuxDoAuthMock = vi.fn()
+const logoutAuthSessionMock = vi.fn()
 const turnstileRenderMock = vi.fn()
 const turnstileResetMock = vi.fn()
 const turnstileRemoveMock = vi.fn()
@@ -91,15 +96,11 @@ vi.mock('@/lib/supabase/client', () => ({
       signInWithOAuth: (...args: unknown[]) => signInWithOAuthMock(...args),
       signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
       signUp: (...args: unknown[]) => signUpMock(...args),
-      resetPasswordForEmail: vi.fn(),
+      resetPasswordForEmail: (...args: unknown[]) => resetPasswordForEmailMock(...args),
+      signOut: (...args: unknown[]) => supabaseSignOutMock(...args),
+      updateUser: (...args: unknown[]) => updateUserMock(...args),
       getSession: (...args: unknown[]) => getSessionMock(...args),
-      onAuthStateChange: vi.fn(() => ({
-        data: {
-          subscription: {
-            unsubscribe: vi.fn(),
-          },
-        },
-      })),
+      onAuthStateChange: (...args: unknown[]) => onAuthStateChangeMock(...args),
     },
   },
 }))
@@ -108,7 +109,7 @@ vi.mock('@/lib/api/client', () => ({
   getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
   getMe: (...args: unknown[]) => getMeMock(...args),
   startLinuxDoAuth: (...args: unknown[]) => startLinuxDoAuthMock(...args),
-  logoutAuthSession: vi.fn(),
+  logoutAuthSession: (...args: unknown[]) => logoutAuthSessionMock(...args),
 }))
 
 function AuthStateProbe() {
@@ -116,6 +117,30 @@ function AuthStateProbe() {
   const user = auth?.user ?? null
   const loading = auth?.loading ?? true
   return <div>{loading ? 'loading' : (user?.id ?? 'anonymous')}</div>
+}
+
+function AuthSignOutProbe() {
+  const auth = useContext(AuthContext)
+  const [error, setError] = useState('')
+  const user = auth?.user ?? null
+  const loading = auth?.loading ?? true
+
+  return (
+    <div>
+      <div>{loading ? 'loading' : (user?.id ?? 'anonymous')}</div>
+      <div>{error}</div>
+      <button
+        type="button"
+        onClick={() => {
+          void auth?.signOut().catch(err => {
+            setError(err instanceof Error ? err.message : 'logout failed')
+          })
+        }}
+      >
+        sign-out
+      </button>
+    </div>
+  )
 }
 
 describe('LoginPage registration locale metadata', () => {
@@ -127,22 +152,38 @@ describe('LoginPage registration locale metadata', () => {
     signUpMock.mockReset()
     signInWithPasswordMock.mockReset()
     signInWithOAuthMock.mockReset()
+    resetPasswordForEmailMock.mockReset()
+    supabaseSignOutMock.mockReset()
+    updateUserMock.mockReset()
+    onAuthStateChangeMock.mockReset()
     applyCustomSessionMock.mockReset()
     getMyProfileMock.mockReset()
     getMeMock.mockReset()
     getSessionMock.mockReset()
     startLinuxDoAuthMock.mockReset()
+    logoutAuthSessionMock.mockReset()
     turnstileRenderMock.mockReset()
     turnstileResetMock.mockReset()
     turnstileRemoveMock.mockReset()
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'test-site-key')
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000')
     installTurnstileMock()
-    signUpMock.mockResolvedValue({ error: null })
+    signUpMock.mockResolvedValue({ data: { session: null }, error: null })
     signInWithPasswordMock.mockResolvedValue({ error: null })
+    resetPasswordForEmailMock.mockResolvedValue({ error: null })
     signInWithOAuthMock.mockResolvedValue({ data: { provider: 'google', url: 'https://oauth.example.com' }, error: null })
+    supabaseSignOutMock.mockResolvedValue({ error: null })
+    updateUserMock.mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
     startLinuxDoAuthMock.mockResolvedValue('https://linux.do/oauth2/authorize?state=test')
+    logoutAuthSessionMock.mockResolvedValue(undefined)
     getSessionMock.mockResolvedValue({ data: { session: null } })
+    onAuthStateChangeMock.mockImplementation(() => ({
+      data: {
+        subscription: {
+          unsubscribe: vi.fn(),
+        },
+      },
+    }))
     document.documentElement.classList.remove('dark')
     window.history.replaceState({}, '', '/login')
     window.location.hash = ''
@@ -237,12 +278,79 @@ describe('LoginPage registration locale metadata', () => {
         password: 'password123',
         options: {
           captchaToken: 'turnstile-token',
+          emailRedirectTo: expect.stringContaining(
+            '/auth/callback?provider=supabase&returnTo=%2F',
+          ),
           data: {
             language: 'zh',
           },
         },
       })
     })
+  })
+
+  it('navigates to returnTo immediately when email sign up returns an active session', async () => {
+    signUpMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'supabase-token',
+          user: { id: 'supabase-user', email: 'user@example.com' },
+        },
+      },
+      error: null,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/login?returnTo=%2Freports%2Fr-1']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign Up' })[0])
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith('/reports/r-1', { replace: true })
+    })
+    expect(screen.queryByText('Check your email')).not.toBeInTheDocument()
+  })
+
+  it('preserves returnTo when leaving the registration confirmation screen', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login?returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign Up' })[0])
+
+    expect(await screen.findByText('Check your email')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to login' }))
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/login?returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary',
+    )
   })
 
   it('blocks registration again when the captcha expires', async () => {
@@ -268,7 +376,7 @@ describe('LoginPage registration locale metadata', () => {
     expect(turnstileResetMock).toHaveBeenCalled()
   })
 
-  it('passes captchaToken to password login and clears it after a successful submission', async () => {
+  it('passes captchaToken to password login', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <LoginPage />
@@ -296,10 +404,6 @@ describe('LoginPage registration locale metadata', () => {
         },
       })
     })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
-    expect(signInWithOAuthMock).not.toHaveBeenCalled()
-    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
   })
 
   it('clears captcha after a failed password login attempt', async () => {
@@ -325,8 +429,6 @@ describe('LoginPage registration locale metadata', () => {
 
     expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
-    expect(signInWithOAuthMock).not.toHaveBeenCalled()
     expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
   })
 
@@ -354,12 +456,10 @@ describe('LoginPage registration locale metadata', () => {
 
     expect(await screen.findByText('User already registered')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue with GitHub' }))
-    expect(signInWithOAuthMock).not.toHaveBeenCalled()
     expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
   })
 
-  it('blocks social sign-in until verified and prefetches LinuxDo redirect with captcha_token', async () => {
+  it('allows Supabase social sign-in without requiring local turnstile and still requires it for LinuxDo', async () => {
     const assignMock = vi.fn()
     const originalLocation = window.location
     Object.defineProperty(window, 'location', {
@@ -373,26 +473,27 @@ describe('LoginPage registration locale metadata', () => {
 
     try {
       render(
-        <MemoryRouter initialEntries={['/login']}>
+        <MemoryRouter
+          initialEntries={[{
+            pathname: '/login',
+            search: '?returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary',
+          }]}
+        >
           <LoginPage />
         </MemoryRouter>,
       )
 
       fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
-      expect(signInWithOAuthMock).not.toHaveBeenCalled()
-      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
-
-      act(() => {
-        latestTurnstileOptions?.callback?.('turnstile-token')
-      })
-
-      fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
       await waitFor(() => {
         expect(signInWithOAuthMock).toHaveBeenCalledWith({
           provider: 'google',
-          options: { redirectTo: 'https://ideago.simonsun.cc/auth/callback' },
+          options: { redirectTo: 'https://ideago.simonsun.cc/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary' },
         })
       })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with LinuxDo' }))
+      expect(startLinuxDoAuthMock).not.toHaveBeenCalled()
+      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
 
       act(() => {
         latestTurnstileOptions?.callback?.('linuxdo-token')
@@ -401,7 +502,7 @@ describe('LoginPage registration locale metadata', () => {
 
       await waitFor(() => {
         expect(startLinuxDoAuthMock).toHaveBeenCalledWith({
-          redirectTo: 'https://ideago.simonsun.cc/auth/callback',
+          redirectTo: 'https://ideago.simonsun.cc/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary',
           captchaToken: 'linuxdo-token',
         })
       })
@@ -450,12 +551,65 @@ describe('LoginPage registration locale metadata', () => {
     }
   })
 
-  it('verifies LinuxDo callback session via backend and redirects immediately', async () => {
-    getMeMock.mockResolvedValue({ id: 'user-123', email: 'linuxdo@example.com' })
-    window.history.replaceState({}, '', '/auth/callback')
+  it('passes captchaToken to password reset requests', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    act(() => {
+      latestTurnstileOptions?.callback?.('reset-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Link' }))
+
+    await waitFor(() => {
+      expect(resetPasswordForEmailMock).toHaveBeenCalledWith(
+        'user@example.com',
+        expect.objectContaining({
+          redirectTo: expect.stringContaining('/auth/callback?provider=supabase&returnTo=%2F&type=recovery'),
+          captchaToken: 'reset-token',
+        }),
+      )
+    })
+  })
+
+  it('resets captcha when password reset throws before returning a response', async () => {
+    resetPasswordForEmailMock.mockRejectedValueOnce(new Error('network down'))
 
     render(
-      <MemoryRouter initialEntries={['/auth/callback']}>
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    act(() => {
+      latestTurnstileOptions?.callback?.('reset-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Link' }))
+
+    expect(
+      await screen.findByText(/auth\.unexpectedError|An unexpected error occurred/),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+  })
+
+  it('verifies LinuxDo callback session via backend and redirects to returnTo immediately', async () => {
+    getMeMock.mockResolvedValue({ id: 'user-123', email: 'linuxdo@example.com' })
+    window.history.replaceState({}, '', '/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1')
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1']}>
         <AuthCallback />
       </MemoryRouter>,
     )
@@ -464,7 +618,309 @@ describe('LoginPage registration locale metadata', () => {
       expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
     })
 
-    expect(navigateMock).toHaveBeenCalledWith('/', { replace: true })
+    expect(applyCustomSessionMock).toHaveBeenCalledWith({
+      access_token: '',
+      provider: 'linuxdo',
+      user: {
+        id: 'user-123',
+        email: 'linuxdo@example.com',
+      },
+    })
+    expect(navigateMock).toHaveBeenCalledWith('/reports/r-1', { replace: true })
+  })
+
+  it('uses the Supabase callback flow without calling backend /auth/me', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'supabase-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase&returnTo=%2Fprofile')
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase&returnTo=%2Fprofile']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(getSessionMock).toHaveBeenCalled()
+    })
+    expect(getMeMock).not.toHaveBeenCalled()
+    expect(applyCustomSessionMock).not.toHaveBeenCalled()
+    expect(navigateMock).toHaveBeenCalledWith('/profile', { replace: true })
+  })
+
+  it('shows an error instead of hanging when LinuxDo callback session hydration fails', async () => {
+    getMeMock.mockRejectedValue(new Error('Failed to load current user: 401'))
+    window.history.replaceState({}, '', '/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1')
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
+    })
+
+    expect(await screen.findByText('An unexpected error occurred')).toBeInTheDocument()
+    expect(navigateMock).not.toHaveBeenCalledWith('/reports/r-1', { replace: true })
+  })
+
+  it('preserves returnTo when callback errors send users back to login', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary&error=linuxdo_auth&error_description=denied',
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary&error=linuxdo_auth&error_description=denied']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Back to login' })).toHaveAttribute(
+      'href',
+      '/login?returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary',
+    )
+  })
+
+  it('uses the plain login route for callback retry when returnTo is the default root', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/callback?provider=linuxdo&returnTo=%2F&error=linuxdo_auth&error_description=denied',
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=linuxdo&returnTo=%2F&error=linuxdo_auth&error_description=denied']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Back to login' })).toHaveAttribute(
+      'href',
+      '/login',
+    )
+  })
+
+  it('renders a password recovery form instead of auto-navigating during Supabase recovery', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState(
+      {},
+      '',
+      '/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1&type=recovery',
+    )
+    window.location.hash = ''
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1&type=recovery']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByLabelText('New password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Confirm new password')).toBeInTheDocument()
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('validates that a new password is provided during recovery', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase')
+    window.location.hash = '#access_token=recovery-token&type=recovery'
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Update password' }))
+
+    expect(await screen.findByText('Please enter a new password.')).toBeInTheDocument()
+    expect(updateUserMock).not.toHaveBeenCalled()
+  })
+
+  it('validates minimum password length during recovery', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase')
+    window.location.hash = '#access_token=recovery-token&type=recovery'
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('New password'), {
+      target: { value: '12345' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: '12345' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    expect(await screen.findByText('Password must be at least 6 characters.')).toBeInTheDocument()
+    expect(updateUserMock).not.toHaveBeenCalled()
+  })
+
+  it('validates matching passwords during recovery', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase')
+    window.location.hash = '#access_token=recovery-token&type=recovery'
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('New password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'password321' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    expect(await screen.findByText('Passwords do not match.')).toBeInTheDocument()
+    expect(updateUserMock).not.toHaveBeenCalled()
+  })
+
+  it('updates the password and returns to login after Supabase recovery completes', async () => {
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1')
+    window.location.hash = '#access_token=recovery-token&type=recovery'
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('New password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    await waitFor(() => {
+      expect(updateUserMock).toHaveBeenCalledWith({ password: 'password123' })
+    })
+    expect(supabaseSignOutMock).toHaveBeenCalledWith({ scope: 'local' })
+    expect(navigateMock).toHaveBeenCalledWith('/login', { replace: true })
+  })
+
+  it('shows an inline error when password recovery update fails', async () => {
+    updateUserMock.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: 'Could not update password' },
+    })
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase')
+    window.location.hash = '#access_token=recovery-token&type=recovery'
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('New password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    expect(await screen.findByText('Could not update password')).toBeInTheDocument()
+    expect(navigateMock).not.toHaveBeenCalledWith('/login', { replace: true })
+  })
+
+  it('shows an inline error when recovery sign-out fails after updating the password', async () => {
+    supabaseSignOutMock.mockResolvedValueOnce({ error: { message: 'Could not finish sign-out' } })
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'recovery-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    window.history.replaceState({}, '', '/auth/callback?provider=supabase&type=recovery')
+    window.location.hash = ''
+
+    render(
+      <MemoryRouter initialEntries={['/auth/callback?provider=supabase&type=recovery']}>
+        <AuthCallback />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(await screen.findByLabelText('New password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update password' }))
+
+    await waitFor(() => {
+      expect(updateUserMock).toHaveBeenCalledWith({ password: 'password123' })
+    })
+    expect(supabaseSignOutMock).toHaveBeenCalledWith({ scope: 'local' })
+    expect(await screen.findByText('Could not finish sign-out')).toBeInTheDocument()
+    expect(navigateMock).not.toHaveBeenCalledWith('/login', { replace: true })
   })
 })
 
@@ -485,8 +941,9 @@ describe('AuthProvider token refresh scheduling', () => {
     localStorage.clear()
   })
 
-  it('skips backend /auth/me bootstrap on signed-out public routes', async () => {
+  it('tries backend /auth/me bootstrap on the login route and falls back to anonymous', async () => {
     window.history.replaceState({}, '', '/login')
+    getMeMock.mockRejectedValueOnce(new Error('Unauthorized'))
 
     render(
       <MemoryRouter initialEntries={['/login']}>
@@ -500,14 +957,14 @@ describe('AuthProvider token refresh scheduling', () => {
       expect(screen.getByText('anonymous')).toBeInTheDocument()
     })
     expect(getSessionMock).toHaveBeenCalled()
-    expect(getMeMock).not.toHaveBeenCalled()
+    expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
   })
 
-  it('boots LinuxDo session from backend /auth/me when supabase session is absent', async () => {
-    window.history.replaceState({}, '', '/profile')
+  it('boots LinuxDo session from backend /auth/me when supabase session is absent on home', async () => {
+    window.history.replaceState({}, '', '/')
 
     render(
-      <MemoryRouter initialEntries={['/profile']}>
+      <MemoryRouter initialEntries={['/']}>
         <AuthProvider>
           <AuthStateProbe />
         </AuthProvider>
@@ -539,5 +996,60 @@ describe('AuthProvider token refresh scheduling', () => {
     })
     expect(getSessionMock).toHaveBeenCalled()
     expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
+  })
+
+  it('keeps the LinuxDo session when backend logout fails', async () => {
+    window.history.replaceState({}, '', '/')
+    logoutAuthSessionMock.mockRejectedValueOnce(new Error('logout failed'))
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <AuthSignOutProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('user-123')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'sign-out' }))
+
+    expect(await screen.findByText('logout failed')).toBeInTheDocument()
+    expect(screen.getByText('user-123')).toBeInTheDocument()
+  })
+
+  it('signs out Supabase sessions even when backend logout is unavailable', async () => {
+    window.history.replaceState({}, '', '/')
+    logoutAuthSessionMock.mockRejectedValueOnce(new Error('logout failed'))
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'supabase-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <AuthSignOutProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('supabase-user')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'sign-out' }))
+
+    await waitFor(() => {
+      expect(supabaseSignOutMock).toHaveBeenCalled()
+    })
+    expect(screen.getByText('anonymous')).toBeInTheDocument()
+    expect(screen.queryByText('logout failed')).not.toBeInTheDocument()
   })
 })
