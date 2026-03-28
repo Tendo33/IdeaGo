@@ -131,7 +131,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
         groups.append(
             QueryGroup(
                 family=QueryFamily.PAIN_DISCOVERY,
-                anchor_terms=anchor_terms,
+                anchor_terms=explicit_anchor_terms,
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.PAIN_DISCOVERY,
@@ -144,7 +144,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
         groups.append(
             QueryGroup(
                 family=QueryFamily.COMMERCIAL_DISCOVERY,
-                anchor_terms=anchor_terms,
+                anchor_terms=explicit_anchor_terms,
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.COMMERCIAL_DISCOVERY,
@@ -157,7 +157,7 @@ def build_query_plan(intent: Intent) -> QueryPlan:
         groups.append(
             QueryGroup(
                 family=QueryFamily.DISCUSSION_DISCOVERY,
-                anchor_terms=anchor_terms,
+                anchor_terms=explicit_anchor_terms,
                 comparison_anchors=comparison_anchors,
                 rewritten_queries=_build_generic_rewrites(
                     family=QueryFamily.DISCUSSION_DISCOVERY,
@@ -430,12 +430,11 @@ def _adapt_rewrite_for_platform(
         return rewrite_query.strip()
 
     if platform == Platform.PRODUCT_HUNT:
-        if anchor:
-            return f"{anchor} developer tools".strip()
         return rewrite_query.strip()
 
-    if platform == Platform.APPSTORE and keyword:
-        return keyword
+    if platform == Platform.APPSTORE:
+        sanitized = rewrite_query.replace('"', "").strip()
+        return sanitized or keyword
 
     return rewrite_query.strip()
 

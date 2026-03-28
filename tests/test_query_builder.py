@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ideago.models.research import Intent, Platform, QueryFamily
+from ideago.models.research import (
+    Intent,
+    Platform,
+    QueryFamily,
+    QueryGroup,
+    QueryPlan,
+    QueryRewrite,
+)
 from ideago.pipeline.query_builder import (
     _clean_keywords,
     _slugify,
@@ -444,6 +451,124 @@ class TestQueryPlanningRewriting:
         assert (
             "expense pain points" not in family_to_queries[QueryFamily.PAIN_DISCOVERY]
         )
+
+    @pytest.mark.asyncio
+    async def test_query_planner_preserves_generic_llm_rewrite_without_synthetic_anchor(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["AI", "note", "taker"],
+            app_type="web",
+            target_scenario="Capture meeting notes",
+            output_language="en",
+            exact_entities=[],
+            comparison_anchors=[],
+            cache_key="planner-generic-llm",
+        )
+        planner = QueryPlanner(MagicMock())
+        llm_payload = {
+            "query_groups": [
+                {
+                    "family": "pain_discovery",
+                    "anchor_terms": [],
+                    "comparison_anchors": [],
+                    "rewritten_queries": [
+                        {
+                            "query": "notes tool issues",
+                            "family": "pain_discovery",
+                            "purpose": "Find note-taking pain.",
+                        }
+                    ],
+                }
+            ]
+        }
+
+        with (
+            patch(
+                "ideago.pipeline.query_planning.load_prompt",
+                return_value="planner-prompt",
+            ),
+            patch(
+                "ideago.pipeline.query_planning.invoke_json_with_optional_meta",
+                new=AsyncMock(return_value=(llm_payload, {"llm_calls": 1})),
+            ),
+        ):
+            plan = await planner.plan(intent)
+
+        pain_group = next(
+            group
+            for group in plan.query_groups
+            if group.family == QueryFamily.PAIN_DISCOVERY
+        )
+        assert "notes tool issues" in [
+            rewrite.query for rewrite in pain_group.rewritten_queries
+        ]
+
+    def test_producthunt_adaptation_keeps_planned_rewrite_specificity(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["visual editor", "agent IDE"],
+            app_type="web",
+            target_scenario="为 Claude Code 提供可视化界面",
+            output_language="en",
+            exact_entities=["Claude Code"],
+            comparison_anchors=["Cursor"],
+            cache_key="planner-ph",
+        )
+        plan = QueryPlan(
+            query_groups=[
+                QueryGroup(
+                    family=QueryFamily.PAIN_DISCOVERY,
+                    anchor_terms=["Claude Code"],
+                    comparison_anchors=[],
+                    rewritten_queries=[
+                        QueryRewrite(
+                            query="Claude Code pricing",
+                            family=QueryFamily.PAIN_DISCOVERY,
+                            purpose="Find pricing evidence.",
+                        )
+                    ],
+                )
+            ]
+        )
+
+        families = adapt_query_plan_for_platform(Platform.PRODUCT_HUNT, plan, intent)
+
+        assert families["pain_discovery"] == ["Claude Code pricing"]
+
+    def test_appstore_adaptation_keeps_generic_multi_term_rewrite_specificity(
+        self,
+    ) -> None:
+        intent = Intent(
+            keywords_en=["expense", "approval", "workflow"],
+            app_type="web",
+            target_scenario="Automate internal expense approvals",
+            output_language="en",
+            exact_entities=[],
+            comparison_anchors=[],
+            cache_key="planner-appstore",
+        )
+        plan = QueryPlan(
+            query_groups=[
+                QueryGroup(
+                    family=QueryFamily.PAIN_DISCOVERY,
+                    anchor_terms=[],
+                    comparison_anchors=[],
+                    rewritten_queries=[
+                        QueryRewrite(
+                            query="expense approval workflow pain points",
+                            family=QueryFamily.PAIN_DISCOVERY,
+                            purpose="Find expense approval pain.",
+                        )
+                    ],
+                )
+            ]
+        )
+
+        families = adapt_query_plan_for_platform(Platform.APPSTORE, plan, intent)
+
+        assert families["pain_discovery"] == ["expense approval workflow pain points"]
 
 
 class TestHelpers:
