@@ -9,6 +9,7 @@ import {
   cancelAnalysis,
   exportReport,
   getStreamUrl,
+  startLinuxDoAuth,
 } from '../client'
 import { setAccessToken } from '@/lib/auth/token'
 
@@ -231,6 +232,47 @@ describe('cancelAnalysis', () => {
     await expect(cancelAnalysis('r1')).rejects.toThrow(
       'Failed to cancel analysis: No active analysis found for this report',
     )
+  })
+})
+
+describe('startLinuxDoAuth', () => {
+  it('returns the authorize URL from the backend preflight response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ url: 'https://linux.do/oauth2/authorize?state=test' }),
+    })
+
+    const result = await startLinuxDoAuth({
+      redirectTo: 'https://ideago.simonsun.cc/auth/callback',
+      captchaToken: 'turnstile-token',
+    })
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/api/v1/auth/linuxdo/start?redirect_to=https%3A%2F%2Fideago.simonsun.cc%2Fauth%2Fcallback&captcha_token=turnstile-token&prefetch=true',
+      ),
+      expect.objectContaining({
+        headers: {},
+        credentials: 'include',
+      }),
+    )
+    expect(result).toBe('https://linux.do/oauth2/authorize?state=test')
+  })
+
+  it('surfaces backend error detail when the preflight fails', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: { message: 'Invalid captcha token' } }),
+    })
+
+    await expect(
+      startLinuxDoAuth({
+        redirectTo: 'https://ideago.simonsun.cc/auth/callback',
+        captchaToken: 'turnstile-token',
+      }),
+    ).rejects.toThrow('LinuxDo login failed: Invalid captcha token')
   })
 })
 

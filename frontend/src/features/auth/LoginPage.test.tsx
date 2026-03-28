@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { useContext } from 'react'
@@ -9,10 +9,13 @@ import { AuthProvider } from '@/lib/auth/AuthProvider'
 
 const navigateMock = vi.fn()
 const signUpMock = vi.fn()
+const signInWithPasswordMock = vi.fn()
+const signInWithOAuthMock = vi.fn()
 const applyCustomSessionMock = vi.fn()
 const getMyProfileMock = vi.fn()
 const getMeMock = vi.fn()
 const getSessionMock = vi.fn()
+const startLinuxDoAuthMock = vi.fn()
 const turnstileRenderMock = vi.fn()
 const turnstileResetMock = vi.fn()
 const turnstileRemoveMock = vi.fn()
@@ -85,8 +88,8 @@ vi.mock('@/lib/auth/token', () => ({
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
     auth: {
-      signInWithOAuth: vi.fn(),
-      signInWithPassword: vi.fn(),
+      signInWithOAuth: (...args: unknown[]) => signInWithOAuthMock(...args),
+      signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
       signUp: (...args: unknown[]) => signUpMock(...args),
       resetPasswordForEmail: vi.fn(),
       getSession: (...args: unknown[]) => getSessionMock(...args),
@@ -104,6 +107,7 @@ vi.mock('@/lib/supabase/client', () => ({
 vi.mock('@/lib/api/client', () => ({
   getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
   getMe: (...args: unknown[]) => getMeMock(...args),
+  startLinuxDoAuth: (...args: unknown[]) => startLinuxDoAuthMock(...args),
   logoutAuthSession: vi.fn(),
 }))
 
@@ -121,38 +125,53 @@ describe('LoginPage registration locale metadata', () => {
     latestTurnstileOptions = null
     navigateMock.mockReset()
     signUpMock.mockReset()
+    signInWithPasswordMock.mockReset()
+    signInWithOAuthMock.mockReset()
     applyCustomSessionMock.mockReset()
     getMyProfileMock.mockReset()
     getMeMock.mockReset()
     getSessionMock.mockReset()
+    startLinuxDoAuthMock.mockReset()
     turnstileRenderMock.mockReset()
     turnstileResetMock.mockReset()
     turnstileRemoveMock.mockReset()
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'test-site-key')
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000')
     installTurnstileMock()
     signUpMock.mockResolvedValue({ error: null })
+    signInWithPasswordMock.mockResolvedValue({ error: null })
+    signInWithOAuthMock.mockResolvedValue({ data: { provider: 'google', url: 'https://oauth.example.com' }, error: null })
+    startLinuxDoAuthMock.mockResolvedValue('https://linux.do/oauth2/authorize?state=test')
     getSessionMock.mockResolvedValue({ data: { session: null } })
+    document.documentElement.classList.remove('dark')
     window.history.replaceState({}, '', '/login')
     window.location.hash = ''
     localStorage.clear()
   })
 
-  it('renders turnstile only in register mode and blocks register until verified', async () => {
+  it('renders turnstile in login mode and blocks auth actions until verified', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <LoginPage />
       </MemoryRouter>,
     )
 
-    expect(screen.queryByText('Human verification')).not.toBeInTheDocument()
-    expect(turnstileRenderMock).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
     expect(await screen.findByText('Human verification')).toBeInTheDocument()
-    expect(screen.getByText('Verifying you are human...')).toBeInTheDocument()
+    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
     expect(turnstileRenderMock).toHaveBeenCalled()
 
-    expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign In' })[0])
+
+    await waitFor(() => {
+      expect(signInWithPasswordMock).not.toHaveBeenCalled()
+    })
+    expect(screen.getByText('Verifying you are human...')).toBeInTheDocument()
   })
 
   it('passes dark theme to turnstile when app is in dark mode', async () => {
@@ -164,11 +183,32 @@ describe('LoginPage registration locale metadata', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
     await screen.findByText('Human verification')
 
     expect(latestTurnstileOptions?.theme).toBe('dark')
     document.documentElement.classList.remove('dark')
+  })
+
+  it('reuses captcha verification when switching from login to register', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Human verification')
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Sign In' })[0]).toBeEnabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+
+    expect(turnstileRenderMock).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeEnabled()
   })
 
   it('passes captchaToken and the current UI language to Supabase signUp metadata', async () => {
@@ -179,7 +219,9 @@ describe('LoginPage registration locale metadata', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
-    latestTurnstileOptions?.callback?.('turnstile-token')
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
 
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'user@example.com' },
@@ -210,20 +252,202 @@ describe('LoginPage registration locale metadata', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
-    latestTurnstileOptions?.callback?.('turnstile-token')
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeEnabled()
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
     })
 
-    latestTurnstileOptions?.['expired-callback']?.()
+    act(() => {
+      latestTurnstileOptions?.['expired-callback']?.()
+    })
 
     await waitFor(() => {
       expect(screen.getByText('Verification expired. Please wait for a new check.')).toBeInTheDocument()
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
     expect(screen.getAllByRole('button', { name: 'Sign Up' })[0]).toBeDisabled()
     expect(turnstileResetMock).toHaveBeenCalled()
+  })
+
+  it('passes captchaToken to password login and clears it after a successful submission', async () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign In' })[0])
+
+    await waitFor(() => {
+      expect(signInWithPasswordMock).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        password: 'password123',
+        options: {
+          captchaToken: 'turnstile-token',
+        },
+      })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(signInWithOAuthMock).not.toHaveBeenCalled()
+    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+  })
+
+  it('clears captcha after a failed password login attempt', async () => {
+    signInWithPasswordMock.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } })
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'wrong-password' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign In' })[0])
+
+    expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+    expect(signInWithOAuthMock).not.toHaveBeenCalled()
+    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+  })
+
+  it('clears captcha after a failed sign up attempt', async () => {
+    signUpMock.mockResolvedValueOnce({ error: { message: 'User already registered' } })
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }))
+    act(() => {
+      latestTurnstileOptions?.callback?.('turnstile-token')
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sign Up' })[0])
+
+    expect(await screen.findByText('User already registered')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with GitHub' }))
+    expect(signInWithOAuthMock).not.toHaveBeenCalled()
+    expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+  })
+
+  it('blocks social sign-in until verified and prefetches LinuxDo redirect with captcha_token', async () => {
+    const assignMock = vi.fn()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        origin: 'https://ideago.simonsun.cc',
+        assign: assignMock,
+      },
+    })
+
+    try {
+      render(
+        <MemoryRouter initialEntries={['/login']}>
+          <LoginPage />
+        </MemoryRouter>,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+      expect(signInWithOAuthMock).not.toHaveBeenCalled()
+      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+
+      act(() => {
+        latestTurnstileOptions?.callback?.('turnstile-token')
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+      await waitFor(() => {
+        expect(signInWithOAuthMock).toHaveBeenCalledWith({
+          provider: 'google',
+          options: { redirectTo: 'https://ideago.simonsun.cc/auth/callback' },
+        })
+      })
+
+      act(() => {
+        latestTurnstileOptions?.callback?.('linuxdo-token')
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with LinuxDo' }))
+
+      await waitFor(() => {
+        expect(startLinuxDoAuthMock).toHaveBeenCalledWith({
+          redirectTo: 'https://ideago.simonsun.cc/auth/callback',
+          captchaToken: 'linuxdo-token',
+        })
+      })
+      expect(assignMock).toHaveBeenCalledWith('https://linux.do/oauth2/authorize?state=test')
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      })
+    }
+  })
+
+  it('keeps LinuxDo captcha errors inside the auth page', async () => {
+    const assignMock = vi.fn()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        origin: 'https://ideago.simonsun.cc',
+        assign: assignMock,
+      },
+    })
+    startLinuxDoAuthMock.mockRejectedValueOnce(new Error('LinuxDo login failed: Invalid captcha token'))
+
+    try {
+      render(
+        <MemoryRouter initialEntries={['/login']}>
+          <LoginPage />
+        </MemoryRouter>,
+      )
+
+      act(() => {
+        latestTurnstileOptions?.callback?.('linuxdo-token')
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with LinuxDo' }))
+
+      expect(await screen.findByText('LinuxDo login failed: Invalid captcha token')).toBeInTheDocument()
+      expect(assignMock).not.toHaveBeenCalled()
+      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      })
+    }
   })
 
   it('verifies LinuxDo callback session via backend and redirects immediately', async () => {

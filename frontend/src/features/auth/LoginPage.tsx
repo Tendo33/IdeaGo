@@ -1,9 +1,10 @@
 import { Button, buttonVariants } from '@/components/ui/Button'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/useAuth'
+import { startLinuxDoAuth } from '@/lib/api/client'
 import { ArrowLeft, LogIn, UserPlus, Mail, Lock, Loader2, KeyRound } from 'lucide-react'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -240,9 +241,14 @@ export function LoginPage() {
   )
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? ''
   const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
-  const registerBlocked =
-    mode === 'register' &&
+  const authBlocked =
+    mode !== 'reset' &&
     (!turnstileSiteKey || captchaStatus !== 'success' || !captchaToken)
+
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null)
+    setCaptchaStatus(turnstileSiteKey ? 'verifying' : 'unsupported')
+  }, [turnstileSiteKey])
 
   useEffect(() => {
     if (user) navigate(from, { replace: true })
@@ -269,22 +275,45 @@ export function LoginPage() {
   }, [])
 
   useEffect(() => {
-    if (mode === 'register') return
-    setCaptchaToken(null)
-    setCaptchaStatus(turnstileSiteKey ? 'verifying' : 'unsupported')
-  }, [mode, turnstileSiteKey])
+    if (mode !== 'reset') return
+    resetCaptcha()
+  }, [mode, resetCaptcha])
 
   if (user) return null
 
+  const requireCaptcha = () => {
+    if (!turnstileSiteKey) {
+      setError(
+        t(
+          'auth.turnstileConfigMissing',
+          'Human verification is not configured yet. Please contact support.',
+        ),
+      )
+      return null
+    }
+    if (captchaStatus !== 'success' || !captchaToken) {
+      setError(getTurnstileMessage(t, captchaStatus))
+      return null
+    }
+    return captchaToken
+  }
+
   const handleOAuth = async (provider: 'github' | 'google') => {
     setError('')
+    if (!requireCaptcha()) {
+      return
+    }
     setOauthLoading(provider)
     try {
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo: `${window.location.origin}/auth/callback` },
       })
-      if (err) setError(err.message)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      resetCaptcha()
     } catch {
       setError(t('auth.unexpectedError'))
     } finally {
@@ -292,13 +321,26 @@ export function LoginPage() {
     }
   }
 
-  const handleLinuxDoLogin = () => {
+  const handleLinuxDoLogin = async () => {
     setError('')
+    const nextCaptchaToken = requireCaptcha()
+    if (!nextCaptchaToken) {
+      return
+    }
     setOauthLoading('linuxdo')
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
-    const redirectTo = `${window.location.origin}/auth/callback`
-    const query = new URLSearchParams({ redirect_to: redirectTo })
-    window.location.assign(`${apiBase}/api/v1/auth/linuxdo/start?${query.toString()}`)
+    try {
+      const redirectUrl = await startLinuxDoAuth({
+        redirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken: nextCaptchaToken,
+      })
+      resetCaptcha()
+      window.location.assign(redirectUrl)
+    } catch (err) {
+      resetCaptcha()
+      setError(err instanceof Error ? err.message : t('auth.unexpectedError'))
+    } finally {
+      setOauthLoading(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -308,43 +350,53 @@ export function LoginPage() {
 
     try {
       if (mode === 'login') {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+        const nextCaptchaToken = requireCaptcha()
+        if (!nextCaptchaToken) {
+          return
+        }
+        let err: { message: string } | null = null
+        try {
+          const result = await supabase.auth.signInWithPassword({
+            email,
+            password,
+            options: {
+              captchaToken: nextCaptchaToken,
+            },
+          })
+          err = result.error
+        } finally {
+          resetCaptcha()
+        }
         if (err) {
           setError(err.message)
           return
         }
         navigate(from, { replace: true })
       } else {
-        if (!turnstileSiteKey) {
-          setError(
-            t(
-              'auth.turnstileConfigMissing',
-              'Human verification is not configured yet. Please contact support.',
-            ),
-          )
+        const nextCaptchaToken = requireCaptcha()
+        if (!nextCaptchaToken) {
           return
         }
-        if (captchaStatus !== 'success' || !captchaToken) {
-          setError(getTurnstileMessage(t, captchaStatus))
-          return
-        }
-
-        const { error: err } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            captchaToken,
-            data: {
-              language: emailLanguage,
+        let err: { message: string } | null = null
+        try {
+          const result = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              captchaToken: nextCaptchaToken,
+              data: {
+                language: emailLanguage,
+              },
             },
-          },
-        })
+          })
+          err = result.error
+        } finally {
+          resetCaptcha()
+        }
         if (err) {
           setError(err.message)
           return
         }
-        setCaptchaToken(null)
-        setCaptchaStatus('verifying')
         setConfirmSent(true)
       }
     } catch {
@@ -562,7 +614,7 @@ export function LoginPage() {
             </div>
           )}
 
-          {mode === 'register' && (
+          {mode !== 'reset' && (
             <TurnstilePanel
               siteKey={turnstileSiteKey}
               status={captchaStatus}
@@ -577,7 +629,7 @@ export function LoginPage() {
             type="submit"
             className="w-full"
             size="lg"
-            disabled={anyLoading || registerBlocked}
+            disabled={anyLoading || authBlocked}
           >
             {loading ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />

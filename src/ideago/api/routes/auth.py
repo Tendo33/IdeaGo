@@ -39,6 +39,10 @@ class ProfileUpdatePayload(BaseModel):
     bio: str = Field(default="", max_length=300)
 
 
+class LinuxDoStartPayload(BaseModel):
+    url: str
+
+
 def _frontend_callback_url(request: Request) -> str:
     settings = get_settings()
     base = settings.frontend_app_url.strip().rstrip("/")
@@ -195,18 +199,63 @@ def _redirect_error(redirect_to: str, message: str) -> RedirectResponse:
     return RedirectResponse(url=f"{redirect_to}?{query}", status_code=302)
 
 
-@router.get("/auth/linuxdo/start")
+async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -> bool:
+    settings = get_settings()
+    secret = settings.turnstile_secret_key.strip()
+    if not secret:
+        raise HTTPException(
+            status_code=503, detail="TURNSTILE_SECRET_KEY is not configured"
+        )
+
+    form_data: dict[str, str] = {
+        "secret": secret,
+        "response": token,
+    }
+    if remote_ip:
+        form_data["remoteip"] = remote_ip
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data=form_data,
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail="Captcha verification failed"
+        ) from exc
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail="Captcha verification failed")
+
+    data = resp.json()
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="Captcha verification failed")
+    return bool(data.get("success") is True)
+
+
+@router.get("/auth/linuxdo/start", response_model=None)
 async def linuxdo_start(
     request: Request,
     redirect_to: str | None = Query(default=None),
-) -> RedirectResponse:
+    captcha_token: str | None = Query(default=None),
+    prefetch: bool = False,
+) -> RedirectResponse | LinuxDoStartPayload:
     settings = get_settings()
     if not settings.linuxdo_client_id:
         raise HTTPException(status_code=503, detail="LinuxDo OAuth is not configured")
+    if not captcha_token:
+        raise HTTPException(status_code=400, detail="Missing captcha token")
 
     target = redirect_to or _frontend_callback_url(request)
     if not _is_safe_redirect(target):
         raise HTTPException(status_code=400, detail="Invalid redirect_to")
+    is_valid_captcha = await _verify_turnstile_token(
+        token=captcha_token,
+        remote_ip=request.client.host if request.client else None,
+    )
+    if not is_valid_captcha:
+        raise HTTPException(status_code=401, detail="Invalid captcha token")
 
     state = _build_state_token(redirect_to=target)
     callback_url = _backend_linuxdo_callback_url(request)
@@ -219,9 +268,10 @@ async def linuxdo_start(
             "state": state,
         }
     )
-    return RedirectResponse(
-        url=f"{settings.linuxdo_authorize_url}?{query}", status_code=302
-    )
+    authorize_url = f"{settings.linuxdo_authorize_url}?{query}"
+    if prefetch:
+        return LinuxDoStartPayload(url=authorize_url)
+    return RedirectResponse(url=authorize_url, status_code=302)
 
 
 @router.get("/auth/linuxdo/callback", name="linuxdo_callback")

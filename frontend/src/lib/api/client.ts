@@ -304,6 +304,35 @@ export async function refreshAuthToken(options: RequestOptions = {}): Promise<st
   return data.access_token
 }
 
+export interface StartLinuxDoAuthOptions {
+  redirectTo: string
+  captchaToken: string
+}
+
+export async function startLinuxDoAuth(
+  { redirectTo, captchaToken }: StartLinuxDoAuthOptions,
+  options: RequestOptions = {},
+): Promise<string> {
+  const params = new URLSearchParams({
+    redirect_to: redirectTo,
+    captcha_token: captchaToken,
+    prefetch: 'true',
+  })
+  const res = await fetchWithTimeout(
+    `${API_BASE}/auth/linuxdo/start?${params.toString()}`,
+    { headers: authHeaders() },
+    { ...options, allowUnauthorized: true },
+    DEFAULT_TIMEOUT_MS,
+  )
+  if (!res.ok) throw new Error(await buildErrorMessage(res, 'LinuxDo login failed'))
+  const data = await res.json()
+  const url = typeof data?.url === 'string' ? data.url.trim() : ''
+  if (!url) {
+    throw new Error('LinuxDo login failed: Missing authorize URL')
+  }
+  return url
+}
+
 export interface CurrentUser {
   id: string
   email: string

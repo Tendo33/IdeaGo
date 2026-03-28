@@ -632,11 +632,18 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
             "linuxdo_scope": "openid profile email",
             "auth_session_secret": "state-secret-state-secret-state-secret",
             "frontend_app_url": "https://ideago.simonsun.cc",
+            "turnstile_secret_key": "turnstile-secret",
         },
     )()
-    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.auth._verify_turnstile_token",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
         response = client.get(
-            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback",
+            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=test-token",
             follow_redirects=False,
         )
 
@@ -646,6 +653,94 @@ def test_linuxdo_start_redirects_to_authorize_url(client) -> None:
     assert "client_id=ld-client" in location
     assert "redirect_uri=" in location
     assert "state=" in location
+
+
+def test_linuxdo_start_prefetch_returns_authorize_url_json(client) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "linuxdo_client_id": "ld-client",
+            "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
+            "linuxdo_scope": "openid profile email",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
+            "frontend_app_url": "https://ideago.simonsun.cc",
+            "turnstile_secret_key": "turnstile-secret",
+        },
+    )()
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.auth._verify_turnstile_token",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=test-token&prefetch=true",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["url"].startswith("https://connect.linux.do/oauth2/authorize?")
+    assert "client_id=ld-client" in payload["url"]
+    assert "state=" in payload["url"]
+
+
+def test_linuxdo_start_requires_captcha_token(client) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "linuxdo_client_id": "ld-client",
+            "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
+            "linuxdo_scope": "openid profile email",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
+            "frontend_app_url": "https://ideago.simonsun.cc",
+            "turnstile_secret_key": "turnstile-secret",
+        },
+    )()
+    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
+        response = client.get(
+            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["message"] == "Missing captcha token"
+
+
+def test_linuxdo_start_prefetch_returns_error_payload_for_invalid_captcha(
+    client,
+) -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "linuxdo_client_id": "ld-client",
+            "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
+            "linuxdo_scope": "openid profile email",
+            "auth_session_secret": "state-secret-state-secret-state-secret",
+            "frontend_app_url": "https://ideago.simonsun.cc",
+            "turnstile_secret_key": "turnstile-secret",
+        },
+    )()
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.auth._verify_turnstile_token",
+            new=AsyncMock(return_value=False),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/auth/linuxdo/start?redirect_to=https://ideago.simonsun.cc/auth/callback&captcha_token=bad-token&prefetch=true",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 401
+    body = response.json()
+    assert body["error"]["message"] == "Invalid captcha token"
 
 
 def test_linuxdo_callback_sets_cookie_and_redirects_to_callback(client) -> None:
@@ -3504,6 +3599,7 @@ async def test_auth_route_remaining_error_branches() -> None:
             "linuxdo_scope": "openid profile email",
             "linuxdo_authorize_url": "https://connect.linux.do/oauth2/authorize",
             "auth_session_expire_hours": 12,
+            "turnstile_secret_key": "turnstile-secret",
         },
     )()
     with patch("ideago.api.routes.auth.get_settings", return_value=good_settings):
@@ -3511,10 +3607,53 @@ async def test_auth_route_remaining_error_branches() -> None:
             auth_route._parse_state_token("not-a-jwt")
         with pytest.raises(HTTPException) as invalid_redirect:
             await auth_route.linuxdo_start(
-                request, redirect_to="ftp://evil.example.com"
+                request, redirect_to="ftp://evil.example.com", captcha_token="ok"
             )
     assert invalid_state.value.status_code == 400
     assert invalid_redirect.value.status_code == 400
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        pytest.raises(HTTPException) as missing_captcha,
+    ):
+        await auth_route.linuxdo_start(
+            request,
+            redirect_to="https://app.example.com/auth/callback",
+            captcha_token=None,
+        )
+    assert missing_captcha.value.status_code == 400
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._verify_turnstile_token",
+            new=AsyncMock(return_value=False),
+        ),
+        pytest.raises(HTTPException) as invalid_captcha,
+    ):
+        await auth_route.linuxdo_start(
+            request,
+            redirect_to="https://app.example.com/auth/callback",
+            captcha_token="bad-token",
+        )
+    assert invalid_captcha.value.status_code == 401
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
+        patch(
+            "ideago.api.routes.auth._verify_turnstile_token",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
+        redirect_response = await auth_route.linuxdo_start(
+            request,
+            redirect_to="https://app.example.com/auth/callback",
+            captcha_token="good-token",
+        )
+    assert redirect_response.status_code == 302
+    assert redirect_response.headers["location"].startswith(
+        "https://connect.linux.do/oauth2/authorize?"
+    )
 
     state = "signed-state-token"
     with (

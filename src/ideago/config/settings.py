@@ -404,6 +404,10 @@ class Settings(BaseSettings):
         default="",
         description="Public frontend base URL for OAuth callback redirects",
     )
+    turnstile_secret_key: str = Field(
+        default="",
+        description="Cloudflare Turnstile secret key for backend verification",
+    )
     linuxdo_client_id: str = Field(
         default="",
         description="LinuxDoConnect OAuth client id",
