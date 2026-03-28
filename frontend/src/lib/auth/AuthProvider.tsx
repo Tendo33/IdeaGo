@@ -6,6 +6,8 @@ import { AuthContext } from './AuthContext'
 import type { AuthSession } from './AuthContext'
 import { getMe, getMyProfile, logoutAuthSession } from '@/lib/api/client'
 
+const COOKIE_RECOVERY_ROUTE_PREFIXES = ['/profile', '/reports', '/admin'] as const
+
 function toSupabaseSession(session: SupabaseSession): AuthSession {
   return {
     access_token: session.access_token,
@@ -15,6 +17,12 @@ function toSupabaseSession(session: SupabaseSession): AuthSession {
       email: session.user.email ?? '',
     },
   }
+}
+
+function shouldRecoverCookieSession(pathname: string): boolean {
+  return COOKIE_RECOVERY_ROUTE_PREFIXES.some(prefix => (
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  ))
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -76,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setAccessToken(null)
+      if (!shouldRecoverCookieSession(window.location.pathname)) {
+        setSession(null)
+        setLoading(false)
+        return
+      }
+
       try {
         const me = await getMe({ allowUnauthorized: true })
         if (cancelled) return

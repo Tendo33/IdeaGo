@@ -261,11 +261,33 @@ describe('AuthProvider token refresh scheduling', () => {
     localStorage.clear()
   })
 
-  it('boots LinuxDo session from backend /auth/me when supabase session is absent', async () => {
+  it('skips backend /auth/me bootstrap on signed-out public routes', async () => {
+    window.history.replaceState({}, '', '/login')
+
     render(
-      <AuthProvider>
-        <AuthStateProbe />
-      </AuthProvider>,
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('anonymous')).toBeInTheDocument()
+    })
+    expect(getSessionMock).toHaveBeenCalled()
+    expect(getMeMock).not.toHaveBeenCalled()
+  })
+
+  it('boots LinuxDo session from backend /auth/me when supabase session is absent', async () => {
+    window.history.replaceState({}, '', '/profile')
+
+    render(
+      <MemoryRouter initialEntries={['/profile']}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
@@ -276,13 +298,16 @@ describe('AuthProvider token refresh scheduling', () => {
   })
 
   it('does not stay stuck in loading when getSession throws', async () => {
+    window.history.replaceState({}, '', '/profile')
     getSessionMock.mockRejectedValueOnce(new Error('session bootstrap failed'))
     getMeMock.mockRejectedValueOnce(new Error('Unauthorized'))
 
     render(
-      <AuthProvider>
-        <AuthStateProbe />
-      </AuthProvider>,
+      <MemoryRouter initialEntries={['/profile']}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </MemoryRouter>,
     )
 
     await waitFor(() => {
