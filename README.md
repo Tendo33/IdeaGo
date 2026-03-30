@@ -3,17 +3,18 @@
 
   <h1>IdeaGo</h1>
 
-  <p><strong>SaaS-grade source intelligence for idea validation and operator workflows.</strong></p>
+  <p><strong>Turn a rough idea into a structured validation report in minutes.</strong></p>
 
   <p>
-    The <code>saas</code> branch extends IdeaGo with authentication, profile, quota, admin, and
-    commercial deployment concerns while keeping the same decision-first report contract.
+    IdeaGo cross-references 6 live sources — GitHub, Tavily, Hacker News, App Store, Product Hunt,
+    and Reddit — to produce a decision-first report with recommendation, pain signals, commercial
+    signals, whitespace opportunities, competitor landscape, evidence, and confidence scoring.
   </p>
 
   <p>
     <a href="README_CN.md">简体中文</a> ·
     <a href="#quick-start">Quick Start</a> ·
-    <a href="#saas-capabilities">SaaS Capabilities</a> ·
+    <a href="#product-walkthrough">Product Walkthrough</a> ·
     <a href="#how-it-works">How It Works</a> ·
     <a href="DEPLOYMENT.md">Deployment</a>
   </p>
@@ -33,78 +34,73 @@
 
 ## Overview
 
-This README describes the `saas` branch.
+Most idea validation stops at surface-level summaries. IdeaGo goes further: it tells you whether
+an idea is worth pursuing right now, and backs the recommendation with structured evidence from
+real community discussions, app reviews, open-source activity, and product launches.
 
-It shares the same core Source Intelligence V2 report pipeline as `main`, but adds the operational
-pieces you need for a hosted product: user authentication, profile and quota management, admin
-surfaces, Supabase-backed persistence, and production-oriented deployment requirements.
+The report is ordered by decision value — recommendation first, then pain signals, commercial
+signals, whitespace opportunities, competitors, evidence trail, and confidence scoring.
 
-If you want the simpler local or personal-deployment edition with anonymous usage and no Supabase,
-go to the `main` branch instead.
+This is the hosted edition (`saas` branch) with user authentication, profile, quota management,
+and admin capabilities. For anonymous local usage without Supabase, see the `main` branch.
 
-## Screenshot Placeholders
+## Product Walkthrough
 
-> Replace these placeholders with your own product shots when you are ready.
+### Describe Your Idea
 
-### Hero Screenshot
+Enter a product idea in plain language. IdeaGo provides quick-start suggestions and shows your
+recent reports for easy access.
 
-![Hero Screenshot Placeholder](docs/assets/banner_new.png)
+![Idea Input](docs/assets/1.png)
 
-`[Placeholder] Replace this image with the SaaS landing page or signed-in workflow.`
+### Real-time Analysis Pipeline
 
-### Report Workspace Screenshot
+Watch the analysis unfold step by step: intent parsing, query planning, source retrieval across
+6 platforms, signal extraction, and report assembly — all streamed live via SSE.
 
-![Workspace Screenshot Placeholder](docs/assets/usage_new.png)
+![Analysis Pipeline](docs/assets/2.png)
 
-`[Placeholder] Replace this image with the authenticated report experience or dashboard.`
+### Decision Summary
 
-### Admin / Account Screenshot
+The report opens with what matters most: a clear recommendation, opportunity score, entry strategy,
+and signal counts for pain themes, commercial indicators, and whitespace gaps.
 
-`[Placeholder] Add a screenshot for profile, quota, billing, or admin tooling.`
+![Decision Summary](docs/assets/3.png)
 
-## Why The `saas` Branch Exists
+### Market Context & Competitive Landscape
 
-The `main` branch is intentionally lightweight. The `saas` branch is where IdeaGo becomes a hosted
-product with identity, ownership, and operations layered on top of the same core analysis engine.
+Understand the market timing and see how existing players map across feature completeness and
+market presence through an interactive scatter chart.
 
-It keeps the same report contract:
+![Market Context](docs/assets/4.png)
 
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
+### Pain Signals & Commercial Signals
 
-The extra surface area is about product operations, not changing the order of decisions inside the
-report.
+Pain signals surface real user frustrations with strength and frequency scores. Commercial signals
+highlight willingness-to-pay indicators and monetization clues from the market.
 
-## SaaS Capabilities
+![Signals](docs/assets/5.png)
 
-Compared with `main`, the `saas` branch adds:
+### Whitespace Opportunities
 
-- authenticated user flows with Supabase-backed identity
-- LinuxDo OAuth support and custom auth session handling
-- user profile and quota endpoints
-- admin routes for user management, quota changes, metrics, and health
-- Supabase-backed persistence and PostgreSQL-powered shared runtime state
-- Stripe integration points for checkout, portal, and webhook handling
-- legal pages, landing page, and hosted-product routing
+Identify underserved areas where existing products fall short, each scored by potential and
+backed by supporting evidence references.
 
-Current implementation note:
+![Whitespace](docs/assets/6.png)
 
-- pricing and billing infrastructure exist on this branch
-- the pricing UI is still feature-flagged off in `frontend/src/lib/featureFlags.ts`
+### Competitor Directory
 
-Core sources remain:
+Browse all discovered competitors with match scores, filterable by data source. Each card
+shows key features, strengths, weaknesses, pricing, and a link to the original source.
 
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+![Competitors](docs/assets/7.png)
+
+### Evidence & Trust Metadata
+
+Every conclusion traces back to source evidence. Trust metadata tags each piece by signal type
+and platform, and trust warnings flag areas where confidence is limited.
+
+![Evidence](docs/assets/8.png)
 
 ## Quick Start
 
@@ -137,7 +133,7 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-Minimum practical configuration for `saas`:
+Minimum practical configuration:
 
 - `OPENAI_API_KEY`
 - `SUPABASE_URL`
@@ -193,13 +189,14 @@ For deployment-shaped setup, use [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## How It Works
 
-The analysis pipeline is still decision-first, but it now uses an explicit retrieval chain:
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`.
-On `saas`, that chain is wrapped by identity, ownership, quota, and admin operations.
+IdeaGo takes a single idea, normalizes it through intent parsing and query planning, gathers
+evidence from 6 sources in parallel, extracts structured signals, and assembles a decision-first
+report. The hosted edition wraps this pipeline with authentication, ownership, quota, and admin
+operations.
 
 ```mermaid
 flowchart TD
-    A["Signed-in user"] --> B["POST /api/v1/analyze"]
+    A["User idea"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph engine"]
     C --> D["Intent parsing"]
     D --> E["Query planning + rewriting"]
@@ -212,29 +209,29 @@ flowchart TD
     K --> L["Assemble report"]
     L --> M["Persist report + runtime status"]
     M --> N["Report workspace / history / export"]
-    A --> O["Auth, profile, quota"]
-    A --> P["Admin / billing surfaces"]
-    C -.-> Q["SSE progress stream with query planning stage"]
+    C -.-> O["SSE progress stream"]
 ```
 
-Runtime model on `saas`:
+Source roles are fixed:
 
-- authenticated analyze flow
-- explicit query-planning progress step before source fetch
-- protected report history and report detail pages
-- profile and quota management
-- admin dashboards and operational APIs
-- Supabase-backed user data and shared persistence
-- PostgreSQL checkpoint support for distributed runtime state
+- **Tavily** — broad recall and web coverage
+- **Reddit** — pain language and migration discussions
+- **GitHub** — open-source maturity and ecosystem signals
+- **Hacker News** — builder sentiment and technical discourse
+- **App Store** — review-cluster pain from real users
+- **Product Hunt** — launch positioning and market entry patterns
 
-Source-role split stays fixed across the hosted product:
+## Hosted Features
 
-- Tavily for broad recall
-- Reddit for pain and switching language
-- GitHub for open-source maturity and ecosystem signals
-- Hacker News for builder sentiment
-- App Store for review-cluster pain
-- Product Hunt for launch positioning
+The hosted edition adds operational capabilities on top of the core analysis engine:
+
+- Authenticated user flows with Supabase-backed identity
+- LinuxDo OAuth support and custom auth session handling
+- User profile and quota management
+- Admin routes for user management, quota adjustments, metrics, and health
+- Supabase-backed persistence and PostgreSQL-powered shared runtime state
+- Stripe integration points for checkout, portal, and webhook handling
+- Landing page, legal pages, and hosted-product routing
 
 ## API Overview
 
@@ -269,21 +266,16 @@ Admin APIs:
 - `GET /api/v1/admin/metrics`
 - `GET /api/v1/admin/health`
 
-Billing APIs on this branch:
+Billing APIs:
 
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/portal`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/webhook`
 
-Current behavior note:
-
-- billing routes exist, but user-facing checkout and portal flows are intentionally hidden until
-  pricing is re-enabled
-
 ## Configuration Notes
 
-Important SaaS settings:
+Key settings:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
@@ -302,39 +294,24 @@ Important SaaS settings:
 The authoritative env reference is [`.env.example`](.env.example), with frontend-specific variables
 in [`frontend/.env.example`](frontend/.env.example).
 
-## Branch Model
-
-- `main`: local or personal deployment, anonymous usage, no Supabase dependency
-- `saas`: hosted product line with auth, billing hooks, profile, admin, and SaaS-only runtime config
-
-Sync rule:
-
-- shared product work lands on `main`
-- `saas` pulls from `main`
-- SaaS-specific runtime dependencies stay on `saas`
-
 ## Project Structure
 
 ```text
 .
 ├── src/ideago/          # API, auth, billing, pipeline, cache, models, sources
 ├── frontend/src/        # React app with landing, auth, profile, pricing, admin, reports
-├── supabase/migrations/ # SaaS database migrations
+├── supabase/migrations/ # Database migrations
 ├── ai_docs/             # Project standards and guides
-├── docs/assets/         # README assets used on saas
-└── DEPLOYMENT.md        # SaaS deployment guide
+├── docs/assets/         # README screenshots
+└── DEPLOYMENT.md        # Deployment guide
 ```
 
-Notable SaaS-specific areas:
+## Branch Model
 
-- `src/ideago/auth`
-- `src/ideago/billing`
-- `src/ideago/api/routes/auth.py`
-- `src/ideago/api/routes/admin.py`
-- `frontend/src/features/auth`
-- `frontend/src/features/profile`
-- `frontend/src/features/admin`
-- `supabase/migrations`
+- `main`: local or personal deployment, anonymous usage, no Supabase dependency
+- `saas`: hosted product with auth, billing, profile, admin, and operational config
+
+Shared product work lands on `main`; `saas` pulls from `main`.
 
 ## Documentation
 
@@ -357,21 +334,6 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## FAQ
-
-### Is this the same as `main`?
-
-No. `main` is the local and anonymous deployment line. `saas` adds hosted-product concerns and
-requires more infrastructure.
-
-### Does `saas` require Supabase?
-
-Yes. The authenticated product flow and operational data model rely on Supabase configuration.
-
-### Is billing fully live in the UI?
-
-Not yet. The integration points are present, but the pricing UI is currently feature-flagged off.
 
 ## License
 

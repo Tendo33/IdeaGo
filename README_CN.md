@@ -3,17 +3,18 @@
 
   <h1>IdeaGo</h1>
 
-  <p><strong>面向托管产品与运营场景的 Source Intelligence SaaS 分支。</strong></p>
+  <p><strong>几分钟内，把一个粗糙的想法变成结构化验证报告。</strong></p>
 
   <p>
-    <code>saas</code> 分支在同一套决策优先报告引擎之上，补齐了登录、资料、配额、后台、
-    持久化与商业化部署所需的能力。
+    IdeaGo 交叉比对 6 个实时数据源 — GitHub、Tavily、Hacker News、App Store、Product Hunt
+    和 Reddit — 生成决策优先的报告，包含推荐结论、痛点信号、商业信号、空白机会、
+    竞争格局、证据链和置信度评分。
   </p>
 
   <p>
     <a href="README.md">English</a> ·
     <a href="#快速开始">快速开始</a> ·
-    <a href="#saas-能力">SaaS 能力</a> ·
+    <a href="#产品演示">产品演示</a> ·
     <a href="#工作原理">工作原理</a> ·
     <a href="DEPLOYMENT.md">部署说明</a>
   </p>
@@ -33,75 +34,69 @@
 
 ## 项目概览
 
-这份 README 对应的是 `saas` 分支。
+多数创业想法验证止步于表面概述。IdeaGo 更进一步：它会告诉你一个想法现在是否值得做，
+并用来自真实社区讨论、应用评论、开源活动和产品发布的结构化证据来支撑结论。
 
-它和 `main` 使用同一套 Source Intelligence V2 核心分析管线，但额外补上了托管产品真正需要的部分：
-用户身份、资料与配额、管理端、Supabase 持久化，以及更接近线上环境的部署要求。
+报告按决策价值排序 — 推荐结论在前，然后是痛点信号、商业信号、空白机会、竞品、
+证据链和置信度评分。
 
-如果你要的是更轻量的本地部署 / 个人部署版本，请切回 `main` 分支。
+这是托管版（`saas` 分支），支持用户认证、资料管理、配额和管理后台。
+如果只需要本地匿名使用（无需 Supabase），请参阅 `main` 分支。
 
-## 截图占位
+## 产品演示
 
-> 下面的位置已经为 SaaS 版截图预留好，后续可以直接替换。
+### 描述你的想法
 
-### Hero 截图
+用自然语言输入产品想法。IdeaGo 提供快速建议，并展示历史报告方便随时查阅。
 
-![Hero Screenshot Placeholder](docs/assets/banner_new.png)
+![想法输入](docs/assets/1.png)
 
-`[占位] 建议替换为 SaaS 首页或登录后的主流程截图。`
+### 实时分析流水线
 
-### 工作区截图
+逐步展示分析进度：意图拆解、查询规划、6 个平台并行检索、信号提取、报告组装 —
+全程通过 SSE 实时推送。
 
-![Workspace Screenshot Placeholder](docs/assets/usage_new.png)
+![分析流水线](docs/assets/2.png)
 
-`[占位] 建议替换为登录后的报告工作区、历史页或报告详情截图。`
+### 决策摘要
 
-### Admin / 账户截图
+报告以最重要的信息开头：明确的推荐结论、机会评分、切入策略，以及痛点主题数、
+商业指标数和空白缺口数。
 
-`[占位] 这里可以补 profile、quota、billing 或 admin 后台截图。`
+![决策摘要](docs/assets/3.png)
 
-## 为什么需要 `saas` 分支
+### 市场背景与竞争格局
 
-`main` 分支是刻意保持轻量的。`saas` 分支则是在同一套分析引擎之上，把一个可托管产品所需的身份、
-权限、数据归属和运营能力补齐。
+了解市场时机，通过交互式散点图查看现有玩家在功能完备度和市场存在感上的分布。
 
-它仍然遵守同一份报告契约：
+![市场背景](docs/assets/4.png)
 
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
+### 痛点信号与商业信号
 
-多出来的部分是产品运营能力，不是改掉报告的核心顺序。
+痛点信号呈现真实用户的高频困扰，带强度和频率评分。商业信号标出付费意愿指标和
+市场中的变现线索。
 
-## SaaS 能力
+![信号分析](docs/assets/5.png)
 
-相对于 `main`，`saas` 分支增加了：
+### 空白机会
 
-- 基于 Supabase 的认证与用户身份
-- LinuxDo OAuth 支持与自定义会话处理
-- 用户 profile 与 quota 接口
-- 面向管理员的用户、配额、指标、健康检查接口
-- 基于 Supabase 的持久化与共享状态
-- 用于 checkout、portal、webhook 的 Stripe 集成点
-- landing page、法律页面，以及托管产品需要的前端路由
+识别现有产品覆盖不足的领域，每项机会附带潜力评分和支撑性证据引用。
 
-当前实现状态说明：
+![空白机会](docs/assets/6.png)
 
-- 计费基础设施已经在这个分支上
-- 但前端 pricing UI 目前仍通过 `frontend/src/lib/featureFlags.ts` 关闭
+### 竞品目录
 
-核心数据源仍然包括：
+浏览全部发现的竞品，按匹配度排序，支持按数据源筛选。每张卡片展示核心功能、
+优劣势、定价和原始来源链接。
 
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+![竞品目录](docs/assets/7.png)
+
+### 证据与信任元数据
+
+每条结论都可追溯到源头证据。信任元数据为每条信息标注信号类型和来源平台，
+信任警告会标记置信度有限的区域。
+
+![证据链](docs/assets/8.png)
 
 ## 快速开始
 
@@ -134,7 +129,7 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-`saas` 分支最小可运行配置：
+最小可运行配置：
 
 - `OPENAI_API_KEY`
 - `SUPABASE_URL`
@@ -190,13 +185,13 @@ uv run python -m ideago
 
 ## 工作原理
 
-分析引擎本身仍然是决策优先，但检索链路已经明确升级为：
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`。
-在 `saas` 分支里，这条链路外围再包上用户身份、数据归属、配额与后台运营能力。
+IdeaGo 接收一条想法，通过意图解析和查询规划进行标准化，然后从 6 个数据源并行采集证据，
+提取结构化信号，组装决策优先的报告。托管版在这条管线外围包上认证、数据归属、配额与
+管理后台能力。
 
 ```mermaid
 flowchart TD
-    A["登录用户"] --> B["POST /api/v1/analyze"]
+    A["用户想法"] --> B["POST /api/v1/analyze"]
     B --> C["LangGraph 引擎"]
     C --> D["意图解析"]
     D --> E["查询规划与改写"]
@@ -209,29 +204,29 @@ flowchart TD
     K --> L["组装报告"]
     L --> M["持久化报告与运行状态"]
     M --> N["报告工作区 / 历史 / 导出"]
-    A --> O["认证、资料、配额"]
-    A --> P["管理后台 / 计费能力"]
-    C -.-> Q["带 query planning 阶段的 SSE 实时进度流"]
+    C -.-> O["SSE 实时进度流"]
 ```
 
-`saas` 分支的运行模型：
+数据源分工：
 
-- 认证后的分析流程
-- source 抓取前会先经过显式的 query planning 进度阶段
-- 受保护的报告详情与历史页面
-- profile 与 quota 管理
-- 管理员后台与运维接口
-- 基于 Supabase 的用户数据与共享持久化
-- 支持 PostgreSQL checkpoint 的分布式运行时状态
+- **Tavily** — 广覆盖召回
+- **Reddit** — 痛点与迁移语言
+- **GitHub** — 开源成熟度与生态信号
+- **Hacker News** — 开发者/建设者讨论氛围
+- **App Store** — 评论聚类痛点
+- **Product Hunt** — 发布定位与市场切入方式
 
-托管版依然保持固定的数据源分工：
+## 托管版能力
 
-- Tavily：广覆盖召回
-- Reddit：痛点与迁移语言
-- GitHub：开源成熟度与生态信号
-- Hacker News：开发者/建设者讨论氛围
-- App Store：评论聚类痛点
-- Product Hunt：发布定位与市场切入方式
+托管版在核心分析引擎之上增加了运营能力：
+
+- 基于 Supabase 的认证与用户身份
+- LinuxDo OAuth 支持与自定义会话处理
+- 用户资料与配额管理
+- 面向管理员的用户管理、配额调整、指标与健康检查接口
+- 基于 Supabase 的持久化与 PostgreSQL 共享运行时状态
+- 用于 checkout、portal、webhook 的 Stripe 集成点
+- Landing page、法律页面，以及托管产品路由
 
 ## API 概览
 
@@ -266,21 +261,16 @@ flowchart TD
 - `GET /api/v1/admin/metrics`
 - `GET /api/v1/admin/health`
 
-本分支上的 Billing API：
+Billing API：
 
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/portal`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/webhook`
 
-当前行为说明：
-
-- billing 路由已经存在
-- 但面向用户的 checkout / portal 流程目前仍被刻意隐藏，等待 pricing 重新开放
-
 ## 配置说明
 
-SaaS 版最关键的配置项：
+关键配置项：
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
@@ -298,39 +288,24 @@ SaaS 版最关键的配置项：
 
 后端完整变量见 [`.env.example`](.env.example)，前端变量见 [`frontend/.env.example`](frontend/.env.example)。
 
-## 分支模型
-
-- `main`：本地 / 个人部署版，匿名使用，不依赖 Supabase
-- `saas`：托管产品线，增加 auth、billing 集成点、profile、admin 与 SaaS 专属配置
-
-长期同步规则：
-
-- 通用产品能力先进 `main`
-- `saas` 再合并 `main`
-- SaaS 专属运行时依赖留在 `saas`
-
 ## 项目结构
 
 ```text
 .
 ├── src/ideago/          # API、auth、billing、pipeline、cache、models、sources
 ├── frontend/src/        # React 前端，含 landing、auth、profile、pricing、admin、reports
-├── supabase/migrations/ # SaaS 数据库迁移
+├── supabase/migrations/ # 数据库迁移
 ├── ai_docs/             # 项目规范与说明
-├── docs/assets/         # saas 分支 README 使用的素材
-└── DEPLOYMENT.md        # SaaS 部署说明
+├── docs/assets/         # README 截图素材
+└── DEPLOYMENT.md        # 部署说明
 ```
 
-值得关注的 SaaS 区域：
+## 分支模型
 
-- `src/ideago/auth`
-- `src/ideago/billing`
-- `src/ideago/api/routes/auth.py`
-- `src/ideago/api/routes/admin.py`
-- `frontend/src/features/auth`
-- `frontend/src/features/profile`
-- `frontend/src/features/admin`
-- `supabase/migrations`
+- `main`：本地 / 个人部署版，匿名使用，不依赖 Supabase
+- `saas`：托管产品线，增加 auth、billing、profile、admin 与运营配置
+
+通用产品能力先进 `main`，`saas` 再合并 `main`。
 
 ## 文档入口
 
@@ -353,20 +328,6 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## 常见问题
-
-### 这和 `main` 一样吗？
-
-不一样。`main` 是匿名、本地部署路线；`saas` 是面向托管产品的完整运行线。
-
-### `saas` 一定需要 Supabase 吗？
-
-需要。认证流和运营数据模型都依赖 Supabase 配置。
-
-### 计费 UI 已经完全开放了吗？
-
-还没有。计费集成点已经在这个分支里，但 pricing UI 目前仍处于 feature flag 关闭状态。
 
 ## 许可证
 
