@@ -16,7 +16,8 @@
     <a href="#快速开始">快速开始</a> ·
     <a href="#产品演示">产品演示</a> ·
     <a href="#工作原理">工作原理</a> ·
-    <a href="DEPLOYMENT.md">部署说明</a>
+    <a href="DEPLOYMENT.md">部署说明</a> ·
+    <a href="#致谢">致谢</a>
   </p>
 
   <p>
@@ -282,6 +283,10 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
+
+## 致谢
+
+感谢 [Linux.do](https://linux.do/) 提供的参考资料。
 
 ## 许可证
 
