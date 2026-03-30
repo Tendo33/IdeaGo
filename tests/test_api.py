@@ -3307,6 +3307,33 @@ async def test_supabase_admin_profile_and_quota_info_paths() -> None:
     assert updated_fail["error"] == "profile_update_failed"
 
 
+@pytest.mark.asyncio
+async def test_supabase_admin_ensure_profile_exists_does_not_overwrite_existing_profile() -> (
+    None
+):
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    fake_client = AsyncMock()
+    fake_client.post = AsyncMock(return_value=_AdminFakeResponse(201))
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+    ):
+        ok = await supabase_admin.ensure_profile_exists("uid")
+
+    assert ok is True
+    _, kwargs = fake_client.post.call_args
+    assert kwargs["headers"]["Prefer"] == "resolution=ignore-duplicates,return=minimal"
+
+
 def test_supabase_admin_headers_and_client_lifecycle() -> None:
     fake_settings = type(
         "Settings",

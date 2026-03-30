@@ -169,7 +169,7 @@ async def ensure_profile_exists(
             f"{settings.supabase_url}/rest/v1/profiles",
             headers={
                 **_headers(),
-                "Prefer": "resolution=merge-duplicates,return=minimal",
+                "Prefer": "resolution=ignore-duplicates,return=minimal",
             },
             json=payload,
         )
