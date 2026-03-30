@@ -120,13 +120,27 @@ describe('LandscapeChart', () => {
       source_platforms: ['github'],
       source_urls: ['https://acme.example.com'],
     }
+    const domId = getCompetitorDomId(competitor)
+    const scrollIntoView = vi.fn()
 
     scatterClickPayload = { payload: { unexpected: true } }
 
-    render(<LandscapeChart competitors={[competitor]} />)
+    render(
+      <>
+        <div id={domId} data-testid="target-card" />
+        <LandscapeChart competitors={[competitor]} />
+      </>,
+    )
+
+    const target = screen.getByTestId('target-card')
+    Object.defineProperty(target, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    })
 
     expect(() => {
       fireEvent.click(screen.getByTestId('scatter-dot'))
     }).not.toThrow()
+    expect(scrollIntoView).not.toHaveBeenCalled()
   })
 })

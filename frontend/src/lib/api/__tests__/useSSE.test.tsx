@@ -255,6 +255,46 @@ describe('useSSE', () => {
     })
   })
 
+  it('stops reconnecting after repeated handshake-only connections that close immediately', async () => {
+    vi.useFakeTimers()
+    const handshakeOnlyFetch = vi.fn().mockImplementation(() => {
+      const reader = new MockResponseReader()
+      reader.close()
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => reader,
+        },
+      })
+    })
+    vi.stubGlobal('fetch', handshakeOnlyFetch)
+
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 8; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    expect(handshakeOnlyFetch).toHaveBeenCalledTimes(5)
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.isReconnecting).toBe(false)
+    expect(result.current.error).toBeTruthy()
+    expect(result.current.lastFailureReason).toBe('Stream closed unexpectedly')
+    expect(recordClientMetric).toHaveBeenCalledWith('sse_reconnect_exhausted', {
+      reportId: 'r1',
+      attempts: 5,
+      reason: 'Stream closed unexpectedly',
+    })
+  })
+
   it('resets reconnect counters after manual retry from a terminal stream failure', async () => {
     vi.useFakeTimers()
     const failingFetch = vi.fn().mockRejectedValue(new Error('network down'))

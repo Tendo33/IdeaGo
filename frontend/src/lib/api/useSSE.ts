@@ -101,6 +101,18 @@ export function useSSE(reportId: string | null): UseSSEResult {
     const url = getStreamUrl(id)
 
     ;(async () => {
+      let hasConfirmedConnection = false
+
+      const confirmConnection = () => {
+        attemptRef.current = 0
+        if (!hasConfirmedConnection) {
+          hasConfirmedConnection = true
+          reconnectAttemptsRef.current = 0
+          lastFailureReasonRef.current = null
+        }
+        dispatch({ type: 'connected' })
+      }
+
       try {
         const headers: Record<string, string> = { Accept: 'text/event-stream' }
         const token = getAccessToken()
@@ -124,11 +136,6 @@ export function useSSE(reportId: string | null): UseSSEResult {
           throw new Error(`SSE connection failed: ${response.status}`)
         }
 
-        attemptRef.current = 0
-        reconnectAttemptsRef.current = 0
-        lastFailureReasonRef.current = null
-        dispatch({ type: 'connected' })
-
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
@@ -146,8 +153,7 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
           for (const { eventType, data } of parseSseChunk(toProcess)) {
             if (eventType === 'ping') {
-              attemptRef.current = 0
-              dispatch({ type: 'connected' })
+              confirmConnection()
               continue
             }
             if (!STREAM_EVENT_TYPES.has(eventType)) continue
@@ -156,7 +162,7 @@ export function useSSE(reportId: string | null): UseSSEResult {
               const parsed = parsePipelineEvent(JSON.parse(data), eventType as PipelineEvent['type'])
               if (!parsed) continue
               const event: PipelineEvent = parsed
-              attemptRef.current = 0
+              confirmConnection()
               dispatch({ type: 'event', event })
 
               if (event.type === 'report_ready') {
