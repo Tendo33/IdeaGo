@@ -216,7 +216,7 @@ export function LandingPage({
       </nav>
 
       {/* ─── HERO ─── */}
-      <section className="relative px-4 pt-32 sm:pt-44 pb-20 sm:pb-24 border-b-8 border-border">
+      <section className="relative px-4 pt-32 sm:pt-48 pb-32 sm:pb-40 border-b-8 border-border">
         <div className="app-shell">
           <div className="grid lg:grid-cols-[1.3fr_1fr] gap-12 lg:gap-24 items-center">
             {/* Left: headline */}
@@ -257,32 +257,35 @@ export function LandingPage({
 
             {/* Right: mock report card */}
             <div className="animate-fade-in [animation-delay:200ms] mt-12 lg:mt-0 relative w-full max-w-lg mx-auto lg:max-w-none">
-              <div className="absolute inset-0 bg-primary/20 translate-x-2 translate-y-2 border-2 border-border" />
-              <div className="relative border-4 border-border bg-card p-8 shadow-xl z-10">
+              <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-border" />
+              <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-3 h-3 bg-success border-2 border-border shrink-0 animate-pulse" />
+                  <div className="w-4 h-4 bg-success border-4 border-border shrink-0 animate-pulse" />
                   <span className="text-sm font-black uppercase tracking-widest text-muted-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockLabel')}>
                     {t('landing.mockLabel')}
                   </span>
                 </div>
-                <p className="text-xl font-black text-foreground mb-7 border-l-4 border-primary pl-4 leading-tight break-words [overflow-wrap:anywhere]" title={t('landing.mockQuery')}>
+                <p className="text-2xl font-black text-foreground mb-8 border-l-8 border-primary pl-6 leading-tight break-words [overflow-wrap:anywhere]" title={t('landing.mockQuery')}>
                   &ldquo;{t('landing.mockQuery')}&rdquo;
                 </p>
-                <div className="space-y-3 border-t-2 border-border/30 pt-5 mb-6">
+                <div className="flex flex-wrap border-t-4 border-border/20 pt-6 gap-y-6 mb-8">
                   {[
-                    {val: '12', label: t('landing.mockCompetitors')},
-                    {val: '6', label: t('landing.mockSources')},
-                    {val: '4m', label: t('landing.mockTime')},
+                    { val: '12', label: t('landing.mockCompetitors') },
+                    { val: '87%', label: t('landing.mockRelevance') },
+                    { val: '6', label: t('landing.mockSources') },
+                    { val: '4m', label: t('landing.mockTime') },
                   ].map(stat => (
-                    <div key={stat.label} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-bold text-muted-foreground">{stat.label}</span>
-                      <span className="font-black text-primary leading-none" title={stat.val}>{stat.val}</span>
+                    <div key={stat.label} className="w-1/2 flex flex-col pr-4 group cursor-default">
+                      <span className="block text-4xl font-black text-primary leading-none mb-2 group-hover:scale-105 transition-transform origin-left break-words" title={stat.val}>{stat.val}</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground block break-words [overflow-wrap:anywhere]" title={stat.label}>
+                        {stat.label}
+                      </span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 px-4 py-3 bg-success/90 border-2 border-border mt-auto shadow-sm">
-                  <Zap className="w-5 h-5 text-success-foreground shrink-0" />
-                  <span className="text-sm font-black uppercase tracking-widest text-success-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockVerdict')}>
+                <div className="flex items-center gap-3 px-4 py-3 bg-success border-4 border-border mt-auto shadow transform -rotate-1">
+                  <Zap className="w-6 h-6 text-success-foreground shrink-0" />
+                  <span className="text-base font-black uppercase tracking-widest text-success-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockVerdict')}>
                     {t('landing.mockVerdict')}
                   </span>
                 </div>
@@ -290,23 +293,36 @@ export function LandingPage({
             </div>
           </div>
         </div>
+
+        {/* Decorative grid lines */}
+        <div
+          className="absolute inset-0 -z-10 opacity-[0.05]"
+          style={{
+            backgroundImage: `
+              linear-gradient(var(--foreground) 2px, transparent 2px),
+              linear-gradient(90deg, var(--foreground) 2px, transparent 2px)
+            `,
+            backgroundSize: '100px 100px',
+          }}
+        />
       </section>
 
       {/* ─── DATA SOURCES STRIP ─── */}
-      <section className="border-y-8 border-border py-10 bg-card w-full min-w-0">
-        <div className="app-shell">
-          <p className="text-center text-sm font-black uppercase tracking-[0.32em] text-muted-foreground mb-8">
+      <section className="border-y-8 border-border py-12 bg-card overflow-hidden w-full min-w-0 relative">
+        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] dark:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] pointer-events-none" />
+        <div className="app-shell relative z-10">
+          <p className="text-center text-sm font-black uppercase tracking-[0.4em] text-muted-foreground mb-10">
             {t('landing.sourcesLabel')}
           </p>
-          <div className="flex flex-wrap justify-center gap-6 sm:gap-10 py-2">
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-16 py-4">
             {DATA_SOURCES.map(({ icon: Icon, labelKey, color }, i) => {
               const label = t(labelKey)
               return (
-                <StaggerReveal key={labelKey} delay={i * 70} className="flex items-center gap-3 min-w-0 group cursor-default" motionMode={motionMode}>
-                  <div className="p-2 border-2 border-border bg-background shadow-sm" style={{ color }}>
-                    <Icon className="w-6 h-6 shrink-0" aria-hidden="true" />
+                <StaggerReveal key={labelKey} delay={i * 80} className="flex items-center gap-4 min-w-0 group cursor-default" motionMode={motionMode}>
+                  <div className="p-3 border-4 border-border bg-background shadow group-hover:-translate-y-2 group-hover:shadow-lg transition-all duration-300" style={{ color }}>
+                    <Icon className="w-8 h-8 shrink-0" aria-hidden="true" />
                   </div>
-                  <span className="text-sm sm:text-base font-black uppercase tracking-wider break-words [overflow-wrap:anywhere]">{label}</span>
+                  <span className="text-lg sm:text-xl font-black uppercase tracking-widest break-words [overflow-wrap:anywhere] group-hover:text-primary transition-colors">{label}</span>
                 </StaggerReveal>
               )
             })}
@@ -315,39 +331,122 @@ export function LandingPage({
       </section>
 
       {/* ─── HOW IT WORKS ─── */}
-      <section id="how-it-works" className="px-4 py-20 sm:py-24">
+      <section id="how-it-works" className="px-4 py-24 sm:py-32">
         <div className="app-shell">
           <StaggerReveal motionMode={motionMode}>
-            <h2 className="text-center mb-4 text-[clamp(2.4rem,5vw,4.2rem)]">
+            <h2 className="text-center mb-4 text-[clamp(2.5rem,5vw,4.5rem)]">
               {t('landing.howTitle')}
             </h2>
-            <p className="text-center text-base sm:text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-12 min-w-0 break-words">
+            <p className="text-center text-lg font-bold text-muted-foreground max-w-xl mx-auto mb-20 min-w-0 break-words">
               {t('landing.howSubtitle')}
             </p>
           </StaggerReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-w-0">
+          <div className="flex flex-col md:flex-row gap-8 lg:gap-12 min-w-0">
             {([
-              { icon: Search, step: '01', titleKey: 'landing.step1Title', descKey: 'landing.step1Desc' },
-              { icon: Zap, step: '02', titleKey: 'landing.step2Title', descKey: 'landing.step2Desc' },
-              { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc' },
-            ] as const).map(({ icon: Icon, step, titleKey, descKey }, i) => (
-              <StaggerReveal key={step} delay={i * 120} className="min-w-0" motionMode={motionMode}>
-                <div className="p-6 sm:p-7 border-4 border-border bg-background shadow-md flex flex-col min-w-0">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span aria-hidden="true" className="text-4xl font-black text-muted-foreground/30 leading-none select-none tracking-tight">{step}</span>
-                    <div className="w-10 h-10 border-2 border-border bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-sm">
-                      <Icon className="w-5 h-5" />
+              { icon: Search, step: '01', titleKey: 'landing.step1Title', descKey: 'landing.step1Desc', mt: 'mt-0' },
+              { icon: Zap, step: '02', titleKey: 'landing.step2Title', descKey: 'landing.step2Desc', mt: 'md:mt-24' },
+              { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc', mt: 'md:mt-48' },
+            ] as const).map(({ icon: Icon, step, titleKey, descKey, mt }, i) => (
+              <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`} motionMode={motionMode}>
+                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-3xl flex flex-col min-w-0 group">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Icon className="w-32 h-32" />
+                  </div>
+                  <div className="flex items-start gap-4 mb-8 relative z-10">
+                    <span aria-hidden="true" className="text-7xl font-black text-muted-foreground/20 leading-none select-none tracking-tighter">{step}</span>
+                    <div className="w-14 h-14 border-4 border-border bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow group-hover:scale-110 transition-transform">
+                      <Icon className="w-7 h-7" />
                     </div>
                   </div>
-                  <h3 className="text-xl sm:text-2xl mb-3 break-words [overflow-wrap:anywhere]" title={t(titleKey)}>{t(titleKey)}</h3>
-                  <p className="text-base font-medium text-muted-foreground leading-relaxed flex-1 break-words [overflow-wrap:anywhere]">
+                  <h3 className="text-2xl sm:text-3xl mb-4 relative z-10 break-words [overflow-wrap:anywhere]" title={t(titleKey)}>{t(titleKey)}</h3>
+                  <p className="text-lg font-medium text-muted-foreground leading-relaxed flex-1 relative z-10 break-words [overflow-wrap:anywhere]">
                     {t(descKey)}
                   </p>
                 </div>
               </StaggerReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ─── FEATURE HIGHLIGHTS ─── */}
+      <section className="px-4 py-32 sm:py-48 bg-muted border-y-8 border-border relative">
+        <div className="absolute inset-0 bg-[radial-gradient(var(--border)_2px,transparent_2px)] [background-size:32px_32px] opacity-10" />
+        <div className="app-shell relative z-10">
+          <StaggerReveal motionMode={motionMode}>
+            <h2 className="mb-20 max-w-4xl text-[clamp(2.5rem,5vw,4.5rem)] leading-none">
+              {t('landing.featuresTitle')}
+            </h2>
+          </StaggerReveal>
+
+          <div className="grid sm:grid-cols-12 gap-8 lg:gap-12 relative z-10">
+            {/* Massive Hero Highlight Card */}
+            <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8" motionMode={motionMode}>
+              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:shadow-5xl transition-all duration-500">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
+                <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
+                  {t('landing.feat1Title')}
+                </h3>
+                <p className="text-xl sm:text-2xl font-bold text-muted-foreground leading-relaxed max-w-2xl relative z-10">
+                  {t('landing.feat1Desc')}
+                </p>
+                <div className="absolute bottom-8 right-8 w-24 h-24 border-8 border-primary rounded-full animate-[spin_10s_linear_infinite] opacity-50" />
+              </div>
+            </StaggerReveal>
+
+            {/* Smaller Secondary Cards */}
+            {([
+              { titleKey: 'landing.feat2Title', descKey: 'landing.feat2Desc', accent: 'var(--success)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: '-rotate-1', shape: 'rounded-none' },
+              { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: 'rotate-1', shape: 'rounded-full' },
+            ] as const).map(({ titleKey, descKey, accent, colSpan, rotation, shape }, i) => (
+              <StaggerReveal key={titleKey} delay={i * 150} className={colSpan} motionMode={motionMode}>
+                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
+                  <div className="flex items-center gap-6 mb-8">
+                    <div
+                      className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow`}
+                      style={{ backgroundColor: accent }}
+                    />
+                    <h3 className="text-2xl sm:text-3xl break-words [overflow-wrap:anywhere] group-hover:text-primary transition-colors" title={t(titleKey)}>{t(titleKey)}</h3>
+                  </div>
+                  <p className="text-lg sm:text-xl font-medium text-muted-foreground leading-relaxed flex-1 break-words [overflow-wrap:anywhere]">
+                    {t(descKey)}
+                  </p>
+                </div>
+              </StaggerReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FINAL CTA ─── */}
+      <section className="px-4 py-32 sm:py-48 relative overflow-hidden">
+        {/* Wild background shapes */}
+        <div className="absolute top-1/2 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="absolute top-1/2 right-0 w-96 h-96 bg-destructive/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+        <div className="app-shell relative z-10">
+          <StaggerReveal motionMode={motionMode}>
+            <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-4xl text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:shadow-5xl transition-all duration-500 relative">
+              <div className="absolute -top-6 -right-6 w-12 h-12 bg-warning border-4 border-border rotate-12" />
+              <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />
+
+              <h2 className="mb-8 text-[clamp(2.5rem,6vw,5rem)] leading-none">{t('landing.ctaTitle')}</h2>
+              <p className="text-xl sm:text-2xl font-bold text-muted-foreground max-w-2xl mx-auto mb-12 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere]">
+                {t('landing.ctaDesc')}
+              </p>
+              <Link
+                to="/login"
+                className={buttonVariants({
+                  size: 'lg',
+                  className: 'text-2xl px-16 py-8 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-2xl transition-all group',
+                })}
+              >
+                {t('landing.ctaButton')}
+                <ArrowRight className="w-8 h-8 ml-4 group-hover:translate-x-2 transition-transform" aria-hidden="true" />
+              </Link>
+            </div>
+          </StaggerReveal>
         </div>
       </section>
 
