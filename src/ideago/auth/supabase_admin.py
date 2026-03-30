@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from ideago.billing.stripe_service import delete_customer_data
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -19,6 +20,14 @@ _DAILY_ANALYSIS_LIMIT = 5
 _DAILY_PLAN_NAME = "daily"
 
 _http_client: httpx.AsyncClient | None = None
+
+
+class BillingProfileLookupError(RuntimeError):
+    """Raised when billing identifiers cannot be safely loaded from profile."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -374,3 +383,145 @@ async def delete_user_data(user_id: str) -> dict:
 
     logger.info("All data deleted for user {}", user_id)
     return {"deleted": True}
+
+
+async def _get_profile_billing_ids(user_id: str) -> tuple[str, str]:
+    """Return Stripe customer/subscription ids for a profile when present."""
+    if not _is_configured():
+        return "", ""
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.get(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Accept": "application/json"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "stripe_customer_id,stripe_subscription_id",
+                "limit": "1",
+            },
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                "Failed to load billing ids for {}: {} {}",
+                user_id,
+                resp.status_code,
+                resp.text,
+            )
+            raise BillingProfileLookupError(
+                f"billing_profile_lookup: {resp.status_code}"
+            )
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            row = rows[0]
+            if isinstance(row, dict):
+                return (
+                    str(row.get("stripe_customer_id") or "").strip(),
+                    str(row.get("stripe_subscription_id") or "").strip(),
+                )
+        return "", ""
+    except BillingProfileLookupError:
+        raise
+    except Exception as err:
+        logger.opt(exception=True).warning("Failed to load billing ids for {}", user_id)
+        raise BillingProfileLookupError("billing_profile_lookup: exception") from err
+
+
+async def delete_billing_customer_data(user_id: str) -> dict:
+    """Delete Stripe-side billing artifacts for a user when configured."""
+    try:
+        customer_id, subscription_id = await _get_profile_billing_ids(user_id)
+    except BillingProfileLookupError as exc:
+        return {"error": "billing_lookup_failed", "details": [exc.detail]}
+    return await delete_customer_data(
+        customer_id=customer_id or None,
+        subscription_id=subscription_id or None,
+    )
+
+
+async def delete_auth_identity(user_id: str) -> dict:
+    """Delete the upstream Supabase auth identity for a user when configured."""
+    if not _is_configured():
+        return {"status": "skipped"}
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.delete(
+            f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+            headers=_headers(),
+        )
+        if resp.status_code in (200, 204, 404):
+            return {"status": "deleted"}
+        logger.warning(
+            "delete_auth_identity failed for {}: {} {}",
+            user_id,
+            resp.status_code,
+            resp.text,
+        )
+        return {
+            "error": "auth_identity_delete_failed",
+            "details": [f"auth_identity: {resp.status_code}"],
+        }
+    except Exception:
+        logger.opt(exception=True).warning("delete_auth_identity error for {}", user_id)
+        return {
+            "error": "auth_identity_delete_failed",
+            "details": ["auth_identity: exception"],
+        }
+
+
+def _account_cleanup_error(
+    *,
+    phase: str,
+    details: list[str],
+    cleanup: dict[str, str],
+) -> dict:
+    return {
+        "error": "partial_failure",
+        "phase": phase,
+        "details": details,
+        "cleanup": cleanup,
+    }
+
+
+async def delete_user_account(user_id: str) -> dict:
+    """Delete app data, billing artifacts, and auth identity in explicit phases."""
+    cleanup = {
+        "domain_data": "pending",
+        "billing": "pending",
+        "auth_identity": "pending",
+    }
+
+    billing_result = await delete_billing_customer_data(user_id)
+    if billing_result.get("error"):
+        cleanup["billing"] = "failed"
+        return _account_cleanup_error(
+            phase="billing_cleanup",
+            details=list(billing_result.get("details") or [billing_result["error"]]),
+            cleanup=cleanup,
+        )
+    cleanup["billing"] = str(billing_result.get("status") or "skipped")
+
+    domain_result = await delete_user_data(user_id)
+    if domain_result.get("error"):
+        cleanup["domain_data"] = "failed"
+        return _account_cleanup_error(
+            phase="domain_data_cleanup",
+            details=list(domain_result.get("details") or [domain_result["error"]]),
+            cleanup=cleanup,
+        )
+    cleanup["domain_data"] = "deleted"
+
+    auth_result = await delete_auth_identity(user_id)
+    if auth_result.get("error"):
+        cleanup["auth_identity"] = "failed"
+        return _account_cleanup_error(
+            phase="auth_identity_cleanup",
+            details=list(auth_result.get("details") or [auth_result["error"]]),
+            cleanup=cleanup,
+        )
+    cleanup["auth_identity"] = str(auth_result.get("status") or "skipped")
+
+    return {"status": "deleted", "cleanup": cleanup}

@@ -13,12 +13,14 @@ const ANALYSIS_TIMEOUT_MS = 30000
 export class ApiError extends Error {
   readonly statusCode: number
   readonly code: string
+  readonly detail: Record<string, unknown>
 
-  constructor(message: string, statusCode: number, code: string = '') {
+  constructor(message: string, statusCode: number, code: string = '', detail: Record<string, unknown> = {}) {
     super(message)
     this.name = 'ApiError'
     this.statusCode = statusCode
     this.code = code
+    this.detail = detail
   }
 
   is(errorCode: string): boolean {
@@ -58,25 +60,27 @@ export function isRequestAbortError(error: unknown): boolean {
 interface ParsedError {
   message: string | null
   code: string
+  detail: Record<string, unknown>
 }
 
 function extractErrorDetail(payload: unknown): ParsedError {
   if (typeof payload === 'string' && payload.trim()) {
-    return { message: payload.trim(), code: '' }
+    return { message: payload.trim(), code: '', detail: {} }
   }
   if (!payload || typeof payload !== 'object') {
-    return { message: null, code: '' }
+    return { message: null, code: '', detail: {} }
   }
   const record = payload as Record<string, unknown>
   const detail = record.detail
   if (typeof detail === 'string' && detail.trim()) {
-    return { message: detail.trim(), code: '' }
+    return { message: detail.trim(), code: '', detail: {} }
   }
   if (detail && typeof detail === 'object') {
     const d = detail as Record<string, unknown>
     return {
       message: typeof d.message === 'string' ? d.message.trim() : null,
       code: typeof d.code === 'string' ? d.code.trim() : '',
+      detail: d,
     }
   }
   const error = record.error
@@ -85,20 +89,21 @@ function extractErrorDetail(payload: unknown): ParsedError {
     return {
       message: typeof e.message === 'string' ? e.message.trim() : null,
       code: typeof e.code === 'string' ? e.code.trim() : '',
+      detail: e,
     }
   }
   if (typeof error === 'string' && error.trim()) {
-    return { message: error.trim(), code: '' }
+    return { message: error.trim(), code: '', detail: {} }
   }
   const message = record.message
   if (typeof message === 'string' && message.trim()) {
-    return { message: message.trim(), code: '' }
+    return { message: message.trim(), code: '', detail: {} }
   }
-  return { message: null, code: '' }
+  return { message: null, code: '', detail: {} }
 }
 
 async function throwApiError(res: Response, prefix: string): Promise<never> {
-  let parsed: ParsedError = { message: null, code: '' }
+  let parsed: ParsedError = { message: null, code: '', detail: {} }
   if (typeof res.json === 'function') {
     try {
       const payload = await res.json()
@@ -108,11 +113,11 @@ async function throwApiError(res: Response, prefix: string): Promise<never> {
     }
   }
   const msg = `${prefix}: ${parsed.message ?? res.status}`
-  throw new ApiError(msg, res.status, parsed.code)
+  throw new ApiError(msg, res.status, parsed.code, parsed.detail)
 }
 
 async function buildErrorMessage(res: Response, prefix: string): Promise<string> {
-  let parsed: ParsedError = { message: null, code: '' }
+  let parsed: ParsedError = { message: null, code: '', detail: {} }
   if (typeof res.json === 'function') {
     try {
       const payload = await res.json()
@@ -293,6 +298,15 @@ export interface UserProfile {
   role?: string
 }
 
+export interface DeleteAccountResult {
+  status: 'deleted'
+  cleanup: {
+    domain_data: string
+    billing: string
+    auth_identity: string
+  }
+}
+
 export async function refreshAuthToken(options: RequestOptions = {}): Promise<string> {
   const res = await fetchWithTimeout(
     `${API_BASE}/auth/refresh`,
@@ -391,14 +405,15 @@ export async function updateMyProfile(
   return res.json()
 }
 
-export async function deleteAccount(options: RequestOptions = {}): Promise<void> {
+export async function deleteAccount(options: RequestOptions = {}): Promise<DeleteAccountResult> {
   const res = await fetchWithTimeout(
     `${API_BASE}/auth/account`,
     { method: 'DELETE', headers: mutationHeaders() },
     options,
     DEFAULT_TIMEOUT_MS,
   )
-  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to delete account'))
+  if (!res.ok) await throwApiError(res, 'Failed to delete account')
+  return res.json()
 }
 
 // --- Billing ---

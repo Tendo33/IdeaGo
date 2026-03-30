@@ -8,17 +8,21 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import threading
-import time
 
 import httpx
 
+from ideago.api.runtime_state import (
+    PipelineTaskRegistry,
+    ProcessingDedupRegistry,
+    ReportRunRegistry,
+    ReportRunState,
+)
 from ideago.cache.base import ReportRepository
 from ideago.config.settings import get_settings
 from ideago.llm.chat_model import ChatModelClient
 from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
 from ideago.pipeline.aggregator import Aggregator
-from ideago.pipeline.events import EventType, PipelineEvent
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
 from ideago.pipeline.langgraph_engine import LangGraphEngine
@@ -35,51 +39,20 @@ logger = get_logger(__name__)
 
 _orchestrator: LangGraphEngine | None = None
 _cache: ReportRepository | None = None
-_report_runs: dict[str, ReportRunState] = {}
-_processing_reports: dict[str, str] = {}
-_pipeline_tasks: dict[str, asyncio.Task[None]] = {}
 _runtime_state_lock = threading.RLock()
 _REPORT_RUN_TTL_SECONDS = 600
-_TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}
 _dedup_http_client: httpx.AsyncClient | None = None
+_report_run_registry = ReportRunRegistry(
+    ttl_seconds=_REPORT_RUN_TTL_SECONDS,
+    lock=_runtime_state_lock,
+)
+_processing_dedup_registry = ProcessingDedupRegistry(_runtime_state_lock)
+_pipeline_task_registry = PipelineTaskRegistry(_runtime_state_lock)
 
-
-class ReportRunState:
-    """In-memory runtime state for one report pipeline run."""
-
-    def __init__(self, max_history: int = 200) -> None:
-        self.subscribers: set[asyncio.Queue[PipelineEvent]] = set()
-        self.history: list[PipelineEvent] = []
-        self.is_terminal = False
-        self.updated_at = time.monotonic()
-        self._max_history = max_history
-
-    async def publish(self, event: PipelineEvent) -> None:
-        """Store and fan out an event to all active SSE subscribers."""
-        self.history.append(event)
-        if len(self.history) > self._max_history:
-            self.history.pop(0)
-        self.updated_at = time.monotonic()
-        if event.type in _TERMINAL_EVENTS:
-            self.is_terminal = True
-
-        for queue in list(self.subscribers):
-            await queue.put(event)
-
-    def subscribe(self) -> asyncio.Queue[PipelineEvent]:
-        """Create and register an SSE subscriber queue."""
-        queue: asyncio.Queue[PipelineEvent] = asyncio.Queue()
-        self.subscribers.add(queue)
-        self.updated_at = time.monotonic()
-        return queue
-
-    def unsubscribe(self, queue: asyncio.Queue[PipelineEvent]) -> None:
-        """Detach an SSE subscriber queue."""
-        self.subscribers.discard(queue)
-        self.updated_at = time.monotonic()
-
-    def history_snapshot(self) -> list[PipelineEvent]:
-        return list(self.history)
+# Backward-compatible dict aliases used by tests.
+_report_runs = _report_run_registry.runs
+_processing_reports = _processing_dedup_registry.reservations
+_pipeline_tasks = _pipeline_task_registry.tasks
 
 
 def get_cache() -> ReportRepository:
@@ -195,43 +168,17 @@ def get_orchestrator() -> LangGraphEngine:
 
 def cleanup_report_runs() -> None:
     """Drop finished report run states after TTL to avoid memory growth."""
-    with _runtime_state_lock:
-        now = time.monotonic()
-        stale_ids = [
-            report_id
-            for report_id, run in _report_runs.items()
-            if run.is_terminal
-            and not run.subscribers
-            and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
-        ]
-        for report_id in stale_ids:
-            _report_runs.pop(report_id, None)
+    _report_run_registry.cleanup_stale()
 
 
 def get_or_create_report_run(report_id: str) -> ReportRunState:
     """Get or create runtime event state for a report."""
-    with _runtime_state_lock:
-        now = time.monotonic()
-        stale_ids = [
-            rid
-            for rid, run in _report_runs.items()
-            if run.is_terminal
-            and not run.subscribers
-            and now - run.updated_at > _REPORT_RUN_TTL_SECONDS
-        ]
-        for rid in stale_ids:
-            _report_runs.pop(rid, None)
-        run = _report_runs.get(report_id)
-        if run is None:
-            run = ReportRunState()
-            _report_runs[report_id] = run
-        return run
+    return _report_run_registry.get_or_create(report_id)
 
 
 def get_report_run(report_id: str) -> ReportRunState | None:
     """Get runtime event state for a report if present."""
-    with _runtime_state_lock:
-        return _report_runs.get(report_id)
+    return _report_run_registry.get(report_id)
 
 
 def _supabase_dedup_configured() -> bool:
@@ -397,34 +344,25 @@ async def reserve_processing_report(
         existing = await _pg_reserve(key, report_id, user_id)
         if existing is not None:
             return existing
-        with _runtime_state_lock:
-            _processing_reports[key] = report_id
+        _processing_dedup_registry.assign(key, report_id)
         return None
 
-    with _runtime_state_lock:
-        existing_report_id = _processing_reports.get(key)
-        if existing_report_id is not None:
-            return existing_report_id
-        _processing_reports[key] = report_id
-        return None
+    return _processing_dedup_registry.reserve(key, report_id)
 
 
 async def register_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
     """Atomically register pipeline task."""
-    with _runtime_state_lock:
-        _pipeline_tasks[report_id] = task
+    _pipeline_task_registry.register(report_id, task)
 
 
 async def remove_pipeline_task(report_id: str) -> asyncio.Task[None] | None:
     """Atomically remove pipeline task."""
-    with _runtime_state_lock:
-        return _pipeline_tasks.pop(report_id, None)
+    return _pipeline_task_registry.remove(report_id)
 
 
 async def get_pipeline_task_for_report(report_id: str) -> asyncio.Task[None] | None:
     """Atomically read pipeline task for report."""
-    with _runtime_state_lock:
-        return _pipeline_tasks.get(report_id)
+    return _pipeline_task_registry.get(report_id)
 
 
 async def release_processing_report(report_id: str) -> None:
@@ -435,10 +373,7 @@ async def release_processing_report(report_id: str) -> None:
     if _supabase_dedup_configured():
         await _pg_release(report_id)
 
-    with _runtime_state_lock:
-        keys_to_remove = [k for k, v in _processing_reports.items() if v == report_id]
-        for key in keys_to_remove:
-            _processing_reports.pop(key, None)
+    _processing_dedup_registry.release_report(report_id)
 
 
 async def is_processing_report(report_id: str) -> bool:
@@ -446,9 +381,8 @@ async def is_processing_report(report_id: str) -> bool:
 
     Checks both local dict and PG (when configured).
     """
-    with _runtime_state_lock:
-        if report_id in _processing_reports.values():
-            return True
+    if _processing_dedup_registry.has_report_id(report_id):
+        return True
 
     if _supabase_dedup_configured():
         return await _pg_is_processing(report_id)
@@ -457,15 +391,13 @@ async def is_processing_report(report_id: str) -> bool:
 
 
 def set_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
-    with _runtime_state_lock:
-        _pipeline_tasks[report_id] = task
+    _pipeline_task_registry.register(report_id, task)
 
 
 async def shutdown_runtime_state() -> None:
     """Cancel running pipeline tasks and clear in-memory runtime state."""
     global _dedup_http_client
-    with _runtime_state_lock:
-        tasks = list(_pipeline_tasks.values())
+    tasks = _pipeline_task_registry.snapshot()
 
     current_loop = asyncio.get_running_loop()
     local_tasks: list[asyncio.Task[None]] = []
@@ -486,10 +418,9 @@ async def shutdown_runtime_state() -> None:
     if local_tasks:
         await asyncio.gather(*local_tasks, return_exceptions=True)
 
-    with _runtime_state_lock:
-        _pipeline_tasks.clear()
-        _processing_reports.clear()
-        _report_runs.clear()
+    _pipeline_task_registry.clear()
+    _processing_dedup_registry.clear()
+    _report_run_registry.clear()
 
     if _dedup_http_client is not None:
         await _dedup_http_client.aclose()
@@ -501,11 +432,9 @@ def get_processing_reports() -> dict[str, str]:
 
     Returns a shallow copy so callers never mutate the live dict.
     """
-    with _runtime_state_lock:
-        return dict(_processing_reports)
+    return _processing_dedup_registry.snapshot()
 
 
 def is_report_id_processing(report_id: str) -> bool:
     """Check if a specific report_id is in the local processing map (sync)."""
-    with _runtime_state_lock:
-        return report_id in _processing_reports.values()
+    return _processing_dedup_registry.has_report_id(report_id)

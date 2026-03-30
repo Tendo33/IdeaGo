@@ -87,7 +87,8 @@ export function HomePage() {
     if (!validation.isValid) {
       return
     }
-    navigate('/reports/new', { state: { query: validation.normalizedQuery } })
+    const params = new URLSearchParams({ q: validation.normalizedQuery })
+    navigate(`/reports/new?${params.toString()}`, { state: { query: validation.normalizedQuery } })
   }, [navigate])
 
   return (

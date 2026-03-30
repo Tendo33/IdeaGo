@@ -40,6 +40,9 @@ const REPORT: ResearchReport = {
   intent: {
     keywords_en: ['performance'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'find_direct_competitors',
     app_type: 'web',
     target_scenario: '',
     output_language: 'en',

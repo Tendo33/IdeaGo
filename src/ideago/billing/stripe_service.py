@@ -125,6 +125,49 @@ async def create_portal_session(*, customer_id: str, return_url: str) -> str:
     return session.url
 
 
+async def delete_customer_data(
+    *, customer_id: str | None = None, subscription_id: str | None = None
+) -> dict:
+    """Best-effort deletion of Stripe-side customer artifacts for account deletion."""
+    if not customer_id and not subscription_id:
+        return {"status": "skipped"}
+    if not _configure():
+        return {"status": "skipped"}
+
+    loop = asyncio.get_running_loop()
+    details: list[str] = []
+
+    try:
+        if subscription_id:
+            await loop.run_in_executor(
+                None,
+                partial(stripe.Subscription.cancel, subscription_id),
+            )
+    except Exception:
+        logger.opt(exception=True).warning(
+            "Failed to cancel Stripe subscription {}",
+            subscription_id,
+        )
+        details.append("subscription_cancel_failed")
+
+    try:
+        if customer_id:
+            await loop.run_in_executor(
+                None,
+                partial(stripe.Customer.delete, customer_id),
+            )
+    except Exception:
+        logger.opt(exception=True).warning(
+            "Failed to delete Stripe customer {}",
+            customer_id,
+        )
+        details.append("customer_delete_failed")
+
+    if details:
+        return {"error": "billing_cleanup_failed", "details": details}
+    return {"status": "deleted"}
+
+
 def construct_webhook_event(payload: bytes, sig_header: str) -> stripe.Event:
     """Verify and construct a Stripe webhook event."""
     settings = get_settings()

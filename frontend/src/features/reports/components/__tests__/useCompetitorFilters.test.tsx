@@ -10,6 +10,9 @@ const report: ResearchReport = {
   intent: {
     keywords_en: ['idea'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'compare_competitors',
     app_type: 'web',
     target_scenario: 'testing',
     output_language: 'en',

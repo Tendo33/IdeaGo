@@ -50,7 +50,9 @@ export function ReportPage() {
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
-  const createQuery = (location.state as { query?: string } | null)?.query
+  const searchQuery = new URLSearchParams(location.search).get('q')?.trim() || undefined
+  const stateQuery = (location.state as { query?: string } | null)?.query?.trim() || undefined
+  const createQuery = searchQuery || stateQuery
 
   const startQueuedAnalysis = useCallback(
     async (query: string | undefined, signal?: AbortSignal) => {

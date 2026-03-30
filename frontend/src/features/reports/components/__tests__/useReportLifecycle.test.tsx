@@ -26,6 +26,9 @@ describe('useReportLifecycle', () => {
     intent: {
       keywords_en: ['ai', 'assistant'],
       keywords_zh: [],
+      exact_entities: [],
+      comparison_anchors: [],
+      search_goal: 'validate',
       app_type: 'web',
       target_scenario: 'legal workflow',
       output_language: 'en',

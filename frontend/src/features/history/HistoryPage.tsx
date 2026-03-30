@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, memo, useRef } from 'react'
+import { useCallback, useEffect, useState, memo, useRef, useId } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { Button, buttonVariants } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
 import type { ReportListItem } from '@/lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
 import { readHistoryCache, writeHistoryCache, type HistoryCacheSnapshot } from '@/features/history/historyCache'
@@ -14,24 +15,6 @@ import { readHistoryCache, writeHistoryCache, type HistoryCacheSnapshot } from '
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const PAGE_SIZE = 20
-
-function openDialogElement(dialog: HTMLDialogElement | null) {
-  if (!dialog) return
-  if (typeof dialog.showModal === 'function') {
-    dialog.showModal()
-    return
-  }
-  dialog.setAttribute('open', '')
-}
-
-function closeDialogElement(dialog: HTMLDialogElement | null) {
-  if (!dialog) return
-  if (typeof dialog.close === 'function') {
-    dialog.close()
-    return
-  }
-  dialog.removeAttribute('open')
-}
 
 interface HistoryReportCardProps {
   report: ReportListItem;
@@ -93,16 +76,9 @@ export function HistoryPage() {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [reportToDelete, setReportToDelete] = useState<string | null>(null)
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const initialCacheUsedRef = useRef(false)
-
-  useEffect(() => {
-    if (reportToDelete) {
-      openDialogElement(dialogRef.current)
-    } else {
-      closeDialogElement(dialogRef.current)
-    }
-  }, [reportToDelete])
+  const titleId = useId()
+  const descriptionId = useId()
   const [pageIndex, setPageIndex] = useState(() => initialCache?.pageIndex ?? 0)
   const [hasNextPage, setHasNextPage] = useState(() => initialCache?.hasNextPage ?? false)
 
@@ -338,24 +314,21 @@ export function HistoryPage() {
         )}
       </div>
 
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-        className="fixed inset-0 z-50 m-auto bg-transparent p-4 open:animate-fade-in backdrop:bg-foreground/45"
-        onCancel={() => setReportToDelete(null)}
-        onClick={(e) => {
-          if (e.target === dialogRef.current) setReportToDelete(null)
-        }}
+      <Dialog
+        open={reportToDelete !== null}
+        onClose={() => setReportToDelete(null)}
+        labelledBy={titleId}
+        describedBy={descriptionId}
+        panelClassName="w-full max-w-sm border-4 border-border bg-card p-6 shadow-lg"
       >
         <div
-          className="bg-card border-4 border-border shadow-lg p-6 max-w-sm w-full"
+          className="w-full"
           onClick={e => e.stopPropagation()}
         >
-          <h3 id="delete-dialog-title" className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
+          <h3 id={titleId} className="text-xl font-black uppercase tracking-tight mb-2 text-foreground">
             {t('history.deleteConfirmTitle')}
           </h3>
-          <p id="delete-dialog-description" className="text-sm font-medium text-muted-foreground mb-6">
+          <p id={descriptionId} className="text-sm font-medium text-muted-foreground mb-6">
             {t('history.deleteConfirm')}
           </p>
           <div className="flex gap-3 justify-end">
@@ -375,7 +348,7 @@ export function HistoryPage() {
             </Button>
           </div>
         </div>
-      </dialog>
+      </Dialog>
     </>
   )
 }

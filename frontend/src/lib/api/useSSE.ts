@@ -7,9 +7,11 @@ import { getAccessToken, setAccessToken } from '@/lib/auth/token'
 import { supabase } from '@/lib/supabase/client'
 import { findLastSseBoundary, parseSseChunk, shouldRetrySseStatus } from '@/lib/api/sse/parser'
 import { sseReducer } from '@/lib/api/sse/reducer'
+import { recordClientMetric } from '@/lib/telemetry/clientMetrics'
 
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 15000
+const MAX_RECONNECT_ATTEMPTS = 5
 const STREAM_EVENT_TYPES = new Set([
   'intent_started',
   'intent_parsed',
@@ -185,6 +187,15 @@ export function useSSE(reportId: string | null): UseSSEResult {
         attemptRef.current += 1
         reconnectAttemptsRef.current += 1
         lastFailureReasonRef.current = error instanceof Error ? error.message : 'unknown'
+        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          recordClientMetric('sse_reconnect_exhausted', {
+            reportId: id,
+            attempts: reconnectAttemptsRef.current,
+            reason: lastFailureReasonRef.current ?? 'unknown',
+          })
+          dispatch({ type: 'error', message: i18n.t('report.error.connectionLost') })
+          return
+        }
         dispatch({ type: 'reconnecting' })
         const delay = Math.min(
           BASE_DELAY_MS * Math.pow(2, attemptRef.current - 1),

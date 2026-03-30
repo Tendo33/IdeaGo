@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useRef } from 'react'
+import { useId, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Competitor } from '@/lib/types/research'
+import { Dialog } from '@/components/ui/Dialog'
 import { ComparePanelDesktopTable } from './ComparePanelDesktopTable'
 import { ComparePanelMobileView } from './ComparePanelMobileView'
 
@@ -14,89 +15,22 @@ interface ComparePanelProps {
 export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelProps) {
   const { t } = useTranslation()
   const headingId = useId()
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const previousFocusedRef = useRef<HTMLElement | null>(null)
 
   const allFeatures = useMemo(
     () => Array.from(new Set(competitors.flatMap(competitor => competitor.features))).sort(),
     [competitors],
   )
 
-  const getFocusableElements = () => {
-    const panel = panelRef.current
-    if (!panel) return []
-    return Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    )
-  }
-
-  useEffect(() => {
-    previousFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const focusable = getFocusableElements()
-    const firstFocusable = focusable[0]
-    if (firstFocusable) {
-      firstFocusable.focus()
-    } else {
-      dialogRef.current?.focus()
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-      if (event.key === 'Tab') {
-        const focusableElements = getFocusableElements()
-        if (focusableElements.length === 0) return
-        const first = focusableElements[0]
-        const last = focusableElements[focusableElements.length - 1]
-        const activeElement = document.activeElement
-        if (event.shiftKey && activeElement === first) {
-          event.preventDefault()
-          last.focus()
-        } else if (!event.shiftKey && activeElement === last) {
-          event.preventDefault()
-          first.focus()
-        }
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      document.removeEventListener('keydown', onKeyDown)
-      previousFocusedRef.current?.focus()
-    }
-  }, [onClose])
-
   if (competitors.length < 2) return null
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-6"
-      role="presentation"
+    <Dialog
+      open={competitors.length >= 2}
+      onClose={onClose}
+      labelledBy={headingId}
+      panelClassName="relative z-10 flex w-full max-w-6xl animate-fade-in"
     >
       <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-      id="compare-panel"
-      className="relative z-10 flex w-full max-w-6xl animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={headingId}
-      ref={dialogRef}
-      tabIndex={-1}
-    >
-      <div
-        ref={panelRef}
         className="flex max-h-[min(88vh,960px)] w-full flex-col border-2 border-border bg-card shadow"
       >
         <div className="flex items-center justify-between px-6 py-5 border-b-2 border-border shrink-0 bg-muted/45">
@@ -118,8 +52,7 @@ export function ComparePanel({ competitors, onRemove, onClose }: ComparePanelPro
           <ComparePanelDesktopTable competitors={competitors} allFeatures={allFeatures} onRemove={onRemove} />
         </div>
       </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 

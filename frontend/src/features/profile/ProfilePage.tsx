@@ -1,8 +1,9 @@
 import { Button, buttonVariants } from '@/components/ui/Button'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Dialog } from '@/components/ui/Dialog'
 import { useAuth } from '@/lib/auth/useAuth'
 import { getUserDisplayName, truncateMiddle } from '@/lib/auth/AuthContext'
 import {
@@ -10,6 +11,7 @@ import {
   getQuotaInfo,
   updateMyProfile,
   deleteAccount,
+  isApiError,
   type QuotaInfo,
   type UserProfile,
 } from '@/lib/api/client'
@@ -17,6 +19,37 @@ import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, Tras
 import { formatAppDate, formatAppDateTime } from '@/lib/utils/dateLocale'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
+function getDeleteAccountErrorMessage(
+  error: unknown,
+  t: (key: string, fallback: string) => string,
+): string {
+  if (isApiError(error)) {
+    const phase = typeof error.detail.phase === 'string' ? error.detail.phase : ''
+    if (phase === 'billing_cleanup') {
+      return t(
+        'profile.deleteErrorBilling',
+        'Billing cleanup failed. Subscription or customer cleanup needs attention.',
+      )
+    }
+    if (phase === 'domain_data_cleanup') {
+      return t(
+        'profile.deleteErrorDomainData',
+        'Account deletion stopped while removing your reports or profile data.',
+      )
+    }
+    if (phase === 'auth_identity_cleanup') {
+      return t(
+        'profile.deleteErrorAuthIdentity',
+        'Your account data was removed, but sign-in access could not be revoked yet.',
+      )
+    }
+  }
+
+  return error instanceof Error
+    ? error.message
+    : t('profile.deleteError', 'Failed to delete account')
+}
 
 export function ProfilePage() {
   const { t, i18n } = useTranslation()
@@ -36,6 +69,8 @@ export function ProfilePage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [imgError, setImgError] = useState(false)
+  const deleteTitleId = useId()
+  const deleteDescriptionId = useId()
 
   useEffect(() => {
     if (!user) return
@@ -312,18 +347,31 @@ export function ProfilePage() {
             <p className="text-sm font-bold text-destructive">{deleteError}</p>
           </div>
         )}
-        {!deleteConfirmOpen ? (
-          <Button
-            variant="destructive"
-            onClick={() => setDeleteConfirmOpen(true)}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            {t('profile.deleteAccount', 'Delete Account')}
-          </Button>
-        ) : (
-          <div className="border-2 border-destructive p-4 space-y-4">
-            <p className="text-sm font-black text-destructive">
-              {t('profile.deleteConfirm', 'Are you sure? All reports, profile data, and subscription will be permanently removed.')}
+        <Button
+          variant="destructive"
+          onClick={() => setDeleteConfirmOpen(true)}
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {t('profile.deleteAccount', 'Delete Account')}
+        </Button>
+
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => {
+            if (deleteLoading) return
+            setDeleteConfirmOpen(false)
+            setDeleteError('')
+          }}
+          labelledBy={deleteTitleId}
+          describedBy={deleteDescriptionId}
+          panelClassName="w-full max-w-md border-4 border-destructive bg-card p-6 shadow-lg"
+        >
+          <div className="space-y-4">
+            <h4 id={deleteTitleId} className="text-lg font-black uppercase tracking-wider text-destructive">
+              {t('profile.deleteAccount', 'Delete Account')}
+            </h4>
+            <p id={deleteDescriptionId} className="text-sm font-black text-destructive">
+              {t('profile.deleteConfirm', 'Are you sure? Your reports and profile data will be removed, and billing records will be cleared when available.')}
             </p>
             <div className="flex gap-3">
               <Button
@@ -337,9 +385,7 @@ export function ProfilePage() {
                     await signOut().catch(() => {})
                     window.location.href = '/'
                   } catch (err) {
-                    setDeleteError(
-                      err instanceof Error ? err.message : t('profile.deleteError', 'Failed to delete account')
-                    )
+                    setDeleteError(getDeleteAccountErrorMessage(err, t))
                     setDeleteLoading(false)
                   }
                 }}
@@ -362,7 +408,7 @@ export function ProfilePage() {
               </Button>
             </div>
           </div>
-        )}
+        </Dialog>
       </div>
     </div>
   )

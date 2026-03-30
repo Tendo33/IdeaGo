@@ -1,4 +1,11 @@
-export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'reddit'
+export type Platform =
+  | 'github'
+  | 'tavily'
+  | 'hackernews'
+  | 'appstore'
+  | 'producthunt'
+  | 'reddit'
+  | 'google_trends'
 
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 
@@ -185,6 +192,7 @@ export interface Competitor {
   strengths: string[]
   weaknesses: string[]
   relevance_score: number
+  relevance_kind?: 'direct' | 'adjacent'
   source_platforms: Platform[]
   source_urls: string[]
 }
@@ -307,6 +315,9 @@ export interface ReportMeta {
 export interface Intent {
   keywords_en: string[]
   keywords_zh: string[]
+  exact_entities: string[]
+  comparison_anchors: string[]
+  search_goal: string
   app_type: string
   target_scenario: string
   output_language: string

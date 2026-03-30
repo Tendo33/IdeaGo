@@ -6,6 +6,26 @@ import { UserMenu } from '@/features/auth/components/UserMenu'
 import { ProfilePage } from '@/features/profile/ProfilePage'
 
 const mockUser = { id: 'u1', email: 'test@test.com', display_name: '' }
+const apiTestState = vi.hoisted(() => {
+  const deleteAccountMock = vi.fn()
+
+  class MockApiError extends Error {
+    readonly statusCode: number
+    readonly code: string
+    readonly detail: Record<string, unknown>
+
+    constructor(message: string, statusCode: number, code = '', detail: Record<string, unknown> = {}) {
+      super(message)
+      this.name = 'ApiError'
+      this.statusCode = statusCode
+      this.code = code
+      this.detail = detail
+    }
+  }
+
+  return { deleteAccountMock, MockApiError }
+})
+
 let authState: { user: typeof mockUser | null; loading: boolean } = {
   user: mockUser,
   loading: false,
@@ -69,10 +89,12 @@ vi.mock('@/hooks/useDocumentTitle', () => ({
 }))
 
 vi.mock('@/lib/api/client', () => ({
+  ApiError: apiTestState.MockApiError,
+  isApiError: (error: unknown) => error instanceof apiTestState.MockApiError,
   getMyProfile: (...args: unknown[]) => getMyProfileMock(...args),
   getQuotaInfo: (...args: unknown[]) => getQuotaInfoMock(...args),
   updateMyProfile: vi.fn(),
-  deleteAccount: vi.fn(),
+  deleteAccount: (...args: unknown[]) => apiTestState.deleteAccountMock(...args),
 }))
 
 vi.mock('sonner', () => ({
@@ -234,6 +256,15 @@ describe('Identity presentation', () => {
       plan: 'free',
       reset_at: '2026-03-27T08:00:00Z',
     })
+    apiTestState.deleteAccountMock.mockReset()
+    apiTestState.deleteAccountMock.mockResolvedValue({
+      status: 'deleted',
+      cleanup: {
+        domain_data: 'deleted',
+        billing: 'skipped',
+        auth_identity: 'deleted',
+      },
+    })
   })
 
   it('prefers display name in the top navigation instead of a long relay email', async () => {
@@ -261,6 +292,42 @@ describe('Identity presentation', () => {
     const emailInput = screen.getByLabelText('Email') as HTMLInputElement
     expect(emailInput.value).not.toBe(currentUser.email)
     expect(emailInput).toHaveAttribute('title', currentUser.email)
+  })
+
+  it('shows structured account-deletion failure context from the backend', async () => {
+    apiTestState.deleteAccountMock.mockRejectedValueOnce(
+      new apiTestState.MockApiError(
+        'Failed to delete account: Failed to delete account during billing_cleanup',
+        500,
+        'INTERNAL_ERROR',
+        {
+          phase: 'billing_cleanup',
+          details: ['subscription_cancel_failed'],
+          cleanup: {
+            domain_data: 'pending',
+            billing: 'failed',
+            auth_identity: 'pending',
+          },
+        },
+      ),
+    )
+
+    render(
+      <MemoryRouter>
+        <ProfilePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('LinuxDoCoder')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete Account' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, Delete Everything' }))
+
+    expect(
+      await screen.findByText(
+        'Billing cleanup failed. Subscription or customer cleanup needs attention.',
+      ),
+    ).toBeInTheDocument()
   })
 })
 

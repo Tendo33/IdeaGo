@@ -146,7 +146,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(profile.role)
         }
       })
-      .catch(() => {})
+      .catch(error => {
+        if (cancelled) return
+        console.warn('Failed to hydrate auth profile', error)
+        setRole('user')
+      })
     return () => {
       cancelled = true
     }

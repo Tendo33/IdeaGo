@@ -18,6 +18,10 @@ class _Metrics:
     error_count: int = 0
     status_codes: dict[int, int] = field(default_factory=lambda: defaultdict(int))
     path_counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    event_counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    event_reasons: dict[str, dict[str, int]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(int))
+    )
     latency_sum_ms: float = 0.0
     latency_max_ms: float = 0.0
     started_at: float = field(default_factory=time.monotonic)
@@ -34,6 +38,16 @@ class _Metrics:
             if latency_ms > self.latency_max_ms:
                 self.latency_max_ms = latency_ms
 
+    def increment_event(
+        self, name: str, *, reason: str | None = None, count: int = 1
+    ) -> None:
+        if count <= 0:
+            return
+        with self._lock:
+            self.event_counts[name] += count
+            if reason:
+                self.event_reasons[name][reason] += count
+
     def snapshot(self) -> dict:
         with self._lock:
             avg = (
@@ -47,6 +61,10 @@ class _Metrics:
                 "avg_latency_ms": round(avg, 2),
                 "max_latency_ms": round(self.latency_max_ms, 2),
                 "status_codes": dict(self.status_codes),
+                "event_counts": dict(self.event_counts),
+                "event_reasons": {
+                    name: dict(reasons) for name, reasons in self.event_reasons.items()
+                },
                 "top_paths": dict(
                     sorted(
                         self.path_counts.items(), key=lambda kv: kv[1], reverse=True
@@ -60,6 +78,8 @@ class _Metrics:
             self.error_count = 0
             self.status_codes.clear()
             self.path_counts.clear()
+            self.event_counts.clear()
+            self.event_reasons.clear()
             self.latency_sum_ms = 0.0
             self.latency_max_ms = 0.0
             self.started_at = time.monotonic()

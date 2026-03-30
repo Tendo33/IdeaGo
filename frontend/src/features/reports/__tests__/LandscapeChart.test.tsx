@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getCompetitorDomId } from '@/features/reports/competitor'
 import type { Competitor } from '@/lib/types/research'
 import { LandscapeChart } from '@/features/reports/components/LandscapeChart'
+
+let scatterClickPayload: Record<string, unknown> | null = null
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -15,7 +17,11 @@ vi.mock('recharts', () => ({
     data: Array<Record<string, unknown>>
     onClick?: (entry: Record<string, unknown>) => void
   }) => (
-    <button type="button" data-testid="scatter-dot" onClick={() => onClick?.(data[0])}>
+    <button
+      type="button"
+      data-testid="scatter-dot"
+      onClick={() => onClick?.(scatterClickPayload ?? { payload: data[0] })}
+    >
       dot
     </button>
   ),
@@ -28,6 +34,10 @@ vi.mock('recharts', () => ({
 }))
 
 describe('LandscapeChart', () => {
+  beforeEach(() => {
+    scatterClickPayload = null
+  })
+
   it('scrolls to stable competitor anchor on dot click', () => {
     const competitor: Competitor = {
       name: 'Acme',
@@ -95,5 +105,28 @@ describe('LandscapeChart', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Jump to competitor Acme' }))
 
     expect(scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('ignores malformed scatter payloads without throwing', () => {
+    const competitor: Competitor = {
+      name: 'Acme',
+      links: ['https://acme.example.com'],
+      one_liner: 'Acme description',
+      features: ['feature-1'],
+      pricing: null,
+      strengths: [],
+      weaknesses: [],
+      relevance_score: 0.81,
+      source_platforms: ['github'],
+      source_urls: ['https://acme.example.com'],
+    }
+
+    scatterClickPayload = { payload: { unexpected: true } }
+
+    render(<LandscapeChart competitors={[competitor]} />)
+
+    expect(() => {
+      fireEvent.click(screen.getByTestId('scatter-dot'))
+    }).not.toThrow()
   })
 })

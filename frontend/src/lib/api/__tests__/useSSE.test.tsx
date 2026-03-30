@@ -1,9 +1,14 @@
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useSSE } from '../useSSE'
+import { recordClientMetric } from '@/lib/telemetry/clientMetrics'
 
 vi.mock('../client', () => ({
   getStreamUrl: (id: string) => `/api/v1/reports/${id}/stream`,
+}))
+
+vi.mock('@/lib/telemetry/clientMetrics', () => ({
+  recordClientMetric: vi.fn(),
 }))
 
 class MockResponseReader {
@@ -220,7 +225,7 @@ describe('useSSE', () => {
     expect(result.current.events[0]?.stage).toBe('tavily_search')
   })
 
-  it('keeps reconnecting after repeated transient failures', async () => {
+  it('stops reconnecting after repeated transient failures and exposes a terminal error', async () => {
     vi.useFakeTimers()
     const failingFetch = vi.fn().mockRejectedValue(new Error('network down'))
     vi.stubGlobal('fetch', failingFetch)
@@ -238,10 +243,62 @@ describe('useSSE', () => {
       })
     }
 
-    expect(failingFetch).toHaveBeenCalledTimes(9)
-    expect(result.current.error).toBeNull()
+    expect(failingFetch).toHaveBeenCalledTimes(5)
+    expect(result.current.error).toBeTruthy()
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.isReconnecting).toBe(false)
+    expect(result.current.lastFailureReason).toBe('network down')
+    expect(recordClientMetric).toHaveBeenCalledWith('sse_reconnect_exhausted', {
+      reportId: 'r1',
+      attempts: 5,
+      reason: 'network down',
+    })
+  })
+
+  it('resets reconnect counters after manual retry from a terminal stream failure', async () => {
+    vi.useFakeTimers()
+    const failingFetch = vi.fn().mockRejectedValue(new Error('network down'))
+    vi.stubGlobal('fetch', failingFetch)
+
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.reconnectAttempts).toBe(5)
+
+    failingFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => {
+          const reader = new MockResponseReader()
+          mockReaders.push(reader)
+          return reader
+        },
+      },
+    })
+
+    act(() => {
+      result.current.retry()
+    })
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
     expect(result.current.isComplete).toBe(false)
-    expect(result.current.isReconnecting).toBe(true)
+    expect(result.current.error).toBeNull()
+    expect(result.current.reconnectAttempts).toBe(0)
   })
 
   it('treats ping events as recovered connection state', async () => {

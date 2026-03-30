@@ -7,6 +7,7 @@ Provides machine-parseable error responses in the format:
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -44,9 +45,14 @@ class AppError(HTTPException):
         status_code: int,
         code: ErrorCode,
         message: str,
+        *,
+        extra: dict[str, Any] | None = None,
     ) -> None:
+        detail = {"code": code.value, "message": message}
+        if extra:
+            detail.update(extra)
         super().__init__(
             status_code=status_code,
-            detail={"code": code.value, "message": message},
+            detail=detail,
         )
         self.code = code

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -22,7 +23,7 @@ from ideago.auth.session import (
     set_auth_session_cookie,
 )
 from ideago.auth.supabase_admin import (
-    delete_user_data,
+    delete_user_account,
     ensure_profile_exists,
     get_profile,
     get_quota_info,
@@ -30,6 +31,7 @@ from ideago.auth.supabase_admin import (
 )
 from ideago.config.settings import get_settings
 from ideago.observability.audit import log_audit_event
+from ideago.observability.metrics import metrics as app_metrics
 
 router = APIRouter(tags=["auth"])
 
@@ -202,6 +204,13 @@ def _issue_auth_token(*, user_id: str, email: str, provider: str) -> str:
     return jwt.encode(payload, settings.auth_session_secret, algorithm="HS256")
 
 
+def _hash_email(email: str) -> str:
+    normalized = email.strip().lower()
+    if not normalized:
+        return ""
+    return hashlib.sha256(normalized.encode()).hexdigest()[:12]
+
+
 def _redirect_error(redirect_to: str, message: str) -> RedirectResponse:
     safe_message = message or "Authentication failed"
     parsed = urlparse(redirect_to)
@@ -357,7 +366,7 @@ async def linuxdo_callback(
     await log_audit_event(
         actor_id=user_id,
         action="auth.login",
-        metadata={"provider": "linuxdo", "email": email},
+        metadata={"provider": "linuxdo", "email_hash": _hash_email(email)},
         ip_address=request.client.host if request.client else None,
     )
     response = RedirectResponse(url=redirect_to, status_code=302)
@@ -482,13 +491,37 @@ async def delete_account(
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Permanently delete the authenticated user's account and all data."""
-    result = await delete_user_data(user.id)
+    result = await delete_user_account(user.id)
     if result.get("error"):
-        raise AppError(500, ErrorCode.INTERNAL_ERROR, "Failed to delete account")
+        phase = str(result.get("phase") or "unknown_phase")
+        details = list(result.get("details") or [])
+        cleanup = result.get("cleanup", {})
+        await log_audit_event(
+            actor_id=user.id,
+            action="auth.delete_account",
+            metadata={
+                "outcome": "failed",
+                "phase": phase,
+                "details": details,
+                "cleanup": cleanup,
+            },
+            ip_address=request.client.host if request.client else None,
+        )
+        app_metrics.increment_event("account_delete_failed", reason=phase)
+        raise AppError(
+            500,
+            ErrorCode.INTERNAL_ERROR,
+            f"Failed to delete account during {phase}",
+            extra={
+                "phase": phase,
+                "details": details,
+                "cleanup": cleanup,
+            },
+        )
     await log_audit_event(
         actor_id=user.id,
         action="auth.delete_account",
-        metadata={"email": user.email},
+        metadata={"cleanup": result.get("cleanup", {})},
         ip_address=request.client.host if request.client else None,
     )
-    return {"status": "deleted"}
+    return result

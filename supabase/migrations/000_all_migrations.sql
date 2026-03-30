@@ -232,6 +232,19 @@ create index if not exists idx_reports_user_id on public.reports (user_id);
 create index if not exists idx_reports_cache_key on public.reports (cache_key);
 create index if not exists idx_reports_created_at on public.reports (created_at desc);
 
+-- ============================================================================
+-- 014_reports_search_indexes.sql
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_reports_user_created_at
+  ON public.reports (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_reports_query_trgm
+  ON public.reports
+  USING gin (query gin_trgm_ops);
+
 -- Row Level Security
 alter table public.reports enable row level security;
 

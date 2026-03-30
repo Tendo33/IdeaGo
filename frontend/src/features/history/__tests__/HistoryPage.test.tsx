@@ -172,7 +172,7 @@ describe('HistoryPage', () => {
     })
   })
 
-  it('falls back to open attribute when dialog methods are unavailable', async () => {
+  it('opens a shared dialog and closes it from cancel actions', async () => {
     vi.mocked(listReports).mockResolvedValueOnce(
       paginated([
         {
@@ -184,67 +184,31 @@ describe('HistoryPage', () => {
       ]),
     )
 
-    const showModalDescriptor = Object.getOwnPropertyDescriptor(
-      HTMLDialogElement.prototype,
-      'showModal',
-    )
-    const closeDescriptor = Object.getOwnPropertyDescriptor(
-      HTMLDialogElement.prototype,
-      'close',
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
     )
 
-    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-      configurable: true,
-      value: undefined,
-    })
-    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
-      configurable: true,
-      value: undefined,
+    await waitFor(() => {
+      expect(screen.getByText('AI meeting notes')).toBeInTheDocument()
     })
 
-    try {
-      render(
-        <MemoryRouter initialEntries={['/history']}>
-          <Routes>
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
-          </Routes>
-        </MemoryRouter>,
-      )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-      await waitFor(() => {
-        expect(screen.getByText('AI meeting notes')).toBeInTheDocument()
-      })
+    fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
 
-      const dialog = document.querySelector('dialog')
-      expect(dialog).not.toBeNull()
-      expect(dialog).not.toHaveAttribute('open')
+    const dialog = await screen.findByRole('dialog', { name: /delete this report/i })
+    expect(dialog).toHaveAttribute('aria-describedby')
 
-      fireEvent.click(screen.getByRole('button', { name: /delete report/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
-      await waitFor(() => {
-        expect(dialog).toHaveAttribute('open')
-      })
-      expect(dialog).toHaveAttribute('aria-labelledby', 'delete-dialog-title')
-      expect(dialog).toHaveAttribute('aria-describedby', 'delete-dialog-description')
-
-      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-
-      await waitFor(() => {
-        expect(dialog).not.toHaveAttribute('open')
-      })
-    } finally {
-      if (showModalDescriptor) {
-        Object.defineProperty(HTMLDialogElement.prototype, 'showModal', showModalDescriptor)
-      } else {
-        delete (HTMLDialogElement.prototype as { showModal?: unknown }).showModal
-      }
-      if (closeDescriptor) {
-        Object.defineProperty(HTMLDialogElement.prototype, 'close', closeDescriptor)
-      } else {
-        delete (HTMLDialogElement.prototype as { close?: unknown }).close
-      }
-    }
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 
   it('renders cached history immediately while refreshing in the background', async () => {

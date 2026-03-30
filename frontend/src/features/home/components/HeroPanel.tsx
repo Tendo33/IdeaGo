@@ -48,6 +48,7 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   appstore: 'App Store',
   producthunt: 'Product Hunt',
   reddit: 'Reddit',
+  google_trends: 'Google Trends',
 }
 
 function SourceStatusInline({ sources }: { sources: SourceResult[] }) {

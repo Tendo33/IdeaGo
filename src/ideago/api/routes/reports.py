@@ -23,6 +23,7 @@ from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.cache.base import ReportRepository
 from ideago.models.research import ResearchReport
+from ideago.observability.metrics import metrics as app_metrics
 
 router = APIRouter(tags=["reports"])
 
@@ -169,6 +170,7 @@ async def get_report_status(
         if status_payload:
             owner_id = status_payload.get("user_id", "") or ""
     if not owner_id:
+        app_metrics.increment_event("report_status_not_found", reason="missing_owner")
         return ReportRuntimeStatus(status="not_found", report_id=report_id)
     if owner_id != user.id:
         raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
@@ -207,6 +209,7 @@ async def get_report_status(
                 query=status_payload.get("query"),
             )
 
+    app_metrics.increment_event("report_status_not_found", reason="missing_status")
     return ReportRuntimeStatus(status="not_found", report_id=report_id)
 
 

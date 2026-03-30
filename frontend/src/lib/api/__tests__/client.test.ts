@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
+  ApiError,
   startAnalysis,
   getReport,
   getReportWithStatus,
@@ -10,6 +11,7 @@ import {
   exportReport,
   getStreamUrl,
   startLinuxDoAuth,
+  deleteAccount,
 } from '../client'
 import { setAccessToken } from '@/lib/auth/token'
 
@@ -232,6 +234,45 @@ describe('cancelAnalysis', () => {
     await expect(cancelAnalysis('r1')).rejects.toThrow(
       'Failed to cancel analysis: No active analysis found for this report',
     )
+  })
+})
+
+describe('deleteAccount', () => {
+  it('preserves structured failure details from the backend', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () =>
+        Promise.resolve({
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to delete account during billing_cleanup',
+            phase: 'billing_cleanup',
+            details: ['subscription_cancel_failed'],
+            cleanup: {
+              domain_data: 'pending',
+              billing: 'failed',
+              auth_identity: 'pending',
+            },
+          },
+        }),
+    })
+
+    await expect(deleteAccount()).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Failed to delete account: Failed to delete account during billing_cleanup',
+      statusCode: 500,
+      code: 'INTERNAL_ERROR',
+      detail: {
+        phase: 'billing_cleanup',
+        details: ['subscription_cancel_failed'],
+        cleanup: {
+          domain_data: 'pending',
+          billing: 'failed',
+          auth_identity: 'pending',
+        },
+      },
+    } satisfies Partial<ApiError>)
   })
 })
 

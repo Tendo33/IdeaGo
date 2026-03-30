@@ -1,4 +1,4 @@
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell, type ScatterProps } from 'recharts'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -18,6 +18,8 @@ interface DataPoint {
   sources: number
   domId: string
 }
+
+type ScatterClickEntry = Parameters<NonNullable<ScatterProps<DataPoint, number>['onClick']>>[0]
 
 const ZONE_COLORS = {
   high: 'var(--primary)',
@@ -51,6 +53,32 @@ function CustomTooltip({ active, payload, t }: { active?: boolean; payload?: Arr
       </div>
     </div>
   )
+}
+
+function isDataPoint(value: unknown): value is DataPoint {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.name === 'string' &&
+    typeof candidate.oneLiner === 'string' &&
+    typeof candidate.features === 'number' &&
+    typeof candidate.relevance === 'number' &&
+    typeof candidate.sources === 'number' &&
+    typeof candidate.domId === 'string'
+  )
+}
+
+function getClickedDataPoint(entry: ScatterClickEntry): DataPoint | null {
+  if (isDataPoint(entry)) return entry
+  if (
+    entry &&
+    typeof entry === 'object' &&
+    'payload' in entry &&
+    isDataPoint((entry as { payload?: unknown }).payload)
+  ) {
+    return (entry as { payload: DataPoint }).payload
+  }
+  return null
 }
 
 export function LandscapeChart({ competitors }: LandscapeChartProps) {
@@ -109,6 +137,12 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
     }
   }
 
+  const handleScatterClick: NonNullable<ScatterProps<DataPoint, number>['onClick']> = entry => {
+    const point = getClickedDataPoint(entry)
+    if (!point) return
+    handleClick(point)
+  }
+
   return (
     <div className="rounded-none border-2 border-border bg-card shadow p-5 hover:border-ring/35 transition-colors duration-300">
       <div className="flex items-center justify-between mb-4">
@@ -146,8 +180,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
           <Tooltip content={<CustomTooltip t={t} />} cursor={false} />
           <Scatter
             data={data}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={(entry: any) => handleClick(entry)}
+            onClick={handleScatterClick}
             className="cursor-pointer"
           >
             {data.map((d, i) => (

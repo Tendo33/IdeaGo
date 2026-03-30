@@ -11,6 +11,9 @@ const report: ResearchReport = {
   intent: {
     keywords_en: ['startup', 'testing'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'find_direct_competitors',
     app_type: 'web',
     target_scenario: 'test scenario',
     output_language: 'en',

@@ -79,6 +79,9 @@ const BASE_REPORT: ResearchReport = {
   intent: {
     keywords_en: ['idea'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'validate',
     app_type: 'web',
     target_scenario: 'test scenario',
     output_language: 'en',
@@ -621,6 +624,41 @@ describe('ReportPage', () => {
       expect(startAnalysis).toHaveBeenNthCalledWith(1, 'retryable idea', expect.any(Object))
       expect(startAnalysis).toHaveBeenNthCalledWith(2, 'retryable idea', undefined)
     })
+  })
+
+  it('starts a new analysis from the URL query when /reports/new is refreshed directly', async () => {
+    vi.mocked(startAnalysis).mockResolvedValueOnce({ report_id: 'r-created-from-url' })
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'processing' })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new?q=url%20idea']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('url idea', expect.any(Object))
+    })
+  })
+
+  it('prefers the URL query over router state when both are present', async () => {
+    vi.mocked(startAnalysis).mockResolvedValueOnce({ report_id: 'r-created-from-url' })
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'processing' })
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/reports/new', search: '?q=url%20idea', state: { query: 'state idea' } }]}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('url idea', expect.any(Object))
+    })
+    expect(startAnalysis).not.toHaveBeenCalledWith('state idea', expect.anything())
   })
 
   it('restarts analysis when a completed report never becomes available', async () => {

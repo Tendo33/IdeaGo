@@ -8,6 +8,7 @@ export const platformColors: Record<Platform, string> = {
   hackernews: 'bg-chart-5/15 text-chart-5',
   appstore: 'bg-chart-1/15 text-chart-1',
   reddit: 'bg-success/10 text-success',
+  google_trends: 'bg-warning/15 text-warning',
 }
 
 export const PlatformIcon: Record<Platform, React.ElementType> = {
@@ -17,4 +18,5 @@ export const PlatformIcon: Record<Platform, React.ElementType> = {
   hackernews: Terminal,
   appstore: Smartphone,
   reddit: MessageCircle,
+  google_trends: Globe,
 }

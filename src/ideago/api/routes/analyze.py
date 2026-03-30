@@ -34,6 +34,7 @@ from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import check_and_increment_quota
 from ideago.notifications.service import notify_quota_warning, notify_report_ready
 from ideago.observability.log_config import get_logger
+from ideago.observability.metrics import metrics as app_metrics
 from ideago.pipeline.events import EventType, PipelineEvent
 
 logger = get_logger(__name__)
@@ -172,6 +173,9 @@ async def start_analysis(
         )
 
     if not report_id:
+        app_metrics.increment_event(
+            "analysis_start_failed", reason="reservation_failed"
+        )
         raise AppError(
             503,
             ErrorCode.INTERNAL_ERROR,
@@ -180,6 +184,10 @@ async def start_analysis(
 
     quota = await check_and_increment_quota(user.id)
     if not quota.allowed:
+        app_metrics.increment_event(
+            "analysis_start_failed",
+            reason=getattr(quota, "error", "") or "quota_exceeded",
+        )
         await release_processing_report(report_id)
         raise AppError(
             429,
