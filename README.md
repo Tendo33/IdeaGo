@@ -16,7 +16,8 @@
     <a href="#quick-start">Quick Start</a> ·
     <a href="#product-walkthrough">Product Walkthrough</a> ·
     <a href="#how-it-works">How It Works</a> ·
-    <a href="DEPLOYMENT.md">Deployment</a>
+    <a href="DEPLOYMENT.md">Deployment</a> ·
+    <a href="#acknowledgements">Acknowledgements</a>
   </p>
 
   <p>
@@ -334,6 +335,10 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
+
+## Acknowledgements
+
+Thanks to [Linux.do](https://linux.do/) for the references.
 
 ## License
 
