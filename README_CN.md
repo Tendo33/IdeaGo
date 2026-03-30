@@ -1,20 +1,21 @@
 <div align="center">
-  <img src="assets/icon.png" alt="IdeaGo logo" width="96" />
+  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
 
   <h1>IdeaGo</h1>
 
-  <p><strong>面向创业想法的决策优先型 Source Intelligence 工具。</strong></p>
+  <p><strong>几分钟内，把一个粗糙的想法变成结构化验证报告。</strong></p>
 
   <p>
-    IdeaGo 会把一条模糊的产品想法整理成结构化验证报告，输出推荐结论、痛点信号、
-    商业信号、空白机会、竞品、证据与置信度。
+    IdeaGo 交叉比对 6 个实时数据源 — GitHub、Tavily、Hacker News、App Store、Product Hunt
+    和 Reddit — 生成决策优先的报告，包含推荐结论、痛点信号、商业信号、空白机会、
+    竞争格局、证据链和置信度评分。
   </p>
 
   <p>
     <a href="README.md">English</a> ·
     <a href="#快速开始">快速开始</a> ·
+    <a href="#产品演示">产品演示</a> ·
     <a href="#工作原理">工作原理</a> ·
-    <a href="#项目结构">项目结构</a> ·
     <a href="DEPLOYMENT.md">部署说明</a>
   </p>
 
@@ -24,7 +25,6 @@
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A" alt="LangGraph" />
-    <img src="https://img.shields.io/badge/Branch-main%20%E2%86%92%20saas-111827" alt="Branch flow main to saas" />
     <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
   </p>
 </div>
@@ -33,58 +33,77 @@
 
 ## 项目概览
 
-IdeaGo 当前这份 README 对应的是 `main` 分支，也就是本地部署 / 个人部署版本：
-不需要登录，不依赖 Supabase，不包含账单系统，也没有账户体系。
+多数创业想法验证止步于表面概述。IdeaGo 更进一步：它会告诉你一个想法现在是否值得做，
+并用来自真实社区讨论、应用评论、开源活动和产品发布的结构化证据来支撑结论。
 
-如果你要的是带认证、Profile、Billing、Admin 的商业化版本，请切换到 `saas` 分支。
+报告按决策价值排序 — 推荐结论在前，然后是痛点信号、商业信号、空白机会、竞品、
+证据链和置信度评分。
 
-## 截图
+本版本可在本地运行，无需登录。带认证和计费功能的托管版请参阅 `saas` 分支。
 
-### Hero 截图
+## 产品演示
 
-![Hero Screenshot Placeholder](assets/banner_new.png)
+### 描述你的想法
 
+用自然语言输入产品想法。IdeaGo 提供快速建议，并展示历史报告方便随时查阅。
 
-### 报告详情截图
+![想法输入](docs/assets/1.png)
 
-![Report Screenshot Placeholder](assets/usage_new.png)
+### 实时分析流水线
 
-## 为什么是 IdeaGo
+逐步展示分析进度：意图拆解、查询规划、6 个平台并行检索、信号提取、报告组装 —
+全程通过 SSE 实时推送。
 
-很多想法验证工具只能给你一份“看起来像总结”的内容，但真正重要的问题其实是：
-这个方向现在值不值得做，为什么？
+![分析流水线](docs/assets/2.png)
 
-IdeaGo 的报告顺序是明确约定好的：
+### 决策摘要
 
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
+报告以最重要的信息开头：明确的推荐结论、机会评分、切入策略，以及痛点主题数、
+商业指标数和空白缺口数。
 
-这不是展示样式，而是产品契约本身。
+![决策摘要](docs/assets/3.png)
 
-## `main` 分支能做什么
+### 市场背景与竞争格局
 
-`main` 分支是匿名、轻部署、适合个人使用的产品线：
+了解市场时机，通过交互式散点图查看现有玩家在功能完备度和市场存在感上的分布。
 
-- 匿名提交想法并发起分析
+![市场背景](docs/assets/4.png)
+
+### 痛点信号与商业信号
+
+痛点信号呈现真实用户的高频困扰，带强度和频率评分。商业信号标出付费意愿指标和
+市场中的变现线索。
+
+![信号分析](docs/assets/5.png)
+
+### 空白机会
+
+识别现有产品覆盖不足的领域，每项机会附带潜力评分和支撑性证据引用。
+
+![空白机会](docs/assets/6.png)
+
+### 竞品目录
+
+浏览全部发现的竞品，按匹配度排序，支持按数据源筛选。每张卡片展示核心功能、
+优劣势、定价和原始来源链接。
+
+![竞品目录](docs/assets/7.png)
+
+### 证据与信任元数据
+
+每条结论都可追溯到源头证据。信任元数据为每条信息标注信号类型和来源平台，
+信任警告会标记置信度有限的区域。
+
+![证据链](docs/assets/8.png)
+
+## 功能特性
+
+- 匿名使用，无需登录
 - 通过本地文件缓存保留历史报告
-- 查看报告详情并导出 Markdown
-- 通过 SSE 实时查看长任务进度
-- 使用本地 SQLite 保存 LangGraph runtime checkpoint
-- 启动时不要求 Supabase、Stripe、LinuxDo 相关变量
-
-当前核心数据源包括：
-
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+- 报告详情页和 Markdown 导出
+- SSE 实时推送分析流水线进度
+- 本地 SQLite 保存 LangGraph 运行时 checkpoint
+- 支持 Docker Compose 部署
 
 ## 快速开始
 
@@ -168,9 +187,8 @@ curl http://localhost:8000/api/v1/health
 
 ## 工作原理
 
-IdeaGo 会把一条想法送入一条明确的检索链路：
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`。
-这条链路最终会生成一份决策优先的验证报告，之后也可以从历史记录里重新打开。
+IdeaGo 接收一条想法，通过意图解析和查询规划进行标准化，然后从 6 个数据源并行采集证据，
+提取结构化信号，组装决策优先的报告。报告可随时从历史记录中重新打开。
 
 ```mermaid
 flowchart TD
@@ -187,30 +205,19 @@ flowchart TD
     K --> L["组装报告"]
     L --> M["持久化报告与状态"]
     M --> N["报告详情 / 历史 / 导出"]
-    C -.-> O["带 query planning 阶段的 SSE 实时进度流"]
+    C -.-> O["SSE 实时进度流"]
 ```
 
-`main` 分支的运行模型：
+数据源分工：
 
-- API 路由：`/api/v1/analyze`、`/api/v1/reports`、`/api/v1/health`
-- source 抓取前会先经过显式的 query planning 阶段
-- 报告持久化：本地 `FileCache`
-- 运行 checkpoint：本地 SQLite
-- 进度更新方式：SSE
-- 用户流程：提交想法 -> 查看进度 -> 阅读报告 -> 从 history 重开 -> 导出 markdown
-
-`main` 分支固定的数据源分工：
-
-- Tavily：广覆盖召回
-- Reddit：痛点与迁移语言
-- GitHub：开源成熟度与生态信号
-- Hacker News：开发者/建设者情绪
-- App Store：评论聚类痛点
-- Product Hunt：发布定位与市场切入方式
+- **Tavily** — 广覆盖召回
+- **Reddit** — 痛点与迁移语言
+- **GitHub** — 开源成熟度与生态信号
+- **Hacker News** — 开发者/建设者讨论氛围
+- **App Store** — 评论聚类痛点
+- **Product Hunt** — 发布定位与市场切入方式
 
 ## API 概览
-
-`main` 分支公开 API：
 
 - `POST /api/v1/analyze`
 - `GET /api/v1/reports`
@@ -222,11 +229,9 @@ flowchart TD
 - `DELETE /api/v1/reports/{id}/cancel`
 - `GET /api/v1/health`
 
-`main` 不暴露 auth、billing、profile、pricing、admin 相关 API。
-
 ## 配置说明
 
-`main` 分支最重要的配置项：
+关键配置项：
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
@@ -244,17 +249,6 @@ Reddit 相关可选配置：
 
 如果没有 Reddit OAuth 凭据，只要 `REDDIT_ENABLE_PUBLIC_FALLBACK=true`，仍然可以退化到公开只读抓取。
 
-## 分支模型
-
-- `main`：个人 / 开源部署版本
-- `saas`：在同一核心产品上增加 auth、billing、profile、admin 与 SaaS 专属环境变量
-
-长期同步规则：
-
-- 通用产品能力先进 `main`
-- `saas` 再合并 `main`
-- 不要把 SaaS 运行时依赖重新带回 `main`
-
 ## 项目结构
 
 ```text
@@ -263,24 +257,9 @@ Reddit 相关可选配置：
 ├── frontend/src/        # React 前端
 ├── tests/               # 后端测试
 ├── ai_docs/             # 项目规范与说明
-├── assets/              # main 分支 README 使用的素材
-└── DEPLOYMENT.md        # main 分支部署说明
+├── docs/assets/         # README 截图素材
+└── DEPLOYMENT.md        # 部署说明
 ```
-
-关键后端目录：
-
-- `api/`：路由、schema、应用入口、错误处理
-- `pipeline/`：编排、事件、merger、extractor、intent parsing
-- `cache/`：文件缓存与持久化抽象
-- `sources/`：外部数据源抓取器
-
-关键前端目录：
-
-- `frontend/src/app`
-- `frontend/src/features/home`
-- `frontend/src/features/history`
-- `frontend/src/features/reports`
-- `frontend/src/lib/api`
 
 ## 文档入口
 
@@ -303,20 +282,6 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## 常见问题
-
-### 这是 SaaS 版本吗？
-
-不是。这份 README 描述的是 `main` 分支，目标是本地部署或个人部署。
-
-### `main` 需要 Supabase 或 Stripe 吗？
-
-不需要。`main` 必须在没有 Supabase、Stripe、LinuxDo 相关变量的情况下正常启动。
-
-### SaaS 文档应该放在哪里？
-
-放在 `saas` 分支里，不要把商业化部署说明混进 `main`。
 
 ## 许可证
 

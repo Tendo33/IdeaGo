@@ -1,20 +1,21 @@
 <div align="center">
-  <img src="assets/icon.png" alt="IdeaGo logo" width="96" />
+  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
 
   <h1>IdeaGo</h1>
 
-  <p><strong>Decision-first source intelligence for startup ideas.</strong></p>
+  <p><strong>Turn a rough idea into a structured validation report in minutes.</strong></p>
 
   <p>
-    IdeaGo turns a rough product idea into a structured validation report with recommendation,
-    pain signals, commercial signals, whitespace opportunities, competitors, evidence, and confidence.
+    IdeaGo cross-references 6 live sources — GitHub, Tavily, Hacker News, App Store, Product Hunt,
+    and Reddit — to produce a decision-first report with recommendation, pain signals, commercial
+    signals, whitespace opportunities, competitor landscape, evidence, and confidence scoring.
   </p>
 
   <p>
     <a href="README_CN.md">简体中文</a> ·
     <a href="#quick-start">Quick Start</a> ·
+    <a href="#product-walkthrough">Product Walkthrough</a> ·
     <a href="#how-it-works">How It Works</a> ·
-    <a href="#project-structure">Project Structure</a> ·
     <a href="DEPLOYMENT.md">Deployment</a>
   </p>
 
@@ -24,7 +25,6 @@
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A" alt="LangGraph" />
-    <img src="https://img.shields.io/badge/Branch-main%20%E2%86%92%20saas-111827" alt="Branch flow main to saas" />
     <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
   </p>
 </div>
@@ -33,58 +33,82 @@
 
 ## Overview
 
-IdeaGo is the `main` branch of the project: a local or personal-deployment edition with no login,
-no Supabase requirement, no billing, and no account system.
+Most idea validation stops at surface-level summaries. IdeaGo goes further: it tells you whether
+an idea is worth pursuing right now, and backs the recommendation with structured evidence from
+real community discussions, app reviews, open-source activity, and product launches.
 
-If you want the commercial version with auth, profile, billing, and admin flows, use the `saas`
-branch instead.
+The report is ordered by decision value — recommendation first, then pain signals, commercial
+signals, whitespace opportunities, competitors, evidence trail, and confidence scoring.
 
-## Screenshot
+This edition runs locally with no login required. A hosted version with authentication and billing
+is available on the `saas` branch.
 
-### Hero Screenshot
+## Product Walkthrough
 
-![Hero Screenshot Placeholder](assets/banner_new.png)
+### Describe Your Idea
 
-### Report Detail Screenshot
+Enter a product idea in plain language. IdeaGo provides quick-start suggestions and shows your
+recent reports for easy access.
 
-![Report Screenshot Placeholder](assets/usage_new.png)
+![Idea Input](docs/assets/1.png)
 
-## Why IdeaGo
+### Real-time Analysis Pipeline
 
-Most idea validation tools stop at surface-level summaries. IdeaGo is built for the question that
-comes next: should this idea move forward now, and why?
+Watch the analysis unfold step by step: intent parsing, query planning, source retrieval across
+6 platforms, signal extraction, and report assembly — all streamed live via SSE.
 
-It keeps the report decision-first:
+![Analysis Pipeline](docs/assets/2.png)
 
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
+### Decision Summary
 
-That ordering is part of the product contract, not a presentation detail.
+The report opens with what matters most: a clear recommendation, opportunity score, entry strategy,
+and signal counts for pain themes, commercial indicators, and whitespace gaps.
 
-## What You Get On `main`
+![Decision Summary](docs/assets/3.png)
 
-The `main` branch is the anonymous, personal-deployment line of the product:
+### Market Context & Competitive Landscape
 
-- anonymous analysis flow
-- persisted report history through local file cache
-- report detail pages and markdown export
-- SSE progress streaming during long-running analysis
-- local SQLite checkpoints for LangGraph runtime state
-- no Supabase, no Stripe, no LinuxDo variables required to boot
+Understand the market timing and see how existing players map across feature completeness and
+market presence through an interactive scatter chart.
 
-Core sources currently include:
+![Market Context](docs/assets/4.png)
 
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+### Pain Signals & Commercial Signals
+
+Pain signals surface real user frustrations with strength and frequency scores. Commercial signals
+highlight willingness-to-pay indicators and monetization clues from the market.
+
+![Signals](docs/assets/5.png)
+
+### Whitespace Opportunities
+
+Identify underserved areas where existing products fall short, each scored by potential and
+backed by supporting evidence references.
+
+![Whitespace](docs/assets/6.png)
+
+### Competitor Directory
+
+Browse all discovered competitors with match scores, filterable by data source. Each card
+shows key features, strengths, weaknesses, pricing, and a link to the original source.
+
+![Competitors](docs/assets/7.png)
+
+### Evidence & Trust Metadata
+
+Every conclusion traces back to source evidence. Trust metadata tags each piece by signal type
+and platform, and trust warnings flag areas where confidence is limited.
+
+![Evidence](docs/assets/8.png)
+
+## Features
+
+- Anonymous analysis flow with no login required
+- Persisted report history through local file cache
+- Report detail pages and markdown export
+- SSE progress streaming with live pipeline steps
+- Local SQLite checkpoints for LangGraph runtime state
+- Docker Compose deployment with published image
 
 ## Quick Start
 
@@ -168,9 +192,9 @@ curl http://localhost:8000/api/v1/health
 
 ## How It Works
 
-IdeaGo takes a single idea and pushes it through an explicit retrieval chain:
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`.
-That chain produces a decision-first report that can be reopened from history later.
+IdeaGo takes a single idea, normalizes it through intent parsing and query planning, gathers
+evidence from 6 sources in parallel, extracts structured signals, and assembles a decision-first
+report that can be reopened from history later.
 
 ```mermaid
 flowchart TD
@@ -187,30 +211,19 @@ flowchart TD
     K --> L["Assemble report"]
     L --> M["Persist report + status"]
     M --> N["Report detail / history / export"]
-    C -.-> O["SSE progress stream with query planning stage"]
+    C -.-> O["SSE progress stream"]
 ```
 
-Runtime model on `main`:
+Source roles are fixed:
 
-- API routes: `/api/v1/analyze`, `/api/v1/reports`, `/api/v1/health`
-- explicit query-planning stage before source fetch
-- report persistence: local `FileCache`
-- runtime checkpoints: local SQLite
-- progress updates: SSE
-- user flow: submit idea -> stream progress -> read report -> reopen from history -> export markdown
-
-Fixed source-role split on `main`:
-
-- Tavily for broad recall
-- Reddit for pain and migration language
-- GitHub for open-source maturity and ecosystem signals
-- Hacker News for builder sentiment
-- App Store for review-cluster pain
-- Product Hunt for launch positioning
+- **Tavily** — broad recall and web coverage
+- **Reddit** — pain language and migration discussions
+- **GitHub** — open-source maturity and ecosystem signals
+- **Hacker News** — builder sentiment and technical discourse
+- **App Store** — review-cluster pain from real users
+- **Product Hunt** — launch positioning and market entry patterns
 
 ## API Overview
-
-Public API on `main`:
 
 - `POST /api/v1/analyze`
 - `GET /api/v1/reports`
@@ -222,11 +235,9 @@ Public API on `main`:
 - `DELETE /api/v1/reports/{id}/cancel`
 - `GET /api/v1/health`
 
-`main` does not expose auth, billing, profile, pricing, or admin APIs.
-
 ## Configuration Notes
 
-Important settings on `main`:
+Key settings:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
@@ -245,17 +256,6 @@ Optional Reddit credentials:
 If Reddit OAuth credentials are missing, public read fallback can still work when
 `REDDIT_ENABLE_PUBLIC_FALLBACK=true`.
 
-## Branch Model
-
-- `main`: personal/open-source deployment only
-- `saas`: same core product, plus auth, billing, profile, admin, and SaaS-only environment variables
-
-Sync rule:
-
-- shared product work lands on `main`
-- `saas` pulls from `main`
-- do not move SaaS runtime dependencies back into `main`
-
 ## Project Structure
 
 ```text
@@ -264,24 +264,9 @@ Sync rule:
 ├── frontend/src/        # React app
 ├── tests/               # Backend tests
 ├── ai_docs/             # Project standards and guides
-├── assets/              # README assets used on main
-└── DEPLOYMENT.md        # Main-branch deployment guide
+├── docs/assets/         # README screenshots
+└── DEPLOYMENT.md        # Deployment guide
 ```
-
-Key backend areas:
-
-- `api/`: routes, schemas, app setup, errors
-- `pipeline/`: orchestration, events, merger, extractor, intent parsing
-- `cache/`: file cache and persistence abstractions
-- `sources/`: external source fetchers
-
-Key frontend areas:
-
-- `frontend/src/app`
-- `frontend/src/features/home`
-- `frontend/src/features/history`
-- `frontend/src/features/reports`
-- `frontend/src/lib/api`
 
 ## Documentation
 
@@ -304,20 +289,6 @@ pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## FAQ
-
-### Is this the SaaS version?
-
-No. This README describes the `main` branch, which is meant for local or personal deployment.
-
-### Does `main` require Supabase or Stripe?
-
-No. `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
-
-### Where should SaaS docs live?
-
-On the `saas` branch. Keep commercial deployment docs there instead of mixing them into `main`.
 
 ## License
 
