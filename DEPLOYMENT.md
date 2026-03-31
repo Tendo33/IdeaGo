@@ -1,28 +1,42 @@
-# IdeaGo Deployment Guide
+# IdeaGo `main` Deployment Guide
 
-This document describes how to deploy the `main` branch.
+This document describes how to deploy the anonymous `main` branch.
 
 `main` is the personal/open-source deployment line:
 
 - anonymous usage
 - local file cache
 - local SQLite checkpoints
-- no Supabase
+- no Supabase requirement
 - no login
 - no billing
 
-If you need the commercial/authenticated deployment, use the `saas` branch instead. SaaS-specific deployment docs belong there.
+If you need the hosted/authenticated runtime, use the `saas` branch instead.
 
-## 1. Minimum Requirements
+## 1. Current Deployment Model
 
-- VPS or local machine with Docker, or a local workstation for direct run
+The `main` branch is designed to boot with a very small environment surface.
+
+You do not need:
+
+- Supabase
+- Stripe
+- LinuxDo OAuth
+- hosted admin infrastructure
+
+You do need:
+
+- OpenAI API access
+
+## 2. Minimum Requirements
+
 - Python 3.10+
 - Node.js 20+
 - `uv`
 - `pnpm`
 - `OPENAI_API_KEY`
 
-Recommended:
+Recommended for fuller source coverage:
 
 - `TAVILY_API_KEY`
 - `GITHUB_TOKEN`
@@ -30,7 +44,9 @@ Recommended:
 - `REDDIT_CLIENT_ID`
 - `REDDIT_CLIENT_SECRET`
 
-## 2. Environment
+## 3. Environment
+
+Create both env files:
 
 ```bash
 cp .env.example .env
@@ -50,13 +66,20 @@ LANGGRAPH_CHECKPOINT_DB_PATH=.cache/ideago/langgraph-checkpoints.db
 CORS_ALLOW_ORIGINS=https://your-domain.example
 ```
 
+Frontend settings are intentionally minimal:
+
+```bash
+VITE_API_BASE_URL=
+VITE_SENTRY_DSN=
+```
+
 Important:
 
 - `main` does not need Supabase variables.
 - `main` does not need Stripe variables.
 - `main` does not need LinuxDo variables.
 
-## 3. Local Development Run
+## 4. Local Development Run
 
 Terminal 1:
 
@@ -70,41 +93,38 @@ Terminal 2:
 pnpm --prefix frontend dev
 ```
 
-## 4. Single-Process Local Deployment
+## 5. Single-Process Source Run
 
 ```bash
 pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
-This serves the built frontend from the FastAPI app.
+FastAPI serves the built frontend from `frontend/dist`.
 
-## 5. Docker Deployment
+## 6. Docker Deployment
 
-Pull and run the published image:
+The default `docker-compose.yml` on `main` pulls the published image:
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-Recommended persistent mounts:
-
-- cache directory for reports
-- SQLite checkpoint file directory
-
-If you manage Docker yourself, make sure these paths survive container restarts:
-
-- `CACHE_DIR`
-- parent directory of `LANGGRAPH_CHECKPOINT_DB_PATH`
-
-Optional: pin to a release tag instead of `latest`:
+Optional: pin to a specific tag:
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.5 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
 ```
 
-## 6. Reverse Proxy
+If you prefer to build locally from source, the branch also includes a Dockerfile.
+
+Recommended persistent mounts:
+
+- `CACHE_DIR`
+- the parent directory of `LANGGRAPH_CHECKPOINT_DB_PATH`
+
+## 7. Reverse Proxy
 
 For public deployment, put IdeaGo behind a reverse proxy such as:
 
@@ -117,17 +137,17 @@ Recommendations:
 
 - terminate TLS at the proxy
 - keep `CORS_ALLOW_ORIGINS` explicit
-- avoid exposing the backend directly without rate limiting or gateway controls
+- avoid exposing the backend directly without gateway-level controls
 
-## 7. Runtime Behavior
+## 8. Runtime Behavior
 
 On `main`, the expected flow is:
 
-1. user submits idea
-2. backend creates analysis job
+1. user submits an idea
+2. backend creates an analysis job
 3. frontend watches SSE progress
 4. report is persisted locally
-5. report remains visible in history until TTL cleanup removes anonymous entries
+5. report remains visible in history until TTL cleanup removes it
 
 Storage model:
 
@@ -135,20 +155,31 @@ Storage model:
 - runtime status: local status files
 - pipeline checkpoints: SQLite
 
-## 8. Operational Notes
+## 9. Operational Notes
 
 - Anonymous reports expire based on `ANONYMOUS_CACHE_TTL_HOURS`
-- Owned/account-based persistence is not part of `main`
+- Account-bound persistence is not part of `main`
 - Reddit can fall back to public read-only mode if OAuth credentials are not configured
 - In production, do not leave `CORS_ALLOW_ORIGINS=*`
 
-## 9. Update Strategy
+## 10. Verification Checklist
 
-Long-term branch policy:
+- backend starts without Supabase, Stripe, or LinuxDo env vars
+- frontend build succeeds
+- `/api/v1/health` returns success
+- anonymous analyze works
+- SSE progress updates render
+- report detail opens after completion
+- history can reopen the report
+- markdown export works
+
+## 11. Update Strategy
+
+Branch policy:
 
 - shared/core product changes land in `main`
 - `saas` merges `main`
-- do not merge the entire `saas` branch back into `main`
+- do not merge hosted-only runtime dependencies back into `main`
 
 When updating a running `main` deployment:
 
@@ -167,14 +198,3 @@ git pull
 pnpm --prefix frontend build
 uv run python -m ideago
 ```
-
-## 10. Verification Checklist
-
-- backend starts without Supabase, Stripe, or LinuxDo env vars
-- frontend build succeeds
-- `/api/v1/health` returns `{"status":"ok"}`
-- anonymous analyze works
-- SSE progress updates render
-- report detail opens after completion
-- history can reopen the report
-- markdown export works

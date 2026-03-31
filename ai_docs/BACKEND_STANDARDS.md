@@ -1,6 +1,6 @@
 # Backend Development Standards
 
-This document defines default backend practices for this repository.
+This document defines backend expectations for the anonymous `main` branch.
 
 ## Current Stack
 
@@ -8,7 +8,7 @@ This document defines default backend practices for this repository.
 - FastAPI
 - Pydantic v2
 - LangGraph + LangChain OpenAI
-- Local file cache for persisted reports
+- local file cache for persisted reports
 - SQLite checkpoints for runtime state
 - `uv`, `ruff`, `mypy`, `pytest`
 
@@ -36,11 +36,11 @@ Rules:
 
 - Versioned prefix: `/api/v1`
 - Public routes on `main`: `analyze`, `reports`, `health`
-- No auth, billing, or admin routes on `main`
+- No auth, billing, profile, or admin routes on `main`
 - Analyze, report detail, report status, report export, and history are anonymous on `main`
 - Mutating routes require `X-Requested-With`
 
-## Data and Persistence
+## Data And Persistence
 
 - `main` persists completed reports through `FileCache`
 - `main` persists pipeline checkpoints through local SQLite
@@ -51,10 +51,10 @@ Rules:
 ## Security Baseline
 
 - CSRF protection on mutating API routes through `X-Requested-With`
-- In-memory rate limiting for analyze and reports
+- in-memory rate limiting for analyze and reports
 - CORS must be explicit in production
-- Never hardcode secrets
-- Avoid logging PII or raw secrets
+- never hardcode secrets
+- avoid logging PII or raw secrets
 
 ## Source Intelligence V2
 

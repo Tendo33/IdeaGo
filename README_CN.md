@@ -6,16 +6,17 @@
   <p><strong>面向创业想法的决策优先型 Source Intelligence 工具。</strong></p>
 
   <p>
-    IdeaGo 会把一条模糊的产品想法整理成结构化验证报告，输出推荐结论、痛点信号、
-    商业信号、空白机会、竞品、证据与置信度。
+    IdeaGo 会把一条模糊的产品想法转成结构化验证报告，输出 recommendation、why-now、
+    pain signals、commercial signals、whitespace opportunities、competitors、evidence 与 confidence。
   </p>
 
   <p>
     <a href="README.md">English</a> ·
     <a href="#快速开始">快速开始</a> ·
+    <a href="#main-分支负责什么">分支范围</a> ·
     <a href="#工作原理">工作原理</a> ·
-    <a href="#项目结构">项目结构</a> ·
-    <a href="DEPLOYMENT.md">部署说明</a>
+    <a href="DEPLOYMENT.md">部署说明</a> ·
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
   </p>
 
   <p>
@@ -23,9 +24,7 @@
     <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A" alt="LangGraph" />
-    <img src="https://img.shields.io/badge/Branch-main%20%E2%86%92%20saas-111827" alt="Branch flow main to saas" />
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+    <img src="https://img.shields.io/badge/Branch-main-111827" alt="Branch main" />
   </p>
 </div>
 
@@ -33,58 +32,59 @@
 
 ## 项目概览
 
-IdeaGo 当前这份 README 对应的是 `main` 分支，也就是本地部署 / 个人部署版本：
-不需要登录，不依赖 Supabase，不包含账单系统，也没有账户体系。
+这份 README 描述的是 `main` 分支。
 
-如果你要的是带认证、Profile、Billing、Admin 的商业化版本，请切换到 `saas` 分支。
+`main` 是 IdeaGo 的匿名与个人部署产品线。它和 `saas` 共用同一套 Source Intelligence V2
+分析内核，但刻意去掉了托管产品需要的运行时能力：
+
+- 不需要登录
+- 没有 profile 系统
+- 启动不依赖 Supabase
+- 没有 admin 后台
+- 没有 billing 和 pricing UI
+
+如果你要的是带认证、数据归属、管理后台与 SaaS 部署行为的版本，请切换到 `saas` 分支。
+
+## `main` 分支负责什么
+
+### 当前产品契约
+
+IdeaGo 现在已经不是单纯的竞品搜索流程。报告契约是决策优先的：
+
+1. recommendation / why-now
+2. pain signals
+3. commercial signals
+4. whitespace opportunities
+5. competitors
+6. evidence
+7. confidence
+
+### 当前运行面
+
+- 匿名提交想法
+- SSE 实时进度流
+- 本地 file cache 保存报告历史
+- 报告详情与 Markdown 导出
+- 本地 SQLite 保存 LangGraph checkpoint
+- 没有账户归属模型
+
+### 当前路由面
+
+- `/`
+- `/reports`
+- `/reports/:id`
+
+仓库里虽然还有一些共享/法律页面文件，但 `main` 当前真正对外暴露的路由故意保持匿名且精简。
 
 ## 截图
 
-### Hero 截图
+### 首页
 
-![Hero Screenshot Placeholder](assets/banner_new.png)
+![首页截图](assets/banner_new.png)
 
+### 报告详情
 
-### 报告详情截图
-
-![Report Screenshot Placeholder](assets/usage_new.png)
-
-## 为什么是 IdeaGo
-
-很多想法验证工具只能给你一份“看起来像总结”的内容，但真正重要的问题其实是：
-这个方向现在值不值得做，为什么？
-
-IdeaGo 的报告顺序是明确约定好的：
-
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
-
-这不是展示样式，而是产品契约本身。
-
-## `main` 分支能做什么
-
-`main` 分支是匿名、轻部署、适合个人使用的产品线：
-
-- 匿名提交想法并发起分析
-- 通过本地文件缓存保留历史报告
-- 查看报告详情并导出 Markdown
-- 通过 SSE 实时查看长任务进度
-- 使用本地 SQLite 保存 LangGraph runtime checkpoint
-- 启动时不要求 Supabase、Stripe、LinuxDo 相关变量
-
-当前核心数据源包括：
-
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+![报告截图](assets/usage_new.png)
 
 ## 快速开始
 
@@ -94,6 +94,18 @@ IdeaGo 的报告顺序是明确约定好的：
 - [uv](https://github.com/astral-sh/uv)
 - Node.js 20+
 - `pnpm`
+
+最小必要密钥：
+
+- `OPENAI_API_KEY`
+
+推荐用于增强数据覆盖：
+
+- `TAVILY_API_KEY`
+- `GITHUB_TOKEN`
+- `PRODUCTHUNT_DEV_TOKEN`
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
 
 ### 安装依赖
 
@@ -109,12 +121,22 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-最小可用配置：
+最小可运行配置：
 
-- 必需：`OPENAI_API_KEY`
-- 推荐：`TAVILY_API_KEY`
+- `OPENAI_API_KEY`
 
-其余默认值已经写在 [`.env.example`](.env.example)。
+常用本地运行设置：
+
+- `CACHE_DIR`
+- `ANONYMOUS_CACHE_TTL_HOURS`
+- `FILE_CACHE_MAX_ENTRIES`
+- `LANGGRAPH_CHECKPOINT_DB_PATH`
+- `CORS_ALLOW_ORIGINS`
+
+`main` 的前端配置刻意保持很小：
+
+- `VITE_API_BASE_URL`
+- `VITE_SENTRY_DSN`
 
 ### 本地开发运行
 
@@ -144,33 +166,30 @@ uv run python -m ideago
 
 打开：[http://localhost:8000](http://localhost:8000)
 
-### 使用 Docker Compose 运行（远端镜像）
+### Docker Compose
 
-默认的 `docker-compose.yml` 会使用已发布的 Docker Hub 镜像（`simonsun3/ideago`）。
+`main` 自带的 `docker-compose.yml` 默认会从 Docker Hub 拉取已发布镜像：
 
 ```bash
-cp .env.example .env
 docker compose pull
 docker compose up -d
 ```
 
-可选：固定到某个发布版本，而不是 `latest`：
+如果想固定到某个发布版本，而不是 `latest`：
 
 ```bash
 IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
 ```
 
-验证：
-
-```bash
-curl http://localhost:8000/api/v1/health
-```
+如果你想自行构建，分支里也保留了 Dockerfile。
 
 ## 工作原理
 
-IdeaGo 会把一条想法送入一条明确的检索链路：
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`。
-这条链路最终会生成一份决策优先的验证报告，之后也可以从历史记录里重新打开。
+IdeaGo 运行的是一条明确的 Source Intelligence V2 管线：
+
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`
+
+最终生成的决策优先报告会被本地持久化，之后可以从历史里再次打开。
 
 ```mermaid
 flowchart TD
@@ -179,34 +198,25 @@ flowchart TD
     C --> D["意图解析"]
     D --> E["查询规划与改写"]
     E --> F["平台适配"]
-    F --> G{"是否命中缓存"}
+    F --> G{"本地缓存是否命中"}
     G -->|是| H["返回已持久化报告"]
-    G -->|否| I["抓取外部数据源"]
+    G -->|否| I["抓取六类实时数据源"]
     I --> J["提取结构化信号"]
     J --> K["聚合洞察"]
-    K --> L["组装报告"]
-    L --> M["持久化报告与状态"]
-    M --> N["报告详情 / 历史 / 导出"]
-    C -.-> O["带 query planning 阶段的 SSE 实时进度流"]
+    K --> L["组装决策优先报告"]
+    L --> M["持久化报告与运行状态"]
+    M --> N["历史 / 详情 / 导出"]
+    C -.-> O["SSE 实时进度流"]
 ```
 
-`main` 分支的运行模型：
-
-- API 路由：`/api/v1/analyze`、`/api/v1/reports`、`/api/v1/health`
-- source 抓取前会先经过显式的 query planning 阶段
-- 报告持久化：本地 `FileCache`
-- 运行 checkpoint：本地 SQLite
-- 进度更新方式：SSE
-- 用户流程：提交想法 -> 查看进度 -> 阅读报告 -> 从 history 重开 -> 导出 markdown
-
-`main` 分支固定的数据源分工：
+固定的数据源分工：
 
 - Tavily：广覆盖召回
 - Reddit：痛点与迁移语言
 - GitHub：开源成熟度与生态信号
-- Hacker News：开发者/建设者情绪
+- Hacker News：builder sentiment
 - App Store：评论聚类痛点
-- Product Hunt：发布定位与市场切入方式
+- Product Hunt：发布定位
 
 ## API 概览
 
@@ -226,7 +236,7 @@ flowchart TD
 
 ## 配置说明
 
-`main` 分支最重要的配置项：
+`main` 上比较重要的配置：
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
@@ -237,87 +247,70 @@ flowchart TD
 - `LANGGRAPH_CHECKPOINT_DB_PATH`
 - `CORS_ALLOW_ORIGINS`
 
-Reddit 相关可选配置：
+Reddit 相关可选设置：
 
 - `REDDIT_CLIENT_ID`
 - `REDDIT_CLIENT_SECRET`
+- `REDDIT_ENABLE_PUBLIC_FALLBACK`
+- `REDDIT_PUBLIC_FALLBACK_LIMIT`
+- `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS`
 
-如果没有 Reddit OAuth 凭据，只要 `REDDIT_ENABLE_PUBLIC_FALLBACK=true`，仍然可以退化到公开只读抓取。
-
-## 分支模型
-
-- `main`：个人 / 开源部署版本
-- `saas`：在同一核心产品上增加 auth、billing、profile、admin 与 SaaS 专属环境变量
-
-长期同步规则：
-
-- 通用产品能力先进 `main`
-- `saas` 再合并 `main`
-- 不要把 SaaS 运行时依赖重新带回 `main`
+在 `main` 上，如果没有 Reddit OAuth，公开只读 fallback 默认可用。
 
 ## 项目结构
 
-```text
-.
-├── src/ideago/          # FastAPI 应用、LangGraph 管线、数据源、模型
-├── frontend/src/        # React 前端
-├── tests/               # 后端测试
-├── ai_docs/             # 项目规范与说明
-├── assets/              # main 分支 README 使用的素材
-└── DEPLOYMENT.md        # main 分支部署说明
-```
+### 后端
 
-关键后端目录：
+- `src/ideago/api`：FastAPI app、路由、中间件、schema
+- `src/ideago/cache`：本地报告持久化
+- `src/ideago/config`：运行时配置
+- `src/ideago/models`：领域模型与报告契约
+- `src/ideago/pipeline`：编排、提取、聚合、报告组装
+- `src/ideago/sources`：六类数据源接入
 
-- `api/`：路由、schema、应用入口、错误处理
-- `pipeline/`：编排、事件、merger、extractor、intent parsing
-- `cache/`：文件缓存与持久化抽象
-- `sources/`：外部数据源抓取器
+### 前端
 
-关键前端目录：
+- `frontend/src/app`：路由、壳层、导航、错误边界
+- `frontend/src/features/home`：主搜索体验
+- `frontend/src/features/history`：本地报告历史
+- `frontend/src/features/reports`：报告详情与进度视图
+- `frontend/src/lib/api`：typed API client 与 SSE
+- `frontend/src/lib/i18n`：国际化
+- `frontend/src/components/ui`：共享 UI primitive
 
-- `frontend/src/app`
-- `frontend/src/features/home`
-- `frontend/src/features/history`
-- `frontend/src/features/reports`
-- `frontend/src/lib/api`
+## 分支模型
 
-## 文档入口
+- `main`：匿名 / 个人部署产品线
+- `saas`：托管 / 商业化产品线
 
-- [部署说明](DEPLOYMENT.md)
-- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
-- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
-- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
-- [Settings Guide](ai_docs/SETTINGS_GUIDE.md)
+同步规则：
+
+- 通用产品能力先进 `main`
+- `saas` 再合并 `main`
+- 不要把托管版依赖重新带回 `main`
+
+## 文档导航
+
+- 核心工程契约：[ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
+- 后端约定：[ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
+- 前端约定：[ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
+- 设置与环境变量：[ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- 部署说明：[DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 验证命令
 
+在宣称完成之前，按任务范围运行：
+
 ```bash
+# Backend
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
 
+# Frontend
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## 常见问题
-
-### 这是 SaaS 版本吗？
-
-不是。这份 README 描述的是 `main` 分支，目标是本地部署或个人部署。
-
-### `main` 需要 Supabase 或 Stripe 吗？
-
-不需要。`main` 必须在没有 Supabase、Stripe、LinuxDo 相关变量的情况下正常启动。
-
-### SaaS 文档应该放在哪里？
-
-放在 `saas` 分支里，不要把商业化部署说明混进 `main`。
-
-## 许可证
-
-MIT，见 [LICENSE](LICENSE)。

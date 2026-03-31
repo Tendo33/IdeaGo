@@ -7,15 +7,17 @@
 
   <p>
     IdeaGo turns a rough product idea into a structured validation report with recommendation,
-    pain signals, commercial signals, whitespace opportunities, competitors, evidence, and confidence.
+    why-now framing, pain signals, commercial signals, whitespace opportunities, competitors,
+    evidence, and confidence.
   </p>
 
   <p>
     <a href="README_CN.md">简体中文</a> ·
     <a href="#quick-start">Quick Start</a> ·
+    <a href="#what-lives-on-main">Branch Scope</a> ·
     <a href="#how-it-works">How It Works</a> ·
-    <a href="#project-structure">Project Structure</a> ·
-    <a href="DEPLOYMENT.md">Deployment</a>
+    <a href="DEPLOYMENT.md">Deployment</a> ·
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
   </p>
 
   <p>
@@ -23,9 +25,7 @@
     <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/LangGraph-StateGraph-1C3A5A" alt="LangGraph" />
-    <img src="https://img.shields.io/badge/Branch-main%20%E2%86%92%20saas-111827" alt="Branch flow main to saas" />
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+    <img src="https://img.shields.io/badge/Branch-main-111827" alt="Branch main" />
   </p>
 </div>
 
@@ -33,58 +33,61 @@
 
 ## Overview
 
-IdeaGo is the `main` branch of the project: a local or personal-deployment edition with no login,
-no Supabase requirement, no billing, and no account system.
+This README describes the `main` branch.
 
-If you want the commercial version with auth, profile, billing, and admin flows, use the `saas`
-branch instead.
+`main` is the anonymous and personal-deployment line of IdeaGo. It keeps the same Source
+Intelligence V2 analysis engine as `saas`, but intentionally excludes hosted runtime concerns:
 
-## Screenshot
+- no login
+- no profile system
+- no Supabase requirement to boot
+- no admin dashboard
+- no billing or pricing UI
 
-### Hero Screenshot
+If you need the hosted product with auth, profile ownership, admin APIs, and SaaS deployment
+behavior, switch to the `saas` branch.
 
-![Hero Screenshot Placeholder](assets/banner_new.png)
+## What Lives On `main`
 
-### Report Detail Screenshot
+### Current product contract
 
-![Report Screenshot Placeholder](assets/usage_new.png)
+IdeaGo is not just a competitor lookup flow anymore. The report contract is decision-first:
 
-## Why IdeaGo
+1. recommendation and why-now
+2. pain signals
+3. commercial signals
+4. whitespace opportunities
+5. competitors
+6. evidence
+7. confidence
 
-Most idea validation tools stop at surface-level summaries. IdeaGo is built for the question that
-comes next: should this idea move forward now, and why?
+### Current runtime surface
 
-It keeps the report decision-first:
+- anonymous idea submission
+- SSE progress streaming
+- local file-cache persistence for report history
+- report detail and markdown export
+- local SQLite checkpoints for LangGraph state
+- no account ownership model
 
-- recommendation and why-now
-- pain signals
-- commercial signals
-- whitespace opportunities
-- competitors
-- evidence
-- confidence
+### Current route surface
 
-That ordering is part of the product contract, not a presentation detail.
+- `/`
+- `/reports`
+- `/reports/:id`
 
-## What You Get On `main`
+The codebase contains some additional shared/legal UI files, but the active router on `main`
+stays intentionally small and anonymous.
 
-The `main` branch is the anonymous, personal-deployment line of the product:
+## Screenshots
 
-- anonymous analysis flow
-- persisted report history through local file cache
-- report detail pages and markdown export
-- SSE progress streaming during long-running analysis
-- local SQLite checkpoints for LangGraph runtime state
-- no Supabase, no Stripe, no LinuxDo variables required to boot
+### Home
 
-Core sources currently include:
+![Home screenshot](assets/banner_new.png)
 
-- Tavily
-- Reddit
-- GitHub
-- Hacker News
-- App Store
-- Product Hunt
+### Report Detail
+
+![Report screenshot](assets/usage_new.png)
 
 ## Quick Start
 
@@ -94,6 +97,18 @@ Core sources currently include:
 - [uv](https://github.com/astral-sh/uv)
 - Node.js 20+
 - `pnpm`
+
+Minimum useful secret:
+
+- `OPENAI_API_KEY`
+
+Recommended for better data coverage:
+
+- `TAVILY_API_KEY`
+- `GITHUB_TOKEN`
+- `PRODUCTHUNT_DEV_TOKEN`
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
 
 ### Install
 
@@ -109,12 +124,22 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-Minimum useful configuration:
+Minimum practical configuration:
 
-- required: `OPENAI_API_KEY`
-- recommended: `TAVILY_API_KEY`
+- `OPENAI_API_KEY`
 
-Useful defaults already live in [`.env.example`](.env.example).
+Common local runtime settings:
+
+- `CACHE_DIR`
+- `ANONYMOUS_CACHE_TTL_HOURS`
+- `FILE_CACHE_MAX_ENTRIES`
+- `LANGGRAPH_CHECKPOINT_DB_PATH`
+- `CORS_ALLOW_ORIGINS`
+
+Frontend config on `main` is intentionally small:
+
+- `VITE_API_BASE_URL`
+- `VITE_SENTRY_DSN` if desired
 
 ### Run In Development
 
@@ -135,7 +160,7 @@ Open:
 - frontend: [http://localhost:5173](http://localhost:5173)
 - backend health: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
-### Run As A Single Local Process
+### Single-Process Local Run
 
 ```bash
 pnpm --prefix frontend build
@@ -144,12 +169,11 @@ uv run python -m ideago
 
 Open: [http://localhost:8000](http://localhost:8000)
 
-### Run With Docker Compose (Remote Image)
+### Docker Compose
 
-The default `docker-compose.yml` uses the published Docker Hub image (`simonsun3/ideago`).
+`main` ships with a simple `docker-compose.yml` that pulls the published image from Docker Hub:
 
 ```bash
-cp .env.example .env
 docker compose pull
 docker compose up -d
 ```
@@ -160,17 +184,15 @@ Optional: pin to a release tag instead of `latest`:
 IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
 ```
 
-Verify:
-
-```bash
-curl http://localhost:8000/api/v1/health
-```
+If you prefer to build from source, the branch also includes a Dockerfile.
 
 ## How It Works
 
-IdeaGo takes a single idea and pushes it through an explicit retrieval chain:
-`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`.
-That chain produces a decision-first report that can be reopened from history later.
+IdeaGo runs an explicit Source Intelligence V2 pipeline:
+
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`
+
+That pipeline produces a decision-first report which is then persisted locally for later reopening.
 
 ```mermaid
 flowchart TD
@@ -179,27 +201,18 @@ flowchart TD
     C --> D["Intent parsing"]
     D --> E["Query planning + rewriting"]
     E --> F["Platform adaptation"]
-    F --> G{"Cache hit?"}
+    F --> G{"Local cache hit?"}
     G -->|Yes| H["Return persisted report"]
-    G -->|No| I["Fetch source data"]
+    G -->|No| I["Fetch six live sources"]
     I --> J["Extract structured signals"]
     J --> K["Aggregate findings"]
-    K --> L["Assemble report"]
-    L --> M["Persist report + status"]
-    M --> N["Report detail / history / export"]
-    C -.-> O["SSE progress stream with query planning stage"]
+    K --> L["Assemble decision-first report"]
+    L --> M["Persist report + runtime status"]
+    M --> N["History / detail / export"]
+    C -.-> O["SSE progress stream"]
 ```
 
-Runtime model on `main`:
-
-- API routes: `/api/v1/analyze`, `/api/v1/reports`, `/api/v1/health`
-- explicit query-planning stage before source fetch
-- report persistence: local `FileCache`
-- runtime checkpoints: local SQLite
-- progress updates: SSE
-- user flow: submit idea -> stream progress -> read report -> reopen from history -> export markdown
-
-Fixed source-role split on `main`:
+Fixed source roles:
 
 - Tavily for broad recall
 - Reddit for pain and migration language
@@ -237,88 +250,70 @@ Important settings on `main`:
 - `LANGGRAPH_CHECKPOINT_DB_PATH`
 - `CORS_ALLOW_ORIGINS`
 
-Optional Reddit credentials:
+Optional Reddit settings:
 
 - `REDDIT_CLIENT_ID`
 - `REDDIT_CLIENT_SECRET`
+- `REDDIT_ENABLE_PUBLIC_FALLBACK`
+- `REDDIT_PUBLIC_FALLBACK_LIMIT`
+- `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS`
 
-If Reddit OAuth credentials are missing, public read fallback can still work when
-`REDDIT_ENABLE_PUBLIC_FALLBACK=true`.
+On `main`, public Reddit fallback is allowed by default unless you configure OAuth credentials.
+
+## Project Structure
+
+### Backend
+
+- `src/ideago/api`: FastAPI app, routes, middleware, schemas
+- `src/ideago/cache`: local report persistence
+- `src/ideago/config`: runtime settings
+- `src/ideago/models`: domain models and report contracts
+- `src/ideago/pipeline`: orchestration, extraction, aggregation, report assembly
+- `src/ideago/sources`: six data-source adapters
+
+### Frontend
+
+- `frontend/src/app`: router, shell, navbar, error boundary
+- `frontend/src/features/home`: main search experience
+- `frontend/src/features/history`: local report history
+- `frontend/src/features/reports`: report detail and progress views
+- `frontend/src/lib/api`: typed API client and SSE hook
+- `frontend/src/lib/i18n`: locale setup and translations
+- `frontend/src/components/ui`: shared UI primitives
 
 ## Branch Model
 
-- `main`: personal/open-source deployment only
-- `saas`: same core product, plus auth, billing, profile, admin, and SaaS-only environment variables
+- `main`: anonymous/personal deployment line
+- `saas`: hosted/commercial line
 
 Sync rule:
 
 - shared product work lands on `main`
 - `saas` pulls from `main`
-- do not move SaaS runtime dependencies back into `main`
+- do not move hosted-only runtime dependencies back into `main`
 
-## Project Structure
+## Documentation Map
 
-```text
-.
-├── src/ideago/          # FastAPI app, LangGraph pipeline, sources, models
-├── frontend/src/        # React app
-├── tests/               # Backend tests
-├── ai_docs/             # Project standards and guides
-├── assets/              # README assets used on main
-└── DEPLOYMENT.md        # Main-branch deployment guide
-```
-
-Key backend areas:
-
-- `api/`: routes, schemas, app setup, errors
-- `pipeline/`: orchestration, events, merger, extractor, intent parsing
-- `cache/`: file cache and persistence abstractions
-- `sources/`: external source fetchers
-
-Key frontend areas:
-
-- `frontend/src/app`
-- `frontend/src/features/home`
-- `frontend/src/features/history`
-- `frontend/src/features/reports`
-- `frontend/src/lib/api`
-
-## Documentation
-
-- [Deployment Guide](DEPLOYMENT.md)
-- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
-- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
-- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
-- [Settings Guide](ai_docs/SETTINGS_GUIDE.md)
+- Core engineering contract: [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
+- Backend conventions: [ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
+- Frontend conventions: [ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
+- Settings and env vars: [ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Deployment runbook: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## Verification
 
+Run what applies before you call a change complete:
+
 ```bash
+# Backend
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
 
+# Frontend
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## FAQ
-
-### Is this the SaaS version?
-
-No. This README describes the `main` branch, which is meant for local or personal deployment.
-
-### Does `main` require Supabase or Stripe?
-
-No. `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
-
-### Where should SaaS docs live?
-
-On the `saas` branch. Keep commercial deployment docs there instead of mixing them into `main`.
-
-## License
-
-MIT. See [LICENSE](LICENSE).

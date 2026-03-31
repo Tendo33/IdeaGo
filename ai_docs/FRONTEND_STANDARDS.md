@@ -1,6 +1,6 @@
 # Frontend Development Standards
 
-This document defines default frontend practices for this repository.
+This document defines frontend expectations for the anonymous `main` branch.
 
 ## Fixed Stack
 
@@ -14,13 +14,15 @@ This document defines default frontend practices for this repository.
 | Routing | React Router 7 |
 | Testing | Vitest + Testing Library |
 
+The UI layer is built from project-owned primitives in `frontend/src/components/ui`.
+
 ## Current App Shape On `main`
 
-- Anonymous home flow
-- Anonymous history flow
-- Anonymous report detail flow
+- anonymous home flow
+- anonymous history flow
+- anonymous report detail flow
 - SSE progress tracking
-- Report compare/export/evidence UI
+- report compare/export/evidence UI
 
 Do not add login, pricing, profile, admin, or Supabase runtime dependencies back into `main`.
 
@@ -32,7 +34,6 @@ frontend/src/
 ├── components/ui/
 ├── features/history/
 ├── features/home/
-├── features/legal/
 ├── features/reports/
 ├── lib/api/
 ├── lib/i18n/
@@ -65,10 +66,10 @@ Rules:
 ## Routing
 
 - Keep route-level lazy loading
-- On `main`, exposed routes should stay limited to home, history, report detail, and supporting legal/static pages
+- On `main`, exposed routes should stay limited to home, history, and report detail
 - Do not expose login, pricing, profile, or admin routes on `main`
 
-## Accessibility and UX
+## Accessibility And UX
 
 - Use semantic HTML
 - Keep keyboard access and visible focus states

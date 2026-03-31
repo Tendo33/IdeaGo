@@ -1,29 +1,29 @@
 # Claude Code Project Instructions
 
-Use this file as the default project contract for Claude Code.
+Use this file as the default project contract for Claude Code on the `main` branch.
 
 ## Workflow
 
-1. Understand the request and branch target.
+1. Understand the request and whether it belongs to `main`, `saas`, or both.
 2. Read the relevant docs in `ai_docs/` before editing.
-3. Keep the change set small and typed.
-4. Update docs/config when behavior or structure changes.
+3. Keep the change set small, typed, and branch-correct.
+4. Update docs and env examples when behavior changes.
 5. Run the required verification before claiming completion.
 
 ## Branch Model
 
-- `main`: personal/open-source deployment only.
-- `saas`: same core product as `main`, plus auth, billing, profile, admin, and SaaS-only env vars.
-- Public/core product work flows `main -> saas`.
-- Do not add new SaaS runtime dependencies to `main`.
+- `main`: personal/open-source deployment line
+- `saas`: hosted/commercial line built on top of `main`
+- shared product work flows `main -> saas`
+- do not add new hosted runtime dependencies to `main`
 
 ## Current Product Contract
 
 - Product contract is Source Intelligence V2, decision-first.
-- Reports must stay ordered as: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, evidence, confidence.
+- Reports stay ordered as: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, evidence, confidence.
 - `pipeline/merger.py` remains deterministic competitor dedupe only.
-- Whitespace and entry-wedge synthesis belong in `pipeline/aggregator.py`.
-- Report payloads and frontend shared report types are explicit contracts and must be updated together.
+- Whitespace and entry-wedge synthesis belongs in `pipeline/aggregator.py`.
+- Report payloads and frontend shared report types are explicit contracts and must stay aligned.
 
 ## Current Stack
 
@@ -33,9 +33,9 @@ Use this file as the default project contract for Claude Code.
 - `uv`, `ruff`, `pytest`, `mypy`
 - FastAPI + Pydantic v2
 - LangGraph + LangChain OpenAI
-- File cache for persisted reports
+- file cache for persisted reports
 - SQLite checkpoints for LangGraph runtime state
-- Anonymous analyze/history/report/export flow on `main`
+- anonymous analyze/history/report/export flow on `main`
 
 ### Frontend
 
@@ -45,6 +45,7 @@ Use this file as the default project contract for Claude Code.
 - React Router 7
 - Vitest + Testing Library
 - `i18next`, `framer-motion`, `recharts`
+- project-owned shared UI primitives in `frontend/src/components/ui`
 
 ## Current Project Shape
 
@@ -67,9 +68,8 @@ Main package: `src/ideago`
 ### Frontend layout
 
 - `frontend/src/app`: app shell and routing
-- `frontend/src/features/history`: report history
 - `frontend/src/features/home`: main search experience
-- `frontend/src/features/legal`: legal pages
+- `frontend/src/features/history`: report history
 - `frontend/src/features/reports`: report detail, compare views, charts, progress states
 - `frontend/src/components/ui`: shared UI primitives
 - `frontend/src/lib/api`: typed API client and SSE hook
@@ -98,8 +98,9 @@ pnpm --prefix frontend build
 uv run python -m ideago
 ```
 
-- Current user flow is: submit idea -> create analysis job -> stream progress over SSE -> read persisted report/history.
 - `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
+- Current user flow is: submit idea -> create analysis job -> stream progress over SSE -> read persisted report/history.
+- `docker-compose.yml` on `main` pulls the published image by default.
 
 ## Required Verification
 
@@ -121,6 +122,6 @@ pnpm --prefix frontend build
 
 ## Documentation Hygiene
 
-- Keep `AGENTS.md`, `CLAUDE.md`, and `ai_docs/` aligned when conventions change.
+- Keep `README.md`, `README_CN.md`, `DEPLOYMENT.md`, `AGENTS.md`, `CLAUDE.md`, and `ai_docs/` aligned when conventions change.
 - Prefer `ai_docs/` paths, not legacy `doc/` paths.
 - Verify commands against `pyproject.toml`, `frontend/package.json`, and the current repo structure before updating docs.

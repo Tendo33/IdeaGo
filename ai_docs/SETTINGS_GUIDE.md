@@ -2,6 +2,8 @@
 
 This repository uses `pydantic-settings` for runtime configuration.
 
+This file documents the anonymous `main` branch.
+
 ## Priority
 
 1. Environment variables
@@ -32,10 +34,30 @@ Personal deployment storage/runtime settings:
 - `FILE_CACHE_MAX_ENTRIES`
 - `LANGGRAPH_CHECKPOINT_DB_PATH`
 
+Advanced orchestration knobs:
+
+- `MAX_RESULTS_PER_SOURCE`
+- `EXTRACTOR_MAX_RESULTS_PER_SOURCE`
+- `SOURCE_QUERY_CAPS`
+- `QUERY_FAMILY_DEFAULT_WEIGHTS`
+- `APP_TYPE_ORCHESTRATION_PROFILES`
+
+## Frontend Settings
+
+- `VITE_API_BASE_URL`
+- `VITE_SENTRY_DSN`
+
+## Reddit Notes
+
+- `main` can use public Reddit fallback when OAuth credentials are missing
+- control that behavior with `REDDIT_ENABLE_PUBLIC_FALLBACK`
+- use OAuth credentials when you need more reliable Reddit access
+
 ## Usage
 
 ```bash
 cp .env.example .env
+cp frontend/.env.example frontend/.env
 ```
 
 ```python
@@ -45,8 +67,12 @@ settings = get_settings()
 print(settings.cache_dir)
 ```
 
-## Notes
+## Maintenance Rule
 
-- `main` must start without Supabase, Stripe, or LinuxDo variables.
-- Reddit can fall back to public read-only access when OAuth credentials are missing.
-- If you add a new setting, update both `src/ideago/config/settings.py` and `.env.example`.
+If you add or rename a setting, update:
+
+- `src/ideago/config/settings.py`
+- `.env.example`
+- `frontend/.env.example` when applicable
+- this guide
+- any README or deployment docs that depend on it

@@ -1,57 +1,80 @@
 # Scripts Guide
 
-项目维护脚本位于 `scripts/` 目录。
+Project maintenance scripts live in `scripts/`.
 
-## rename_package.py — 包名重命名
+This guide documents the scripts that actually exist in this repository.
 
-将整个项目从 `python_template` / `python-template` 重命名为新名称。
+## `rename_package.py`
 
-覆盖范围：
-- `src/python_template/` 目录重命名
-- 所有 `.py`, `.toml`, `.md`, `.yaml`, `.json`, `.ts`, `.tsx`, `.html`, `.css`, `.mdc` 文件中的文本替换
-- `frontend/package.json` 的 `name` 字段
-- `frontend/index.html` 的 `<title>`
+Renames the Python package from `ideago` to a new package name.
 
-```bash
-# 预览（不修改文件）
-python scripts/rename_package.py --dry-run my_new_project
+What it updates:
 
-# 执行（交互确认）
-python scripts/rename_package.py my_new_project
+- `src/ideago/` directory rename
+- Python imports and text references across supported source and doc files
+- project/package name references in repository text files
 
-# 跳过确认
-python scripts/rename_package.py -y my_new_project
-```
-
-执行后需要：
-1. `git diff` 检查变更
-2. `uv pip install -e .` 重新安装
-3. `uv run pytest` 确认测试通过
-4. `git add -A && git commit -m 'chore: rename package'`
-
-## update_version.py — 版本号更新
-
-同步更新项目中所有版本号（后端 + 前端）。
-
-更新的文件：
-- `pyproject.toml` — `version = "X.Y.Z"`
-- `src/<package>/__init__.py` — `__version__ = "X.Y.Z"`（自动检测包目录）
-- `frontend/package.json` — `"version": "X.Y.Z"`（如存在）
+Examples:
 
 ```bash
-# 预览
-python scripts/update_version.py --dry-run 1.0.0
-
-# 执行
-python scripts/update_version.py 1.0.0
+python scripts/rename_package.py my_new_package --dry-run
+python scripts/rename_package.py my_new_package
 ```
 
-版本格式：`MAJOR.MINOR.PATCH`（语义化版本）。
+After running it:
 
-## 其他脚本
+1. inspect `git diff`
+2. reinstall the editable package
+3. run verification
 
-| 脚本 | 用途 |
-|------|------|
-| `setup_pre_commit.py` | 安装 pre-commit hooks |
-| `run_vulture.py` | 检测无用代码 |
-| `generate_release_notes.py` | 生成 release notes |
+```bash
+uv pip install -e .
+uv run pytest
+```
+
+## `update_version.py`
+
+Updates the backend package version in the files the script currently supports:
+
+- `pyproject.toml`
+- `src/ideago/__init__.py`
+
+Examples:
+
+```bash
+python scripts/update_version.py 0.4.0 --dry-run
+python scripts/update_version.py 0.4.0
+```
+
+Important:
+
+- the current script does not update `frontend/package.json`
+- if you need backend and frontend version numbers aligned, update the frontend version separately
+
+## `setup_pre_commit.py`
+
+Helper for installing project pre-commit hooks.
+
+If you prefer the direct command, this is equivalent to:
+
+```bash
+uv run pre-commit install
+```
+
+## `run_vulture.py`
+
+Runs the dead-code detection workflow used by this repo.
+
+Use it when cleaning up stale modules or checking whether refactors left orphaned code behind.
+
+## `generate_release_notes.py`
+
+Generates release-note content from the current repository state.
+
+Use it when preparing a release summary or changelog draft.
+
+## `debug_producthunt_chain.py`
+
+Debug helper for the Product Hunt source path and related retrieval/debugging workflows.
+
+Use it when investigating Product Hunt source behavior rather than as a normal development step.
