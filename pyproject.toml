@@ -68,7 +68,7 @@ test = [
 [project.urls]
 Homepage = "https://github.com/Tendo33/ideago"
 Repository = "https://github.com/Tendo33/ideago"
-Documentation = "https://github.com/Tendo33/ideago/tree/main/doc"
+Documentation = "https://github.com/Tendo33/ideago/tree/saas/ai_docs"
 Changelog = "https://github.com/Tendo33/ideago/blob/main/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/Tendo33/ideago/issues"
 

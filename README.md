@@ -3,21 +3,21 @@
 
   <h1>IdeaGo</h1>
 
-  <p><strong>Turn a rough idea into a structured validation report in minutes.</strong></p>
+  <p><strong>Hosted source-intelligence for idea validation.</strong></p>
 
   <p>
-    IdeaGo cross-references 6 live sources — GitHub, Tavily, Hacker News, App Store, Product Hunt,
-    and Reddit — to produce a decision-first report with recommendation, pain signals, commercial
-    signals, whitespace opportunities, competitor landscape, evidence, and confidence scoring.
+    IdeaGo turns a rough product idea into a decision-first validation report backed by
+    live evidence from Tavily, Reddit, GitHub, Hacker News, App Store, and Product Hunt.
   </p>
 
   <p>
     <a href="README_CN.md">简体中文</a> ·
     <a href="#quick-start">Quick Start</a> ·
-    <a href="#product-walkthrough">Product Walkthrough</a> ·
+    <a href="#what-lives-on-the-saas-branch">Branch Scope</a> ·
     <a href="#how-it-works">How It Works</a> ·
     <a href="DEPLOYMENT.md">Deployment</a> ·
-    <a href="#acknowledgements">Acknowledgements</a>
+    <a href="frontend/README.md">Frontend Docs</a> ·
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
   </p>
 
   <p>
@@ -26,8 +26,7 @@
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
-    <img src="https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white" alt="Stripe" />
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+    <img src="https://img.shields.io/badge/Stripe-Integrated%20but%20Hidden-635BFF?logo=stripe&logoColor=white" alt="Stripe integration present" />
   </p>
 </div>
 
@@ -35,73 +34,91 @@
 
 ## Overview
 
-Most idea validation stops at surface-level summaries. IdeaGo goes further: it tells you whether
-an idea is worth pursuing right now, and backs the recommendation with structured evidence from
-real community discussions, app reviews, open-source activity, and product launches.
+This README describes the `saas` branch.
 
-The report is ordered by decision value — recommendation first, then pain signals, commercial
-signals, whitespace opportunities, competitors, evidence trail, and confidence scoring.
+`saas` is the hosted/commercial edition of IdeaGo. It keeps the same Source Intelligence V2
+analysis core as `main`, then adds:
 
-This is the hosted edition (`saas` branch) with user authentication, profile, quota management,
-and admin capabilities. For anonymous local usage without Supabase, see the `main` branch.
+- Supabase-backed auth and profile ownership
+- email/password and Supabase OAuth sign-in
+- LinuxDo OAuth with backend-managed session cookies
+- user quota and account management
+- admin dashboard and operational APIs
+- Supabase-backed persistence, shared runtime state, and PostgREST-backed rate limiting
+- landing and legal pages for a hosted product
+
+If you need the anonymous, personal-deployment version with no account system, use the `main`
+branch instead.
+
+## What Lives On The `saas` Branch
+
+### Current product contract
+
+IdeaGo is no longer just a competitor lookup tool. The report contract is decision-first:
+
+1. recommendation and why-now
+2. pain signals
+3. commercial signals
+4. whitespace opportunities
+5. competitors
+6. evidence
+7. confidence
+
+Competitor discovery is still required, but it is only one section in the broader idea-validation
+report.
+
+### Current hosted product surface
+
+- Public routes: landing page, login, auth callback, legal pages
+- Signed-in routes: home workspace, report history, report detail, profile
+- Admin route: `/admin`
+- API families: `analyze`, `reports`, `auth`, `admin`, `billing`, `health`
+- Report persistence: `ReportRepository` abstraction with file cache and Supabase-backed storage
+- Runtime state: SQLite checkpoints plus shared hosted runtime state
+- Progress updates: SSE
+
+### Billing status
+
+Stripe integration code exists, but pricing discovery is intentionally hidden right now:
+
+- frontend `PRICING_ENABLED` is `false`
+- `/pricing` is not exposed in the SPA
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/portal`
+- `GET /api/v1/billing/status`
+
+These user-facing billing endpoints currently return a temporary not-found response until pricing
+is re-enabled on purpose.
 
 ## Product Walkthrough
 
-### Describe Your Idea
+### Landing And Idea Intake
 
-Enter a product idea in plain language. IdeaGo provides quick-start suggestions and shows your
-recent reports for easy access.
+Signed-out visitors land on a marketing page. Signed-in users go directly to the product workspace
+to submit an idea and start analysis.
 
-![Idea Input](docs/assets/1.png)
+![Landing and intake](docs/assets/1.png)
 
-### Real-time Analysis Pipeline
+### Real-Time Research Pipeline
 
-Watch the analysis unfold step by step: intent parsing, query planning, source retrieval across
-6 platforms, signal extraction, and report assembly — all streamed live via SSE.
+Each analysis streams progress through intent parsing, query planning, platform adaptation,
+multi-source retrieval, extraction, aggregation, and report assembly.
 
-![Analysis Pipeline](docs/assets/2.png)
+![Pipeline progress](docs/assets/2.png)
 
 ### Decision Summary
 
-The report opens with what matters most: a clear recommendation, opportunity score, entry strategy,
-and signal counts for pain themes, commercial indicators, and whitespace gaps.
+The report opens with the recommendation, why-now framing, opportunity score, and high-level
+signal counts.
 
-![Decision Summary](docs/assets/3.png)
+![Decision summary](docs/assets/3.png)
 
-### Market Context & Competitive Landscape
+### Evidence-Backed Landscape
 
-Understand the market timing and see how existing players map across feature completeness and
-market presence through an interactive scatter chart.
+The hosted report workspace includes history, competitor details, trust metadata, charts, and
+supporting evidence across all six sources.
 
-![Market Context](docs/assets/4.png)
-
-### Pain Signals & Commercial Signals
-
-Pain signals surface real user frustrations with strength and frequency scores. Commercial signals
-highlight willingness-to-pay indicators and monetization clues from the market.
-
-![Signals](docs/assets/5.png)
-
-### Whitespace Opportunities
-
-Identify underserved areas where existing products fall short, each scored by potential and
-backed by supporting evidence references.
-
-![Whitespace](docs/assets/6.png)
-
-### Competitor Directory
-
-Browse all discovered competitors with match scores, filterable by data source. Each card
-shows key features, strengths, weaknesses, pricing, and a link to the original source.
-
-![Competitors](docs/assets/7.png)
-
-### Evidence & Trust Metadata
-
-Every conclusion traces back to source evidence. Trust metadata tags each piece by signal type
-and platform, and trust warnings flag areas where confidence is limited.
-
-![Evidence](docs/assets/8.png)
+![Report workspace](docs/assets/4.png)
 
 ## Quick Start
 
@@ -112,13 +129,21 @@ and platform, and trust warnings flag areas where confidence is limited.
 - Node.js 20+
 - `pnpm`
 - a Supabase project
-- OpenAI API access
+- an OpenAI API key
 
-Recommended for a complete hosted setup:
+Recommended for production-like usage:
 
 - Tavily API key
-- Stripe account and keys
+- Cloudflare Turnstile site and secret keys
+- GitHub token
+- Product Hunt token
+- Reddit OAuth credentials
 - Sentry DSN
+
+Optional today, but already wired in code:
+
+- Stripe secret key, webhook secret, and price ID
+- LinuxDo OAuth client credentials
 
 ### Install
 
@@ -134,29 +159,39 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-Minimum practical configuration:
+Minimum practical backend configuration for the hosted branch:
 
 - `OPENAI_API_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
 - `AUTH_SESSION_SECRET`
 - `FRONTEND_APP_URL`
+- `TURNSTILE_SECRET_KEY`
 
-Frontend auth configuration:
+Minimum frontend build/runtime configuration:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_TURNSTILE_SITE_KEY`
 
-For Docker deployments, these `VITE_*` values are build-time inputs for the frontend bundle.
-Set them before `docker compose build` or `docker compose up --build`; runtime-only container env vars are not enough.
+Optional auth extensions:
 
-Billing is optional for local development, but production billing flows also need:
+- Supabase GitHub and Google providers in your Supabase dashboard
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
 
+Optional observability and billing:
+
+- `SENTRY_DSN`
+- `VITE_SENTRY_DSN`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRO_PRICE_ID`
+
+For Docker builds, `VITE_*` values are build-time inputs. Set them before `docker compose build`
+or `docker compose up --build`.
 
 ### Run In Development
 
@@ -186,14 +221,26 @@ uv run python -m ideago
 
 Open: [http://localhost:8000](http://localhost:8000)
 
-For deployment-shaped setup, use [DEPLOYMENT.md](DEPLOYMENT.md).
+### Docker Compose
+
+The `saas` branch `docker-compose.yml` builds a local image from this repository and forwards the
+required frontend build args into the container build.
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full hosted deployment checklist.
 
 ## How It Works
 
-IdeaGo takes a single idea, normalizes it through intent parsing and query planning, gathers
-evidence from 6 sources in parallel, extracts structured signals, and assembles a decision-first
-report. The hosted edition wraps this pipeline with authentication, ownership, quota, and admin
-operations.
+IdeaGo runs an explicit Source Intelligence V2 pipeline:
+
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`
+
+The hosted edition wraps that pipeline with auth, persistence ownership, quota, admin, and session
+handling.
 
 ```mermaid
 flowchart TD
@@ -202,41 +249,44 @@ flowchart TD
     C --> D["Intent parsing"]
     D --> E["Query planning + rewriting"]
     E --> F["Platform adaptation"]
-    F --> G{"Cache / shared state"}
+    F --> G{"Cache / hosted runtime"}
     G -->|Hit| H["Return persisted report"]
-    G -->|Miss| I["Fetch source data"]
+    G -->|Miss| I["Fetch six live sources"]
     I --> J["Extract structured signals"]
     J --> K["Aggregate findings"]
-    K --> L["Assemble report"]
+    K --> L["Assemble decision-first report"]
     L --> M["Persist report + runtime status"]
-    M --> N["Report workspace / history / export"]
+    M --> N["History / detail / export / admin visibility"]
     C -.-> O["SSE progress stream"]
 ```
 
-Source roles are fixed:
+Fixed source roles:
 
-- **Tavily** — broad recall and web coverage
-- **Reddit** — pain language and migration discussions
-- **GitHub** — open-source maturity and ecosystem signals
-- **Hacker News** — builder sentiment and technical discourse
-- **App Store** — review-cluster pain from real users
-- **Product Hunt** — launch positioning and market entry patterns
+- Tavily for broad recall
+- Reddit for pain and migration language
+- GitHub for open-source maturity and ecosystem signals
+- Hacker News for builder sentiment
+- App Store for review-cluster pain
+- Product Hunt for launch positioning
 
-## Hosted Features
+## Auth And User Model
 
-The hosted edition adds operational capabilities on top of the core analysis engine:
+The hosted branch currently supports:
 
-- Authenticated user flows with Supabase-backed identity
-- LinuxDo OAuth support and custom auth session handling
-- User profile and quota management
-- Admin routes for user management, quota adjustments, metrics, and health
-- Supabase-backed persistence and PostgreSQL-powered shared runtime state
-- Stripe integration points for checkout, portal, and webhook handling
-- Landing page, legal pages, and hosted-product routing
+- Supabase email/password auth
+- Supabase OAuth providers such as GitHub and Google
+- LinuxDo OAuth via backend callback and HTTP-only session cookie
+
+User-facing account features include:
+
+- current-user bootstrap through `/api/v1/auth/me`
+- quota visibility through `/api/v1/auth/quota`
+- editable profile through `/api/v1/auth/profile`
+- account deletion through `/api/v1/auth/account`
 
 ## API Overview
 
-Core report APIs:
+### Analysis and reports
 
 - `POST /api/v1/analyze`
 - `GET /api/v1/reports`
@@ -248,18 +298,19 @@ Core report APIs:
 - `DELETE /api/v1/reports/{id}/cancel`
 - `GET /api/v1/health`
 
-Auth APIs:
+### Auth
 
-- `GET /api/v1/auth/linuxdo/start`
+- `POST /api/v1/auth/linuxdo/start`
 - `GET /api/v1/auth/linuxdo/callback`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/quota`
 - `GET /api/v1/auth/profile`
 - `PUT /api/v1/auth/profile`
 - `DELETE /api/v1/auth/account`
 
-Admin APIs:
+### Admin
 
 - `GET /api/v1/admin/users`
 - `PATCH /api/v1/admin/users/{user_id}/quota`
@@ -267,79 +318,66 @@ Admin APIs:
 - `GET /api/v1/admin/metrics`
 - `GET /api/v1/admin/health`
 
-Billing APIs:
+### Billing integration
 
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/portal`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/webhook`
 
-## Configuration Notes
-
-Key settings:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_DB_URL`
-- `AUTH_SESSION_SECRET`
-- `AUTH_SESSION_EXPIRE_HOURS`
-- `FRONTEND_APP_URL`
-- `LINUXDO_CLIENT_ID`
-- `LINUXDO_CLIENT_SECRET`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRO_PRICE_ID`
-- `SENTRY_DSN`
-
-The authoritative env reference is [`.env.example`](.env.example), with frontend-specific variables
-in [`frontend/.env.example`](frontend/.env.example).
+Remember: checkout, portal, and status are intentionally hidden from users until pricing is
+re-enabled.
 
 ## Project Structure
 
-```text
-.
-├── src/ideago/          # API, auth, billing, pipeline, cache, models, sources
-├── frontend/src/        # React app with landing, auth, profile, pricing, admin, reports
-├── supabase/migrations/ # Database migrations
-├── ai_docs/             # Project standards and guides
-├── docs/assets/         # README screenshots
-└── DEPLOYMENT.md        # Deployment guide
-```
+### Backend
 
-## Branch Model
+- `src/ideago/api`: FastAPI app, routes, middleware, schemas, dependencies
+- `src/ideago/auth`: auth dependencies, session helpers, Supabase admin helpers
+- `src/ideago/billing`: Stripe integration layer
+- `src/ideago/cache`: file and Supabase-backed report repositories
+- `src/ideago/config`: runtime settings
+- `src/ideago/models`: domain models and report contracts
+- `src/ideago/pipeline`: orchestration, extraction, aggregation, typed report assembly
+- `src/ideago/sources`: Tavily, Reddit, GitHub, Hacker News, App Store, Product Hunt
 
-- `main`: local or personal deployment, anonymous usage, no Supabase dependency
-- `saas`: hosted product with auth, billing, profile, admin, and operational config
+### Frontend
 
-Shared product work lands on `main`; `saas` pulls from `main`.
+- `frontend/src/app`: router, shell, navbar, error boundary
+- `frontend/src/features/auth`: login and callback flows
+- `frontend/src/features/history`: persisted report history
+- `frontend/src/features/home`: signed-in workspace
+- `frontend/src/features/landing`: marketing entry for signed-out users
+- `frontend/src/features/profile`: user settings and subscription state
+- `frontend/src/features/reports`: report detail and progress UI
+- `frontend/src/features/admin`: hosted admin dashboard
+- `frontend/src/lib/api`: typed API client and SSE logic
+- `frontend/src/lib/auth`: auth context, redirect helpers, token/session handling
 
-## Documentation
+## Documentation Map
 
-- [Deployment Guide](DEPLOYMENT.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
-- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
-- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
+- Core engineering contract: [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
+- Backend conventions: [ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
+- Frontend conventions: [ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
+- Settings and env vars: [ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Frontend-specific notes: [frontend/README.md](frontend/README.md)
+- Deployment runbook: [DEPLOYMENT.md](DEPLOYMENT.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Verification
 
+Run what applies before you call a change complete:
+
 ```bash
+# Backend
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
 
+# Frontend
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## Acknowledgements
-
-Thanks to [Linux.do](https://linux.do/) for the references.
-
-## License
-
-MIT. See [LICENSE](LICENSE).

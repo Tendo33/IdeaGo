@@ -3,21 +3,21 @@
 
   <h1>IdeaGo</h1>
 
-  <p><strong>几分钟内，把一个粗糙的想法变成结构化验证报告。</strong></p>
+  <p><strong>面向托管产品的创意验证 Source Intelligence 系统。</strong></p>
 
   <p>
-    IdeaGo 交叉比对 6 个实时数据源 — GitHub、Tavily、Hacker News、App Store、Product Hunt
-    和 Reddit — 生成决策优先的报告，包含推荐结论、痛点信号、商业信号、空白机会、
-    竞争格局、证据链和置信度评分。
+    IdeaGo 会把一条模糊的产品想法转换成决策优先的验证报告，并用 Tavily、Reddit、GitHub、
+    Hacker News、App Store、Product Hunt 六类实时证据支撑结论。
   </p>
 
   <p>
     <a href="README.md">English</a> ·
     <a href="#快速开始">快速开始</a> ·
-    <a href="#产品演示">产品演示</a> ·
+    <a href="#saas-分支负责什么">分支范围</a> ·
     <a href="#工作原理">工作原理</a> ·
     <a href="DEPLOYMENT.md">部署说明</a> ·
-    <a href="#致谢">致谢</a>
+    <a href="frontend/README.md">前端说明</a> ·
+    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
   </p>
 
   <p>
@@ -26,8 +26,7 @@
     <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
     <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
-    <img src="https://img.shields.io/badge/Stripe-Billing-635BFF?logo=stripe&logoColor=white" alt="Stripe" />
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md"><img src="https://img.shields.io/badge/Docs-ai__docs-4B5563" alt="Docs" /></a>
+    <img src="https://img.shields.io/badge/Stripe-已接入但入口隐藏-635BFF?logo=stripe&logoColor=white" alt="Stripe integration present" />
   </p>
 </div>
 
@@ -35,69 +34,84 @@
 
 ## 项目概览
 
-多数创业想法验证止步于表面概述。IdeaGo 更进一步：它会告诉你一个想法现在是否值得做，
-并用来自真实社区讨论、应用评论、开源活动和产品发布的结构化证据来支撑结论。
+这份 README 描述的是 `saas` 分支。
 
-报告按决策价值排序 — 推荐结论在前，然后是痛点信号、商业信号、空白机会、竞品、
-证据链和置信度评分。
+`saas` 是 IdeaGo 的托管/商业化版本。它保留了与 `main` 相同的 Source Intelligence V2
+分析内核，并在其上增加：
 
-这是托管版（`saas` 分支），支持用户认证、资料管理、配额和管理后台。
-如果只需要本地匿名使用（无需 Supabase），请参阅 `main` 分支。
+- 基于 Supabase 的认证与数据归属
+- 邮箱密码与 Supabase OAuth 登录
+- LinuxDo OAuth 与后端管理的 session cookie
+- 用户配额、资料、账户管理
+- 管理后台与运营 API
+- Supabase 持久化、共享运行时状态、PostgREST 速率限制
+- Landing page 与法律页面
+
+如果你需要不带账号体系、适合个人部署的匿名版本，请切换到 `main` 分支。
+
+## `saas` 分支负责什么
+
+### 当前产品契约
+
+IdeaGo 已经不是单纯的竞品搜索工具。报告契约是决策优先的：
+
+1. recommendation / why-now
+2. pain signals
+3. commercial signals
+4. whitespace opportunities
+5. competitors
+6. evidence
+7. confidence
+
+竞品发现仍然重要，但它只是更大验证报告中的一个章节。
+
+### 当前托管版能力
+
+- 公共路由：landing、login、auth callback、法律页面
+- 登录后路由：home 工作区、报告历史、报告详情、profile
+- 管理员路由：`/admin`
+- API 家族：`analyze`、`reports`、`auth`、`admin`、`billing`、`health`
+- 报告持久化：`ReportRepository` 抽象，底层可用 file cache 与 Supabase
+- 运行时状态：SQLite checkpoint + 托管共享运行时
+- 进度更新：SSE
+
+### Billing 当前状态
+
+Stripe 代码链路已经存在，但对用户的定价入口目前是故意隐藏的：
+
+- 前端 `PRICING_ENABLED` 现在是 `false`
+- SPA 不暴露 `/pricing`
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/portal`
+- `GET /api/v1/billing/status`
+
+这些用户侧 billing 接口现在会返回临时不可用的 not-found 响应，只有明确恢复定价流程时才应重新开放。
 
 ## 产品演示
 
-### 描述你的想法
+### Landing 与想法输入
 
-用自然语言输入产品想法。IdeaGo 提供快速建议，并展示历史报告方便随时查阅。
+未登录用户先看到营销页；已登录用户直接进入产品工作区提交想法并开始分析。
 
-![想法输入](docs/assets/1.png)
+![Landing 与输入](docs/assets/1.png)
 
-### 实时分析流水线
+### 实时研究流水线
 
-逐步展示分析进度：意图拆解、查询规划、6 个平台并行检索、信号提取、报告组装 —
-全程通过 SSE 实时推送。
+分析过程会实时展示：意图解析、查询规划、平台适配、多源抓取、信号提取、聚合和报告组装。
 
-![分析流水线](docs/assets/2.png)
+![流水线进度](docs/assets/2.png)
 
 ### 决策摘要
 
-报告以最重要的信息开头：明确的推荐结论、机会评分、切入策略，以及痛点主题数、
-商业指标数和空白缺口数。
+报告最先展示 recommendation、why-now、机会分以及高层级信号数量。
 
 ![决策摘要](docs/assets/3.png)
 
-### 市场背景与竞争格局
+### 证据驱动的报告工作区
 
-了解市场时机，通过交互式散点图查看现有玩家在功能完备度和市场存在感上的分布。
+托管版报告页包含历史记录、竞品详情、信任元数据、图表与原始证据。
 
-![市场背景](docs/assets/4.png)
-
-### 痛点信号与商业信号
-
-痛点信号呈现真实用户的高频困扰，带强度和频率评分。商业信号标出付费意愿指标和
-市场中的变现线索。
-
-![信号分析](docs/assets/5.png)
-
-### 空白机会
-
-识别现有产品覆盖不足的领域，每项机会附带潜力评分和支撑性证据引用。
-
-![空白机会](docs/assets/6.png)
-
-### 竞品目录
-
-浏览全部发现的竞品，按匹配度排序，支持按数据源筛选。每张卡片展示核心功能、
-优劣势、定价和原始来源链接。
-
-![竞品目录](docs/assets/7.png)
-
-### 证据与信任元数据
-
-每条结论都可追溯到源头证据。信任元数据为每条信息标注信号类型和来源平台，
-信任警告会标记置信度有限的区域。
-
-![证据链](docs/assets/8.png)
+![报告工作区](docs/assets/4.png)
 
 ## 快速开始
 
@@ -108,13 +122,21 @@
 - Node.js 20+
 - `pnpm`
 - 一个 Supabase 项目
-- OpenAI API 访问权限
+- 一个 OpenAI API Key
 
-如果要跑完整托管场景，推荐同时准备：
+推荐同时准备：
 
 - Tavily API Key
-- Stripe 账号与密钥
+- Cloudflare Turnstile site key 与 secret key
+- GitHub Token
+- Product Hunt Token
+- Reddit OAuth 凭据
 - Sentry DSN
+
+当前属于可选集成，但代码已接好：
+
+- Stripe 密钥、Webhook Secret、Price ID
+- LinuxDo OAuth 客户端凭据
 
 ### 安装依赖
 
@@ -130,29 +152,39 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
-最小可运行配置：
+托管版最小后端配置：
 
 - `OPENAI_API_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
 - `AUTH_SESSION_SECRET`
 - `FRONTEND_APP_URL`
+- `TURNSTILE_SECRET_KEY`
 
-前端认证相关变量：
+前端最小构建/运行配置：
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_TURNSTILE_SITE_KEY`
 
-对于 Docker 部署，这些 `VITE_*` 变量属于前端构建期输入。
-必须在执行 `docker compose build` 或 `docker compose up --build` 之前提供，只有运行期容器环境变量是不够的。
+可选认证增强：
 
-Billing 对本地开发不是硬依赖，但如果要启用生产计费流，还需要：
+- 在 Supabase 后台启用 GitHub / Google provider
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
 
+可选监控与 billing：
+
+- `SENTRY_DSN`
+- `VITE_SENTRY_DSN`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRO_PRICE_ID`
+
+如果你走 Docker 构建，`VITE_*` 是构建期输入，必须在 `docker compose build` 或
+`docker compose up --build` 前提供。
 
 ### 本地开发运行
 
@@ -182,13 +214,24 @@ uv run python -m ideago
 
 打开：[http://localhost:8000](http://localhost:8000)
 
-如果你要按接近线上环境的方式部署，请看 [DEPLOYMENT.md](DEPLOYMENT.md)。
+### Docker Compose
+
+`saas` 分支的 `docker-compose.yml` 会基于当前仓库构建本地镜像，并把前端构建需要的参数透传到镜像构建阶段。
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+完整托管部署流程请看 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ## 工作原理
 
-IdeaGo 接收一条想法，通过意图解析和查询规划进行标准化，然后从 6 个数据源并行采集证据，
-提取结构化信号，组装决策优先的报告。托管版在这条管线外围包上认证、数据归属、配额与
-管理后台能力。
+IdeaGo 运行的是明确的 Source Intelligence V2 管线：
+
+`intent_parser -> query_planning_rewriting -> platform_adaptation -> sources -> extractor -> aggregator`
+
+托管版在这条分析管线外侧再包上认证、配额、持久化归属、管理后台与会话处理。
 
 ```mermaid
 flowchart TD
@@ -197,41 +240,44 @@ flowchart TD
     C --> D["意图解析"]
     D --> E["查询规划与改写"]
     E --> F["平台适配"]
-    F --> G{"缓存 / 共享状态"}
+    F --> G{"缓存 / 托管运行时"}
     G -->|命中| H["返回已持久化报告"]
-    G -->|未命中| I["抓取外部数据源"]
+    G -->|未命中| I["抓取六类实时数据源"]
     I --> J["提取结构化信号"]
     J --> K["聚合洞察"]
-    K --> L["组装报告"]
+    K --> L["组装决策优先报告"]
     L --> M["持久化报告与运行状态"]
-    M --> N["报告工作区 / 历史 / 导出"]
+    M --> N["历史 / 详情 / 导出 / 管理台可见性"]
     C -.-> O["SSE 实时进度流"]
 ```
 
-数据源分工：
+固定的数据源分工：
 
-- **Tavily** — 广覆盖召回
-- **Reddit** — 痛点与迁移语言
-- **GitHub** — 开源成熟度与生态信号
-- **Hacker News** — 开发者/建设者讨论氛围
-- **App Store** — 评论聚类痛点
-- **Product Hunt** — 发布定位与市场切入方式
+- Tavily：广覆盖召回
+- Reddit：痛点与迁移语言
+- GitHub：开源成熟度与生态信号
+- Hacker News：builder sentiment
+- App Store：评论聚类痛点
+- Product Hunt：发布定位
 
-## 托管版能力
+## 认证与用户模型
 
-托管版在核心分析引擎之上增加了运营能力：
+托管版当前支持：
 
-- 基于 Supabase 的认证与用户身份
-- LinuxDo OAuth 支持与自定义会话处理
-- 用户资料与配额管理
-- 面向管理员的用户管理、配额调整、指标与健康检查接口
-- 基于 Supabase 的持久化与 PostgreSQL 共享运行时状态
-- 用于 checkout、portal、webhook 的 Stripe 集成点
-- Landing page、法律页面，以及托管产品路由
+- Supabase 邮箱密码登录
+- Supabase OAuth，例如 GitHub、Google
+- LinuxDo OAuth，通过后端 callback 与 HTTP-only cookie 建立会话
+
+用户账户相关能力包括：
+
+- 通过 `/api/v1/auth/me` 做当前用户引导
+- 通过 `/api/v1/auth/quota` 查看配额
+- 通过 `/api/v1/auth/profile` 编辑资料
+- 通过 `/api/v1/auth/account` 删除账户
 
 ## API 概览
 
-核心报告 API：
+### 分析与报告
 
 - `POST /api/v1/analyze`
 - `GET /api/v1/reports`
@@ -243,18 +289,19 @@ flowchart TD
 - `DELETE /api/v1/reports/{id}/cancel`
 - `GET /api/v1/health`
 
-认证相关 API：
+### Auth
 
-- `GET /api/v1/auth/linuxdo/start`
+- `POST /api/v1/auth/linuxdo/start`
 - `GET /api/v1/auth/linuxdo/callback`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/quota`
 - `GET /api/v1/auth/profile`
 - `PUT /api/v1/auth/profile`
 - `DELETE /api/v1/auth/account`
 
-管理后台 API：
+### Admin
 
 - `GET /api/v1/admin/users`
 - `PATCH /api/v1/admin/users/{user_id}/quota`
@@ -262,78 +309,65 @@ flowchart TD
 - `GET /api/v1/admin/metrics`
 - `GET /api/v1/admin/health`
 
-Billing API：
+### Billing 集成
 
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/portal`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/webhook`
 
-## 配置说明
-
-关键配置项：
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_DB_URL`
-- `AUTH_SESSION_SECRET`
-- `AUTH_SESSION_EXPIRE_HOURS`
-- `FRONTEND_APP_URL`
-- `LINUXDO_CLIENT_ID`
-- `LINUXDO_CLIENT_SECRET`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRO_PRICE_ID`
-- `SENTRY_DSN`
-
-后端完整变量见 [`.env.example`](.env.example)，前端变量见 [`frontend/.env.example`](frontend/.env.example)。
+注意：checkout、portal、status 现在仍是“代码已接好、用户入口未开放”的状态。
 
 ## 项目结构
 
-```text
-.
-├── src/ideago/          # API、auth、billing、pipeline、cache、models、sources
-├── frontend/src/        # React 前端，含 landing、auth、profile、pricing、admin、reports
-├── supabase/migrations/ # 数据库迁移
-├── ai_docs/             # 项目规范与说明
-├── docs/assets/         # README 截图素材
-└── DEPLOYMENT.md        # 部署说明
-```
+### 后端
 
-## 分支模型
+- `src/ideago/api`：FastAPI app、路由、中间件、schema、依赖注入
+- `src/ideago/auth`：认证依赖、session helper、Supabase 管理接口
+- `src/ideago/billing`：Stripe 集成层
+- `src/ideago/cache`：file / Supabase 报告仓储
+- `src/ideago/config`：运行时配置
+- `src/ideago/models`：领域模型与报告契约
+- `src/ideago/pipeline`：编排、提取、聚合、报告组装
+- `src/ideago/sources`：六类数据源接入
 
-- `main`：本地 / 个人部署版，匿名使用，不依赖 Supabase
-- `saas`：托管产品线，增加 auth、billing、profile、admin 与运营配置
+### 前端
 
-通用产品能力先进 `main`，`saas` 再合并 `main`。
+- `frontend/src/app`：路由、壳层、导航、错误边界
+- `frontend/src/features/auth`：登录与回调流程
+- `frontend/src/features/history`：报告历史
+- `frontend/src/features/home`：登录后的主工作区
+- `frontend/src/features/landing`：访客入口页
+- `frontend/src/features/profile`：用户资料与订阅状态
+- `frontend/src/features/reports`：报告详情与进度 UI
+- `frontend/src/features/admin`：管理后台
+- `frontend/src/lib/api`：typed API client 与 SSE
+- `frontend/src/lib/auth`：auth context、redirect helper、token/session 处理
 
-## 文档入口
+## 文档导航
 
-- [部署说明](DEPLOYMENT.md)
-- [贡献指南](CONTRIBUTING.md)
-- [AI Tooling Standards](ai_docs/AI_TOOLING_STANDARDS.md)
-- [Backend Standards](ai_docs/BACKEND_STANDARDS.md)
-- [Frontend Standards](ai_docs/FRONTEND_STANDARDS.md)
+- 核心工程契约：[ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
+- 后端约定：[ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
+- 前端约定：[ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
+- 设置与环境变量：[ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- 前端专属说明：[frontend/README.md](frontend/README.md)
+- 部署 runbook：[DEPLOYMENT.md](DEPLOYMENT.md)
+- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 验证命令
 
+在宣称完成之前，按任务范围运行：
+
 ```bash
+# Backend
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run mypy src
 uv run pytest
 
+# Frontend
 pnpm --prefix frontend lint
 pnpm --prefix frontend typecheck
 pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
-
-## 致谢
-
-感谢 [Linux.do](https://linux.do/) 提供的参考资料。
-
-## 许可证
-
-MIT，见 [LICENSE](LICENSE)。

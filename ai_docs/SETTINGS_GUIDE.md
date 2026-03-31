@@ -1,73 +1,114 @@
-# Settings Configuration Guide / 配置指南
+# Settings Configuration Guide
 
-## 概述 / Overview
+This repository uses `pydantic-settings` for runtime configuration.
 
-这是一个简化的配置管理模板，使用 Pydantic Settings 实现类型安全的配置加载。
+This file documents the hosted `saas` branch.
 
-This is a simplified configuration management template using Pydantic Settings for type-safe configuration loading.
+## Priority
 
-## 快速开始 / Quick Start
+1. Environment variables
+2. `.env`
+3. Defaults in `src/ideago/config/settings.py`
 
-### 1. 设置环境变量
-复制示例文件并修改配置值：
+## Configuration Model On `saas`
+
+The hosted branch has three buckets of settings:
+
+- core analysis settings
+- hosted auth/persistence settings
+- optional observability and billing settings
+
+## Required For Normal Hosted Operation
+
+### Core analysis
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+
+### Hosted auth and persistence
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
+- `AUTH_SESSION_SECRET`
+- `FRONTEND_APP_URL`
+- `TURNSTILE_SECRET_KEY`
+
+### Frontend build variables
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_TURNSTILE_SITE_KEY`
+
+## Common Optional Settings
+
+- `TAVILY_API_KEY`
+- `GITHUB_TOKEN`
+- `PRODUCTHUNT_DEV_TOKEN`
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
+- `SENTRY_DSN`
+- `VITE_SENTRY_DSN`
+- `LINUXDO_CLIENT_ID`
+- `LINUXDO_CLIENT_SECRET`
+
+## Optional Billing Settings
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+
+These are optional right now because pricing is intentionally hidden in the hosted UI.
+
+## Frontend Build-Time Reminder
+
+`VITE_*` values are compiled into the frontend bundle.
+
+If you deploy with Docker on `saas`, set the `VITE_*` variables before:
+
 ```bash
-cp .env.example .env
+docker compose build
 ```
 
-### 2. 使用配置
+or:
+
+```bash
+docker compose up --build
+```
+
+## Reddit Notes
+
+- `REDDIT_ENABLE_PUBLIC_FALLBACK` should default to `false` in hosted/server environments.
+- Use OAuth credentials whenever possible.
+- Only enable public fallback if you have confirmed anonymous Reddit access works from your deployment environment.
+
+## Pipeline Result Caps
+
+- `MAX_RESULTS_PER_SOURCE` controls how many raw results each source fetches before pre-ranking.
+- `EXTRACTOR_MAX_RESULTS_PER_SOURCE` controls how many ranked results per source enter extraction.
+- Keep fetch budget and extractor budget separate.
+
+## Usage
+
+```bash
+cp .env.example .env
+cp frontend/.env.example frontend/.env
+```
+
 ```python
 from ideago.config.settings import get_settings
 
 settings = get_settings()
-print(f"Env: {settings.environment}")
-print(f"Log level: {settings.log_level}")
+print(settings.frontend_app_url)
 ```
 
-## 如何添加自己的配置 / How to Add Your Own Settings
+## Maintenance Rule
 
-### 步骤 1: 在 Settings 类中添加字段
+If you add or rename a setting, update:
 
-```python
-# 在 src/ideago/config/settings.py 的 Settings 类中添加
-database_url: str = Field(
-    default="sqlite:///./app.db",
-    description="Database connection URL"
-)
-```
-
-### 步骤 2: 添加到 .env.example
-
-```bash
-DATABASE_URL=sqlite:///./app.db
-```
-
-### 步骤 3: 使用配置
-
-```python
-settings = get_settings()
-print(settings.database_url)
-```
-
-## 配置优先级 / Priority
-
-1. 环境变量（最高）
-2. .env 文件
-3. 默认值（最低）
-
-## Reddit Source Notes
-
-- Update (2026-03): `REDDIT_ENABLE_PUBLIC_FALLBACK` should default to `false` in server environments.
-- Reason: unauthenticated Reddit `.json` search frequently returns 403 from hosted/server IPs and is no longer a stable production retrieval path.
-- Current backend behavior: when OAuth credentials are missing and public fallback is disabled, the Reddit source is skipped instead of retrying `search.json`.
-- Only enable `REDDIT_ENABLE_PUBLIC_FALLBACK=true` if you have explicitly verified that anonymous Reddit JSON access still works from your deployment environment.
-
-- `REDDIT_CLIENT_ID` 和 `REDDIT_CLIENT_SECRET` 仍然是 Reddit 数据源的首选配置方式。
-- 当这两个 OAuth 凭证缺失时，后端可以根据 `REDDIT_ENABLE_PUBLIC_FALLBACK` 自动退化到公开只读抓取模式。
-- 公开只读 fallback 仅用于有限的公开帖子搜索，结果稳定性和完整性低于 OAuth 模式。
-- 可通过 `REDDIT_PUBLIC_FALLBACK_LIMIT` 和 `REDDIT_PUBLIC_FALLBACK_DELAY_SECONDS` 控制 fallback 的结果数和请求节奏。
-
-## Pipeline Result Caps
-
-- `MAX_RESULTS_PER_SOURCE` controls how many raw results each source fetches before pre-ranking. Current default: `20`.
-- `EXTRACTOR_MAX_RESULTS_PER_SOURCE` controls how many ranked results per source are sent into the extractor prompt after pre-filtering. Current default: `15`.
-- Keep these two knobs separate: fetch budget affects source cost/latency, extractor budget affects prompt size and LLM extraction recall.
+- `src/ideago/config/settings.py`
+- `.env.example`
+- `frontend/.env.example` when applicable
+- this guide
+- any README or deployment docs that depend on it
