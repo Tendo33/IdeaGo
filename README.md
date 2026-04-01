@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/icon.png" alt="IdeaGo logo" width="96" />
+  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
 
   <h1>IdeaGo</h1>
 
@@ -79,15 +79,23 @@ IdeaGo is not just a competitor lookup flow anymore. The report contract is deci
 The codebase contains some additional shared/legal UI files, but the active router on `main`
 stays intentionally small and anonymous.
 
-## Screenshots
+## Product Walkthrough
 
-### Home
+### Landing And Idea Intake
 
-![Home screenshot](assets/banner_new.png)
+![Landing and intake](docs/assets/1.png)
 
-### Report Detail
+### Real-Time Research Pipeline
 
-![Report screenshot](assets/usage_new.png)
+![Pipeline progress](docs/assets/2.png)
+
+### Decision Summary
+
+![Decision summary](docs/assets/3.png)
+
+### Evidence-Backed Landscape
+
+![Report workspace](docs/assets/4.png)
 
 ## Quick Start
 
