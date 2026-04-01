@@ -35,6 +35,7 @@ dependencies = [
     "uvicorn[standard]>=0.34.0",
     "httpx>=0.28.0",
     "openai>=1.60.0",
+    "json-repair>=0.39.1",
     "langchain>=0.3.0",
     "langchain-openai>=0.3.0",
     "langgraph>=1.0.10",

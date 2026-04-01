@@ -21,6 +21,7 @@ from ideago.llm.chat_model import (
     _merge_call_metadata,
     _next_start_endpoint_index,
     _parse_fallback_endpoints,
+    _parse_json_response_content,
     _safe_non_negative_int,
 )
 from ideago.llm.prompt_loader import load_prompt
@@ -143,6 +144,31 @@ async def test_chat_model_client_invoke_json_invalid_raises() -> None:
 
     with pytest.raises(json.JSONDecodeError):
         await client.invoke_json("test")
+
+
+def test_parse_json_response_content_accepts_markdown_block() -> None:
+    payload, strategy = _parse_json_response_content(
+        '```json\n{"name":"test","score":0.8}\n```'
+    )
+    assert payload["name"] == "test"
+    assert payload["score"] == 0.8
+    assert strategy == "markdown"
+
+
+def test_parse_json_response_content_accepts_prefixed_chatter() -> None:
+    payload, strategy = _parse_json_response_content(
+        '好的，这是你的结果：\n{"name":"test","score":0.8}'
+    )
+    assert payload["name"] == "test"
+    assert payload["score"] == 0.8
+    assert strategy in {"markdown", "repair"}
+
+
+def test_parse_json_response_content_repairs_trailing_comma() -> None:
+    payload, strategy = _parse_json_response_content('{"name":"test","score":0.8,}')
+    assert payload["name"] == "test"
+    assert payload["score"] == 0.8
+    assert strategy == "repair"
 
 
 @pytest.mark.asyncio

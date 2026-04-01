@@ -11,7 +11,9 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
+from json_repair import repair_json
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.utils.json import parse_json_markdown
 from langchain_openai import ChatOpenAI
 from openai import APIStatusError, APITimeoutError, RateLimitError
 from pydantic import SecretStr
@@ -46,6 +48,7 @@ def _empty_call_metadata() -> dict[str, Any]:
         "endpoints_tried": [],
         "endpoint_used": "",
         "last_error_class": "",
+        "json_parse_strategy": "",
     }
 
 
@@ -220,7 +223,8 @@ class ChatModelClient:
             aggregated_metadata = _merge_call_metadata(aggregated_metadata, metadata)
             content = _extract_content_text(response.content)
             try:
-                payload = json.loads(content or "{}")
+                payload, parse_strategy = _parse_json_response_content(content)
+                aggregated_metadata["json_parse_strategy"] = parse_strategy
                 return payload, aggregated_metadata
             except json.JSONDecodeError as exc:
                 last_decode_error = exc
@@ -301,6 +305,9 @@ def _merge_call_metadata(
     incoming_error = str(incoming.get("last_error_class", "") or "").strip()
     current_error = str(current.get("last_error_class", "") or "").strip()
     merged["last_error_class"] = incoming_error or current_error
+    incoming_parse_strategy = str(incoming.get("json_parse_strategy", "") or "").strip()
+    current_parse_strategy = str(current.get("json_parse_strategy", "") or "").strip()
+    merged["json_parse_strategy"] = incoming_parse_strategy or current_parse_strategy
     return merged
 
 
@@ -408,6 +415,42 @@ def _extract_content_text(content: Any) -> str:
                     parts.append(text)
         return "".join(parts)
     return str(content)
+
+
+def _parse_json_response_content(content: str) -> tuple[dict[str, Any], str]:
+    """Parse model response into JSON object using layered, regex-free fallbacks."""
+    normalized = content.strip()
+    payload_text = normalized or "{}"
+
+    strict_decode_error: json.JSONDecodeError | None = None
+    try:
+        parsed = json.loads(payload_text)
+        if isinstance(parsed, dict):
+            return parsed, "strict"
+    except json.JSONDecodeError as exc:
+        strict_decode_error = exc
+
+    try:
+        parsed_markdown = parse_json_markdown(payload_text)
+        if isinstance(parsed_markdown, dict):
+            return parsed_markdown, "markdown"
+    except Exception:
+        pass
+
+    try:
+        repaired = repair_json(payload_text, return_objects=True)
+        if isinstance(repaired, dict):
+            return repaired, "repair"
+        if isinstance(repaired, str):
+            parsed_repaired = json.loads(repaired)
+            if isinstance(parsed_repaired, dict):
+                return parsed_repaired, "repair"
+    except Exception:
+        pass
+
+    if strict_decode_error is not None:
+        raise strict_decode_error
+    raise json.JSONDecodeError("Invalid JSON object", payload_text, 0)
 
 
 def _extract_token_usage(response: Any) -> tuple[int, int]:
