@@ -394,20 +394,50 @@ def _extract_status_code(exc: Exception) -> int | None:
 
 
 def _extract_content_text(content: Any) -> str:
-    """Normalize model response content to plain text."""
+    """Normalize model response content to plain text and extract JSON block if wrapped."""
+    import re
+
+    text = ""
     if isinstance(content, str):
-        return content
-    if isinstance(content, list):
+        text = content
+    elif isinstance(content, list):
         parts: list[str] = []
         for item in content:
             if isinstance(item, str):
                 parts.append(item)
             elif isinstance(item, dict):
-                text = item.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-        return "".join(parts)
-    return str(content)
+                part = item.get("text")
+                if isinstance(part, str):
+                    parts.append(part)
+        text = "".join(parts)
+    else:
+        text = str(content)
+
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    if not text.startswith("{") and not text.startswith("["):
+        match = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        s_brace = text.find("{")
+        e_brace = text.rfind("}")
+        s_brak = text.find("[")
+        e_brak = text.rfind("]")
+        s_idx, e_idx = -1, -1
+        if s_brace != -1 and e_brace != -1:
+            s_idx, e_idx = s_brace, e_brace
+        if s_brak != -1 and e_brak != -1 and (s_idx == -1 or s_brak < s_idx):
+            s_idx, e_idx = s_brak, e_brak
+        if s_idx != -1 and e_idx > s_idx:
+            return text[s_idx : e_idx + 1]
+    return text
 
 
 def _extract_token_usage(response: Any) -> tuple[int, int]:
