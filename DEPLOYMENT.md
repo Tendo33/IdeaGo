@@ -114,7 +114,7 @@ docker compose up -d
 Optional: pin to a specific tag:
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.9 docker compose up -d
 ```
 
 If you prefer to build locally from source, the branch also includes a Dockerfile.

@@ -186,7 +186,7 @@ docker compose up -d
 如果想固定到某个发布版本，而不是 `latest`：
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.9 docker compose up -d
 ```
 
 如果你想自行构建，分支里也保留了 Dockerfile。

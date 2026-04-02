@@ -189,7 +189,7 @@ docker compose up -d
 Optional: pin to a release tag instead of `latest`:
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.8 docker compose up -d
+IDEAGO_IMAGE_TAG=0.3.9 docker compose up -d
 ```
 
 If you prefer to build from source, the branch also includes a Dockerfile.
