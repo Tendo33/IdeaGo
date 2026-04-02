@@ -425,9 +425,11 @@ export interface SubscriptionStatus {
 }
 
 export async function getSubscriptionStatus(options: RequestOptions = {}): Promise<SubscriptionStatus> {
-  const res = await fetchWithTimeout(`${API_BASE}/billing/status`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
-  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load subscription status'))
-  return res.json()
+  void options;
+  // res = await fetchWithTimeout(`${API_BASE}/billing/status`, { headers: authHeaders() }, options, DEFAULT_TIMEOUT_MS)
+  // if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load subscription status'))
+  // return res.json()
+  throw new Error("Billing is temporarily disabled")
 }
 
 export async function createCheckoutSession(
@@ -435,38 +437,18 @@ export async function createCheckoutSession(
   cancelUrl: string,
   options: RequestOptions = {},
 ): Promise<string> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/billing/checkout`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
-      body: JSON.stringify({ success_url: successUrl, cancel_url: cancelUrl }),
-    },
-    options,
-    DEFAULT_TIMEOUT_MS,
-  )
-  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to create checkout'))
-  const data = await res.json()
-  return data.url
+  void successUrl; void cancelUrl; void options;
+  // const res = await fetchWithTimeout(`${API_BASE}/billing/checkout`, ...)
+  throw new Error("Billing is temporarily disabled")
 }
 
 export async function createPortalSession(
   returnUrl: string,
   options: RequestOptions = {},
 ): Promise<string> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/billing/portal`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
-      body: JSON.stringify({ return_url: returnUrl }),
-    },
-    options,
-    DEFAULT_TIMEOUT_MS,
-  )
-  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to create portal session'))
-  const data = await res.json()
-  return data.url
+  void returnUrl; void options;
+  // const res = await fetchWithTimeout(`${API_BASE}/billing/portal`, ...)
+  throw new Error("Billing is temporarily disabled")
 }
 
 // --- Admin ---

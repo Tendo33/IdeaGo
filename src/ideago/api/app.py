@@ -34,7 +34,9 @@ from ideago.api.rate_limit import (
     get_rate_limit_store,
     register_rate_limit_middleware,
 )
-from ideago.api.routes import admin, analyze, auth, billing, health, reports
+from ideago.api.routes import admin, analyze, auth, health, reports
+
+# from ideago.api.routes import billing
 from ideago.config.settings import get_settings
 from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
@@ -173,7 +175,7 @@ def _register_routes(app: FastAPI) -> None:
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
-    app.include_router(billing.router, prefix="/api/v1")
+    # app.include_router(billing.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
 
 
