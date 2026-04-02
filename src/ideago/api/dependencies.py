@@ -98,12 +98,14 @@ def get_orchestrator() -> LangGraphEngine:
             json_parse_max_retries=settings.langgraph_json_parse_max_retries,
             fallback_endpoints=settings.get_openai_fallback_endpoints(),
         )
+        max_age = settings.source_max_age_days
         registry = SourceRegistry()
         registry.register(
             GitHubSource(
                 token=settings.github_token,
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
+                max_age_days=max_age,
             )
         )
         registry.register(
@@ -112,12 +114,14 @@ def get_orchestrator() -> LangGraphEngine:
                 base_url=settings.tavily_base_url,
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
+                max_age_days=max_age,
             )
         )
         registry.register(
             HackerNewsSource(
                 timeout=settings.source_timeout_seconds,
                 max_concurrent_queries=settings.source_query_concurrency,
+                max_age_days=max_age,
             )
         )
         registry.register(
@@ -144,6 +148,7 @@ def get_orchestrator() -> LangGraphEngine:
                 enable_public_fallback=settings.reddit_enable_public_fallback,
                 public_fallback_limit=settings.reddit_public_fallback_limit,
                 public_fallback_delay_seconds=settings.reddit_public_fallback_delay_seconds,
+                max_age_days=max_age,
             )
         )
 

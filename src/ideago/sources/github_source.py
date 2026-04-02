@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import httpx
@@ -37,6 +37,7 @@ class GitHubSource:
         timeout: int = 30,
         max_concurrent_queries: int = 2,
         min_stars: int = _DEFAULT_MIN_STARS,
+        max_age_days: int = 0,
     ) -> None:
         headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
         if token:
@@ -48,6 +49,7 @@ class GitHubSource:
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
         self._min_stars = max(0, min_stars)
+        self._max_age_days = max(0, max_age_days)
         self._runtime_max_concurrent_queries: int | None = None
         self._last_search_diagnostics: dict[str, object] = {
             "partial_failure": False,
@@ -81,6 +83,11 @@ class GitHubSource:
     ) -> list[RawResult]:
         query = resolved_query.text
         normalized_query = _normalize_github_query(query)
+        if self._max_age_days > 0:
+            cutoff = (
+                datetime.now(timezone.utc) - timedelta(days=self._max_age_days)
+            ).strftime("%Y-%m-%d")
+            normalized_query = f"{normalized_query} pushed:>{cutoff}"
         try:
             resp = await self._client.get(
                 "/search/repositories",

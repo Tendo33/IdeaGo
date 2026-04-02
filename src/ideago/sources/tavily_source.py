@@ -33,11 +33,13 @@ class TavilySource:
         base_url: str = "",
         timeout: int = 30,
         max_concurrent_queries: int = 2,
+        max_age_days: int = 0,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self._timeout = timeout
         self._max_concurrent_queries = max(1, max_concurrent_queries)
+        self._max_age_days = max(0, max_age_days)
         self._runtime_max_concurrent_queries: int | None = None
         self._last_search_diagnostics: dict[str, object] = {
             "partial_failure": False,
@@ -80,12 +82,15 @@ class TavilySource:
             return []
         query = resolved_query.text
         try:
+            search_kwargs: dict[str, object] = {
+                "query": query,
+                "max_results": limit,
+                "search_depth": "basic",
+            }
+            if self._max_age_days > 0:
+                search_kwargs["days"] = self._max_age_days
             response = await asyncio.wait_for(
-                self._client.search(
-                    query=query,
-                    max_results=limit,
-                    search_depth="basic",
-                ),
+                self._client.search(**search_kwargs),  # type: ignore[arg-type]
                 timeout=self._timeout,
             )
             ranked_items = sorted(

@@ -262,6 +262,7 @@ class PipelineNodes:
         self._source_query_caps = settings.get_source_query_caps()
         self._family_default_weights = settings.get_query_family_default_weights()
         self._orchestration_profiles = settings.get_orchestration_profiles()
+        self._source_max_age_days = settings.source_max_age_days
 
     async def parse_intent_node(self, state: GraphState) -> GraphState:
         """Parse natural language query into structured intent."""
@@ -601,6 +602,7 @@ class PipelineNodes:
         filtered = filter_raw_results(
             raw_by_source,
             max_per_source=self._extractor_max_results,
+            max_age_days=self._source_max_age_days,
         )
         total_before = sum(len(v) for v in raw_by_source.values())
         total_after = sum(len(v) for v in filtered.values())

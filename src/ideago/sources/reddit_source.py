@@ -69,6 +69,21 @@ def _to_iso_datetime_from_unix(value: object) -> str | None:
         return None
 
 
+def _max_age_days_to_reddit_t(max_age_days: int) -> str:
+    """Map a max-age-days value to the closest Reddit ``t`` parameter."""
+    if max_age_days <= 0:
+        return "all"
+    if max_age_days <= 1:
+        return "day"
+    if max_age_days <= 7:
+        return "week"
+    if max_age_days <= 31:
+        return "month"
+    if max_age_days <= 365:
+        return "year"
+    return "all"
+
+
 class RedditSource:
     """Searches Reddit posts using the OAuth2 Application-Only flow."""
 
@@ -83,10 +98,12 @@ class RedditSource:
         enable_public_fallback: bool = False,
         public_fallback_limit: int = _PUBLIC_SEARCH_LIMIT_CAP,
         public_fallback_delay_seconds: float = _PUBLIC_INTER_REQUEST_DELAY,
+        max_age_days: int = 0,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
         self._enable_public_fallback = enable_public_fallback
+        self._reddit_t = _max_age_days_to_reddit_t(max_age_days)
         self._public_fallback_limit = max(1, min(public_fallback_limit, 25))
         self._public_fallback_delay_seconds = max(0.0, public_fallback_delay_seconds)
         self._client = httpx.AsyncClient(
@@ -263,7 +280,7 @@ class RedditSource:
                     "q": query,
                     "limit": min(limit, 25),
                     "sort": "relevance",
-                    "t": "year",
+                    "t": self._reddit_t,
                     "type": "link",
                 },
                 headers={"Authorization": f"Bearer {token}"},
@@ -339,7 +356,7 @@ class RedditSource:
                     "q": query,
                     "limit": min(limit, self._public_fallback_limit),
                     "sort": "relevance",
-                    "t": "year",
+                    "t": self._reddit_t,
                     "type": "link",
                 },
             )

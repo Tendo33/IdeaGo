@@ -323,6 +323,14 @@ class Settings(BaseSettings):
             "family_weight_overrides, and family_trim_threshold."
         ),
     )
+    source_max_age_days: int = Field(
+        default=730,
+        ge=1,
+        le=3650,
+        description="Global content freshness window in days. "
+        "Sources will prefer content within this window. / "
+        "全局数据源时效性窗口（天），各源优先获取该时间段内的内容",
+    )
     producthunt_posted_after_days: int = Field(
         default=730,
         ge=1,
