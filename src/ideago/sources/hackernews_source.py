@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import httpx
@@ -30,12 +30,18 @@ class HackerNewsSource:
 
     _BASE_URL = "https://hn.algolia.com/api/v1"
 
-    def __init__(self, timeout: int = 30, max_concurrent_queries: int = 2) -> None:
+    def __init__(
+        self,
+        timeout: int = 30,
+        max_concurrent_queries: int = 2,
+        max_age_days: int = 0,
+    ) -> None:
         self._client = httpx.AsyncClient(
             base_url=self._BASE_URL,
             timeout=timeout,
         )
         self._max_concurrent_queries = max(1, max_concurrent_queries)
+        self._max_age_days = max(0, max_age_days)
         self._runtime_max_concurrent_queries: int | None = None
         self._last_search_diagnostics: dict[str, object] = {
             "partial_failure": False,
@@ -69,10 +75,19 @@ class HackerNewsSource:
     ) -> list[RawResult]:
         query = resolved_query.text
         try:
-            resp = await self._client.get(
-                "/search",
-                params={"query": query, "tags": "story", "hitsPerPage": limit},
-            )
+            params: dict[str, str | int] = {
+                "query": query,
+                "tags": "story",
+                "hitsPerPage": limit,
+            }
+            if self._max_age_days > 0:
+                cutoff_ts = int(
+                    (
+                        datetime.now(timezone.utc) - timedelta(days=self._max_age_days)
+                    ).timestamp()
+                )
+                params["numericFilters"] = f"created_at_i>{cutoff_ts}"
+            resp = await self._client.get("/search", params=params)
             if resp.status_code != 200:
                 logger.warning(
                     "HN API returned {status} for query '{query}'",

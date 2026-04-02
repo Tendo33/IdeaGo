@@ -6,11 +6,12 @@ truncate results, reducing token waste on low-quality entries.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ideago.models.research import OpportunityScoreBreakdown, Platform, RawResult
 
 _DEFAULT_MAX_PER_SOURCE = 8
+_DEFAULT_MAX_AGE_DAYS = 0
 _PAIN_TERMS = (
     "pain",
     "complaint",
@@ -79,24 +80,43 @@ def filter_raw_results(
     raw_by_source: dict[str, list[RawResult]],
     *,
     max_per_source: int = _DEFAULT_MAX_PER_SOURCE,
+    max_age_days: int = _DEFAULT_MAX_AGE_DAYS,
 ) -> dict[str, list[RawResult]]:
     """Rank and truncate raw results per source using quality signals.
 
     Args:
         raw_by_source: Platform name → raw results mapping.
         max_per_source: Maximum results to keep per platform.
+        max_age_days: Drop results with a known timestamp older than this.
+            Zero disables the hard cutoff.
 
     Returns:
         Filtered mapping with top-N results per platform.
     """
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        if max_age_days > 0
+        else None
+    )
     filtered: dict[str, list[RawResult]] = {}
     cap = max(1, max_per_source)
     for platform_name, results in raw_by_source.items():
         if not results:
             continue
-        scored = sorted(results, key=_quality_score, reverse=True)
+        candidates = (
+            [r for r in results if not _is_too_old(r, cutoff)] if cutoff else results
+        )
+        scored = sorted(candidates, key=_quality_score, reverse=True)
         filtered[platform_name] = scored[:cap]
     return filtered
+
+
+def _is_too_old(result: RawResult, cutoff: datetime) -> bool:
+    """Return True when the result has a known timestamp older than *cutoff*."""
+    ts = _parse_iso8601(result.raw_data.get("freshness_timestamp"))
+    if ts is None:
+        return False
+    return ts < cutoff
 
 
 def _quality_score(result: RawResult) -> float:
