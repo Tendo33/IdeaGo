@@ -373,6 +373,10 @@
           "label": "Searching Reddit discussions",
           "short": "Reddit"
         },
+        "google_trends": {
+          "label": "Tracking Google Trends interest",
+          "short": "Google Trends"
+        },
         "extraction": {
           "label": "Extracting competitor details",
           "short": "Extract"

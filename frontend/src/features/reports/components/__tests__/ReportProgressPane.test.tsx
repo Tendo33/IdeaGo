@@ -120,4 +120,23 @@ describe('ReportProgressPane', () => {
       model.steps.findIndex(step => step.id === 'intent') + 1,
     )
   })
+
+  it('uses a user-facing label for google trends source stages', () => {
+    const events: PipelineEvent[] = [
+      {
+        type: 'source_started',
+        stage: 'google_trends_search',
+        message: 'Searching google trends',
+        data: {},
+        timestamp: '2026-03-27T13:20:49.000Z',
+      },
+    ]
+
+    const model = deriveProgressModel(events, i18n.t.bind(i18n))
+    const googleTrendsStep = model.steps.find(step => step.id === 'google_trends')
+    const googleTrendsPreview = model.sourcePreviews.find(source => source.platform === 'google_trends')
+
+    expect(googleTrendsStep?.label).not.toBe('google_trends')
+    expect(googleTrendsPreview?.label).not.toBe('google_trends')
+  })
 })

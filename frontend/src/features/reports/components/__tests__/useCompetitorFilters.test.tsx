@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { getCompetitorId } from '@/features/reports/competitor'
-import { useCompetitorFilters } from '../useCompetitorFilters'
+import { PLATFORM_OPTIONS, useCompetitorFilters } from '../useCompetitorFilters'
 import type { ResearchReport } from '@/lib/types/research'
 
 const report: ResearchReport = {
@@ -135,6 +135,10 @@ describe('useCompetitorFilters', () => {
       result.current.setSortBy('name')
     })
     expect(result.current.filteredCompetitors.map(c => c.name)).toEqual(['Alpha', 'Beta', 'Gamma'])
+  })
+
+  it('exposes google trends as an available platform filter option', () => {
+    expect(PLATFORM_OPTIONS).toContain('google_trends')
   })
 
   it('tracks compare selection by stable competitor id', () => {

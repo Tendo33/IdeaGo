@@ -11,7 +11,7 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'sources', label: 'Sources' },
 ]
 
-export const PLATFORM_OPTIONS: Platform[] = ["github", "tavily", "hackernews", "appstore", "producthunt", "reddit"];
+export const PLATFORM_OPTIONS: Platform[] = ["github", "tavily", "hackernews", "appstore", "producthunt", "reddit", "google_trends"];
 
 interface CompetitorFilterState {
   reportId: string | null

@@ -373,6 +373,10 @@
           "label": "搜索 Reddit 社区讨论",
           "short": "Reddit"
         },
+        "google_trends": {
+          "label": "跟踪 Google Trends 搜索热度",
+          "short": "Google Trends"
+        },
         "extraction": {
           "label": "提取竞品核心特征",
           "short": "特征提取"
