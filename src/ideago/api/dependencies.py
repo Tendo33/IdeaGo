@@ -168,7 +168,9 @@ def get_orchestrator() -> LangGraphEngine:
             checkpoint_db_path=settings.langgraph_checkpoint_db_path,
             source_timeout=settings.source_timeout_seconds,
             extraction_timeout=settings.extraction_timeout_seconds,
+            aggregation_timeout=settings.aggregation_timeout_seconds,
             max_results_per_source=settings.max_results_per_source,
+            extractor_max_results_per_source=settings.extractor_max_results_per_source,
             source_global_concurrency=settings.source_global_concurrency,
         )
     return _orchestrator

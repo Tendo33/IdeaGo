@@ -1,4 +1,11 @@
-export type Platform = 'github' | 'tavily' | 'hackernews' | 'appstore' | 'producthunt' | 'reddit'
+export type Platform =
+  | 'github'
+  | 'tavily'
+  | 'hackernews'
+  | 'appstore'
+  | 'producthunt'
+  | 'reddit'
+  | 'google_trends'
 
 export type SourceStatus = 'ok' | 'failed' | 'cached' | 'timeout' | 'degraded'
 
@@ -24,6 +31,7 @@ export interface PipelineEventData {
   target_scenario?: string
   platform?: string
   count?: number
+  families?: string[]
 }
 
 export interface PipelineEvent {
@@ -47,6 +55,11 @@ export interface ProgressSourceCompletedData {
 
 export interface ProgressExtractionCompletedData {
   count?: number
+}
+
+export interface ProgressPlanningCompletedData {
+  count?: number
+  families: string[]
 }
 
 const PIPELINE_EVENT_TYPES: EventType[] = [
@@ -129,6 +142,17 @@ export function parseExtractionCompletedProgressData(raw: unknown): ProgressExtr
   }
 }
 
+export function parsePlanningCompletedProgressData(raw: unknown): ProgressPlanningCompletedData {
+  if (!isRecord(raw)) {
+    return { families: [] }
+  }
+
+  return {
+    count: readCount(raw.count),
+    families: readStringList(raw.families),
+  }
+}
+
 export function normalizePipelineEventData(type: EventType, raw: unknown): PipelineEventData {
   if (type === 'intent_parsed') {
     const parsed = parseIntentProgressData(raw)
@@ -144,6 +168,14 @@ export function normalizePipelineEventData(type: EventType, raw: unknown): Pipel
     return {
       ...(parsed.platform ? { platform: parsed.platform } : {}),
       ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+    }
+  }
+
+  if (type === 'query_planning_completed') {
+    const parsed = parsePlanningCompletedProgressData(raw)
+    return {
+      ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+      ...(parsed.families.length > 0 ? { families: parsed.families } : {}),
     }
   }
 
@@ -185,6 +217,7 @@ export interface Competitor {
   strengths: string[]
   weaknesses: string[]
   relevance_score: number
+  relevance_kind: 'direct' | 'adjacent'
   source_platforms: Platform[]
   source_urls: string[]
 }
@@ -307,6 +340,9 @@ export interface ReportMeta {
 export interface Intent {
   keywords_en: string[]
   keywords_zh: string[]
+  exact_entities: string[]
+  comparison_anchors: string[]
+  search_goal: string
   app_type: string
   target_scenario: string
   output_language: string

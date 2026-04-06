@@ -49,7 +49,9 @@ class LangGraphEngine:
         checkpoint_db_path: str,
         source_timeout: int = 30,
         extraction_timeout: int = 60,
+        aggregation_timeout: int = 60,
         max_results_per_source: int = 10,
+        extractor_max_results_per_source: int = 10,
         max_concurrent_llm: int = 3,
         source_global_concurrency: int = 3,
         checkpoint_db_url: str = "",
@@ -68,7 +70,9 @@ class LangGraphEngine:
 
         self._source_timeout = source_timeout
         self._extraction_timeout = extraction_timeout
+        self._aggregation_timeout = aggregation_timeout
         self._max_results_per_source = max_results_per_source
+        self._extractor_max_results_per_source = extractor_max_results_per_source
         self._max_concurrent_llm = max_concurrent_llm
         self._source_global_concurrency = max(1, source_global_concurrency)
 
@@ -107,7 +111,9 @@ class LangGraphEngine:
             callback=callback,
             source_timeout=self._source_timeout,
             extraction_timeout=self._extraction_timeout,
+            aggregation_timeout=self._aggregation_timeout,
             max_results_per_source=self._max_results_per_source,
+            extractor_max_results_per_source=self._extractor_max_results_per_source,
             max_concurrent_llm=self._max_concurrent_llm,
             source_global_concurrency=self._source_global_concurrency,
             source_runtime_metrics=per_run_metrics,
@@ -196,7 +202,6 @@ class LangGraphEngine:
         builder.add_node("analyze", nodes.analyze_node)
         builder.add_node("assemble_report", nodes.assemble_report_node)
         builder.add_node("persist_report", nodes.persist_report_node)
-        builder.add_node("terminal_error", nodes.terminal_error_node)
 
         builder.set_entry_point("parse_intent")
         builder.add_edge("parse_intent", "cache_lookup")
@@ -213,23 +218,11 @@ class LangGraphEngine:
         builder.add_edge("pre_filter", "extract_map")
         builder.add_edge("extract_map", "merge")
         builder.add_edge("merge", "analyze")
-        builder.add_conditional_edges(
-            "analyze",
-            self._route_after_aggregate,
-            {
-                "ok": "assemble_report",
-                "error": "terminal_error",
-            },
-        )
+        builder.add_edge("analyze", "assemble_report")
         builder.add_edge("assemble_report", "persist_report")
         builder.add_edge("persist_report", END)
-        builder.add_edge("terminal_error", END)
         return builder.compile(checkpointer=saver, name="ideago_pipeline")
 
     @staticmethod
     def _route_after_cache(state: GraphState) -> str:
         return "cached" if state.get("is_cache_hit") else "fetch"
-
-    @staticmethod
-    def _route_after_aggregate(state: GraphState) -> str:
-        return "error" if state.get("error_code") else "ok"

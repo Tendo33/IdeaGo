@@ -32,8 +32,13 @@ from ideago.models.research import (
     QueryFamily,
     QueryPlan,
     RawResult,
+    RecommendationType,
 )
-from ideago.pipeline.aggregator import AggregationResult, Aggregator
+from ideago.pipeline.aggregator import (
+    AggregationResult,
+    Aggregator,
+    build_failed_aggregation_result,
+)
 from ideago.pipeline.exceptions import AggregationError, IntentParsingError
 from ideago.pipeline.extractor import Extractor
 from ideago.pipeline.intent_parser import IntentParser
@@ -731,6 +736,44 @@ async def test_extractor_filters_unverifiable_links() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extractor_keeps_verifiable_review_pages_when_links_match_source() -> (
+    None
+):
+    llm = MagicMock(spec=ChatModelClient)
+    llm.invoke_json_with_meta = AsyncMock(
+        return_value=(
+            {
+                "competitors": [
+                    {
+                        "name": "ReviewBased Tool",
+                        "links": ["https://example.com/review/reviewbased-tool"],
+                        "one_liner": "Mentioned in a validated review page",
+                        "source_platforms": ["tavily"],
+                        "source_urls": ["https://example.com/review/reviewbased-tool"],
+                    }
+                ]
+            },
+            {},
+        )
+    )
+
+    extractor = Extractor(llm)
+    raw = [
+        RawResult(
+            title="ReviewBased Tool",
+            url="https://example.com/review/reviewbased-tool",
+            platform=Platform.TAVILY,
+        )
+    ]
+
+    result = await extractor.extract(raw, _TEST_INTENT)
+
+    assert len(result) == 1
+    assert result[0].name == "ReviewBased Tool"
+    assert result[0].links == ["https://example.com/review/reviewbased-tool"]
+
+
+@pytest.mark.asyncio
 async def test_extractor_backfills_strengths_and_weaknesses_when_missing() -> None:
     llm = MagicMock(spec=ChatModelClient)
     llm.invoke_json_with_meta = AsyncMock(
@@ -974,7 +1017,9 @@ async def test_aggregator_empty_competitors() -> None:
     result = await agg.aggregate([], "test", output_language="zh")
     assert result.competitors == []
     assert "竞品" in result.market_summary
-    assert "探索" in result.go_no_go
+    assert result.recommendation_type == RecommendationType.CAUTION
+    assert "不建议" in result.go_no_go
+    assert result.uncertainty_notes
     llm.invoke_json.assert_not_called()
 
 
@@ -1043,3 +1088,50 @@ def test_fuse_competitors_merges_cross_source_duplicates() -> None:
     assert set(merged.source_platforms) == {Platform.TAVILY, Platform.GITHUB}
     assert "templates" in merged.features
     assert "sync" in merged.features
+
+
+@pytest.mark.asyncio
+async def test_aggregator_empty_competitors_uses_readable_chinese_copy() -> None:
+    llm = MagicMock(spec=ChatModelClient)
+    agg = Aggregator(llm)
+
+    result = await agg.aggregate([], "test", output_language="zh")
+
+    assert (
+        result.market_summary
+        == "\u5f53\u524d\u53ef\u7528\u6570\u636e\u6e90\u4e2d\u672a\u53d1\u73b0\u660e\u786e\u7ade\u54c1\u3002"
+    )
+    assert (
+        result.go_no_go
+        == "CAUTION\uff1a\u5f53\u524d\u672a\u83b7\u5f97\u8db3\u591f\u8bc1\u636e\uff0c\u6682\u65f6\u4e0d\u5efa\u8bae\u6839\u636e\u201c\u672a\u627e\u5230\u7ade\u54c1\u201d\u76f4\u63a5\u5f97\u51fa\u4e50\u89c2\u7ed3\u8bba\u3002"
+    )
+    assert result.uncertainty_notes == [
+        "\u5f53\u524d\u6ca1\u6709\u68c0\u7d22\u5230\u8db3\u591f\u8bc1\u636e\uff0c\u7a7a\u7ed3\u679c\u4e0d\u5e94\u88ab\u76f4\u63a5\u89e3\u8bfb\u4e3a\u5b58\u5728\u660e\u786e\u5e02\u573a\u7a7a\u767d\u3002"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_build_failed_aggregation_result_uses_readable_chinese_copy() -> None:
+    competitor = Competitor(
+        name="Markdownify",
+        links=["https://markdownify.app"],
+        one_liner="markdown clipper",
+        source_platforms=[Platform.TAVILY],
+        source_urls=["https://markdownify.app"],
+    )
+    result = build_failed_aggregation_result(
+        competitors=[competitor],
+        output_language="zh",
+    )
+
+    assert (
+        result.market_summary
+        == "\u805a\u5408\u5206\u6790\u5931\u8d25\uff0c\u4ee5\u4e0b\u7ed3\u8bba\u57fa\u4e8e\u5df2\u63d0\u53d6\u7684\u7ed3\u6784\u5316\u8bc1\u636e\u8fdb\u884c\u4fdd\u5b88\u964d\u7ea7\u751f\u6210\u3002"
+    )
+    assert (
+        result.go_no_go
+        == "CAUTION\uff1a\u5f53\u524d\u7ed3\u8bba\u57fa\u4e8e\u964d\u7ea7\u5206\u6790\u751f\u6210\uff0c\u5efa\u8bae\u8865\u5145\u66f4\u591a\u5df2\u9a8c\u8bc1\u8bc1\u636e\u540e\u518d\u505a\u6700\u7ec8\u5224\u65ad\u3002"
+    )
+    assert result.uncertainty_notes == [
+        "\u805a\u5408\u9636\u6bb5\u5931\u8d25\uff0c\u6700\u7ec8\u5efa\u8bae\u57fa\u4e8e\u964d\u7ea7\u8bc1\u636e\u5408\u6210\u3002"
+    ]

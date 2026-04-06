@@ -25,6 +25,7 @@ function createCompetitors(count: number): Competitor[] {
     strengths: [],
     weaknesses: [],
     relevance_score: 0.5,
+    relevance_kind: 'direct',
     source_platforms: ['github'],
     source_urls: [`https://example-${index + 1}.com`],
   }))

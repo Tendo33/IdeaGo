@@ -274,6 +274,15 @@ class Settings(BaseSettings):
         le=50,
         description="Max results per data source / 每个数据源最大结果数",
     )
+    extractor_max_results_per_source: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description=(
+            "Max ranked results per data source sent to extractor / "
+            "每个数据源送入提取器的排序后结果上限"
+        ),
+    )
     source_timeout_seconds: int = Field(
         default=60,
         ge=5,
@@ -334,6 +343,12 @@ class Settings(BaseSettings):
         ge=10,
         le=300,
         description="Per-source LLM extraction timeout / 单源 LLM 提取超时秒数",
+    )
+    aggregation_timeout_seconds: int = Field(
+        default=180,
+        ge=1,
+        le=300,
+        description="Aggregation timeout / 聚合分析超时秒数",
     )
     langgraph_checkpoint_db_path: str = Field(
         default=".cache/ideago/langgraph-checkpoints.db",

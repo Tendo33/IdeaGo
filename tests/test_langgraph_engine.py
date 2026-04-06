@@ -799,6 +799,26 @@ class CapturingSource(MockSource):
         return MOCK_RAW_RESULTS
 
 
+class LimitCapturingSource(MockSource):
+    def __init__(self, platform: Platform, total_results: int = 6):
+        super().__init__(platform)
+        self.last_limit: int | None = None
+        self.total_results = total_results
+
+    async def search(self, queries: list[str], limit: int = 10) -> list[RawResult]:
+        self.last_limit = limit
+        return [
+            RawResult(
+                title=f"candidate-{index}",
+                description=f"Candidate {index}",
+                url=f"https://example.com/{self.platform.value}/{index}",
+                platform=self.platform,
+                raw_data={"stargazers_count": self.total_results - index},
+            )
+            for index in range(self.total_results)
+        ]
+
+
 class HtmlSource:
     @property
     def platform(self) -> Platform:
@@ -934,6 +954,10 @@ def _build_engine(
     extractor_override: object | None = None,
     aggregator_override: object | None = None,
     planner_override: object | None = None,
+    extraction_timeout: float = 5,
+    aggregation_timeout: float = 5,
+    max_results_per_source: int = 10,
+    extractor_max_results_per_source: int = 10,
 ) -> tuple[LangGraphEngine, EventCollector, IntentParser, Aggregator]:
     intent_parser = MagicMock(spec=IntentParser)
     intent_parser.parse = AsyncMock(return_value=intent_override or MOCK_INTENT)
@@ -1004,7 +1028,10 @@ def _build_engine(
         cache=cache,
         checkpoint_db_path=str(tmp_path / "checkpoint.db"),
         source_timeout=5,
-        extraction_timeout=5,
+        extraction_timeout=extraction_timeout,
+        aggregation_timeout=aggregation_timeout,
+        max_results_per_source=max_results_per_source,
+        extractor_max_results_per_source=extractor_max_results_per_source,
         source_global_concurrency=source_global_concurrency,
     )
     collector = EventCollector()
@@ -2320,6 +2347,20 @@ async def test_langgraph_engine_extraction_failure_degrades(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_langgraph_engine_unexpected_extraction_error_degrades(tmp_path) -> None:
+    extractor = MagicMock(spec=Extractor)
+    extractor.extract_structured = AsyncMock(side_effect=RuntimeError("boom"))
+    engine, _, _, _ = _build_engine(tmp_path, extractor_override=extractor)
+
+    report = await engine.run("test idea")
+
+    degraded = [sr for sr in report.source_results if sr.status.value == "degraded"]
+    assert len(degraded) == 1
+    assert degraded[0].error_msg == "Extraction unavailable; showing raw results."
+    assert report.competitors
+
+
+@pytest.mark.asyncio
 async def test_langgraph_engine_degraded_competitor_sanitizes_html_one_liner(
     tmp_path,
 ) -> None:
@@ -2348,16 +2389,104 @@ async def test_langgraph_engine_aggregation_failure_fallback(tmp_path) -> None:
     report = await engine.run("test idea")
 
     assert report.competitors
-    assert "Analysis failed" in report.market_summary
+    assert "Aggregation failed" in report.market_summary
+    assert report.recommendation_type == RecommendationType.CAUTION
     assert report.confidence.sample_size >= 1
     assert report.cost_breakdown.llm_calls >= 0
     assert report.evidence_summary.top_evidence
     assert report.evidence_summary.evidence_items == []
     assert report.evidence_summary.category_counts == {}
+    assert report.evidence_summary.uncertainty_notes
     assert report.report_meta.llm_fault_tolerance.last_error_class in {
         "",
         "unknown_error",
     }
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_uses_fetch_limit_and_extractor_prefilter_limit(
+    tmp_path,
+) -> None:
+    source = LimitCapturingSource(Platform.GITHUB, total_results=6)
+    extractor_inputs: list[int] = []
+
+    class RecordingExtractor:
+        async def extract_structured(
+            self, raw_results: list[RawResult], intent: Intent
+        ) -> ExtractionOutput:
+            del intent
+            extractor_inputs.append(len(raw_results))
+            competitors = [
+                Competitor(
+                    name=result.title,
+                    links=[result.url],
+                    one_liner=result.description or result.title,
+                    source_platforms=[result.platform],
+                    source_urls=[result.url],
+                )
+                for result in raw_results
+            ]
+            return ExtractionOutput(competitors=competitors)
+
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        extractor_override=RecordingExtractor(),
+        max_results_per_source=5,
+        extractor_max_results_per_source=3,
+    )
+
+    report = await engine.run("test idea")
+
+    assert source.last_limit == 5
+    assert extractor_inputs == [3]
+    assert len(report.source_results[0].competitors) == 3
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_records_failed_source_when_fetch_task_crashes(
+    tmp_path,
+) -> None:
+    engine, _, _, _ = _build_engine(tmp_path, sources=[MockSource(Platform.GITHUB)])
+
+    with patch.object(
+        pipeline_nodes._SourceAdaptiveController,  # noqa: SLF001
+        "get_budget",
+        autospec=True,
+        side_effect=RuntimeError("budget crash"),
+    ):
+        report = await engine.run("test idea")
+
+    assert len(report.source_results) == 1
+    assert report.source_results[0].status == SourceStatus.FAILED
+    assert report.source_results[0].error_msg == "budget crash"
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_uses_dedicated_aggregation_timeout(tmp_path) -> None:
+    async def slow_aggregate(*args: Any, **kwargs: Any) -> AggregationResult:
+        del args, kwargs
+        await asyncio.sleep(0.05)
+        return MOCK_AGG_RESULT
+
+    aggregator = MagicMock(spec=Aggregator)
+    aggregator.analyze = AsyncMock(side_effect=slow_aggregate)
+    aggregator.aggregate = AsyncMock(side_effect=slow_aggregate)
+
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        aggregator_override=aggregator,
+        extraction_timeout=1,
+        aggregation_timeout=0.01,
+    )
+
+    report = await engine.run("test idea")
+
+    assert report.recommendation_type == RecommendationType.CAUTION
+    assert (
+        "Aggregation failed" in report.market_summary
+        or "分析失败" in report.market_summary
+    )
 
 
 @pytest.mark.asyncio
@@ -2378,7 +2507,8 @@ async def test_langgraph_engine_chinese_fallback_content(tmp_path) -> None:
     report = await engine.run("帮我做一个 Markdown 笔记插件")
 
     assert "分析失败" in report.market_summary
-    assert "无法给出明确结论" in report.go_no_go
+    assert "基于降级分析生成" in report.go_no_go
+    assert report.recommendation_type == RecommendationType.CAUTION
     assert "生成" in report.confidence.freshness_hint
 
 

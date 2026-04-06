@@ -38,6 +38,7 @@ describe('LandscapeChart', () => {
       strengths: [],
       weaknesses: [],
       relevance_score: 0.81,
+      relevance_kind: 'direct',
       source_platforms: ['github'],
       source_urls: ['https://acme.example.com'],
     }
@@ -73,6 +74,7 @@ describe('LandscapeChart', () => {
       strengths: [],
       weaknesses: [],
       relevance_score: 0.81,
+      relevance_kind: 'direct',
       source_platforms: ['github'],
       source_urls: ['https://acme.example.com'],
     }

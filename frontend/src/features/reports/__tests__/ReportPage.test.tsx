@@ -79,6 +79,9 @@ const BASE_REPORT: ResearchReport = {
   intent: {
     keywords_en: ['idea'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'validate',
     app_type: 'web',
     target_scenario: 'test scenario',
     output_language: 'en',
@@ -286,6 +289,7 @@ describe('ReportPage', () => {
             strengths: [],
             weaknesses: [],
             relevance_score: 0.8,
+            relevance_kind: 'direct',
             source_urls: ['https://example.com'],
             source_platforms: ['github'],
           },
@@ -367,6 +371,7 @@ describe('ReportPage', () => {
             strengths: [],
             weaknesses: [],
             relevance_score: 0.8,
+            relevance_kind: 'direct',
             source_urls: ['https://example.com'],
             source_platforms: ['github'],
           },
@@ -514,6 +519,7 @@ describe('ReportPage', () => {
             strengths: [],
             weaknesses: [],
             relevance_score: 0.8,
+            relevance_kind: 'direct',
             source_urls: ['https://example.com'],
             source_platforms: ['github'],
           },
@@ -730,5 +736,46 @@ describe('ReportPage', () => {
       expect(screen.getByText(/daily analysis limit/i)).toBeInTheDocument()
     })
     expect(screen.queryByRole('link', { name: /upgrade/i })).not.toBeInTheDocument()
+  })
+
+  it('starts a new analysis from the URL query when /reports/new is refreshed directly', async () => {
+    vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-url-query' })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/new?q=url%20idea']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('url idea', expect.any(Object))
+    })
+  })
+
+  it('prefers the URL query over router state when both are present', async () => {
+    vi.mocked(startAnalysis).mockResolvedValue({ report_id: 'r-url-wins' })
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/reports/new',
+            search: '?q=url%20idea',
+            state: { query: 'state idea' },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(startAnalysis).toHaveBeenCalledWith('url idea', expect.any(Object))
+    })
+    expect(startAnalysis).not.toHaveBeenCalledWith('state idea', expect.anything())
   })
 })

@@ -12,6 +12,7 @@ const competitorFixture: Competitor = {
   strengths: ['fast'],
   weaknesses: ['new market'],
   relevance_score: 0.82,
+  relevance_kind: 'direct',
   source_platforms: ['github'],
   source_urls: ['https://www.example.com/pricing'],
 }

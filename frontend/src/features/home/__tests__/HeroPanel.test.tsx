@@ -11,6 +11,9 @@ function buildReport(overrides: Partial<ResearchReport> = {}): ResearchReport {
     intent: {
       keywords_en: ['grocery delivery'],
       keywords_zh: ['生鲜配送'],
+      exact_entities: [],
+      comparison_anchors: [],
+      search_goal: 'validate',
       app_type: 'marketplace',
       target_scenario: 'local commerce',
       output_language: 'zh',

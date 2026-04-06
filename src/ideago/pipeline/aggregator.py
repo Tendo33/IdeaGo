@@ -42,11 +42,27 @@ def _fallback_market_summary(output_language: str) -> str:
 def _fallback_go_no_go(output_language: str) -> str:
     if output_language == "zh":
         return (
-            "\u53ef\u4ee5\u7ee7\u7eed\u63a2\u7d22\uff0c"
-            "\u76ee\u524d\u6570\u636e\u8868\u660e\u8fd9\u4e2a\u65b9\u5411"
-            "\u4ecd\u6709\u8f83\u5927\u7a7a\u767d\u3002"
+            "CAUTION\uff1a\u5f53\u524d\u672a\u83b7\u5f97\u8db3\u591f\u8bc1\u636e\uff0c"
+            "\u6682\u65f6\u4e0d\u5efa\u8bae\u6839\u636e\u201c\u672a\u627e\u5230\u7ade\u54c1\u201d"
+            "\u76f4\u63a5\u5f97\u51fa\u4e50\u89c2\u7ed3\u8bba\u3002"
         )
-    return "Go - This appears to be an unexplored space based on available data."
+    return (
+        "Caution: there is not enough evidence to treat an empty retrieval pass "
+        "as proof of whitespace."
+    )
+
+
+def _fallback_uncertainty_note(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "\u5f53\u524d\u6ca1\u6709\u68c0\u7d22\u5230\u8db3\u591f\u8bc1\u636e\uff0c"
+            "\u7a7a\u7ed3\u679c\u4e0d\u5e94\u88ab\u76f4\u63a5\u89e3\u8bfb\u4e3a"
+            "\u5b58\u5728\u660e\u786e\u5e02\u573a\u7a7a\u767d\u3002"
+        )
+    return (
+        "No validated evidence was retrieved, so an empty result set should not be "
+        "treated as confirmed whitespace."
+    )
 
 
 @dataclass
@@ -111,6 +127,8 @@ class Aggregator:
             return AggregationResult(
                 market_summary=_fallback_market_summary(output_language),
                 go_no_go=_fallback_go_no_go(output_language),
+                recommendation_type=RecommendationType.CAUTION,
+                uncertainty_notes=[_fallback_uncertainty_note(output_language)],
             )
 
         try:
@@ -250,6 +268,60 @@ class Aggregator:
             return
         self._llm_metrics_by_task[id(task)] = metrics
 
+    def build_failure_result(
+        self,
+        *,
+        competitors: list[Competitor],
+        output_language: str,
+        pain_signals: list[PainSignal] | None = None,
+        commercial_signals: list[CommercialSignal] | None = None,
+        evidence_items: list[EvidenceItem] | None = None,
+    ) -> AggregationResult:
+        return build_failed_aggregation_result(
+            competitors=competitors,
+            output_language=output_language,
+            pain_signals=pain_signals,
+            commercial_signals=commercial_signals,
+            evidence_items=evidence_items,
+        )
+
+
+def build_failed_aggregation_result(
+    *,
+    competitors: list[Competitor],
+    output_language: str,
+    pain_signals: list[PainSignal] | None = None,
+    commercial_signals: list[CommercialSignal] | None = None,
+    evidence_items: list[EvidenceItem] | None = None,
+) -> AggregationResult:
+    normalized_pain_signals = list(pain_signals or [])
+    normalized_commercial_signals = list(commercial_signals or [])
+    normalized_evidence_items = list(evidence_items or [])
+    whitespace_opportunities = _build_fallback_whitespace_opportunities(
+        differentiation_angles=[],
+        pain_signals=normalized_pain_signals,
+        commercial_signals=normalized_commercial_signals,
+        evidence_items=normalized_evidence_items,
+        output_language=output_language,
+    )
+    opportunity_score = _build_fallback_opportunity_score(
+        pain_signals=normalized_pain_signals,
+        commercial_signals=normalized_commercial_signals,
+        whitespace_opportunities=whitespace_opportunities,
+    )
+    return AggregationResult(
+        competitors=list(competitors),
+        pain_signals=normalized_pain_signals,
+        commercial_signals=normalized_commercial_signals,
+        evidence_items=normalized_evidence_items,
+        whitespace_opportunities=whitespace_opportunities,
+        opportunity_score=opportunity_score,
+        market_summary=_localized_failure_market_summary(output_language),
+        go_no_go=_localized_failure_recommendation(output_language),
+        recommendation_type=RecommendationType.CAUTION,
+        uncertainty_notes=[_localized_failure_uncertainty_note(output_language)],
+    )
+
 
 def _infer_recommendation_type(go_no_go: str) -> RecommendationType:
     """Fallback: infer recommendation type from free-form text."""
@@ -264,6 +336,45 @@ def _infer_recommendation_type(go_no_go: str) -> RecommendationType:
     if "caution" in lower or "careful" in lower or "risk" in lower:
         return RecommendationType.CAUTION
     return RecommendationType.GO
+
+
+def _localized_failure_market_summary(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "\u805a\u5408\u5206\u6790\u5931\u8d25\uff0c\u4ee5\u4e0b\u7ed3\u8bba"
+            "\u57fa\u4e8e\u5df2\u63d0\u53d6\u7684\u7ed3\u6784\u5316\u8bc1\u636e"
+            "\u8fdb\u884c\u4fdd\u5b88\u964d\u7ea7\u751f\u6210\u3002"
+        )
+    return (
+        "Aggregation failed, so the report falls back to a conservative synthesis "
+        "from the validated extracted evidence."
+    )
+
+
+def _localized_failure_recommendation(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "CAUTION\uff1a\u5f53\u524d\u7ed3\u8bba\u57fa\u4e8e\u964d\u7ea7"
+            "\u5206\u6790\u751f\u6210\uff0c\u5efa\u8bae\u8865\u5145\u66f4\u591a"
+            "\u5df2\u9a8c\u8bc1\u8bc1\u636e\u540e\u518d\u505a\u6700\u7ec8"
+            "\u5224\u65ad\u3002"
+        )
+    return (
+        "Caution: this recommendation is generated from degraded analysis, so "
+        "collect more validated evidence before making a final decision."
+    )
+
+
+def _localized_failure_uncertainty_note(output_language: str) -> str:
+    if output_language == "zh":
+        return (
+            "\u805a\u5408\u9636\u6bb5\u5931\u8d25\uff0c\u6700\u7ec8\u5efa\u8bae"
+            "\u57fa\u4e8e\u964d\u7ea7\u8bc1\u636e\u5408\u6210\u3002"
+        )
+    return (
+        "Aggregation stage failed; recommendation is based on degraded evidence "
+        "synthesis."
+    )
 
 
 def _parse_string_list(value: object) -> list[str]:

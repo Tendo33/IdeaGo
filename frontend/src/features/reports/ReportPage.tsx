@@ -1,16 +1,44 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
 import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
-import { ReportContentPane } from '@/features/reports/components/ReportContentPane'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
 import { useCompetitorFilters } from '@/features/reports/components/useCompetitorFilters'
 import { useReportLifecycle } from '@/features/reports/components/useReportLifecycle'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+
+const ReportContentPane = lazy(async () => {
+  const module = await import('@/features/reports/components/ReportContentPane')
+  return { default: module.ReportContentPane }
+})
+
+function ReportContentLoadingFallback() {
+  return (
+    <div data-testid="report-content-loading" className="space-y-6">
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-4 w-1/3" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4 border-2 border-border bg-card p-5">
+          <Skeleton className="h-5 w-1/4" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+        <div className="space-y-4 border-2 border-border bg-card p-5">
+          <Skeleton className="h-5 w-1/3" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-5/6" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function ReportPage() {
   const { t } = useTranslation()
@@ -22,7 +50,9 @@ export function ReportPage() {
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
-  const createQuery = (location.state as { query?: string } | null)?.query
+  const searchQuery = new URLSearchParams(location.search).get('q')?.trim() || undefined
+  const stateQuery = (location.state as { query?: string } | null)?.query?.trim() || undefined
+  const createQuery = searchQuery || stateQuery
 
   const startQueuedAnalysis = useCallback(
     async (query: string | undefined, signal?: AbortSignal) => {
@@ -181,27 +211,29 @@ export function ReportPage() {
         )}
 
         {report && loadPhase === 'ready' && (
-          <ReportContentPane
-            report={report}
-            showReport={showReport}
-            allFailed={allFailed}
-            filteredCompetitors={filteredCompetitors}
-            compareCompetitors={compareCompetitors}
-            compareSet={compareSet}
-            showCompare={showCompare}
-            setShowCompare={setShowCompare}
-            clearCompare={clearCompare}
-            removeFromCompare={removeFromCompare}
-            onRetryAnalysis={retryCurrentQuery}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            platformFilter={platformFilter}
-            togglePlatform={togglePlatform}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            toggleCompare={toggleCompare}
-            cancelledMessage={cancelled}
-          />
+          <Suspense fallback={<ReportContentLoadingFallback />}>
+            <ReportContentPane
+              report={report}
+              showReport={showReport}
+              allFailed={allFailed}
+              filteredCompetitors={filteredCompetitors}
+              compareCompetitors={compareCompetitors}
+              compareSet={compareSet}
+              showCompare={showCompare}
+              setShowCompare={setShowCompare}
+              clearCompare={clearCompare}
+              removeFromCompare={removeFromCompare}
+              onRetryAnalysis={retryCurrentQuery}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              platformFilter={platformFilter}
+              togglePlatform={togglePlatform}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              toggleCompare={toggleCompare}
+              cancelledMessage={cancelled}
+            />
+          </Suspense>
         )}
 
         {showExistingReportLoading && (

@@ -11,6 +11,9 @@ const report: ResearchReport = {
   intent: {
     keywords_en: ['startup', 'testing'],
     keywords_zh: [],
+    exact_entities: [],
+    comparison_anchors: [],
+    search_goal: 'validate',
     app_type: 'web',
     target_scenario: 'test scenario',
     output_language: 'en',
@@ -128,6 +131,35 @@ describe('ReportHeader dropdown accessibility', () => {
 
     await waitFor(() => {
       expect(screen.getByText("We couldn't copy the link. Please copy it manually from your address bar.")).toBeInTheDocument()
+    })
+  })
+
+  it('supports keyboard navigation across dropdown menu items', async () => {
+    render(
+      <MemoryRouter>
+        <ReportHeader report={report} />
+      </MemoryRouter>,
+    )
+
+    const exportButton = screen.getByRole('button', { name: /export/i })
+    fireEvent.keyDown(exportButton, { key: 'ArrowDown' })
+
+    const menu = await screen.findByRole('menu')
+    const markdownItem = screen.getByRole('menuitem', { name: /markdown/i })
+    const printItem = screen.getByRole('menuitem', { name: /print/i })
+
+    await waitFor(() => {
+      expect(markdownItem).toHaveFocus()
+    })
+
+    fireEvent.keyDown(menu, { key: 'End' })
+    await waitFor(() => {
+      expect(printItem).toHaveFocus()
+    })
+
+    fireEvent.keyDown(menu, { key: 'Home' })
+    await waitFor(() => {
+      expect(markdownItem).toHaveFocus()
     })
   })
 

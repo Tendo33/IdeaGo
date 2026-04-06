@@ -337,6 +337,37 @@ describe('useSSE', () => {
     })
   })
 
+  it('preserves query planning families from completed planning events', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emit('query_planning_completed', {
+        type: 'query_planning_completed',
+        stage: 'query_planning',
+        message: 'Planned 3 query groups',
+        data: {
+          count: '3',
+          families: ['direct_competitor', 7, 'pain_discovery'],
+        },
+        timestamp: '2026-02-24T16:05:00.000Z',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.events).toHaveLength(1)
+    })
+
+    expect(result.current.events[0]?.data).toEqual({
+      count: 3,
+      families: ['direct_competitor', 'pain_discovery'],
+    })
+  })
+
   it('marks stream complete when report_ready arrives through the parser boundary', async () => {
     const { result } = renderHook(() => useSSE('r1'))
 

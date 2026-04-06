@@ -34,6 +34,23 @@ function Dropdown({
   const menuId = useId()
   const ref = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const initialFocusRef = useRef<'first' | 'last'>('first')
+
+  const getMenuItems = () => {
+    const menu = menuRef.current
+    if (!menu) return []
+    return Array.from(
+      menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])'),
+    )
+  }
+
+  const focusMenuItem = (index: number) => {
+    const items = getMenuItems()
+    if (items.length === 0) return
+    const next = (index + items.length) % items.length
+    items[next]?.focus()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -51,8 +68,11 @@ function Dropdown({
     document.addEventListener('mousedown', handleClick)
     document.addEventListener('keydown', handleKeyDown)
 
-    const firstMenuItem = ref.current?.querySelector<HTMLElement>('[role="menuitem"]')
-    firstMenuItem?.focus()
+    const menuItems = getMenuItems()
+    if (menuItems.length > 0) {
+      const initialIndex = initialFocusRef.current === 'last' ? menuItems.length - 1 : 0
+      menuItems[initialIndex]?.focus()
+    }
 
     return () => {
       document.removeEventListener('mousedown', handleClick)
@@ -60,11 +80,69 @@ function Dropdown({
     }
   }, [open])
 
+  const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      initialFocusRef.current = 'first'
+      setOpen(true)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      initialFocusRef.current = 'last'
+      setOpen(true)
+      return
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      initialFocusRef.current = 'first'
+      setOpen(true)
+    }
+  }
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const menuItems = getMenuItems()
+    if (menuItems.length === 0) return
+    const focusedIndex = menuItems.findIndex(item => item === document.activeElement)
+    const currentIndex = focusedIndex >= 0 ? focusedIndex : 0
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      focusMenuItem(currentIndex + 1)
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      focusMenuItem(currentIndex - 1)
+      return
+    }
+    if (event.key === 'Home') {
+      event.preventDefault()
+      focusMenuItem(0)
+      return
+    }
+    if (event.key === 'End') {
+      event.preventDefault()
+      focusMenuItem(menuItems.length - 1)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+      return
+    }
+    if (event.key === 'Tab') {
+      setOpen(false)
+    }
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
         ref={triggerRef}
         onClick={() => setOpen(current => !current)}
+        onKeyDown={onTriggerKeyDown}
         className={buttonVariants({
           variant: 'secondary',
           size: 'sm',
@@ -84,7 +162,9 @@ function Dropdown({
         <div
           id={menuId}
           role="menu"
+          ref={menuRef}
           className="absolute right-0 top-[calc(100%+4px)] z-50 mt-0 w-48 rounded-none border-2 border-border bg-popover/95 py-1.5 shadow backdrop-blur-2xl outline-none animate-fade-in"
+          onKeyDown={onMenuKeyDown}
           onClick={event => {
             if ((event.target as HTMLElement).closest('[role="menuitem"]')) {
               setOpen(false)

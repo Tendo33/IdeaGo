@@ -1,4 +1,4 @@
-import { Github, Globe, Terminal, Smartphone, Flame, MessageCircle } from 'lucide-react'
+import { Github, Globe, Terminal, Smartphone, Flame, MessageCircle, TrendingUp } from 'lucide-react'
 import type { Platform } from '@/lib/types/research'
 
 export const platformColors: Record<Platform, string> = {
@@ -8,6 +8,7 @@ export const platformColors: Record<Platform, string> = {
   hackernews: 'bg-chart-5/15 text-chart-5',
   appstore: 'bg-chart-1/15 text-chart-1',
   reddit: 'bg-success/10 text-success',
+  google_trends: 'bg-warning/10 text-warning',
 }
 
 export const PlatformIcon: Record<Platform, React.ElementType> = {
@@ -17,4 +18,5 @@ export const PlatformIcon: Record<Platform, React.ElementType> = {
   hackernews: Terminal,
   appstore: Smartphone,
   reddit: MessageCircle,
+  google_trends: TrendingUp,
 }
