@@ -1130,7 +1130,13 @@ async def test_refresh_token_success_and_error_paths() -> None:
         "Req", (), {"headers": {"Authorization": "Bearer invalid"}, "cookies": {}}
     )()
 
-    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.auth.get_profile",
+            new=AsyncMock(return_value={"id": "uid", "display_name": "Alice"}),
+        ),
+    ):
         refreshed_response = Response()
         refreshed = await auth_route.refresh_token(good_request, refreshed_response)
         with pytest.raises(HTTPException) as missing:
@@ -1145,6 +1151,43 @@ async def test_refresh_token_success_and_error_paths() -> None:
     assert missing.value.status_code == 401
     assert invalid.value.status_code == 401
     assert stale.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rejects_deleted_custom_session_user() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {"auth_session_secret": "z" * 32, "auth_session_expire_hours": 24},
+    )()
+    valid_token = jwt.encode(
+        {
+            "sub": "deleted-user",
+            "email": "u@example.com",
+            "provider": "linuxdo",
+            "aud": "ideago-auth",
+            "exp": int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp()),
+        },
+        fake_settings.auth_session_secret,
+        algorithm="HS256",
+    )
+    request = type(
+        "Req",
+        (),
+        {"headers": {"Authorization": f"Bearer {valid_token}"}, "cookies": {}},
+    )()
+
+    with (
+        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.auth.get_profile",
+            new=AsyncMock(return_value={"error": "profile_not_found"}),
+        ),
+        pytest.raises(HTTPException) as exc,
+    ):
+        await auth_route.refresh_token(request, Response())
+
+    assert exc.value.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -1185,7 +1228,7 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
         patch("ideago.api.routes.auth.log_audit_event", new=AsyncMock()) as audit_log,
         pytest.raises(AppError) as delete_exc,
     ):
-        await auth_route.delete_account(request, user)
+        await auth_route.delete_account(request, Response(), user)
 
     assert profile_exc.value.status_code == 404
     assert delete_exc.value.status_code == 500
@@ -1251,6 +1294,7 @@ async def test_auth_callback_quota_and_profile_success_paths() -> None:
     assert "Missing+authorization+code" in bad_code.headers["location"]
 
     user = auth_route.AuthUser(id="uid", email="u@example.com")
+    delete_response = Response()
     with (
         patch(
             "ideago.api.routes.auth.ensure_profile_exists",
@@ -1289,7 +1333,7 @@ async def test_auth_callback_quota_and_profile_success_paths() -> None:
             auth_route.ProfileUpdatePayload(display_name=" Bob ", bio=" Hi "),
             user,
         )
-        deleted = await auth_route.delete_account(request, user)
+        deleted = await auth_route.delete_account(request, delete_response, user)
 
     assert quota["plan"] == "pro"
     assert profile["display_name"] == "Alice"
@@ -1310,6 +1354,9 @@ async def test_auth_callback_quota_and_profile_success_paths() -> None:
         "billing": "skipped",
         "auth_identity": "deleted",
     }
+    set_cookie = delete_response.headers.get("set-cookie", "")
+    assert "ideago_session=" in set_cookie
+    assert "Max-Age=0" in set_cookie
 
 
 def test_notification_sender_singleton_default() -> None:
@@ -1794,6 +1841,32 @@ async def test_start_analysis_records_metric_when_reservation_cannot_be_obtained
     assert metrics["event_reasons"]["analysis_start_failed"] == {
         "reservation_failed": 1
     }
+
+
+@pytest.mark.asyncio
+async def test_start_analysis_fails_closed_when_dedup_store_is_unavailable() -> None:
+    user = analyze_route.AuthUser(id="user-1", email="user@example.com")
+    request = analyze_route.AnalyzeRequest(query="build a useful app")
+    quota_check = AsyncMock()
+
+    with (
+        patch(
+            "ideago.api.routes.analyze.reserve_processing_report",
+            new=AsyncMock(
+                side_effect=deps.DedupReservationUnavailableError("dedup unavailable")
+            ),
+        ),
+        patch(
+            "ideago.api.routes.analyze.check_and_increment_quota",
+            new=quota_check,
+        ),
+        pytest.raises(AppError) as exc,
+    ):
+        await analyze_route.start_analysis(request, user)
+
+    assert exc.value.status_code == 503
+    assert "reserve analysis slot" in exc.value.detail["message"].lower()
+    quota_check.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2528,6 +2601,41 @@ async def test_get_optional_user_via_remote_verification() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_optional_user_rejects_deleted_custom_session_user() -> None:
+    secret = "test-secret-test-secret-0123456789"
+    token = jwt.encode(
+        {
+            "sub": "deleted-user",
+            "email": "deleted@example.com",
+            "provider": "linuxdo",
+            "aud": "ideago-auth",
+            "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
+        },
+        secret,
+        algorithm="HS256",
+    )
+    request = type(
+        "Req",
+        (),
+        {
+            "headers": {"Authorization": f"Bearer {token}"},
+            "cookies": {},
+        },
+    )()
+    fake_settings = _make_supabase_auth_settings(auth_session_secret=secret)
+
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.auth.dependencies.get_profile",
+            new=AsyncMock(return_value={"error": "profile_not_found"}),
+            create=True,
+        ),
+    ):
+        assert await auth_deps.get_optional_user(request) is None
+
+
+@pytest.mark.asyncio
 async def test_get_optional_user_missing_or_empty_token_returns_none() -> None:
     fake_settings = _make_supabase_auth_settings(
         supabase_url="",
@@ -3148,8 +3256,10 @@ async def test_api_dependencies_runtime_state_and_dedup_helpers(tmp_path) -> Non
         patch("ideago.api.dependencies._get_dedup_client", return_value=fake_client),
     ):
         assert await deps._pg_reserve("k", "r1", "u1") == "existing-report"
-        assert await deps._pg_reserve("k", "r1", "u1") is None
-        assert await deps._pg_reserve("k", "r1", "u1") is None
+        with pytest.raises(deps.DedupReservationUnavailableError, match="dedup"):
+            await deps._pg_reserve("k", "r1", "u1")
+        with pytest.raises(deps.DedupReservationUnavailableError, match="dedup"):
+            await deps._pg_reserve("k", "r1", "u1")
         assert await deps._pg_is_processing("r1") is True
         assert await deps._pg_is_processing("r1") is False
         assert await deps._pg_is_processing("r1") is False
@@ -3189,6 +3299,40 @@ async def test_api_dependencies_runtime_state_and_dedup_helpers(tmp_path) -> Non
         assert deps.get_processing_reports() == {"u2:hash": "report-3"}
         assert await deps.is_processing_report("report-x") is True
         await deps.release_processing_report("report-3")
+        assert deps.get_processing_reports() == {}
+
+    deps._processing_reports.clear()
+    failing_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "service-role",
+        },
+    )()
+    failing_client = type(
+        "Client",
+        (),
+        {
+            "post": AsyncMock(
+                return_value=type(
+                    "Resp",
+                    (),
+                    {
+                        "status_code": 503,
+                        "json": lambda self: {"error": "unavailable"},
+                    },
+                )()
+            )
+        },
+    )()
+    with (
+        patch("ideago.api.dependencies._supabase_dedup_configured", return_value=True),
+        patch("ideago.api.dependencies.get_settings", return_value=failing_settings),
+        patch("ideago.api.dependencies._get_dedup_client", return_value=failing_client),
+    ):
+        with pytest.raises(deps.DedupReservationUnavailableError, match="dedup"):
+            await deps.reserve_processing_report("hash", "report-4", user_id="u3")
         assert deps.get_processing_reports() == {}
 
     task = asyncio.create_task(asyncio.sleep(0))

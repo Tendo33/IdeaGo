@@ -562,9 +562,53 @@ describe('ReportPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Connection lost')).toBeInTheDocument()
+      expect(screen.getByText(/Connection lost/)).toBeInTheDocument()
     })
     expect(screen.queryByText('STEPPER')).not.toBeInTheDocument()
+  })
+
+  it('shows explicit recovery actions when the stream exhausts reconnects for a processing report', async () => {
+    const retryStream = vi.fn()
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: 'Connection lost',
+      cancelled: null,
+      retry: retryStream,
+      reconnectAttempts: 5,
+      lastFailureReason: 'network down',
+    })
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockResolvedValueOnce({
+        status: 'ready',
+        report: buildReport({
+          id: 'r-stream-recovered',
+          query: 'Recovered after stream loss',
+        }),
+      })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-stream-recovered']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Connection lost')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry Stream' }))
+    expect(retryStream).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check Status' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('HEADER:Recovered after stream loss')).toBeInTheDocument()
+    })
   })
 
   it('shows missing-report guidance when report is not found', async () => {
@@ -585,9 +629,9 @@ describe('ReportPage', () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Report not found or expired. Please start a new analysis.'),
-      ).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Report not found or expired. Please start a new analysis.',
+      )
     })
     expect(screen.getByRole('button', { name: i18n.t('error.backToHome') })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: i18n.t('report.failed.startAgain') })).not.toBeInTheDocument()
@@ -708,6 +752,39 @@ describe('ReportPage', () => {
 
     await waitFor(() => {
       expect(startAnalysis).toHaveBeenCalledWith('AI CRM for recruiters')
+    })
+  })
+
+  it('disables restart actions while a new analysis request is in flight', async () => {
+    const restartRequest = deferred<{ report_id: string }>()
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'failed',
+      report_id: 'r-failed-in-flight',
+      error_code: 'PIPELINE_FAILURE',
+      message: 'Pipeline failed.',
+      query: 'AI CRM for recruiters',
+    })
+    vi.mocked(startAnalysis).mockReturnValue(restartRequest.promise)
+
+    render(
+      <MemoryRouter initialEntries={['/reports/r-failed-in-flight']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const restartButton = await screen.findByRole('button', {
+      name: i18n.t('report.failed.startAgain'),
+    })
+
+    fireEvent.click(restartButton)
+    fireEvent.click(restartButton)
+
+    expect(startAnalysis).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(restartButton).toBeDisabled()
     })
   })
 

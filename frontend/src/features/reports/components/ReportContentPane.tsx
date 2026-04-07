@@ -42,6 +42,7 @@ interface ReportContentPaneProps {
   clearCompare: () => void
   removeFromCompare: (competitorId: string) => void
   onRetryAnalysis: () => void
+  isRetryingAnalysis: boolean
   sortBy: SortKey
   setSortBy: (sortKey: SortKey) => void
   platformFilter: Set<Platform>
@@ -70,6 +71,7 @@ export function ReportContentPane({
   clearCompare,
   removeFromCompare,
   onRetryAnalysis,
+  isRetryingAnalysis,
   sortBy,
   setSortBy,
   platformFilter,
@@ -151,6 +153,8 @@ export function ReportContentPane({
           </div>
           <button
             onClick={onRetryAnalysis}
+            disabled={isRetryingAnalysis}
+            aria-busy={isRetryingAnalysis}
             className={buttonVariants({ variant: 'primary', size: 'sm' })}
           >
             {t('report.failed.startAgain')}
@@ -160,7 +164,11 @@ export function ReportContentPane({
 
       <div className={`space-y-12 sm:space-y-16 transition-all duration-700 ease-out ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         {allFailed && (
-          <AllFailedState sources={report.source_results} onRetry={onRetryAnalysis} />
+          <AllFailedState
+            sources={report.source_results}
+            onRetry={onRetryAnalysis}
+            isRetrying={isRetryingAnalysis}
+          />
         )}
 
         {!allFailed && hasWhyNowSection && (

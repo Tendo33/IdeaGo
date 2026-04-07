@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
+    DedupReservationUnavailableError,
     cleanup_report_runs,
     get_cache,
     get_or_create_report_run,
@@ -157,20 +158,30 @@ async def start_analysis(
 
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
     report_id = ""
-    for _ in range(_RESERVE_RETRY_MAX):
-        candidate_report_id = str(uuid.uuid4())
-        existing_report_id = await reserve_processing_report(
-            query_hash, candidate_report_id, user_id=user.id
+    try:
+        for _ in range(_RESERVE_RETRY_MAX):
+            candidate_report_id = str(uuid.uuid4())
+            existing_report_id = await reserve_processing_report(
+                query_hash, candidate_report_id, user_id=user.id
+            )
+            if existing_report_id is None:
+                report_id = candidate_report_id
+                break
+            if await _confirm_existing_report_is_active(existing_report_id):
+                return AnalyzeResponse(report_id=existing_report_id)
+            logger.info(
+                "Detected stale dedup reservation for report {}. Retrying reserve.",
+                existing_report_id,
+            )
+    except DedupReservationUnavailableError as exc:
+        app_metrics.increment_event(
+            "analysis_start_failed", reason="reservation_unavailable"
         )
-        if existing_report_id is None:
-            report_id = candidate_report_id
-            break
-        if await _confirm_existing_report_is_active(existing_report_id):
-            return AnalyzeResponse(report_id=existing_report_id)
-        logger.info(
-            "Detected stale dedup reservation for report {}. Retrying reserve.",
-            existing_report_id,
-        )
+        raise AppError(
+            503,
+            ErrorCode.INTERNAL_ERROR,
+            "Unable to reserve analysis slot. Please retry.",
+        ) from exc
 
     if not report_id:
         app_metrics.increment_event(

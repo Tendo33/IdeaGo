@@ -248,6 +248,33 @@ def _extract_user_from_ideago_payload(payload: dict[str, Any]) -> AuthUser | Non
     return AuthUser(id=user_id, email=payload.get("email", ""), role=role)
 
 
+async def _is_custom_session_user_active(user_id: str) -> bool:
+    """Return True when a custom-session user still has an active profile row."""
+    if not user_id:
+        return False
+    try:
+        get_profile_func = globals().get("get_profile")
+        if get_profile_func is None:
+            settings = get_settings()
+            if not getattr(settings, "supabase_url", "") or not getattr(
+                settings, "supabase_service_role_key", ""
+            ):
+                return True
+            from ideago.auth.supabase_admin import get_profile as get_profile_func
+
+        if not callable(get_profile_func):
+            return False
+        profile_loader = get_profile_func
+        profile = await profile_loader(user_id)
+    except Exception:
+        logger.debug("Could not verify custom-session user activity")
+        return False
+
+    if not isinstance(profile, dict):
+        return False
+    return not bool(profile.get("error"))
+
+
 def _run_async_for_sync_context(coro: Any) -> Any:
     """Run an async coroutine from sync code, even if a loop is already running."""
     try:
@@ -319,7 +346,12 @@ async def _authenticate_token(token: str) -> AuthUser | None:
     if settings.auth_session_secret and _should_try_ideago_jwt(token):
         payload = _verify_ideago_jwt(token, settings.auth_session_secret)
         if payload is not None:
-            return _extract_user_from_ideago_payload(payload)
+            user = _extract_user_from_ideago_payload(payload)
+            if user is None:
+                return None
+            if not await _is_custom_session_user_active(user.id):
+                return None
+            return user
 
     jwks_result = await _verify_supabase_jwt(token)
     if jwks_result.payload is not None:

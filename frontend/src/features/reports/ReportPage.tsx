@@ -103,7 +103,12 @@ export function ReportPage() {
     isComplete,
     isReconnecting,
     sseError,
+    reconnectAttempts,
+    lastFailureReason,
+    isRetryingAnalysis,
     cancelled,
+    checkCurrentStatus,
+    retrySSE,
     retryCurrentQuery,
     retryErrorState,
     cancelCurrentAnalysis,
@@ -126,6 +131,7 @@ export function ReportPage() {
 
   const loadError = (isNewAnalysis ? createError : null) || lifecycleError
   const hasRecoverableCreateQuery = Boolean(createQuery)
+  const hasRestartableReportQuery = Boolean(report?.query || runtimeStatus?.query)
   const usesHomeFallbackCta =
     (isNewAnalysis && createError && !hasRecoverableCreateQuery) ||
     (!isNewAnalysis &&
@@ -137,6 +143,39 @@ export function ReportPage() {
         runtimeStatus.status === 'complete'))
   const errorActionLabel = usesHomeFallbackCta ? t('error.backToHome') : undefined
   const errorActionHandler = isNewAnalysis && createError ? handleCreateErrorAction : retryErrorState
+  const usesRestartAction =
+    !isNewAnalysis &&
+    (runtimeStatus?.status === 'failed' ||
+      runtimeStatus?.status === 'cancelled' ||
+      runtimeStatus?.status === 'not_found' ||
+      runtimeStatus?.status === 'complete')
+  const sseErrorActions =
+    !isNewAnalysis && sseError
+      ? [
+          { label: t('report.error.retryStream'), onClick: retrySSE },
+          { label: t('report.error.checkStatus'), onClick: checkCurrentStatus },
+          ...(hasRestartableReportQuery
+            ? [{
+                label: t('report.failed.startAgain'),
+                onClick: retryCurrentQuery,
+                disabled: isRetryingAnalysis,
+              }]
+            : []),
+        ]
+      : undefined
+  const sseErrorDetails = [
+    reconnectAttempts > 0
+      ? t('report.error.reconnectAttempts', { count: reconnectAttempts })
+      : null,
+    lastFailureReason && lastFailureReason !== sseError
+      ? t('report.error.lastFailureReason', { reason: lastFailureReason })
+      : null,
+  ].filter((detail): detail is string => Boolean(detail))
+  const sseErrorMessage =
+    sseError && sseErrorDetails.length > 0
+      ? `${sseError}\n${sseErrorDetails.join('\n')}`
+      : sseError
+  const errorMessage = sseError ? sseErrorMessage : loadError
 
   const {
     sortBy,
@@ -202,11 +241,13 @@ export function ReportPage() {
 
         {!quotaExceeded && (sseError || loadError) && (
           <ReportErrorBanner
-            message={sseError || loadError || t('report.error.unknown')}
+            message={errorMessage || t('report.error.unknown')}
             onRetry={errorActionHandler}
             errorKind={sseError ? 'system' : (loadErrorKind ?? 'system')}
             runtimeStatus={runtimeStatus}
             actionLabel={errorActionLabel}
+            actionDisabled={usesRestartAction && isRetryingAnalysis}
+            actions={sseErrorActions}
           />
         )}
 
@@ -224,6 +265,7 @@ export function ReportPage() {
               clearCompare={clearCompare}
               removeFromCompare={removeFromCompare}
               onRetryAnalysis={retryCurrentQuery}
+              isRetryingAnalysis={isRetryingAnalysis}
               sortBy={sortBy}
               setSortBy={setSortBy}
               platformFilter={platformFilter}

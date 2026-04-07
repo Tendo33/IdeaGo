@@ -52,8 +52,12 @@ export interface ReportLifecycleState {
   isComplete: boolean
   isReconnecting: boolean
   sseError: string | null
+  reconnectAttempts: number
+  lastFailureReason: string | null
+  isRetryingAnalysis: boolean
   cancelled: string | null
   retrySSE: () => void
+  checkCurrentStatus: () => void
   retryCurrentQuery: () => void
   retryErrorState: () => void
   cancelCurrentAnalysis: () => void
@@ -68,10 +72,20 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
   const [runtimeStatus, setRuntimeStatus] = useState<ReportRuntimeStatus | null>(null)
   const [retryQuery, setRetryQuery] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
+  const [isRetryingAnalysis, setIsRetryingAnalysis] = useState(false)
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const restartInFlightRef = useRef(false)
 
-  const { events, isComplete, isReconnecting, error: sseError, cancelled: sseCancelled, retry: retrySSE } =
-    useSSE(loadPhase === 'processing' ? (id ?? null) : null)
+  const {
+    events,
+    isComplete,
+    isReconnecting,
+    error: sseError,
+    cancelled: sseCancelled,
+    reconnectAttempts = 0,
+    lastFailureReason = null,
+    retry: retrySSE,
+  } = useSSE(loadPhase === 'processing' ? (id ?? null) : null)
   const cancelled = runtimeStatus?.status === 'cancelled' ? (runtimeStatus.message ?? null) : sseCancelled
 
   const clearRevealTimer = useCallback(() => {
@@ -228,6 +242,39 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
     return () => controller.abort()
   }, [clearRevealTimer, id, resolveMissingReportStatus, setReadyReportState, t])
 
+  const checkCurrentStatus = useCallback(() => {
+    if (!id) return
+
+    setLoadError(null)
+    setLoadErrorKind(null)
+
+    getReportWithStatus(id)
+      .then(async result => {
+        if (result.status === 'ready') {
+          setReadyReportState(result.report, false)
+          return
+        }
+
+        if (result.status === 'missing') {
+          await resolveMissingReportStatus(id)
+          return
+        }
+
+        setRuntimeStatus(null)
+        clearRevealTimer()
+        setShowReport(false)
+        setReport(null)
+        setLoadPhase('processing')
+      })
+      .catch(error => {
+        if (isRequestAbortError(error)) return
+        setLoadError(
+          error instanceof Error ? error.message : t('report.error.unavailableStatus'),
+        )
+        setLoadErrorKind('system')
+      })
+  }, [clearRevealTimer, id, resolveMissingReportStatus, setReadyReportState, t])
+
   useEffect(() => {
     if (!id || loadPhase !== 'processing' || !isComplete) return
     if (cancelled || sseError) return
@@ -254,19 +301,25 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
 
   const retryWithQuery = useCallback(
     (query: string | undefined) => {
+      if (restartInFlightRef.current) {
+        return
+      }
       if (!query) {
         navigate('/', { replace: true })
         return
       }
 
-      setLoadError(null)
-      setLoadErrorKind(null)
-      setRuntimeStatus(null)
+      restartInFlightRef.current = true
+      setIsRetryingAnalysis(true)
       startAnalysis(query)
         .then(({ report_id }) => navigate(`/reports/${report_id}`))
         .catch(error => {
           setLoadError(error instanceof Error ? error.message : t('report.error.restart'))
           setLoadErrorKind('system')
+        })
+        .finally(() => {
+          restartInFlightRef.current = false
+          setIsRetryingAnalysis(false)
         })
     },
     [navigate, t],
@@ -336,8 +389,12 @@ export function useReportLifecycle(id: string | undefined, navigate: NavigateFun
     isComplete,
     isReconnecting,
     sseError,
+    reconnectAttempts,
+    lastFailureReason,
+    isRetryingAnalysis,
     cancelled,
     retrySSE,
+    checkCurrentStatus,
     retryCurrentQuery,
     retryErrorState,
     cancelCurrentAnalysis,

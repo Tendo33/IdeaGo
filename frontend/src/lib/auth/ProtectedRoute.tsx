@@ -29,10 +29,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
-  const { user, role, loading } = useAuth()
+  const { user, role, loading, roleLoading } = useAuth()
   const location = useLocation()
 
-  if (loading) return <RouteLoadingSpinner />
+  if (loading || (user !== null && roleLoading)) return <RouteLoadingSpinner />
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
 
   if (role !== 'admin') {

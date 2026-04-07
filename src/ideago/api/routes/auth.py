@@ -419,6 +419,9 @@ async def refresh_token(request: Request, response: Response) -> dict:
     user_id = payload.get("sub", "")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
+    profile = await get_profile(user_id)
+    if not isinstance(profile, dict) or profile.get("error"):
+        raise HTTPException(status_code=401, detail="Session revoked")
 
     exp_ts = payload.get("exp", 0)
     now_ts = int(datetime.now(timezone.utc).timestamp())
@@ -488,6 +491,7 @@ async def update_my_profile(
 @router.delete("/auth/account")
 async def delete_account(
     request: Request,
+    response: Response,
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Permanently delete the authenticated user's account and all data."""
@@ -524,4 +528,5 @@ async def delete_account(
         metadata={"cleanup": result.get("cleanup", {})},
         ip_address=request.client.host if request.client else None,
     )
+    clear_auth_session_cookie(response, request)
     return result

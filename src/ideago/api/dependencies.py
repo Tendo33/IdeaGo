@@ -55,6 +55,10 @@ _processing_reports = _processing_dedup_registry.reservations
 _pipeline_tasks = _pipeline_task_registry.tasks
 
 
+class DedupReservationUnavailableError(RuntimeError):
+    """Raised when the distributed processing dedup store is unavailable."""
+
+
 def get_cache() -> ReportRepository:
     global _cache
     if _cache is None:
@@ -230,6 +234,9 @@ async def _pg_reserve(key: str, report_id: str, user_id: str) -> str | None:
             details={"status_code": resp.status_code},
             message="reserve_processing_slot RPC returned non-200",
         )
+        raise DedupReservationUnavailableError("dedup reservation unavailable")
+    except DedupReservationUnavailableError:
+        raise
     except httpx.TimeoutException:
         log_error_event(
             logger,
@@ -237,6 +244,9 @@ async def _pg_reserve(key: str, report_id: str, user_id: str) -> str | None:
             subsystem="processing_dedup",
             message="reserve_processing_slot RPC timeout",
         )
+        raise DedupReservationUnavailableError(
+            "dedup reservation unavailable"
+        ) from None
     except httpx.HTTPError:
         log_error_event(
             logger,
@@ -245,6 +255,9 @@ async def _pg_reserve(key: str, report_id: str, user_id: str) -> str | None:
             message="reserve_processing_slot RPC HTTP error",
             include_exception=True,
         )
+        raise DedupReservationUnavailableError(
+            "dedup reservation unavailable"
+        ) from None
     except Exception:
         log_error_event(
             logger,
@@ -253,7 +266,9 @@ async def _pg_reserve(key: str, report_id: str, user_id: str) -> str | None:
             message="reserve_processing_slot RPC unexpected error",
             include_exception=True,
         )
-    return None
+        raise DedupReservationUnavailableError(
+            "dedup reservation unavailable"
+        ) from None
 
 
 async def _pg_release(report_id: str) -> None:

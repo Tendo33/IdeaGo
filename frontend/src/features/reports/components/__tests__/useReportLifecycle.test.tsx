@@ -18,6 +18,16 @@ vi.mock('@/lib/api/useSSE', () => ({
   useSSE: vi.fn(),
 }))
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useReportLifecycle', () => {
   const navigate = vi.fn() as unknown as NavigateFunction
   const reportFixture: ResearchReport = {
@@ -283,5 +293,74 @@ describe('useReportLifecycle', () => {
     })
     expect(result.current.loadError).toBeNull()
     expect(result.current.loadErrorKind).toBeNull()
+  })
+
+  it('can check persisted status after a terminal stream error without restarting analysis', async () => {
+    const retryStream = vi.fn()
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: true,
+      isReconnecting: false,
+      error: 'Connection lost',
+      cancelled: null,
+      retry: retryStream,
+      reconnectAttempts: 5,
+      lastFailureReason: 'network down',
+    })
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockResolvedValueOnce({ status: 'ready', report: reportFixture })
+
+    const { result } = renderHook(() => useReportLifecycle('r-ready', navigate))
+
+    await waitFor(() => {
+      expect(result.current.sseError).toBe('Connection lost')
+      expect(result.current.loadPhase).toBe('processing')
+    })
+
+    act(() => {
+      result.current.checkCurrentStatus()
+    })
+
+    await waitFor(() => {
+      expect(result.current.report?.id).toBe('r-ready')
+      expect(result.current.loadPhase).toBe('ready')
+    })
+    expect(startAnalysis).not.toHaveBeenCalled()
+    expect(retryStream).not.toHaveBeenCalled()
+  })
+
+  it('ignores duplicate restart requests while a restart is already in flight', async () => {
+    const restartRequest = deferred<{ report_id: string }>()
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'failed',
+      report_id: 'r-failed-in-flight',
+      error_code: 'PIPELINE_FAILURE',
+      message: 'Pipeline failed.',
+      query: 'AI CRM for recruiters',
+    })
+    vi.mocked(startAnalysis).mockReturnValue(restartRequest.promise)
+
+    const { result } = renderHook(() => useReportLifecycle('r-failed-in-flight', navigate))
+
+    await waitFor(() => {
+      expect(result.current.runtimeStatus?.status).toBe('failed')
+    })
+
+    act(() => {
+      result.current.retryCurrentQuery()
+      result.current.retryCurrentQuery()
+    })
+
+    expect(startAnalysis).toHaveBeenCalledTimes(1)
+    expect(result.current.isRetryingAnalysis).toBe(true)
+
+    restartRequest.resolve({ report_id: 'r-restarted' })
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/reports/r-restarted')
+      expect(result.current.isRetryingAnalysis).toBe(false)
+    })
   })
 })

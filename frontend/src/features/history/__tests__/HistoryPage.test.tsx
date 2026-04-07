@@ -243,4 +243,46 @@ describe('HistoryPage', () => {
 
     expect(screen.getByText('Cached report')).toBeInTheDocument()
   })
+
+  it('keeps the search input visible when a query returns zero matches', async () => {
+    vi.mocked(listReports)
+      .mockResolvedValueOnce(
+        paginated([
+          {
+            id: 'report-1',
+            query: 'AI meeting notes',
+            created_at: new Date().toISOString(),
+            competitor_count: 3,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(paginated([], 0))
+
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('AI meeting notes')).toBeInTheDocument()
+    })
+
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /search your past reports/i }),
+      { target: { value: 'missing report' } },
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't find any reports matching/i)).toBeInTheDocument()
+    })
+
+    expect(
+      screen.getByRole('textbox', { name: /search your past reports/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/haven't run any research reports yet/i)).not.toBeInTheDocument()
+  })
 })

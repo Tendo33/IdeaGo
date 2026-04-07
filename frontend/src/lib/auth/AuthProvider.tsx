@@ -25,17 +25,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<string>('user')
+  const [roleLoading, setRoleLoading] = useState(false)
 
   const applySupabaseSession = useCallback((nextSession: SupabaseSession) => {
     setSession(toSupabaseSession(nextSession))
     setAccessToken(nextSession.access_token)
     setRole('user')
+    setRoleLoading(true)
   }, [])
 
   const applyCustomSession = useCallback((nextSession: AuthSession) => {
     setSession(nextSession)
     setAccessToken(nextSession.access_token || null)
     setRole('user')
+    setRoleLoading(true)
     setLoading(false)
   }, [])
 
@@ -55,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
     setAccessToken(null)
     setRole('user')
+    setRoleLoading(false)
   }, [session])
 
   const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
@@ -90,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null)
       if (!shouldRecoverCookieSession(window.location.pathname)) {
         setSession(null)
+        setRole('user')
+        setRoleLoading(false)
         setLoading(false)
         return
       }
@@ -102,9 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider: 'linuxdo',
           user: { id: me.id, email: me.email ?? '' },
         })
+        setRoleLoading(true)
       } catch {
         if (cancelled) return
         setSession(null)
+        setRole('user')
+        setRoleLoading(false)
       } finally {
         if (!cancelled) {
           setLoading(false)
@@ -124,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(null)
       setSession(previous => (previous?.provider === 'linuxdo' ? previous : null))
+      setRoleLoading(false)
     })
 
     return () => {
@@ -134,8 +144,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user?.id
   useEffect(() => {
-    if (!userId) return
+    if (!userId) {
+      setRole('user')
+      setRoleLoading(false)
+      return
+    }
+
     let cancelled = false
+    setRoleLoading(true)
     getMyProfile()
       .then(profile => {
         if (cancelled) return
@@ -144,12 +160,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (profile.role) {
           setRole(profile.role)
+        } else {
+          setRole('user')
         }
+        setRoleLoading(false)
       })
       .catch(error => {
         if (cancelled) return
         console.warn('Failed to hydrate auth profile', error)
         setRole('user')
+        setRoleLoading(false)
       })
     return () => {
       cancelled = true
@@ -165,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: session?.user ?? null,
         role: effectiveRole,
         loading,
+        roleLoading,
         signOut,
         applyCustomSession,
         patchUser,

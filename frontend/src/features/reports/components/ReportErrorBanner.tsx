@@ -9,6 +9,12 @@ interface ReportErrorBannerProps {
   errorKind?: 'system' | 'runtime'
   runtimeStatus?: ReportRuntimeStatus | null
   actionLabel?: string
+  actionDisabled?: boolean
+  actions?: Array<{
+    label: string
+    onClick: () => void
+    disabled?: boolean
+  }>
 }
 
 function getBannerText(
@@ -63,9 +69,15 @@ export function ReportErrorBanner({
   errorKind = 'system',
   runtimeStatus,
   actionLabel,
+  actionDisabled = false,
+  actions,
 }: ReportErrorBannerProps) {
   const { t } = useTranslation()
   const text = getBannerText(errorKind, runtimeStatus, t)
+  const resolvedActions =
+    actions && actions.length > 0
+      ? actions
+      : [{ label: actionLabel ?? text.retryLabel, onClick: onRetry, disabled: actionDisabled }]
   return (
     <Alert variant="warning" className="mb-6 items-center">
       <div className="min-w-0 flex-1">
@@ -74,15 +86,22 @@ export function ReportErrorBanner({
         {runtimeStatus?.error_code && (
           <p className="text-xs text-warning/80 mt-1 break-all">[{runtimeStatus.error_code}]</p>
         )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {resolvedActions.map(action => (
+            <Button
+              key={action.label}
+              variant="outline"
+              size="sm"
+              onClick={action.onClick}
+              disabled={action.disabled}
+              aria-busy={action.disabled}
+              className="border-warning text-warning hover:bg-warning/10 focus-visible:ring-warning"
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRetry}
-        className="ml-3 border-warning text-warning hover:bg-warning/10 focus-visible:ring-warning"
-      >
-        {actionLabel ?? text.retryLabel}
-      </Button>
     </Alert>
   )
 }

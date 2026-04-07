@@ -81,6 +81,8 @@ export function HistoryPage() {
   const descriptionId = useId()
   const [pageIndex, setPageIndex] = useState(() => initialCache?.pageIndex ?? 0)
   const [hasNextPage, setHasNextPage] = useState(() => initialCache?.hasNextPage ?? false)
+  const hasActiveSearch = searchQuery.trim().length > 0 || debouncedQuery.length > 0
+  const showSearchInput = !loading || hasActiveSearch
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -225,7 +227,7 @@ export function HistoryPage() {
                 {t('home.description')}
               </p>
             </div>
-            {reports.length > 0 && (
+            {showSearchInput && (
               <div className="relative w-full md:w-80">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -233,6 +235,7 @@ export function HistoryPage() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder={t('history.filterPlaceholder')}
+                  aria-label={t('history.filterPlaceholder')}
                   className="w-full border-2 border-border bg-background pl-12 pr-4 py-3 text-sm font-bold placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 focus:border-primary focus:shadow shadow-primary transition-all"
                 />
               </div>
@@ -254,7 +257,7 @@ export function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && reports.length === 0 && (
+        {!loading && !error && reports.length === 0 && !hasActiveSearch && (
           <div className="border-4 border-dashed border-border bg-card p-16 text-center shadow-none">
             <FileText className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
             <p className="mb-6 text-lg font-bold uppercase tracking-widest text-muted-foreground">{t('history.emptyState')}</p>
@@ -283,7 +286,7 @@ export function HistoryPage() {
           </div>
         )}
 
-        {!loading && reports.length === 0 && searchQuery.trim() && (
+        {!loading && reports.length === 0 && hasActiveSearch && (
           <div className="py-12 text-center border-2 border-dashed border-border bg-muted/20">
             <p className="text-base font-bold uppercase tracking-widest text-muted-foreground">
               {t('history.noMatch', { query: searchQuery })}

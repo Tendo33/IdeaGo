@@ -68,9 +68,10 @@ export function BlueOceanState({ query }: { query: string }) {
 interface AllFailedStateProps {
   sources: ResearchReport['source_results']
   onRetry: () => void
+  isRetrying?: boolean
 }
 
-export function AllFailedState({ sources, onRetry }: AllFailedStateProps) {
+export function AllFailedState({ sources, onRetry, isRetrying = false }: AllFailedStateProps) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
 
@@ -93,7 +94,12 @@ export function AllFailedState({ sources, onRetry }: AllFailedStateProps) {
         ))}
       </div>
       <p className="text-xs text-muted-foreground mb-4 break-words">{t('report.failed.description')}</p>
-      <button onClick={onRetry} className={buttonVariants({ variant: 'warning', size: 'md' })}>
+      <button
+        onClick={onRetry}
+        disabled={isRetrying}
+        aria-busy={isRetrying}
+        className={buttonVariants({ variant: 'warning', size: 'md' })}
+      >
         <RefreshCw className="w-4 h-4" />
         {t('report.failed.retry')}
       </button>
