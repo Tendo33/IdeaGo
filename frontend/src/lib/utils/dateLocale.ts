@@ -1,4 +1,4 @@
-export function getAppLocale(language: string | undefined): string {
+function getAppLocale(language: string | undefined): string {
   const normalized = language?.toLowerCase().trim() ?? ''
   return normalized.startsWith('zh') ? 'zh-CN' : 'en-US'
 }

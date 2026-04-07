@@ -11,21 +11,6 @@ export function Skeleton({ className = '' }: SkeletonProps) {
   )
 }
 
-export function ReportCardSkeleton() {
-  return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-2 border-border bg-card p-5 shadow">
-      <div className="mr-6 min-w-0 flex-1 mb-4 sm:mb-0 space-y-3 w-full">
-        <Skeleton className="h-6 w-3/4 shadow-sm" />
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-4 w-24 shadow-sm" />
-          <Skeleton className="h-4 w-20 shadow-sm" />
-        </div>
-      </div>
-      <Skeleton className="h-10 w-10 shrink-0 shadow-sm" />
-    </div>
-  )
-}
-
 export function CompetitorCardSkeleton() {
   return (
     <div className="p-6 md:p-8 bg-card border-2 border-border shadow-md space-y-4">

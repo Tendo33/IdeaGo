@@ -1,6 +1,6 @@
 import type { ReportListItem } from '@/lib/types/research'
 
-export const HISTORY_CACHE_STORAGE_KEY = 'ideago-history-cache'
+const HISTORY_CACHE_STORAGE_KEY = 'ideago-history-cache'
 
 export interface HistoryCacheSnapshot {
   pageIndex: number

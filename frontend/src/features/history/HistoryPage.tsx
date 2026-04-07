@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, memo, useRef, useId } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
 import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
 import { useTranslation } from 'react-i18next'
@@ -19,7 +19,6 @@ const PAGE_SIZE = 20
 interface HistoryReportCardProps {
   report: ReportListItem;
   isDeleting: boolean;
-  onNavigate: (id: string) => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
   t: (key: string) => string;
   language: string;
@@ -64,7 +63,6 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
 })
 
 export function HistoryPage() {
-  const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
   const [initialCache] = useState<HistoryCacheSnapshot | null>(() => readHistoryCache())
@@ -202,10 +200,6 @@ export function HistoryPage() {
     }
   }
 
-  const handleNavigate = useCallback((id: string) => {
-    navigate(`/reports/${id}`)
-  }, [navigate])
-
   return (
     <>
       <div className="app-shell max-w-5xl pt-8 pb-16">
@@ -277,7 +271,6 @@ export function HistoryPage() {
                 key={report.id}
                 report={report}
                 isDeleting={deletingIds.has(report.id)}
-                onNavigate={handleNavigate}
                 onDelete={handleDeleteClick}
                 t={t}
                 language={language}

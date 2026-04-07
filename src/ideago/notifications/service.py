@@ -27,7 +27,8 @@ class NotificationSender(Protocol):
         body_html: str = "",
     ) -> bool:
         """Send a notification. Returns True on success."""
-        ...
+        _ = body_text, body_html
+        raise NotImplementedError
 
 
 class LogNotificationSender:
@@ -47,9 +48,11 @@ class LogNotificationSender:
         body_html: str = "",
     ) -> bool:
         logger.info(
-            "Notification (log-only) to={} subject={}",
+            "Notification (log-only) to={} subject={} text_length={} has_html={}",
             to,
             subject,
+            len(body_text),
+            bool(body_html),
         )
         return True
 

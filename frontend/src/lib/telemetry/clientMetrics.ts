@@ -1,4 +1,4 @@
-export interface ClientMetricPayload {
+interface ClientMetricPayload {
   name: string
   detail: Record<string, string | number | boolean | null>
   timestamp: string
@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-export const CLIENT_METRIC_EVENT = 'ideago:metric'
+const CLIENT_METRIC_EVENT = 'ideago:metric'
 
 function normalizeDetail(detail: Record<string, unknown>): Record<string, string | number | boolean | null> {
   const normalized: Record<string, string | number | boolean | null> = {}
