@@ -41,7 +41,12 @@ jobs:
         run: uv run mypy src
 
       - name: Security audit (pip-audit)
-        run: uvx pip-audit --strict --desc
+        run: |
+          audit_requirements="$(mktemp)"
+          trap 'rm -f "$audit_requirements"' EXIT
+          uv export --all-extras --format requirements-txt --no-hashes \
+            | grep -v '^-e \.$' > "$audit_requirements"
+          uvx pip-audit --strict --desc --no-deps --disable-pip -r "$audit_requirements"
 
       - name: Pytest
         run: uv run pytest
