@@ -78,6 +78,9 @@ Important:
 - `main` does not need Supabase variables.
 - `main` does not need Stripe variables.
 - `main` does not need LinuxDo variables.
+- `main` frontend uses `pnpm` only; do not introduce `package-lock.json`.
+- the browser client automatically generates a stable anonymous `X-Session-Id`; there is no env
+  toggle for it.
 
 ## 4. Local Development Run
 
@@ -138,16 +141,19 @@ Recommendations:
 - terminate TLS at the proxy
 - keep `CORS_ALLOW_ORIGINS` explicit
 - avoid exposing the backend directly without gateway-level controls
+- keep response-header rewriting compatible with the app CSP instead of replacing it blindly
 
 ## 8. Runtime Behavior
 
 On `main`, the expected flow is:
 
 1. user submits an idea
-2. backend creates an analysis job
-3. frontend watches SSE progress
-4. report is persisted locally
-5. report remains visible in history until TTL cleanup removes it
+2. frontend enters a transient `/reports/new` state
+3. backend creates an analysis job
+4. frontend watches SSE progress
+5. if streaming disconnects repeatedly, frontend falls back to `/status`
+6. report is persisted locally
+7. report remains visible in history until TTL cleanup removes it
 
 Storage model:
 
@@ -155,12 +161,23 @@ Storage model:
 - runtime status: local status files
 - pipeline checkpoints: SQLite
 
+Runtime protections:
+
+- production logging defaults keep verbose exception `backtrace` / `diagnose` output off
+- API responses include baseline CSP, `nosniff`, frame deny, and strict referrer policy headers
+- report rate limiting uses separate buckets for read, status, stream, and mutation endpoints
+- source-level adaptive query concurrency is reset after each fetch run
+
 ## 9. Operational Notes
 
 - Anonymous reports expire based on `ANONYMOUS_CACHE_TTL_HOURS`
 - Account-bound persistence is not part of `main`
 - Reddit can fall back to public read-only mode if OAuth credentials are not configured
 - In production, do not leave `CORS_ALLOW_ORIGINS=*`
+- `RATE_LIMIT_REPORTS_MAX` and `RATE_LIMIT_REPORTS_WINDOW_SECONDS` now govern multiple isolated
+  `/reports*` buckets rather than one shared report bucket
+- frontend query validation mirrors backend normalization rules; malformed low-signal queries should
+  be rejected before analyze starts
 
 ## 10. Verification Checklist
 
@@ -168,10 +185,14 @@ Storage model:
 - frontend build succeeds
 - `/api/v1/health` returns success
 - anonymous analyze works
+- `/reports/new` can recover the original query on refresh
 - SSE progress updates render
+- stream disconnect falls back to `/api/v1/reports/{id}/status`
+- invalid low-signal query is rejected before entering a half-failed analyze state
 - report detail opens after completion
 - history can reopen the report
 - markdown export works
+- canceling an analysis returns the user to a recoverable state
 
 ## 11. Update Strategy
 

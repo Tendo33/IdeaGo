@@ -39,6 +39,7 @@ Rules:
 - No auth, billing, profile, or admin routes on `main`
 - Analyze, report detail, report status, report export, and history are anonymous on `main`
 - Mutating routes require `X-Requested-With`
+- Report reads may also carry a client-generated `X-Session-Id` for anonymous rate-limit isolation
 
 ## Data And Persistence
 
@@ -52,7 +53,10 @@ Rules:
 
 - CSRF protection on mutating API routes through `X-Requested-With`
 - in-memory rate limiting for analyze and reports
+- report rate limiting is split across read, status, stream, and mutation buckets
 - CORS must be explicit in production
+- API responses should keep the baseline `Content-Security-Policy`
+- production logging defaults should keep verbose exception `backtrace` / `diagnose` output off
 - never hardcode secrets
 - avoid logging PII or raw secrets
 
@@ -62,6 +66,7 @@ Rules:
 - Keep competitor discovery as one section inside the broader validation contract
 - Treat report detail and export formats as explicit interfaces
 - Ranking stays opportunity-first: pain, commercial, migration, and whitespace evidence should beat raw popularity when signals conflict
+- Runtime source concurrency overrides must be restored after each fetch run
 
 ## Testing Strategy
 

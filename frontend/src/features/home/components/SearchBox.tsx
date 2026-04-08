@@ -11,7 +11,7 @@ interface SearchBoxProps {
 const MIN_QUERY_LENGTH = 5
 const MAX_QUERY_LENGTH = 1000
 
-const MIN_MEANINGFUL_CHARACTERS = 3
+const MIN_MEANINGFUL_CHARACTERS = 4
 const MAX_SYMBOL_RATIO = 0.5
 
 const LETTER_CHARACTER = /\p{L}/u
@@ -39,7 +39,7 @@ function countCharacters(value: string, predicate: (character: string) => boolea
 }
 
 function validateSearchQuery(query: string): SearchQueryValidationResult {
-  const normalizedQuery = query.trim()
+  const normalizedQuery = query.replace(/\s+/g, ' ').trim()
   const trimmedLength = normalizedQuery.length
 
   if (trimmedLength === 0) {

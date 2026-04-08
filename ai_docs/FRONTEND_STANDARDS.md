@@ -48,6 +48,8 @@ Rules:
 - Feature-specific components stay in their feature folder
 - Keep shared API calls in `frontend/src/lib/api/client.ts`
 - Keep SSE logic in `frontend/src/lib/api/useSSE.ts`
+- Keep reducer/parser helpers for SSE in `frontend/src/lib/api/sseState.ts`
+- Do not introduce `package-lock.json`
 
 ## TypeScript Conventions
 
@@ -62,6 +64,10 @@ Rules:
 - Use typed wrappers rather than scattered raw `fetch`
 - Error parsing must handle both `{"detail": ...}` and `{"error": {"code", "message"}}`
 - `main` uses anonymous API requests; do not assume auth redirects or session tokens
+- Anonymous report reads, export, status, and stream calls send a stable client-generated `X-Session-Id`
+- Query validation in the UI must mirror backend normalization rules: collapse whitespace, require at least one letter, require at least 4 meaningful alphanumeric characters, and reject symbol-heavy input
+- SSE reconnects must be capped and fall back to runtime status polling instead of reconnecting forever
+- Preserve `ApiError` detail through fallback paths so 429/runtime CTAs can stay specific
 
 ## Routing
 
@@ -74,6 +80,9 @@ Rules:
 - Use semantic HTML
 - Keep keyboard access and visible focus states
 - Preserve responsive report reading and progress views
+- Keep report section order aligned with the decision-first contract:
+  `recommendation -> why-now -> pain -> commercial -> whitespace -> competitors -> evidence -> confidence`
+- `SectionNav` anchors should map one-to-one to rendered report sections
 
 ## Done Criteria
 

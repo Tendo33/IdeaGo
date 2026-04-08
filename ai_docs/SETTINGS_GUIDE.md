@@ -33,6 +33,11 @@ Personal deployment storage/runtime settings:
 - `ANONYMOUS_CACHE_TTL_HOURS`
 - `FILE_CACHE_MAX_ENTRIES`
 - `LANGGRAPH_CHECKPOINT_DB_PATH`
+- `RATE_LIMIT_ANALYZE_MAX`
+- `RATE_LIMIT_ANALYZE_WINDOW_SECONDS`
+- `RATE_LIMIT_REPORTS_MAX`
+- `RATE_LIMIT_REPORTS_WINDOW_SECONDS`
+- `CORS_ALLOW_ORIGINS`
 
 Advanced orchestration knobs:
 
@@ -47,6 +52,11 @@ Advanced orchestration knobs:
 
 - `VITE_API_BASE_URL`
 - `VITE_SENTRY_DSN`
+
+Built-in frontend behavior with no extra env toggle:
+
+- stable anonymous `X-Session-Id` generation
+- SSE reconnect cap plus report-status fallback
 
 ## Reddit Notes
 

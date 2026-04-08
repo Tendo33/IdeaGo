@@ -231,7 +231,7 @@ describe('ReportPage', () => {
     expect(screen.getByText('PAIN_SIGNALS')).toBeInTheDocument()
     expect(screen.getByText('COMMERCIAL_SIGNALS')).toBeInTheDocument()
     expect(screen.getByText('WHITESPACE_OPPORTUNITIES')).toBeInTheDocument()
-    expect(screen.queryByText('CONFIDENCE')).not.toBeInTheDocument()
+    expect(screen.getByText('CONFIDENCE')).toBeInTheDocument()
     expect(screen.getByText('EVIDENCE_COST')).toBeInTheDocument()
   })
 
@@ -311,7 +311,7 @@ describe('ReportPage', () => {
     })
 
     expect(await screen.findByTestId('section-nav-shape')).toHaveTextContent(
-      'section-should-we-build-this|section-why-now|section-pain|section-whitespace|section-competitors|section-evidence-confidence',
+      'section-should-we-build-this|section-why-now|section-pain|section-commercial|section-whitespace|section-competitors|section-evidence|section-confidence',
     )
   })
 
@@ -339,7 +339,7 @@ describe('ReportPage', () => {
     })
 
     expect(await screen.findByTestId('section-nav-shape')).toHaveTextContent(
-      'section-should-we-build-this|section-pain|section-whitespace|section-evidence-confidence',
+      'section-should-we-build-this|section-pain|section-commercial|section-whitespace|section-evidence|section-confidence',
     )
     expect(document.getElementById('section-why-now')).toBeNull()
     expect(document.getElementById('section-competitors')).toBeNull()
@@ -396,9 +396,11 @@ describe('ReportPage', () => {
       'section-should-we-build-this',
       'section-why-now',
       'section-pain',
+      'section-commercial',
       'section-whitespace',
       'section-competitors',
-      'section-evidence-confidence',
+      'section-evidence',
+      'section-confidence',
     ]
     const sections = orderedSectionIds.map(id => document.getElementById(id))
     sections.forEach(section => {

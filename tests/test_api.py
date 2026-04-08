@@ -7,6 +7,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
 from ideago.cache.file_cache import FileCache
@@ -135,3 +136,61 @@ def test_mutating_routes_require_csrf_header(personal_runtime: FileCache) -> Non
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "CSRF_MISSING_HEADER"
+
+
+def test_health_endpoint_includes_content_security_policy(
+    personal_runtime: FileCache,
+) -> None:
+    app = create_app()
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    assert "Content-Security-Policy" in response.headers
+    assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+
+def test_report_rate_limits_use_separate_buckets(
+    personal_runtime: FileCache, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_REPORTS_MAX", "1")
+    monkeypatch.setenv("RATE_LIMIT_REPORTS_WINDOW_SECONDS", "60")
+    reload_settings()
+    app_module._rate_limit_store.clear()
+
+    report = _make_report("bucket-key", "bucket idea")
+    personal_runtime._put_sync(report)
+    app = create_app()
+
+    with TestClient(app) as client:
+        list_response = client.get("/api/v1/reports")
+        status_response = client.get(f"/api/v1/reports/{report.id}/status")
+        delete_response = client.delete(
+            f"/api/v1/reports/{report.id}",
+            headers={"X-Requested-With": "IdeaGo"},
+        )
+
+    assert list_response.status_code == 200
+    assert status_response.status_code == 200
+    assert delete_response.status_code == 200
+
+
+def test_report_rate_limits_are_isolated_by_session_id(
+    personal_runtime: FileCache, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_REPORTS_MAX", "1")
+    monkeypatch.setenv("RATE_LIMIT_REPORTS_WINDOW_SECONDS", "60")
+    reload_settings()
+    app_module._rate_limit_store.clear()
+
+    report = _make_report("session-key", "session idea")
+    personal_runtime._put_sync(report)
+    app = create_app()
+
+    with TestClient(app) as client:
+        first = client.get("/api/v1/reports", headers={"X-Session-Id": "session-a"})
+        second = client.get("/api/v1/reports", headers={"X-Session-Id": "session-b"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200

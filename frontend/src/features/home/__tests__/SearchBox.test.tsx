@@ -102,6 +102,19 @@ describe('SearchBox', () => {
     expect(screen.getByText(lowSignalHint)).toBeInTheDocument()
   })
 
+  it('uses the same semantic character threshold as the backend validator', () => {
+    const validation = SearchBox.validateQuery('a1!')
+    expect(validation.isValid).toBe(false)
+    expect(validation.code).toBe('too_short')
+
+    const nearBoundary = SearchBox.validateQuery('abc!!')
+    expect(nearBoundary.isValid).toBe(false)
+    expect(nearBoundary.code).toBe('low_signal')
+
+    const validBoundary = SearchBox.validateQuery('abcd!')
+    expect(validBoundary.isValid).toBe(true)
+  })
+
   it('shows direct feedback and blocks symbol-heavy queries', () => {
     const onSubmit = vi.fn()
     render(<SearchBox onSubmit={onSubmit} />)

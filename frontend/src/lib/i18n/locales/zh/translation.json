@@ -88,9 +88,13 @@
       "shouldWeBuildThis": "这个方向值得做吗？",
       "whyNow": "为什么是现在",
       "pain": "痛点信号",
+      "commercial": "商业信号",
       "whitespace": "市场空白",
+      "evidence": "证据",
+      "confidence": "可信度",
       "evidenceConfidence": "数据来源与证据",
       "painPlaceholder": "痛点与商业信号分析会在数据可用后显示在这里。",
+      "commercialPlaceholder": "商业信号分析会在数据可用后显示在这里。",
       "whitespacePlaceholder": "市场空白机会和差异化方向会在数据可用后显示在这里。"
     },
     "blueOcean": {

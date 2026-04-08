@@ -21,6 +21,7 @@ Use this file as the default project contract for Codex on the `main` branch.
 
 - Product contract is Source Intelligence V2, decision-first.
 - Reports stay ordered as: recommendation / why-now, pain signals, commercial signals, whitespace opportunities, competitors, evidence, confidence.
+- Frontend report sections and `SectionNav` anchors must preserve that order without merging pain/commercial or evidence/confidence.
 - `pipeline/merger.py` remains deterministic competitor dedupe only.
 - Whitespace and entry-wedge synthesis belongs in `pipeline/aggregator.py`.
 - Report payloads and frontend shared report types are explicit contracts and must stay aligned.
@@ -40,6 +41,7 @@ Use this file as the default project contract for Codex on the `main` branch.
 ### Frontend
 
 - `pnpm` only
+- do not introduce or commit `package-lock.json`
 - React 19 + TypeScript + Vite 7
 - Tailwind CSS 4
 - React Router 7
@@ -73,6 +75,7 @@ Main package: `src/ideago`
 - `frontend/src/features/reports`: report detail, compare views, charts, progress states
 - `frontend/src/components/ui`: shared UI primitives
 - `frontend/src/lib/api`: typed API client and SSE hook
+- `frontend/src/lib/api/sseState`: SSE reducer and parser helpers
 - `frontend/src/lib/i18n`: locale setup and translations
 - `frontend/src/lib/types`, `frontend/src/lib/utils`: shared types and utilities
 - `frontend/src/styles`: global styles
@@ -99,7 +102,8 @@ uv run python -m ideago
 ```
 
 - `main` must boot and run without Supabase, Stripe, or LinuxDo variables.
-- Current user flow is: submit idea -> create analysis job -> stream progress over SSE -> read persisted report/history.
+- Current anonymous client flow is: submit idea -> `/reports/new` transient state -> stream progress -> capped reconnects -> `/status` fallback when needed -> persisted report/history.
+- Anonymous clients generate a stable `X-Session-Id` automatically; mutating calls still require `X-Requested-With`.
 - `docker-compose.yml` on `main` pulls the published image by default.
 
 ## Required Verification

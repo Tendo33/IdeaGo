@@ -3,6 +3,7 @@ import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CommercialSignalsCard } from '@/features/reports/components/CommercialSignalsCard'
 import { CompareFloatingBar } from '@/features/reports/components/ComparePanel'
+import { ConfidenceCard } from '@/features/reports/components/ConfidenceCard'
 import { EvidenceCostCard } from '@/features/reports/components/EvidenceCostCard'
 import { MarketOverview } from '@/features/reports/components/MarketOverview'
 import { PainSignalsCard } from '@/features/reports/components/PainSignalsCard'
@@ -107,10 +108,9 @@ export function ReportContentPane({
       })
     }
 
-    items.push(
-      { id: 'section-pain', label: t('report.sections.pain') },
-      { id: 'section-whitespace', label: t('report.sections.whitespace') },
-    )
+    items.push({ id: 'section-pain', label: t('report.sections.pain') })
+    items.push({ id: 'section-commercial', label: t('report.sections.commercial') })
+    items.push({ id: 'section-whitespace', label: t('report.sections.whitespace') })
 
     if (hasCompetitorSection) {
       items.push({
@@ -121,8 +121,12 @@ export function ReportContentPane({
     }
 
     items.push({
-      id: 'section-evidence-confidence',
-      label: t('report.sections.evidenceConfidence'),
+      id: 'section-evidence',
+      label: t('report.sections.evidence'),
+    })
+    items.push({
+      id: 'section-confidence',
+      label: t('report.sections.confidence'),
     })
 
     return items
@@ -175,13 +179,25 @@ export function ReportContentPane({
         )}
 
         {!allFailed && (
-          <section id="section-pain" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section id="section-pain" className="space-y-4">
             <PainSignalsCard signals={report.pain_signals} />
-            <CommercialSignalsCard signals={report.commercial_signals} />
-            {report.pain_signals.length === 0 && report.commercial_signals.length === 0 ? (
+            {report.pain_signals.length === 0 ? (
               <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground lg:col-span-2">
                 {t(
                   'report.sections.painPlaceholder',
+                )}
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {!allFailed && (
+          <section id="section-commercial" className="space-y-4">
+            <CommercialSignalsCard signals={report.commercial_signals} />
+            {report.commercial_signals.length === 0 ? (
+              <div className="rounded-none border-2 border-border bg-card p-4 text-sm text-muted-foreground">
+                {t(
+                  'report.sections.commercialPlaceholder',
                 )}
               </div>
             ) : null}
@@ -232,8 +248,14 @@ export function ReportContentPane({
         )}
 
         {!allFailed && (
-          <section id="section-evidence-confidence" className="space-y-4">
+          <section id="section-evidence" className="space-y-4">
             <EvidenceCostCard evidenceSummary={report.evidence_summary} />
+          </section>
+        )}
+
+        {!allFailed && (
+          <section id="section-confidence" className="space-y-4">
+            <ConfidenceCard confidence={report.confidence} />
           </section>
         )}
 

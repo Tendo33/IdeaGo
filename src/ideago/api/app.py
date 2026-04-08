@@ -243,7 +243,14 @@ def create_app() -> FastAPI:
         elif path.startswith("/api/") and "/reports" in path:
             limit_max = settings.rate_limit_reports_max
             limit_window = settings.rate_limit_reports_window_seconds
-            prefix = "reports:"
+            if request.method == "DELETE":
+                prefix = "reports_mutation:"
+            elif path.endswith("/status"):
+                prefix = "reports_status:"
+            elif path.endswith("/stream"):
+                prefix = "reports_stream:"
+            else:
+                prefix = "reports_read:"
 
         if limit_max is not None and limit_window is not None:
             rate_key = prefix + _resolve_rate_key(request, "")
@@ -265,6 +272,13 @@ def create_app() -> FastAPI:
     async def security_headers_middleware(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
         """Add standard security headers to all responses."""
         response: Response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' data: https:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+            "connect-src 'self' https:;"
+        )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Documented the current anonymous `main`-branch runtime more explicitly across `README`, `README_CN`, `DEPLOYMENT`, and `ai_docs`, including the transient `/reports/new` creation flow, `pnpm`-only frontend package management, and stable anonymous `X-Session-Id` request behavior.
+- Clarified the decision-first report presentation contract so recommendation, why-now, pain, commercial, whitespace, competitors, evidence, and confidence stay aligned across backend, frontend, and AI tooling docs.
+- Recorded the current SSE reliability model in docs: capped reconnect attempts with `/status` fallback instead of unbounded reconnect loops.
+
+### Fixed
+- Documented the hardened runtime defaults added on `main`, including safer production logging defaults, baseline CSP headers, isolated `/reports*` rate-limit buckets, and restoration of per-source runtime concurrency overrides.
+
 ## [0.3.9] - 2026-04-02
 
 ### Changed
@@ -201,7 +211,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pytest and coverage configuration
   - Pre-commit hooks configuration
 
-[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/Tendo33/ideago/compare/v0.3.9...HEAD
 [0.3.5]: https://github.com/Tendo33/ideago/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Tendo33/ideago/compare/v0.3.3...v0.3.4
 [0.2.11]: https://github.com/Tendo33/ideago/compare/v0.2.10...v0.2.11

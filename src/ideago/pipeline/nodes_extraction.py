@@ -143,10 +143,10 @@ def safe_get_source_query_concurrency(source: DataSource) -> int:
         return 2
 
 
-def safe_set_source_query_concurrency(source: DataSource, value: int) -> None:
+def safe_set_source_query_concurrency(source: DataSource, value: int | None) -> None:
     setter = getattr(source, "set_runtime_max_concurrent_queries", None)
     if callable(setter):
-        setter(max(1, value))
+        setter(max(1, value) if value is not None else None)
 
 
 def safe_consume_source_diagnostics(source: DataSource) -> dict[str, Any]:

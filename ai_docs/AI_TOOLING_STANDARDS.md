@@ -34,6 +34,7 @@ Before editing, read the relevant docs in `ai_docs/`:
 ## Current V2 Contract Boundaries
 
 - Reports are decision-first: recommendation, why-now, pain signals, commercial signals, whitespace opportunities, competitors, evidence, confidence.
+- Frontend report sections and anchors must preserve that order one-to-one.
 - Backend report payloads and frontend shared report types are explicit contracts.
 - Keep LangGraph state, extraction outputs, and aggregation carriers typed.
 - `pipeline/merger.py` is deterministic competitor dedupe only.
@@ -47,6 +48,8 @@ Before editing, read the relevant docs in `ai_docs/`:
 - No auth, profile, admin, or billing runtime should be required.
 - Docker Compose on `main` pulls the published image by default.
 - The active frontend route surface stays intentionally small.
+- Anonymous requests use a stable client-generated `X-Session-Id`; mutating routes still rely on `X-Requested-With`.
+- SSE retries are capped and fall back to report status polling rather than retrying forever.
 
 ## Backend Stack
 
@@ -73,6 +76,7 @@ uv run pytest
 ## Frontend Stack
 
 - `pnpm`
+- do not commit `package-lock.json`
 - React 19
 - TypeScript
 - Vite 7

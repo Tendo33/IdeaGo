@@ -20,8 +20,8 @@ def setup_logging(
     retention: str = "1 week",
     compression: str = "gz",
     serialize: bool = False,
-    backtrace: bool = True,
-    diagnose: bool = True,
+    backtrace: bool = False,
+    diagnose: bool = False,
     enqueue: bool = False,
     catch: bool = True,
 ) -> None:

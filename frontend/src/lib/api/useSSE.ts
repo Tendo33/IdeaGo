@@ -1,12 +1,26 @@
-import { useCallback, useEffect, useReducer, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import i18n from '../i18n/i18n'
 import { parsePipelineEvent, type PipelineEvent } from '../types/research'
-import { getStreamUrl } from './client'
+import {
+  getClientSessionId,
+  getReportRuntimeStatus,
+  getStreamUrl,
+  isApiError,
+  isRequestAbortError,
+} from './client'
+import {
+  clearReconnectTimer,
+  findLastSseBoundary,
+  initialSSEState,
+  parseSseChunk,
+  shouldRetrySseStatus,
+  sseReducer,
+} from './sseState'
 
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 15000
-const MAX_EVENT_HISTORY = 200
-const RETRYABLE_HTTP_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504])
+const MAX_RECONNECT_ATTEMPTS = 4
+const STATUS_FALLBACK_POLL_MS = 3000
 const STREAM_EVENT_TYPES = new Set([
   'intent_started',
   'intent_parsed',
@@ -24,125 +38,6 @@ const STREAM_EVENT_TYPES = new Set([
   'error',
 ])
 
-interface SSEState {
-  events: PipelineEvent[]
-  pendingEvents: PipelineEvent[]
-  isComplete: boolean
-  isReconnecting: boolean
-  error: string | null
-  cancelled: string | null
-  pendingTerminalState: { type: 'complete' | 'cancelled' | 'error'; message?: string } | null
-}
-
-type SSEAction =
-  | { type: 'reset' }
-  | { type: 'event'; event: PipelineEvent }
-  | { type: 'flush' }
-  | { type: 'connected' }
-  | { type: 'complete' }
-  | { type: 'cancelled'; message: string }
-  | { type: 'error'; message: string }
-  | { type: 'reconnecting' }
-
-function eventKey(event: PipelineEvent): string {
-  return `${event.type}|${event.stage}|${event.timestamp}`
-}
-
-function sseReducer(state: SSEState, action: SSEAction): SSEState {
-  switch (action.type) {
-    case 'reset':
-      return {
-        events: [],
-        pendingEvents: [],
-        isComplete: false,
-        isReconnecting: false,
-        error: null,
-        cancelled: null,
-        pendingTerminalState: null,
-      }
-    case 'event':
-      if (
-        state.events.some((existing) => eventKey(existing) === eventKey(action.event)) ||
-        state.pendingEvents.some((existing) => eventKey(existing) === eventKey(action.event))
-      ) {
-        return { ...state, isReconnecting: false }
-      }
-      return {
-        ...state,
-        pendingEvents: [...state.pendingEvents, action.event],
-        isReconnecting: false,
-      }
-    case 'flush': {
-      if (state.pendingEvents.length === 0) {
-        if (state.pendingTerminalState) {
-          if (state.pendingTerminalState.type === 'complete') {
-            return {
-              ...state,
-              isComplete: true,
-              isReconnecting: false,
-              pendingTerminalState: null,
-            }
-          }
-          if (state.pendingTerminalState.type === 'error') {
-            return {
-              ...state,
-              error: state.pendingTerminalState.message ?? null,
-              isComplete: true,
-              isReconnecting: false,
-              pendingTerminalState: null,
-            }
-          }
-          return {
-            ...state,
-            cancelled: state.pendingTerminalState.message ?? null,
-            isComplete: true,
-            isReconnecting: false,
-            pendingTerminalState: null,
-          }
-        }
-        return state
-      }
-      const nextEvent = state.pendingEvents[0]
-      return {
-        ...state,
-        events: [...state.events, nextEvent].slice(-MAX_EVENT_HISTORY),
-        pendingEvents: state.pendingEvents.slice(1),
-      }
-    }
-    case 'connected':
-      return { ...state, isReconnecting: false }
-    case 'complete':
-      if (state.pendingEvents.length > 0) {
-        return { ...state, pendingTerminalState: { type: 'complete' } }
-      }
-      return { ...state, isComplete: true, isReconnecting: false }
-    case 'cancelled':
-      if (state.pendingEvents.length > 0) {
-        return {
-          ...state,
-          pendingTerminalState: { type: 'cancelled', message: action.message },
-        }
-      }
-      return { ...state, cancelled: action.message, isComplete: true, isReconnecting: false }
-    case 'error':
-      if (state.pendingEvents.length > 0) {
-        return {
-          ...state,
-          pendingTerminalState: { type: 'error', message: action.message },
-        }
-      }
-      return {
-        ...state,
-        error: action.message,
-        cancelled: null,
-        isComplete: true,
-        isReconnecting: false,
-      }
-    case 'reconnecting':
-      return { ...state, isReconnecting: true }
-  }
-}
-
 export interface UseSSEResult {
   events: PipelineEvent[]
   isComplete: boolean
@@ -152,66 +47,10 @@ export interface UseSSEResult {
   retry: () => void
 }
 
-function clearReconnectTimer(timerRef: RefObject<ReturnType<typeof setTimeout> | null>): void {
-  if (timerRef.current) {
-    clearTimeout(timerRef.current)
-    timerRef.current = null
-  }
-}
-
-function findLastSseBoundary(buffer: string): number {
-  const boundaryPattern = /\r?\n\r?\n/g
-  let boundaryEnd = -1
-  let match: RegExpExecArray | null
-  while ((match = boundaryPattern.exec(buffer)) !== null) {
-    boundaryEnd = match.index + match[0].length
-  }
-  return boundaryEnd
-}
-
-function shouldRetrySseStatus(statusCode: number): boolean {
-  if (statusCode >= 200 && statusCode < 300) {
-    return false
-  }
-  if (statusCode >= 400 && statusCode < 500) {
-    return RETRYABLE_HTTP_STATUS.has(statusCode)
-  }
-  return true
-}
-
-/**
- * Parse a single SSE chunk buffer into individual events.
- * Returns emitted { eventType, data } pairs.
- */
-function* parseSseChunk(buffer: string): Generator<{ eventType: string; data: string }> {
-  const blocks = buffer.split(/\r?\n\r?\n/)
-  for (const block of blocks) {
-    if (!block.trim()) continue
-    let eventType = 'message'
-    const dataLines: string[] = []
-    for (const line of block.split(/\r?\n/)) {
-      if (line.startsWith('event:')) {
-        eventType = line.slice(6).trim()
-      } else if (line.startsWith('data:')) {
-        dataLines.push(line.slice(5).trimStart())
-      }
-    }
-    const data = dataLines.join('\n')
-    if (data) yield { eventType, data }
-  }
-}
-
 export function useSSE(reportId: string | null): UseSSEResult {
-  const [state, dispatch] = useReducer(sseReducer, {
-    events: [],
-    pendingEvents: [],
-    isComplete: false,
-    isReconnecting: false,
-    error: null,
-    cancelled: null,
-    pendingTerminalState: null,
-  })
+  const [state, dispatch] = useReducer(sseReducer, initialSSEState)
   const abortRef = useRef<AbortController | null>(null)
+  const statusAbortRef = useRef<AbortController | null>(null)
   const attemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isCompleteRef = useRef(false)
@@ -237,10 +76,68 @@ export function useSSE(reportId: string | null): UseSSEResult {
     }
   }, [])
 
+  const cleanupStatusPolling = useCallback(() => {
+    if (statusAbortRef.current) {
+      statusAbortRef.current.abort()
+      statusAbortRef.current = null
+    }
+  }, [])
+
+  const pollRuntimeStatus = useCallback(async (id: string) => {
+    cleanupStatusPolling()
+    const controller = new AbortController()
+    statusAbortRef.current = controller
+
+    try {
+      const status = await getReportRuntimeStatus(id, { signal: controller.signal })
+      if (controller.signal.aborted) {
+        return
+      }
+      statusAbortRef.current = null
+
+      if (status.status === 'complete') {
+        dispatch({ type: 'complete' })
+        return
+      }
+      if (status.status === 'cancelled') {
+        dispatch({
+          type: 'cancelled',
+          message: status.message ?? i18n.t('report.error.cancelledStatus'),
+        })
+        return
+      }
+      if (status.status === 'failed' || status.status === 'not_found') {
+        dispatch({
+          type: 'error',
+          message: status.message ?? i18n.t('report.error.connectionLost'),
+        })
+        return
+      }
+
+      reconnectTimerRef.current = setTimeout(() => {
+        void pollRuntimeStatus(id)
+      }, STATUS_FALLBACK_POLL_MS)
+    } catch (error) {
+      if (controller.signal.aborted || isRequestAbortError(error)) {
+        return
+      }
+      statusAbortRef.current = null
+      dispatch({
+        type: 'error',
+        message: isApiError(error)
+          ? error.message
+          : error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : i18n.t('report.error.connectionLost'),
+      })
+    }
+  }, [cleanupStatusPolling])
+
   const connect = useCallback(
     (id: string) => {
       if (isCompleteRef.current) return
       cleanupConnection()
+      cleanupStatusPolling()
       clearReconnectTimer(reconnectTimerRef)
 
       const controller = new AbortController()
@@ -251,7 +148,10 @@ export function useSSE(reportId: string | null): UseSSEResult {
       void (async () => {
         try {
           const res = await fetch(url, {
-            headers: { Accept: 'text/event-stream' },
+            headers: {
+              Accept: 'text/event-stream',
+              'X-Session-Id': getClientSessionId(),
+            },
             signal: controller.signal,
           })
 
@@ -330,6 +230,11 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
           attemptRef.current += 1
           dispatch({ type: 'reconnecting' })
+          if (attemptRef.current >= MAX_RECONNECT_ATTEMPTS) {
+            clearReconnectTimer(reconnectTimerRef)
+            void pollRuntimeStatus(id)
+            return
+          }
           const delay = Math.min(
             BASE_DELAY_MS * Math.pow(2, attemptRef.current - 1),
             MAX_DELAY_MS,
@@ -338,7 +243,7 @@ export function useSSE(reportId: string | null): UseSSEResult {
         }
       })()
     },
-    [cleanupConnection],
+    [cleanupConnection, cleanupStatusPolling, pollRuntimeStatus],
   )
 
   useEffect(() => {
@@ -350,8 +255,10 @@ export function useSSE(reportId: string | null): UseSSEResult {
     dispatch({ type: 'reset' })
     attemptRef.current = 0
     isCompleteRef.current = false
+    cleanupStatusPolling()
+    clearReconnectTimer(reconnectTimerRef)
     connect(reportId)
-  }, [connect, reportId])
+  }, [cleanupStatusPolling, connect, reportId])
 
   useEffect(() => {
     if (!reportId) return
@@ -363,9 +270,10 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
     return () => {
       cleanupConnection()
+      cleanupStatusPolling()
       clearReconnectTimer(reconnectTimerRef)
     }
-  }, [cleanupConnection, connect, reportId])
+  }, [cleanupConnection, cleanupStatusPolling, connect, reportId])
 
   return {
     events: state.events,

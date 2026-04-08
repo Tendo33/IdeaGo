@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
-from collections import Counter, deque
+from collections import Counter
 from collections.abc import Callable
 from datetime import datetime, timezone
-from math import ceil
 from typing import Any, cast
 
 from ideago.cache.base import ReportRepository
@@ -48,9 +47,7 @@ from ideago.pipeline.nodes_extraction import (
     degrade_raw_to_competitors,
     extract_typed_output,
     extraction_degraded_message,
-    safe_consume_source_diagnostics,
     safe_get_source_query_concurrency,
-    safe_set_source_query_concurrency,
 )
 from ideago.pipeline.nodes_orchestration import (
     build_orchestrated_queries,
@@ -62,6 +59,11 @@ from ideago.pipeline.nodes_report_assembly import (
     build_evidence_summary,
     build_report_meta,
 )
+from ideago.pipeline.nodes_source_fetch import (
+    SourceAdaptiveController,
+    build_runtime_orchestration_summary,
+    execute_source_search,
+)
 from ideago.pipeline.pre_filter import filter_raw_results
 from ideago.pipeline.query_planning import (
     QueryPlanner,
@@ -71,9 +73,9 @@ from ideago.pipeline.query_planning import (
 from ideago.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
-_DEFAULT_ADAPTIVE_WINDOW_SIZE = 6
-_DEGRADE_CONSECUTIVE_FAILURES = 2
-_RECOVERY_SUCCESS_STREAK = 3
+
+# Backward-compatible alias for existing tests and patch points.
+_SourceAdaptiveController = SourceAdaptiveController
 
 
 def _is_zh(output_language: str) -> bool:
@@ -100,122 +102,6 @@ async def _emit(
                 data=data or {},
             )
         )
-
-
-class _SourceAdaptiveController:
-    """In-memory adaptive budget controller for source querying."""
-
-    def __init__(
-        self,
-        *,
-        runtime_metrics: dict[str, dict[str, Any]],
-        source_timeout: int,
-        window_size: int = _DEFAULT_ADAPTIVE_WINDOW_SIZE,
-    ) -> None:
-        self._runtime_metrics = runtime_metrics
-        self._source_timeout = source_timeout
-        self._window_size = max(4, window_size)
-
-    def get_budget(
-        self,
-        *,
-        platform_name: str,
-        queries: list[str],
-        default_source_query_concurrency: int,
-    ) -> tuple[list[str], int]:
-        if not queries:
-            return [], max(1, default_source_query_concurrency)
-        state = self._ensure_state(platform_name)
-        level = int(state.get("degrade_level", 0))
-        if level <= 0:
-            return queries, max(1, default_source_query_concurrency)
-
-        reduced_query_count = max(1, ceil(len(queries) / 2))
-        reduced_concurrency = max(1, default_source_query_concurrency // 2)
-        return queries[:reduced_query_count], reduced_concurrency
-
-    def record(
-        self,
-        *,
-        platform_name: str,
-        status: SourceStatus,
-        duration_ms: int,
-    ) -> None:
-        state = self._ensure_state(platform_name)
-        history: deque[dict[str, Any]] = state["history"]
-        history.append({"status": status.value, "duration_ms": max(0, duration_ms)})
-        if len(history) > self._window_size:
-            history.popleft()
-        self._recompute_state(platform_name, state)
-
-    def _ensure_state(self, platform_name: str) -> dict[str, Any]:
-        existing = self._runtime_metrics.get(platform_name)
-        if existing is None:
-            existing = {
-                "history": deque(),
-                "degrade_level": 0,
-                "failure_streak": 0,
-                "success_streak": 0,
-            }
-            self._runtime_metrics[platform_name] = existing
-        return existing
-
-    def _recompute_state(self, platform_name: str, state: dict[str, Any]) -> None:
-        history: deque[dict[str, Any]] = state["history"]
-        if not history:
-            return
-        latest_status = SourceStatus(history[-1]["status"])
-        is_failure = latest_status in {SourceStatus.FAILED, SourceStatus.TIMEOUT}
-        is_success = latest_status == SourceStatus.OK
-
-        state["failure_streak"] = (
-            int(state.get("failure_streak", 0)) + 1 if is_failure else 0
-        )
-        state["success_streak"] = (
-            int(state.get("success_streak", 0)) + 1 if is_success else 0
-        )
-
-        timeout_count = sum(
-            1 for item in history if item["status"] == SourceStatus.TIMEOUT.value
-        )
-        fail_count = sum(
-            1
-            for item in history
-            if item["status"] in {SourceStatus.TIMEOUT.value, SourceStatus.FAILED.value}
-        )
-        duration_values = sorted(int(item["duration_ms"]) for item in history)
-        p95_index = max(0, ceil(0.95 * len(duration_values)) - 1)
-        p95_duration_ms = duration_values[p95_index] if duration_values else 0
-        timeout_like = self._source_timeout * 1000
-
-        should_degrade = (
-            int(state.get("failure_streak", 0)) >= _DEGRADE_CONSECUTIVE_FAILURES
-            or (len(history) >= 3 and (timeout_count / len(history)) >= 0.5)
-            or (len(history) >= 4 and p95_duration_ms >= int(timeout_like * 0.9))
-        )
-        should_recover = (
-            int(state.get("success_streak", 0)) >= _RECOVERY_SUCCESS_STREAK
-            and (fail_count / len(history)) <= 0.34
-            and p95_duration_ms <= int(timeout_like * 0.7)
-        )
-
-        level_before = int(state.get("degrade_level", 0))
-        if should_degrade:
-            state["degrade_level"] = 1
-        elif level_before > 0 and should_recover:
-            state["degrade_level"] = 0
-
-        level_after = int(state.get("degrade_level", 0))
-        if level_after != level_before:
-            action = "enabled" if level_after > level_before else "disabled"
-            logger.info(
-                "Adaptive degradation {} for {}: failure_streak={}, timeout_ratio={}, p95_ms={}",
-                action,
-                platform_name,
-                int(state.get("failure_streak", 0)),
-                round(timeout_count / len(history), 3),
-                p95_duration_ms,
-            )
 
 
 class PipelineNodes:
@@ -254,7 +140,7 @@ class PipelineNodes:
         self._extractor_max_results = extractor_max_results_per_source
         self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
         self._source_semaphore = asyncio.Semaphore(max(1, source_global_concurrency))
-        self._adaptive = _SourceAdaptiveController(
+        self._adaptive = SourceAdaptiveController(
             runtime_metrics=source_runtime_metrics,
             source_timeout=source_timeout,
         )
@@ -393,33 +279,28 @@ class PipelineNodes:
                 default_source_query_concurrency=default_query_concurrency,
             )
             orchestration_payload_any = cast(dict[str, Any], orchestration_payload)
-            runtime_orchestration_by_source[platform_name] = {
-                "source_role": str(
-                    orchestration_payload_any.get("source_role", "general")
-                ),
-                "source_cap": max(
-                    1, int(orchestration_payload_any.get("source_cap", 1))
-                ),
-                "role_cap": max(1, int(orchestration_payload_any.get("role_cap", 1))),
-                "effective_cap": max(
-                    1, int(orchestration_payload_any.get("effective_cap", 1))
-                ),
-                "selected_query_count": len(queries),
-                "selected_family_counts": build_query_family_coverage(queries),
-                "default_query_concurrency": default_query_concurrency,
-                "runtime_query_concurrency": runtime_query_concurrency,
-            }
-            safe_set_source_query_concurrency(source, runtime_query_concurrency)
+            runtime_orchestration_by_source[platform_name] = (
+                build_runtime_orchestration_summary(
+                    orchestration_payload=orchestration_payload_any,
+                    queries=queries,
+                    default_query_concurrency=default_query_concurrency,
+                    runtime_query_concurrency=runtime_query_concurrency,
+                )
+            )
+            runtime_orchestration_by_source[platform_name]["selected_family_counts"] = (
+                build_query_family_coverage(queries)
+            )
 
             try:
-                async with self._source_semaphore:
-                    results = await asyncio.wait_for(
-                        source.search(queries, limit=self._fetch_max_results),
-                        timeout=self._source_timeout,
-                    )
-                duration_ms = int((time.monotonic() - start) * 1000)
+                results, diagnostics, duration_ms = await execute_source_search(
+                    source=source,
+                    queries=queries,
+                    fetch_max_results=self._fetch_max_results,
+                    source_timeout=self._source_timeout,
+                    source_semaphore=self._source_semaphore,
+                    runtime_query_concurrency=runtime_query_concurrency,
+                )
                 raw_by_source[platform_name] = results
-                diagnostics = safe_consume_source_diagnostics(source)
                 has_partial_failure = bool(diagnostics.get("partial_failure", False))
                 used_public_fallback = bool(
                     diagnostics.get("used_public_fallback", False)

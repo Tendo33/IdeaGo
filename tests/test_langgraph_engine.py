@@ -863,6 +863,7 @@ class RecordingSource:
         self.in_flight = 0
         self.max_in_flight = 0
         self.last_runtime_concurrency: int | None = None
+        self.runtime_concurrency_history: list[int | None] = []
         self.last_queries_count = 0
         self._should_fail = False
 
@@ -875,6 +876,7 @@ class RecordingSource:
 
     def set_runtime_max_concurrent_queries(self, value: int | None) -> None:
         self.last_runtime_concurrency = value
+        self.runtime_concurrency_history.append(value)
 
     def set_should_fail(self, value: bool) -> None:
         self._should_fail = value
@@ -2968,3 +2970,27 @@ async def test_langgraph_engine_adaptive_metrics_isolated_per_run(tmp_path) -> N
     await engine.run("test idea 3", report_id="adaptive-3")
 
     assert source.last_queries_count == full_query_count
+
+
+@pytest.mark.asyncio
+async def test_langgraph_engine_restores_runtime_source_concurrency_after_fetch(
+    tmp_path,
+) -> None:
+    source = RecordingSource(Platform.GITHUB)
+    intent_override = Intent(
+        keywords_en=["api", "monitoring", "alerts", "latency"],
+        app_type="web",
+        target_scenario="Track reliability incidents",
+        output_language="en",
+        cache_key="adaptive-reset-intent",
+    )
+    engine, _, _, _ = _build_engine(
+        tmp_path,
+        sources=[source],
+        intent_override=intent_override,
+    )
+
+    await engine.run("test idea", report_id="adaptive-reset-1")
+
+    assert any(value is not None for value in source.runtime_concurrency_history)
+    assert source.runtime_concurrency_history[-1] is None

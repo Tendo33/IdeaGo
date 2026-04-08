@@ -34,6 +34,14 @@ def test_setup_logging_writes_to_custom_file(tmp_path: Path) -> None:
     assert "hello-from-setup-logging" in log_file.read_text(encoding="utf-8")
 
 
+def test_setup_logging_defaults_keep_sensitive_diagnostics_off() -> None:
+    """Default logging config should avoid verbose exception variable dumps."""
+    assert setup_logging.__defaults__ is not None
+    defaults = setup_logging.__defaults__
+    assert defaults[6] is False  # backtrace
+    assert defaults[7] is False  # diagnose
+
+
 def test_configure_json_logging_writes_structured_entry(tmp_path: Path) -> None:
     """configure_json_logging should include custom extra fields in output."""
     log_file = tmp_path / "json.log"

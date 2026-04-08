@@ -3,8 +3,25 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useSSE } from '../useSSE'
 
 vi.mock('../client', () => ({
+  ApiError: class ApiError extends Error {
+    statusCode: number
+    code: string
+
+    constructor(message: string, statusCode: number, code = '') {
+      super(message)
+      this.name = 'ApiError'
+      this.statusCode = statusCode
+      this.code = code
+    }
+  },
+  isApiError: (error: unknown) => error instanceof Error && error.name === 'ApiError',
+  isRequestAbortError: (error: unknown) => error instanceof Error && error.name === 'AbortError',
   getStreamUrl: (id: string) => `/api/v1/reports/${id}/stream`,
+  getClientSessionId: () => 'test-session',
+  getReportRuntimeStatus: vi.fn(),
 }))
+
+import { ApiError, getReportRuntimeStatus } from '../client'
 
 class MockResponseReader {
   private resolvers: ((value: { done: boolean; value?: Uint8Array }) => void)[] = []
@@ -224,6 +241,14 @@ describe('useSSE', () => {
     vi.useFakeTimers()
     const failingFetch = vi.fn().mockRejectedValue(new Error('network down'))
     vi.stubGlobal('fetch', failingFetch)
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'processing',
+      report_id: 'r1',
+      message: null,
+      error_code: null,
+      updated_at: null,
+      query: 'idea',
+    })
 
     const { result } = renderHook(() => useSSE('r1'))
 
@@ -231,17 +256,110 @@ describe('useSSE', () => {
       await flushMicrotasks()
     })
 
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       await act(async () => {
         vi.advanceTimersByTime(15000)
         await flushMicrotasks()
       })
     }
 
-    expect(failingFetch).toHaveBeenCalledTimes(9)
+    expect(failingFetch).toHaveBeenCalledTimes(4)
+    expect(getReportRuntimeStatus).toHaveBeenCalledWith('r1', expect.any(Object))
     expect(result.current.error).toBeNull()
     expect(result.current.isComplete).toBe(false)
     expect(result.current.isReconnecting).toBe(true)
+  })
+
+  it('falls back to runtime status polling after max reconnect attempts', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'failed',
+      report_id: 'r1',
+      message: 'Pipeline failed. Please retry.',
+      error_code: 'PIPELINE_FAILURE',
+      updated_at: null,
+      query: 'retryable idea',
+    })
+
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    expect(getReportRuntimeStatus).toHaveBeenCalledWith('r1', expect.any(Object))
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.error).toBe('Pipeline failed. Please retry.')
+  })
+
+  it('preserves ApiError details from runtime status fallback', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    vi.mocked(getReportRuntimeStatus).mockRejectedValue(
+      new ApiError('Failed to load report status: limit reached', 429, 'QUOTA_EXCEEDED'),
+    )
+
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.error).toBe('Failed to load report status: limit reached')
+  })
+
+  it('aborts in-flight runtime status polling on cleanup', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    let capturedSignal: AbortSignal | undefined
+    vi.mocked(getReportRuntimeStatus).mockImplementation(async (_id, options) => {
+      capturedSignal = options?.signal
+      return new Promise(() => {})
+    })
+
+    const { unmount } = renderHook(() => useSSE('r1'))
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(15000)
+        await flushMicrotasks()
+      })
+    }
+
+    expect(capturedSignal).toBeDefined()
+    expect(capturedSignal?.aborted).toBe(false)
+
+    unmount()
+
+    expect(capturedSignal?.aborted).toBe(true)
   })
 
   it('treats ping events as recovered connection state', async () => {

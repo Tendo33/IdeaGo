@@ -7,9 +7,11 @@ describe('SectionNav', () => {
     { id: 'section-should-we-build-this', label: 'Should we build this?' },
     { id: 'section-why-now', label: 'Why now' },
     { id: 'section-pain', label: 'Pain' },
+    { id: 'section-commercial', label: 'Commercial' },
     { id: 'section-whitespace', label: 'Whitespace' },
     { id: 'section-competitors', label: 'Competitors', count: 8 },
-    { id: 'section-evidence-confidence', label: 'Evidence' },
+    { id: 'section-evidence', label: 'Evidence' },
+    { id: 'section-confidence', label: 'Confidence' },
   ]
 
   it('announces navigation label and active section state', () => {
@@ -45,9 +47,11 @@ describe('SectionNav', () => {
       'Should we build this?',
       'Why now',
       'Pain',
+      'Commercial',
       'Whitespace',
       'Competitors8',
       'Evidence',
+      'Confidence',
     ])
     expect(buttons[0]).toHaveAttribute('aria-current', 'location')
     expect(screen.getByText('8')).toBeInTheDocument()

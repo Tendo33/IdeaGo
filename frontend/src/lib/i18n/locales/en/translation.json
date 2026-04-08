@@ -88,9 +88,13 @@
       "shouldWeBuildThis": "Should we build this?",
       "whyNow": "Why now",
       "pain": "Pain",
+      "commercial": "Commercial",
       "whitespace": "Whitespace",
+      "evidence": "Evidence",
+      "confidence": "Confidence",
       "evidenceConfidence": "Evidence",
       "painPlaceholder": "Pain and commercial signal analysis will appear here when available.",
+      "commercialPlaceholder": "Commercial signal analysis will appear here when available.",
       "whitespacePlaceholder": "Whitespace opportunities and differentiation angles will appear here when available."
     },
     "blueOcean": {

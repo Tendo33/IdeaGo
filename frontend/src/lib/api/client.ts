@@ -3,6 +3,8 @@ import type { PaginatedReportList, ReportRuntimeStatus, ResearchReport } from '.
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 const DEFAULT_TIMEOUT_MS = 15000
 const ANALYSIS_TIMEOUT_MS = 30000
+const CLIENT_SESSION_STORAGE_KEY = 'ideago-client-session-id'
+let clientSessionIdMemory: string | null = null
 
 export class ApiError extends Error {
   readonly statusCode: number
@@ -44,7 +46,45 @@ interface ParsedError {
 }
 
 function mutationHeaders(): Record<string, string> {
-  return { 'X-Requested-With': 'IdeaGo' }
+  return { ...sessionHeaders(), 'X-Requested-With': 'IdeaGo' }
+}
+
+function sessionHeaders(): Record<string, string> {
+  return { 'X-Session-Id': getClientSessionId() }
+}
+
+export function getClientSessionId(): string {
+  if (typeof window === 'undefined') {
+    return 'server-render'
+  }
+
+  try {
+    const existing = window.localStorage.getItem(CLIENT_SESSION_STORAGE_KEY)
+    if (existing && existing.trim().length > 0) {
+      clientSessionIdMemory = existing
+      return existing
+    }
+  } catch {
+    if (clientSessionIdMemory) {
+      return clientSessionIdMemory
+    }
+  }
+
+  if (clientSessionIdMemory) {
+    return clientSessionIdMemory
+  }
+
+  const next =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `session-${Math.random().toString(36).slice(2, 12)}`
+  clientSessionIdMemory = next
+  try {
+    window.localStorage.setItem(CLIENT_SESSION_STORAGE_KEY, next)
+  } catch {
+    // Fall back to in-memory session identity when storage is unavailable.
+  }
+  return next
 }
 
 function extractErrorDetail(payload: unknown): ParsedError {
@@ -170,7 +210,12 @@ export async function getReport(
   id: string,
   options: RequestOptions = {},
 ): Promise<ResearchReport> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(
+    `${API_BASE}/reports/${id}`,
+    { headers: sessionHeaders() },
+    options,
+    DEFAULT_TIMEOUT_MS,
+  )
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
   return res.json()
 }
@@ -184,7 +229,7 @@ export async function getReportWithStatus(
   id: string,
   options: RequestOptions = {},
 ): Promise<ReportFetchResult> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}`, { headers: sessionHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (res.status === 202) return { status: 'processing' }
   if (res.status === 404) return { status: 'missing' }
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Report not found'))
@@ -195,7 +240,7 @@ export async function getReportRuntimeStatus(
   id: string,
   options: RequestOptions = {},
 ): Promise<ReportRuntimeStatus> {
-  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/status`, {}, options, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(`${API_BASE}/reports/${id}/status`, { headers: sessionHeaders() }, options, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to load report status'))
   return res.json()
 }
@@ -211,7 +256,7 @@ export async function listReports(options: ListReportsOptions = {}): Promise<Pag
   }
   const query = params.toString()
   const url = query ? `${API_BASE}/reports?${query}` : `${API_BASE}/reports`
-  const res = await fetchWithTimeout(url, {}, requestOptions, DEFAULT_TIMEOUT_MS)
+  const res = await fetchWithTimeout(url, { headers: sessionHeaders() }, requestOptions, DEFAULT_TIMEOUT_MS)
   if (!res.ok) throw new Error(await buildErrorMessage(res, 'Failed to list reports'))
   return res.json()
 }
@@ -229,7 +274,7 @@ export async function cancelAnalysis(id: string, options: RequestOptions = {}): 
 export async function exportReport(id: string, options: RequestOptions = {}): Promise<void> {
   const res = await fetchWithTimeout(
     `${API_BASE}/reports/${id}/export`,
-    {},
+    { headers: sessionHeaders() },
     options,
     DEFAULT_TIMEOUT_MS,
   )

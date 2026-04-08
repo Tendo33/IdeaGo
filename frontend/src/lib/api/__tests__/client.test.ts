@@ -35,6 +35,7 @@ describe('startAnalysis', () => {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
           'X-Requested-With': 'IdeaGo',
+          'X-Session-Id': expect.any(String),
         }),
         body: JSON.stringify({ query: 'my startup idea' }),
       }),
@@ -152,6 +153,44 @@ describe('listReports', () => {
       expect.objectContaining({ signal: expect.anything() }),
     )
     expect(result).toEqual(paginated)
+  })
+
+  it('sends a stable X-Session-Id across requests', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ items: [], total: 0, limit: 20, offset: 0 }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ items: [], total: 0, limit: 20, offset: 0 }) })
+
+    await listReports()
+    await listReports()
+
+    const firstHeaders = mockFetch.mock.calls[0]?.[1]?.headers as Record<string, string>
+    const secondHeaders = mockFetch.mock.calls[1]?.[1]?.headers as Record<string, string>
+    expect(firstHeaders['X-Session-Id']).toBeTruthy()
+    expect(secondHeaders['X-Session-Id']).toBe(firstHeaders['X-Session-Id'])
+  })
+
+  it('falls back to an in-memory session id when localStorage is unavailable', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError')
+    })
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError')
+    })
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ items: [], total: 0, limit: 20, offset: 0 }) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ items: [], total: 0, limit: 20, offset: 0 }) })
+
+    await listReports()
+    await listReports()
+
+    const firstHeaders = mockFetch.mock.calls[0]?.[1]?.headers as Record<string, string>
+    const secondHeaders = mockFetch.mock.calls[1]?.[1]?.headers as Record<string, string>
+
+    expect(firstHeaders['X-Session-Id']).toBeTruthy()
+    expect(secondHeaders['X-Session-Id']).toBe(firstHeaders['X-Session-Id'])
+
+    getItemSpy.mockRestore()
+    setItemSpy.mockRestore()
   })
 
   it('supports limit and offset query parameters', async () => {
