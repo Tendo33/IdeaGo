@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from ideago.api.errors import DependencyUnavailableError
 from ideago.billing.stripe_service import delete_customer_data
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
@@ -28,6 +29,12 @@ class BillingProfileLookupError(RuntimeError):
     def __init__(self, detail: str) -> None:
         super().__init__(detail)
         self.detail = detail
+
+
+def _coerce_plan_limit(override: object) -> int:
+    if isinstance(override, int) and override >= 0:
+        return override
+    return _DAILY_ANALYSIS_LIMIT
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -278,7 +285,7 @@ async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
                 "Prefer": "count=exact",
             },
             params={
-                "select": "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit,role,auth_provider",
+                "select": "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit_override,role,auth_provider",
                 "order": "created_at.desc",
                 "limit": str(limit),
                 "offset": str(offset),
@@ -286,12 +293,31 @@ async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
         )
         if resp.status_code != 200:
             logger.warning("list_profiles failed: {} {}", resp.status_code, resp.text)
-            return []
+            raise DependencyUnavailableError(
+                "profiles_list_failed", dependency="supabase_profiles"
+            )
         rows = resp.json()
-        return rows if isinstance(rows, list) else []
-    except Exception:
+        if not isinstance(rows, list):
+            raise DependencyUnavailableError(
+                "profiles_list_invalid_payload", dependency="supabase_profiles"
+            )
+        normalized: list[dict] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            payload = dict(row)
+            payload["plan_limit"] = _coerce_plan_limit(
+                payload.pop("plan_limit_override", None)
+            )
+            normalized.append(payload)
+        return normalized
+    except DependencyUnavailableError:
+        raise
+    except Exception as err:
         logger.opt(exception=True).warning("list_profiles error")
-        return []
+        raise DependencyUnavailableError(
+            "profiles_list_network_error", dependency="supabase_profiles"
+        ) from err
 
 
 async def set_user_quota(
@@ -305,7 +331,7 @@ async def set_user_quota(
     client = _get_client()
     payload: dict[str, int] = {}
     if plan_limit is not None:
-        payload["plan_limit"] = plan_limit
+        payload["plan_limit_override"] = plan_limit
     if usage_count is not None:
         payload["usage_count"] = usage_count
     if not payload:
@@ -317,20 +343,30 @@ async def set_user_quota(
             headers={**_headers(), "Prefer": "return=representation"},
             params={
                 "id": f"eq.{user_id}",
-                "select": "id,display_name,plan,usage_count,plan_limit,role",
+                "select": "id,display_name,plan,usage_count,plan_limit_override,role",
             },
             json=payload,
         )
         if resp.status_code != 200:
             logger.warning("set_user_quota failed: {} {}", resp.status_code, resp.text)
-            return {"error": "update_failed"}
+            raise DependencyUnavailableError(
+                "quota_update_failed", dependency="supabase_profiles"
+            )
         rows = resp.json()
         if isinstance(rows, list) and rows:
-            return rows[0]
+            updated = dict(rows[0])
+            updated["plan_limit"] = _coerce_plan_limit(
+                updated.pop("plan_limit_override", None)
+            )
+            return updated
         return {"error": "user_not_found"}
-    except Exception:
+    except DependencyUnavailableError:
+        raise
+    except Exception as err:
         logger.opt(exception=True).warning("set_user_quota error")
-        return {"error": "network_error"}
+        raise DependencyUnavailableError(
+            "quota_update_network_error", dependency="supabase_profiles"
+        ) from err
 
 
 async def delete_user_data(user_id: str) -> dict:

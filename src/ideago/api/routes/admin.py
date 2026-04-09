@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from ideago.api.errors import AppError, ErrorCode
+from ideago.api.errors import AppError, DependencyUnavailableError, ErrorCode
 from ideago.auth.dependencies import require_admin
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import list_profiles, set_user_quota
@@ -27,7 +27,14 @@ async def admin_list_users(
     _admin: AuthUser = Depends(require_admin),
 ) -> list[dict]:
     """Paginated user list with quota/plan info."""
-    return await list_profiles(limit=limit, offset=offset)
+    try:
+        return await list_profiles(limit=limit, offset=offset)
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Admin data unavailable",
+        ) from None
 
 
 class QuotaAdjustment(BaseModel):
@@ -42,11 +49,18 @@ async def admin_set_quota(
     _admin: AuthUser = Depends(require_admin),
 ) -> dict:
     """Adjust a user's quota limit or usage count."""
-    result = await set_user_quota(
-        user_id,
-        plan_limit=body.plan_limit,
-        usage_count=body.usage_count,
-    )
+    try:
+        result = await set_user_quota(
+            user_id,
+            plan_limit=body.plan_limit,
+            usage_count=body.usage_count,
+        )
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Admin data unavailable",
+        ) from None
     if result.get("error"):
         raise AppError(400, ErrorCode.VALIDATION_ERROR, result["error"])
     await log_audit_event(
@@ -80,9 +94,16 @@ async def _count_table(table: str) -> int:
         if "/" in content_range:
             total = content_range.split("/")[-1]
             return int(total) if total != "*" else -1
-    except Exception:
+        raise DependencyUnavailableError(
+            f"{table}_count_invalid_response", dependency="supabase_rest"
+        )
+    except DependencyUnavailableError:
+        raise
+    except Exception as err:
         logger.debug("Failed to count table {}", table)
-    return -1
+        raise DependencyUnavailableError(
+            f"{table}_count_failed", dependency="supabase_rest"
+        ) from err
 
 
 @router.get("/stats")
@@ -90,9 +111,16 @@ async def admin_system_stats(
     _admin: AuthUser = Depends(require_admin),
 ) -> dict:
     """Aggregate system statistics for the admin dashboard."""
-    total_users = await _count_table("profiles")
-    total_reports = await _count_table("reports")
-    active_processing = await _count_table("processing_reports")
+    try:
+        total_users = await _count_table("profiles")
+        total_reports = await _count_table("reports")
+        active_processing = await _count_table("processing_reports")
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Admin data unavailable",
+        ) from None
 
     plan_breakdown: dict[str, int] = {}
     settings = get_settings()
@@ -125,12 +153,22 @@ async def admin_system_stats(
                 if not plan_breakdown:
                     logger.warning("Plan breakdown RPC returned empty payload")
             else:
-                logger.warning(
-                    "Plan breakdown RPC failed: status={}",
-                    resp.status_code,
+                raise DependencyUnavailableError(
+                    "plan_breakdown_failed", dependency="supabase_rpc"
                 )
+        except DependencyUnavailableError:
+            raise AppError(
+                503,
+                ErrorCode.DEPENDENCY_UNAVAILABLE,
+                "Admin data unavailable",
+            ) from None
         except Exception:
             logger.debug("Failed to fetch plan breakdown")
+            raise AppError(
+                503,
+                ErrorCode.DEPENDENCY_UNAVAILABLE,
+                "Admin data unavailable",
+            ) from None
 
     return {
         "total_users": total_users,

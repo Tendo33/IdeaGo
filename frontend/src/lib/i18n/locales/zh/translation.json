@@ -79,6 +79,7 @@
     "save": "保存更改",
     "loadError": "无法加载个人资料",
     "updateError": "无法更新个人资料",
+    "quotaUnavailable": "当前无法加载配额详情，请稍后重试。",
     "subscription": "订阅管理",
     "proPlan": "Pro 套餐",
     "freePlan": "免费套餐",
@@ -671,6 +672,9 @@
   "quota": {
     "exceeded": "您已达到今日分析次数上限。",
     "upgradeHint": "配额将在明天重置后恢复，届时您可以继续发起分析。",
+    "reviewHistoryHint": "等待期间，您可以先查看历史报告或当前配额详情。",
+    "viewHistory": "查看历史",
+    "viewUsage": "查看用量",
     "upgradeCta": "明天"
   },
   "welcome": {

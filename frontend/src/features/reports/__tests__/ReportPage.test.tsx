@@ -844,6 +844,8 @@ describe('ReportPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/daily analysis limit/i)).toBeInTheDocument()
     })
+    expect(screen.getByRole('link', { name: /view history/i })).toHaveAttribute('href', '/reports')
+    expect(screen.getByRole('link', { name: /view usage/i })).toHaveAttribute('href', '/profile')
     expect(screen.queryByRole('link', { name: /upgrade/i })).not.toBeInTheDocument()
   })
 })

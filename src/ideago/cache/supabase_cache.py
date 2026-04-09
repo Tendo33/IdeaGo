@@ -9,6 +9,7 @@ import contextlib
 
 import httpx
 
+from ideago.api.errors import DependencyUnavailableError
 from ideago.cache.base import ReportIndex
 from ideago.config.settings import get_settings
 from ideago.models.research import ResearchReport
@@ -84,7 +85,9 @@ class SupabaseReportRepository:
         )
         if resp.status_code != 200:
             logger.warning("Supabase get by cache_key failed: {}", resp.status_code)
-            return None
+            raise DependencyUnavailableError(
+                "report_cache_lookup_failed", dependency="supabase_reports"
+            )
         rows = resp.json()
         if not rows:
             return None
@@ -113,7 +116,9 @@ class SupabaseReportRepository:
             params=params,
         )
         if resp.status_code != 200:
-            return None
+            raise DependencyUnavailableError(
+                "report_lookup_failed", dependency="supabase_reports"
+            )
         rows = resp.json()
         if not rows:
             return None
@@ -208,7 +213,9 @@ class SupabaseReportRepository:
         )
         if resp.status_code not in (200, 206):
             logger.warning("Supabase list_reports failed: {}", resp.status_code)
-            return [], 0
+            raise DependencyUnavailableError(
+                "report_list_failed", dependency="supabase_reports"
+            )
 
         total = 0
         content_range = resp.headers.get("content-range", "")
@@ -261,7 +268,9 @@ class SupabaseReportRepository:
             },
         )
         if resp.status_code != 200:
-            return ""
+            raise DependencyUnavailableError(
+                "report_owner_lookup_failed", dependency="supabase_reports"
+            )
         rows = resp.json()
         if not rows:
             return ""
@@ -312,7 +321,9 @@ class SupabaseReportRepository:
             },
         )
         if resp.status_code != 200:
-            return None
+            raise DependencyUnavailableError(
+                "report_status_lookup_failed", dependency="supabase_report_status"
+            )
         rows = resp.json()
         if not rows:
             return None

@@ -27,7 +27,7 @@ from pydantic import ValidationError
 from ideago.api import app as app_module
 from ideago.api import dependencies as deps
 from ideago.api.app import create_app
-from ideago.api.errors import AppError
+from ideago.api.errors import AppError, DependencyUnavailableError
 from ideago.api.routes import admin as admin_route
 from ideago.api.routes import analyze as analyze_route
 from ideago.api.routes import auth as auth_route
@@ -2022,6 +2022,7 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
         patch("ideago.api.dependencies._cache", local_cache),
         patch("ideago.api.dependencies.get_cache", return_value=local_cache),
         patch("ideago.api.app.get_settings", return_value=prod_settings),
+        patch("ideago.api.http_middleware.get_settings", return_value=prod_settings),
         patch("ideago.auth.supabase_admin._is_configured", return_value=False),
     ):
         app = create_app()
@@ -2075,8 +2076,21 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
             docs_response = local_client.get("/docs")
             api_not_found = local_client.get("/api/unknown")
             suffix_not_found = local_client.get("/missing.js")
+            app_module._rate_limit_store.clear()
+            local_client.cookies.set("ideago_session", token)
+            cross_site = local_client.post(
+                "/api/v1/analyze",
+                json={"query": "Cross-site cookie attack"},
+                headers={
+                    "X-Requested-With": "IdeaGo",
+                    "Origin": "https://evil.example.com",
+                },
+            )
+            local_client.cookies.delete("ideago_session")
 
     assert first.status_code == 200
+    assert cross_site.status_code == 403
+    assert cross_site.json()["error"]["code"] == "NOT_AUTHORIZED"
     assert first.headers["X-Trace-Id"] == "trace-123"
     assert first.headers["X-Content-Type-Options"] == "nosniff"
     assert first.headers["X-Frame-Options"] == "DENY"
@@ -3623,14 +3637,17 @@ async def test_supabase_admin_list_profiles_quota_update_and_delete_user_data() 
     fake_client = AsyncMock()
     fake_client.get = AsyncMock(
         side_effect=[
-            _AdminFakeResponse(200, payload=[{"id": "u1", "plan": "free"}]),
+            _AdminFakeResponse(
+                200,
+                payload=[{"id": "u1", "plan": "free", "plan_limit_override": 8}],
+            ),
             _AdminFakeResponse(500, text="fail"),
             RuntimeError("network"),
         ]
     )
     fake_client.patch = AsyncMock(
         side_effect=[
-            _AdminFakeResponse(200, payload=[{"id": "u1", "plan_limit": 20}]),
+            _AdminFakeResponse(200, payload=[{"id": "u1", "plan_limit_override": 20}]),
             _AdminFakeResponse(500, text="fail"),
             RuntimeError("network"),
         ]
@@ -3654,21 +3671,47 @@ async def test_supabase_admin_list_profiles_quota_update_and_delete_user_data() 
         patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
     ):
         listed = await supabase_admin.list_profiles(limit=10, offset=5)
-        listed_fail = await supabase_admin.list_profiles()
-        listed_error = await supabase_admin.list_profiles()
         updated = await supabase_admin.set_user_quota("u1", plan_limit=20)
-        updated_fail = await supabase_admin.set_user_quota("u1", plan_limit=10)
-        updated_error = await supabase_admin.set_user_quota("u1", plan_limit=5)
         no_payload = await supabase_admin.set_user_quota("u1")
         deleted = await supabase_admin.delete_user_data("u1")
         partial = await supabase_admin.delete_user_data("u2")
 
-    assert listed == [{"id": "u1", "plan": "free"}]
-    assert listed_fail == []
-    assert listed_error == []
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+        pytest.raises(DependencyUnavailableError),
+    ):
+        await supabase_admin.list_profiles()
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+        pytest.raises(DependencyUnavailableError),
+    ):
+        await supabase_admin.list_profiles()
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+        pytest.raises(DependencyUnavailableError),
+    ):
+        await supabase_admin.set_user_quota("u1", plan_limit=10)
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+        pytest.raises(DependencyUnavailableError),
+    ):
+        await supabase_admin.set_user_quota("u1", plan_limit=5)
+
+    assert listed == [{"id": "u1", "plan": "free", "plan_limit": 8}]
     assert updated["id"] == "u1"
-    assert updated_fail["error"] == "update_failed"
-    assert updated_error["error"] == "network_error"
+    assert updated["plan_limit"] == 20
+    assert "plan_limit_override" not in updated
     assert no_payload["error"] == "nothing_to_update"
     assert deleted == {"deleted": True}
     assert partial["error"] == "partial_failure"
@@ -3853,7 +3896,6 @@ async def test_supabase_admin_remaining_edge_paths() -> None:
         quota_network_fail = await supabase_admin.get_quota_info("uid")
         upsert_network_fail = await supabase_admin.ensure_profile_exists("uid")
         profile_missing = await supabase_admin.get_profile("uid")
-        listed_non_list = await supabase_admin.list_profiles()
         update_missing = await supabase_admin.update_profile(
             "uid", display_name="n", bio="b"
         )
@@ -3861,11 +3903,18 @@ async def test_supabase_admin_remaining_edge_paths() -> None:
         partial_exception = await supabase_admin.delete_user_data("uid-ex")
         partial_status = await supabase_admin.delete_user_data("uid-status")
 
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+        pytest.raises(DependencyUnavailableError),
+    ):
+        await supabase_admin.list_profiles()
+
     assert quota_rpc_fail["error"] == "rpc_failed"
     assert quota_network_fail["error"] == "network_error"
     assert upsert_network_fail is False
     assert profile_missing["error"] == "profile_not_found"
-    assert listed_non_list == []
     assert update_missing["error"] == "profile_not_found"
     assert quota_user_missing["error"] == "user_not_found"
     assert partial_exception["details"] == ["reports: exception", "profiles: exception"]
@@ -4764,6 +4813,45 @@ async def test_admin_routes_and_notifications() -> None:
             _admin=admin_user,
         )
 
+    with (
+        patch(
+            "ideago.api.routes.admin.list_profiles",
+            new=AsyncMock(side_effect=DependencyUnavailableError("profiles_down")),
+        ),
+        pytest.raises(AppError) as users_exc,
+    ):
+        await admin_route.admin_list_users(limit=10, offset=0, _admin=admin_user)
+
+    with (
+        patch(
+            "ideago.api.routes.admin.set_user_quota",
+            new=AsyncMock(side_effect=DependencyUnavailableError("quota_down")),
+        ),
+        pytest.raises(AppError) as quota_dependency_exc,
+    ):
+        await admin_route.admin_set_quota(
+            "u1",
+            admin_route.QuotaAdjustment(plan_limit=10),
+            _admin=admin_user,
+        )
+
+    degraded_plan_client = AsyncMock()
+    degraded_plan_client.head = AsyncMock(
+        return_value=_AdminFakeResponse(500, text="fail")
+    )
+    degraded_plan_client.post = AsyncMock(
+        return_value=_AdminFakeResponse(500, text="fail")
+    )
+    with (
+        patch("ideago.api.routes.admin.get_settings", return_value=fake_settings),
+        patch(
+            "ideago.api.routes.admin.httpx.AsyncClient",
+            return_value=_AsyncClientContext(degraded_plan_client),
+        ),
+        pytest.raises(AppError) as stats_exc,
+    ):
+        await admin_route.admin_system_stats(_admin=admin_user)
+
     class _Sender:
         async def send(self, **kwargs: str) -> bool:
             return kwargs["to"] == "u@example.com"
@@ -4801,6 +4889,12 @@ async def test_admin_routes_and_notifications() -> None:
     assert metrics == {"requests": 1}
     assert health == {"status": "ok"}
     assert quota_exc.value.status_code == 400
+    assert users_exc.value.status_code == 503
+    assert users_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
+    assert quota_dependency_exc.value.status_code == 503
+    assert quota_dependency_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
+    assert stats_exc.value.status_code == 503
+    assert stats_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
 
 
 # ── Multi-user isolation tests ────────────────────────────────────────

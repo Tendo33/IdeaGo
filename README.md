@@ -284,6 +284,12 @@ User-facing account features include:
 - editable profile through `/api/v1/auth/profile`
 - account deletion through `/api/v1/auth/account`
 
+Quota contract notes:
+
+- admin overrides are stored in `profiles.plan_limit_override`
+- API responses continue exposing `plan_limit` as the effective display limit
+- `503 DEPENDENCY_UNAVAILABLE` means Supabase or hosted persistence is degraded, not that the user has no data
+
 ## API Overview
 
 ### Analysis and reports
@@ -309,6 +315,10 @@ User-facing account features include:
 - `GET /api/v1/auth/profile`
 - `PUT /api/v1/auth/profile`
 - `DELETE /api/v1/auth/account`
+
+Mutating auth/admin/report requests that rely on the cookie-backed session must send
+`X-Requested-With`, and when browsers provide `Origin` or `Referer` those headers must match the
+configured allowlist.
 
 ### Admin
 

@@ -285,4 +285,22 @@ describe('HistoryPage', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/haven't run any research reports yet/i)).not.toBeInTheDocument()
   })
+
+  it('shows an error state instead of the empty state when history loading fails', async () => {
+    vi.mocked(listReports).mockRejectedValueOnce(new Error('Report store unavailable'))
+
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Report store unavailable')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/no reports yet/i)).not.toBeInTheDocument()
+  })
 })

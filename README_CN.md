@@ -301,6 +301,15 @@ flowchart TD
 - `PUT /api/v1/auth/profile`
 - `DELETE /api/v1/auth/account`
 
+配额契约说明：
+
+- 管理员覆写值存储在 `profiles.plan_limit_override`
+- API 返回仍保持 `plan_limit` 作为前端展示和编辑的有效额度
+- `503 DEPENDENCY_UNAVAILABLE` 表示 Supabase 或持久化依赖降级，不代表业务空数据
+
+对依赖 Cookie 会话的写操作，请继续携带 `X-Requested-With`；当浏览器发送
+`Origin` 或 `Referer` 时，它们也必须命中已配置的 allowlist。
+
 ### Admin
 
 - `GET /api/v1/admin/users`

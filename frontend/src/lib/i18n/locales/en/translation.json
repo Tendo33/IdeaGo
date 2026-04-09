@@ -80,6 +80,7 @@
     "save": "Save Changes",
     "loadError": "Failed to load profile",
     "updateError": "Failed to update profile",
+    "quotaUnavailable": "We couldn't load your quota details right now. Please try again shortly.",
     "subscription": "Subscription",
     "proPlan": "Pro Plan",
     "freePlan": "Free Plan",
@@ -671,6 +672,9 @@
   "quota": {
     "exceeded": "You have reached your daily analysis limit.",
     "upgradeHint": "You can start another analysis after your quota resets tomorrow.",
+    "reviewHistoryHint": "You can review your saved reports or check your usage details while you wait.",
+    "viewHistory": "View history",
+    "viewUsage": "View usage",
     "upgradeCta": "Tomorrow"
   },
   "welcome": {

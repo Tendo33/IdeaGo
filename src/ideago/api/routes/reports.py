@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import get_cache, is_report_id_processing
-from ideago.api.errors import AppError, ErrorCode
+from ideago.api.errors import AppError, DependencyUnavailableError, ErrorCode
 from ideago.api.schemas import (
     PaginatedReportList,
     ReportDetailV2,
@@ -94,12 +94,19 @@ async def list_reports(
     """List research reports belonging to the authenticated user."""
     cache = get_cache()
     capped_limit = min(limit, _MAX_LIST_LIMIT)
-    entries, total = await cache.list_reports(
-        limit=capped_limit,
-        offset=offset,
-        user_id=user.id,
-        q=q.strip(),
-    )
+    try:
+        entries, total = await cache.list_reports(
+            limit=capped_limit,
+            offset=offset,
+            user_id=user.id,
+            q=q.strip(),
+        )
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Report store unavailable",
+        ) from None
     return PaginatedReportList(
         items=[
             ReportListItem(
@@ -127,9 +134,15 @@ async def get_report(
 ) -> ReportDetailV2 | JSONResponse:
     """Get a completed report by ID. Returns 202 if still processing, 404 if not found."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-
-    report = await cache.get_by_id(report_id, user_id=user.id)
+    try:
+        await _assert_report_owner(cache, report_id, user.id)
+        report = await cache.get_by_id(report_id, user_id=user.id)
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Report store unavailable",
+        ) from None
     if report is not None:
         return _report_to_detail_v2(report)
 
@@ -164,11 +177,18 @@ async def get_report_status(
 ) -> ReportRuntimeStatus:
     """Get report runtime status for processing/failed/cancelled/complete/not_found."""
     cache = get_cache()
-    owner_id = await cache.get_report_user_id(report_id)
-    if not owner_id:
-        status_payload = await cache.get_status(report_id)
-        if status_payload:
-            owner_id = status_payload.get("user_id", "") or ""
+    try:
+        owner_id = await cache.get_report_user_id(report_id)
+        if not owner_id:
+            status_payload = await cache.get_status(report_id)
+            if status_payload:
+                owner_id = status_payload.get("user_id", "") or ""
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Report store unavailable",
+        ) from None
     if not owner_id:
         app_metrics.increment_event("report_status_not_found", reason="missing_owner")
         return ReportRuntimeStatus(status="not_found", report_id=report_id)
@@ -220,8 +240,15 @@ async def delete_report(
 ) -> dict:
     """Delete a cached report owned by the authenticated user."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-    deleted = await cache.delete(report_id, user_id=user.id)
+    try:
+        await _assert_report_owner(cache, report_id, user.id)
+        deleted = await cache.delete(report_id, user_id=user.id)
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Report store unavailable",
+        ) from None
     if not deleted:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     return {"status": "deleted"}
@@ -234,8 +261,15 @@ async def export_report(
 ) -> PlainTextResponse:
     """Export a report as Markdown."""
     cache = get_cache()
-    await _assert_report_owner(cache, report_id, user.id)
-    report = await cache.get_by_id(report_id, user_id=user.id)
+    try:
+        await _assert_report_owner(cache, report_id, user.id)
+        report = await cache.get_by_id(report_id, user_id=user.id)
+    except DependencyUnavailableError:
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Report store unavailable",
+        ) from None
     if report is None:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 

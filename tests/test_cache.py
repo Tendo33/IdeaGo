@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from ideago.api.errors import DependencyUnavailableError
 from ideago.cache.file_cache import FileCache
 from ideago.cache.supabase_cache import SupabaseReportRepository
 from ideago.models.research import Intent, Platform, ResearchReport, SearchQuery
@@ -431,9 +432,11 @@ async def test_supabase_repo_get_error_and_parse_failures() -> None:
     with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
         repo = SupabaseReportRepository(ttl_hours=24)
         repo._client = fake_client
+        with pytest.raises(DependencyUnavailableError):
+            await repo.get(report.intent.cache_key)
         assert await repo.get(report.intent.cache_key) is None
-        assert await repo.get(report.intent.cache_key) is None
-        assert await repo.get_by_id(report.id) is None
+        with pytest.raises(DependencyUnavailableError):
+            await repo.get_by_id(report.id)
         assert await repo.get_by_id(report.id) is None
 
 
@@ -557,9 +560,8 @@ async def test_supabase_repo_put_list_and_delete_error_paths() -> None:
         repo = SupabaseReportRepository(ttl_hours=24)
         repo._client = fake_client
         await repo.put(report, user_id="user-1")
-        rows, total = await repo.list_reports(limit=10, offset=0)
-        assert rows == []
-        assert total == 0
+        with pytest.raises(DependencyUnavailableError):
+            await repo.list_reports(limit=10, offset=0)
         rows, total = await repo.list_reports(limit=10, offset=0)
         assert rows == []
         assert total == 0
@@ -654,10 +656,12 @@ async def test_supabase_repo_user_status_cleanup_and_close_edge_paths() -> None:
         repo = SupabaseReportRepository(ttl_hours=24)
         repo._client = fake_client
         await repo.update_report_user_id("r-2", "user-9")
-        assert await repo.get_report_user_id("r-2") == ""
+        with pytest.raises(DependencyUnavailableError):
+            await repo.get_report_user_id("r-2")
         assert await repo.get_report_user_id("r-2") == ""
         await repo.put_status("r-2", "processing", "query")
-        assert await repo.get_status("r-2") is None
+        with pytest.raises(DependencyUnavailableError):
+            await repo.get_status("r-2")
         assert await repo.get_status("r-2") is None
         await repo.remove_status("r-2")
         assert await repo.cleanup_expired() == 0

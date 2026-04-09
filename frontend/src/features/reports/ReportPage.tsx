@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
 import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
@@ -235,6 +235,23 @@ export function ReportPage() {
               <p className="text-xs text-warning/80 mt-1">
                 {t('quota.upgradeHint', 'You can start another analysis after your quota resets tomorrow.')}
               </p>
+              <p className="text-xs text-warning/80 mt-1">
+                {t('quota.reviewHistoryHint', 'You can review your saved reports or check your usage details while you wait.')}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Link
+                to="/reports"
+                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-colors hover:bg-warning/10"
+              >
+                {t('quota.viewHistory', 'View history')}
+              </Link>
+              <Link
+                to="/profile"
+                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-colors hover:bg-warning/10"
+              >
+                {t('quota.viewUsage', 'View usage')}
+              </Link>
             </div>
           </Alert>
         )}

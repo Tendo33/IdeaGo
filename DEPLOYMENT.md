@@ -221,6 +221,7 @@ empty and rely on same-origin requests.
 The hosted branch expects these protections in production:
 
 - CSRF enforcement via `X-Requested-With` on mutating API routes
+- cookie-backed mutating requests also validate `Origin` / `Referer` against the configured allowlist
 - explicit CORS allowlist
 - security headers middleware
 - rate limiting for analyze and report APIs
@@ -238,6 +239,11 @@ Hosted-only operational endpoints:
 - `GET /api/v1/admin/health`
 
 To use the admin UI, make sure the authenticated profile has the expected admin role in Supabase.
+Admin quota overrides persist in `profiles.plan_limit_override`, while the API and frontend continue
+to read and write the effective `plan_limit` contract.
+
+When hosted persistence is unavailable, admin and report routes return `503 DEPENDENCY_UNAVAILABLE`
+instead of pretending the dataset is empty.
 
 ## 11. Verification Checklist
 

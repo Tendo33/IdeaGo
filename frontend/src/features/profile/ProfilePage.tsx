@@ -62,6 +62,7 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [quotaError, setQuotaError] = useState('')
 
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
@@ -96,6 +97,10 @@ export function ProfilePage() {
 
       if (quotaResult.status === 'fulfilled') {
         setQuota(quotaResult.value)
+        setQuotaError('')
+      } else {
+        setQuota(null)
+        setQuotaError(quotaResult.reason?.message ?? t('profile.quotaUnavailable'))
       }
 
       setLoading(false)
@@ -227,8 +232,14 @@ export function ProfilePage() {
           </div>
         </div>
 
+        {quotaError && (
+          <div className="border-2 border-warning bg-warning/10 p-4 text-sm font-bold text-warning">
+            {quotaError}
+          </div>
+        )}
+
         {/* Usage bar */}
-        {quota && quota.plan_limit > 0 && (
+        {quota && quota.plan_limit > 0 && !quotaError && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">

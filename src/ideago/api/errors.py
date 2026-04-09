@@ -26,6 +26,7 @@ class ErrorCode(str, Enum):
     BILLING_PORTAL_FAILED = "BILLING_PORTAL_FAILED"
     BILLING_INVALID_SIGNATURE = "BILLING_INVALID_SIGNATURE"
     CSRF_MISSING_HEADER = "CSRF_MISSING_HEADER"
+    DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"
     NOT_FOUND = "NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     AUTH_NOT_CONFIGURED = "AUTH_NOT_CONFIGURED"
@@ -56,3 +57,11 @@ class AppError(HTTPException):
             detail=detail,
         )
         self.code = code
+
+
+class DependencyUnavailableError(RuntimeError):
+    """Raised when an upstream dependency is unavailable or returns an invalid response."""
+
+    def __init__(self, message: str, *, dependency: str = "") -> None:
+        super().__init__(message)
+        self.dependency = dependency

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CommercialSignalsCard } from '@/features/reports/components/CommercialSignalsCard'
@@ -57,6 +57,49 @@ type SectionNavItem = {
   id: string
   label: string
   count?: number
+}
+
+function DeferredLandscapeChart({ competitors }: { competitors: ResearchReport['competitors'] }) {
+  const [shouldRender, setShouldRender] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (shouldRender) return
+    const idleTimer = window.setTimeout(() => {
+      setShouldRender(true)
+    }, 0)
+    if (typeof IntersectionObserver === 'undefined') {
+      return () => window.clearTimeout(idleTimer)
+    }
+    const node = containerRef.current
+    if (!node) return () => window.clearTimeout(idleTimer)
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          setShouldRender(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '240px 0px' },
+    )
+    observer.observe(node)
+    return () => {
+      window.clearTimeout(idleTimer)
+      observer.disconnect()
+    }
+  }, [shouldRender])
+
+  return (
+    <div ref={containerRef}>
+      {shouldRender ? (
+        <Suspense fallback={<div data-testid="chart-loading" className="h-64 rounded-none border-2 border-border bg-card animate-pulse" />}>
+          <LandscapeChart competitors={competitors} />
+        </Suspense>
+      ) : (
+        <div data-testid="chart-loading" className="h-64 rounded-none border-2 border-border bg-card animate-pulse" />
+      )}
+    </div>
+  )
 }
 
 export function ReportContentPane({
@@ -175,9 +218,7 @@ export function ReportContentPane({
           <section id="section-why-now" className="space-y-6">
             <MarketOverview summary={report.market_summary} />
             {hasCompetitorSection && (
-              <Suspense fallback={<div data-testid="chart-loading" className="h-64 rounded-none border-2 border-border bg-card animate-pulse" />}>
-                <LandscapeChart competitors={report.competitors} />
-              </Suspense>
+              <DeferredLandscapeChart competitors={report.competitors} />
             )}
           </section>
         )}
