@@ -187,7 +187,7 @@
     @apply bg-card text-card-foreground rounded-none p-6 md:p-8 border-2 border-border shadow-md transition-all duration-200;
   }
   .card-clickable {
-    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg;
+    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none;
   }
 
   .input {
@@ -247,6 +247,10 @@
 ::-webkit-scrollbar-track { background: var(--background); border-left: 2px solid var(--border); }
 ::-webkit-scrollbar-thumb { background: var(--primary); border: 2px solid var(--border); }
 ::-webkit-scrollbar-thumb:hover { background: var(--foreground); }
+
+@utility ease-brutal {
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }

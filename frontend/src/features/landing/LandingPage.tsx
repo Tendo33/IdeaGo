@@ -93,7 +93,7 @@ function StaggerReveal({ children, delay = 0, className = '', motionMode = 'full
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : `translateY(${translateY}px)`,
-        transition: `opacity ${transitionDurationMs}ms ease-out ${transitionDelayMs}ms, transform ${transitionDurationMs}ms ease-out ${transitionDelayMs}ms`,
+        transition: `opacity ${transitionDurationMs}ms cubic-bezier(0.22, 1, 0.36, 1) ${transitionDelayMs}ms, transform ${transitionDurationMs}ms cubic-bezier(0.22, 1, 0.36, 1) ${transitionDelayMs}ms`,
       }}
     >
       {children}
@@ -185,7 +185,7 @@ export function LandingPage({
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* ─── TOP BAR ─── */}
       <nav className="fixed left-0 right-0 top-0 z-50 border-b-4 border-border bg-background/95 backdrop-blur-sm px-4 py-4 md:px-8 flex items-center justify-between min-w-0">
-        <Link to="/" className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm max-w-[60vw] sm:max-w-none text-xs sm:text-base break-words hover:bg-foreground transition-colors">
+        <Link to="/" className="inline-flex min-h-[44px] items-center px-2 sm:px-4 py-1.5 sm:py-2 border-2 border-border font-bold uppercase tracking-widest bg-primary text-primary-foreground shadow-sm max-w-[60vw] sm:max-w-none text-xs sm:text-base break-words hover:bg-foreground hover:translate-x-[-2px] hover:-translate-y-[2px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-200 ease-brutal">
           {t('app.title')} {t('app.titleHighlight')}
         </Link>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -239,7 +239,7 @@ export function LandingPage({
                   to="/login"
                   className={buttonVariants({
                     size: 'lg',
-                    className: 'text-xl px-12 py-6 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-xl transition-all',
+                    className: 'text-xl px-12 py-6 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-xl active:translate-y-[4px] active:translate-x-[4px] active:shadow-none transition-all duration-300 ease-brutal',
                   })}
                 >
                   {t('landing.cta')}
@@ -258,7 +258,7 @@ export function LandingPage({
             {/* Right: mock report card */}
             <div className="animate-fade-in [animation-delay:200ms] mt-12 lg:mt-0 relative w-full max-w-lg mx-auto lg:max-w-none">
               <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-border" />
-              <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500 hover:scale-105 z-10">
+              <div className="relative border-4 border-border bg-card p-10 shadow-2xl rotate-2 hover:rotate-0 hover:-translate-y-2 hover:-translate-x-2 hover:shadow-[12px_12px_0_0_var(--border)] active:translate-y-2 active:translate-x-2 active:rotate-2 active:shadow-md transition-all duration-300 ease-brutal z-10">
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-4 h-4 bg-success border-4 border-border shrink-0 animate-pulse" />
                   <span className="text-sm font-black uppercase tracking-widest text-muted-foreground break-words [overflow-wrap:anywhere]" title={t('landing.mockLabel')}>
@@ -349,7 +349,7 @@ export function LandingPage({
               { icon: FileText, step: '03', titleKey: 'landing.step3Title', descKey: 'landing.step3Desc', mt: 'md:mt-48' },
             ] as const).map(({ icon: Icon, step, titleKey, descKey, mt }, i) => (
               <StaggerReveal key={step} delay={i * 150} className={`flex-1 min-w-0 ${mt}`} motionMode={motionMode}>
-                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-transform duration-300 hover:-translate-y-4 hover:shadow-3xl flex flex-col min-w-0 group">
+                <div className="p-8 sm:p-10 border-4 border-border bg-background shadow-xl relative transition-all duration-300 ease-brutal hover:-translate-y-4 hover:-translate-x-2 hover:shadow-3xl active:translate-y-2 active:translate-x-2 active:shadow-md flex flex-col min-w-0 group cursor-default">
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Icon className="w-32 h-32" />
                   </div>
@@ -383,7 +383,7 @@ export function LandingPage({
           <div className="grid sm:grid-cols-12 gap-8 lg:gap-12 relative z-10">
             {/* Massive Hero Highlight Card */}
             <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8" motionMode={motionMode}>
-              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:shadow-5xl transition-all duration-500">
+              <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:-translate-x-2 hover:shadow-5xl active:translate-y-2 active:translate-x-2 active:shadow-2xl transition-all duration-300 ease-brutal">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
                 <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
                   {t('landing.feat1Title')}
@@ -401,7 +401,7 @@ export function LandingPage({
               { titleKey: 'landing.feat3Title', descKey: 'landing.feat3Desc', accent: 'var(--destructive)', colSpan: 'sm:col-span-12 lg:col-span-6', rotation: 'rotate-1', shape: 'rounded-full' },
             ] as const).map(({ titleKey, descKey, accent, colSpan, rotation, shape }, i) => (
               <StaggerReveal key={titleKey} delay={i * 150} className={colSpan} motionMode={motionMode}>
-                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col min-w-0 group hover:bg-card transition-colors duration-300 transform ${rotation} hover:rotate-0`}>
+                <div className={`p-8 sm:p-12 border-4 border-border bg-background shadow-xl h-full flex flex-col min-w-0 group hover:bg-card transition-all duration-300 ease-brutal transform ${rotation} hover:rotate-0 hover:-translate-y-2 hover:-translate-x-2 hover:shadow-2xl active:translate-y-2 active:translate-x-2 active:rotate-1 active:shadow-md`}>
                   <div className="flex items-center gap-6 mb-8">
                     <div
                       className={`w-16 h-16 border-4 border-border shrink-0 ${shape} group-hover:scale-110 transition-transform shadow`}
@@ -427,7 +427,7 @@ export function LandingPage({
 
         <div className="app-shell relative z-10">
           <StaggerReveal motionMode={motionMode}>
-            <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-4xl text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:shadow-5xl transition-all duration-500 relative">
+            <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-4xl text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:-translate-x-2 hover:shadow-5xl active:translate-y-4 active:translate-x-4 active:shadow-2xl transition-all duration-300 ease-brutal relative">
               <div className="absolute -top-6 -right-6 w-12 h-12 bg-warning border-4 border-border rotate-12" />
               <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-success border-4 border-border rounded-full -rotate-12" />
 
@@ -439,7 +439,7 @@ export function LandingPage({
                 to="/login"
                 className={buttonVariants({
                   size: 'lg',
-                  className: 'text-2xl px-16 py-8 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-2xl transition-all group',
+                  className: 'text-2xl px-16 py-8 border-4 shadow-lg hover:translate-y-[-4px] hover:translate-x-[-4px] hover:shadow-2xl active:translate-y-[4px] active:translate-x-[4px] active:shadow-md transition-all duration-300 ease-brutal group',
                 })}
               >
                 {t('landing.ctaButton')}

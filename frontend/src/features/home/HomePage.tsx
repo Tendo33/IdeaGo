@@ -22,7 +22,7 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
   return (
     <button
       onClick={() => onNavigate(report.id)}
-      className="group block w-full text-left p-4 border-b-2 border-border/20 last:border-0 hover:bg-background/50 focus-visible:bg-background/50 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      className="group block w-full text-left p-4 border-b-2 border-border/20 last:border-0 hover:bg-background hover:-translate-y-1 hover:-translate-x-1 hover:shadow-sm active:translate-y-1 active:translate-x-1 active:shadow-inner transition-all duration-150 ease-brutal cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none relative z-0 hover:z-10"
     >
       <div className="flex gap-4 items-start">
         <span aria-hidden="true" className="text-3xl font-black text-muted-foreground/30 leading-none shrink-0">0{idx + 1}</span>
@@ -119,7 +119,7 @@ export function HomePage() {
                       key={prompt}
                       variant="ghost"
                       onClick={() => handleSubmit(prompt)}
-                      className="text-left text-sm font-medium normal-case tracking-normal px-3 py-1.5 min-h-[44px] h-auto text-muted-foreground hover:text-foreground"
+                      className="text-left text-sm font-medium normal-case tracking-normal px-3 py-1.5 min-h-[44px] h-auto text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted active:text-muted active:bg-foreground transition-colors duration-150 ease-brutal border-2 border-transparent"
                       title={prompt}
                     >
                       <span className="block max-w-[260px] whitespace-normal break-words [overflow-wrap:anywhere]">{prompt}</span>
