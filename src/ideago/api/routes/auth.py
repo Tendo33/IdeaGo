@@ -22,6 +22,11 @@ from ideago.auth.session import (
     clear_auth_session_cookie,
     set_auth_session_cookie,
 )
+from ideago.auth.session_store import (
+    create_auth_session,
+    is_auth_session_active,
+    revoke_auth_session,
+)
 from ideago.auth.supabase_admin import (
     delete_user_account,
     ensure_profile_exists,
@@ -184,7 +189,9 @@ def _build_internal_user_id(linuxdo_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"linuxdo:{linuxdo_id}"))
 
 
-def _issue_auth_token(*, user_id: str, email: str, provider: str) -> str:
+def _issue_auth_token(
+    *, user_id: str, email: str, provider: str, session_id: str = ""
+) -> str:
     settings = get_settings()
     if not settings.auth_session_secret:
         raise HTTPException(
@@ -195,6 +202,7 @@ def _issue_auth_token(*, user_id: str, email: str, provider: str) -> str:
         "sub": user_id,
         "email": email,
         "provider": provider,
+        "sid": session_id,
         "aud": "ideago-auth",
         "iat": int(now.timestamp()),
         "exp": int(
@@ -225,6 +233,78 @@ def _redirect_error(redirect_to: str, message: str) -> RedirectResponse:
         url=urlunparse(parsed._replace(query=urlencode(query_items))),
         status_code=302,
     )
+
+
+def _custom_session_token_from_request(request: Request) -> str:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+    if token:
+        return token
+    cookie_jar = getattr(request, "cookies", {}) or {}
+    return str(cookie_jar.get(AUTH_SESSION_COOKIE_NAME, "")).strip()
+
+
+def _decode_custom_session_token(
+    token: str, *, verify_exp: bool = True
+) -> dict[str, object]:
+    settings = get_settings()
+    if not settings.auth_session_secret:
+        raise HTTPException(
+            status_code=503, detail="AUTH_SESSION_SECRET is not configured"
+        )
+    try:
+        return jwt.decode(
+            token,
+            settings.auth_session_secret,
+            algorithms=["HS256"],
+            audience="ideago-auth",
+            options={"verify_exp": verify_exp},
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token") from None
+
+
+def _profile_is_deleted_or_pending(profile: dict[str, object]) -> bool:
+    return bool(profile.get("deletion_pending") or profile.get("deleted_at"))
+
+
+def _raise_profile_error(error_code: str) -> None:
+    if error_code == "profile_not_found":
+        raise HTTPException(status_code=404, detail="profile_not_found")
+    raise AppError(
+        503,
+        ErrorCode.DEPENDENCY_UNAVAILABLE,
+        "Profile service temporarily unavailable",
+        extra={"dependency": "supabase_profiles", "reason": error_code},
+    )
+
+
+async def _ensure_active_profile_for_user(user_id: str) -> dict[str, object]:
+    profile = await get_profile(user_id)
+    if isinstance(profile, dict) and _profile_is_deleted_or_pending(profile):
+        raise AppError(410, ErrorCode.ACCOUNT_DELETED, "Account deletion in progress")
+    if isinstance(profile, dict) and not profile.get("error"):
+        return profile
+    initial_error = str(profile.get("error") or "") if isinstance(profile, dict) else ""
+    if initial_error and initial_error != "profile_not_found":
+        _raise_profile_error(initial_error)
+    created = await ensure_profile_exists(user_id)
+    if not created:
+        profile = await get_profile(user_id)
+        if isinstance(profile, dict) and _profile_is_deleted_or_pending(profile):
+            raise AppError(
+                410, ErrorCode.ACCOUNT_DELETED, "Account deletion in progress"
+            )
+        if isinstance(profile, dict) and profile.get("error"):
+            _raise_profile_error(str(profile.get("error") or "profile_not_found"))
+    if isinstance(profile, dict) and not profile.get("error"):
+        return profile
+    profile = await get_profile(user_id)
+    if isinstance(profile, dict) and not profile.get("error"):
+        return profile
+    if isinstance(profile, dict) and profile.get("error"):
+        _raise_profile_error(str(profile.get("error") or "profile_not_found"))
+    raise HTTPException(status_code=404, detail="profile_not_found")
 
 
 async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -> bool:
@@ -344,16 +424,25 @@ async def linuxdo_callback(
         avatar_url = str(
             userinfo.get("avatar_url") or userinfo.get("avatar") or ""
         ).strip()
-        await ensure_profile_exists(
+        created = await ensure_profile_exists(
             user_id,
             display_name=display_name,
             avatar_url=avatar_url,
             auth_provider="linuxdo",
         )
+        if not created:
+            existing_profile = await get_profile(user_id)
+            if isinstance(existing_profile, dict) and _profile_is_deleted_or_pending(
+                existing_profile
+            ):
+                return _redirect_error(redirect_to, "Account deletion in progress")
+            return _redirect_error(redirect_to, "Authentication failed")
+        session_id = await create_auth_session(user_id, provider="linuxdo")
         app_access_token = _issue_auth_token(
             user_id=user_id,
             email=email,
             provider="linuxdo",
+            session_id=session_id,
         )
     except HTTPException as exc:
         return _redirect_error(
@@ -406,32 +495,40 @@ async def refresh_token(request: Request, response: Response) -> dict:
         raise HTTPException(status_code=401, detail="Missing token")
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.auth_session_secret,
-            algorithms=["HS256"],
-            audience="ideago-auth",
-            options={"verify_exp": False},
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token") from None
+        payload = _decode_custom_session_token(token, verify_exp=False)
+    except HTTPException:
+        raise
 
-    user_id = payload.get("sub", "")
+    user_id = str(payload.get("sub") or "")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
+    session_id = str(payload.get("sid") or "")
+    if not session_id:
+        raise AppError(401, ErrorCode.SESSION_REVOKED, "Session revoked")
     profile = await get_profile(user_id)
-    if not isinstance(profile, dict) or profile.get("error"):
-        raise HTTPException(status_code=401, detail="Session revoked")
+    if not isinstance(profile, dict):
+        raise AppError(401, ErrorCode.SESSION_REVOKED, "Session revoked")
+    if profile.get("error"):
+        error_code = str(profile.get("error") or "")
+        if error_code == "profile_not_found":
+            raise AppError(401, ErrorCode.SESSION_REVOKED, "Session revoked")
+        _raise_profile_error(error_code or "profile_fetch_failed")
+    if _profile_is_deleted_or_pending(profile):
+        raise AppError(410, ErrorCode.ACCOUNT_DELETED, "Account deletion in progress")
+    if not await is_auth_session_active(session_id, user_id=user_id):
+        raise AppError(401, ErrorCode.SESSION_REVOKED, "Session revoked")
 
-    exp_ts = payload.get("exp", 0)
+    exp_raw = payload.get("exp", 0)
+    exp_ts = exp_raw if isinstance(exp_raw, int) else 0
     now_ts = int(datetime.now(timezone.utc).timestamp())
     if exp_ts > 0 and now_ts - exp_ts > _REFRESH_GRACE_HOURS * 3600:
         raise HTTPException(status_code=401, detail="Token expired beyond grace period")
 
     new_token = _issue_auth_token(
         user_id=user_id,
-        email=payload.get("email", ""),
-        provider=payload.get("provider", ""),
+        email=str(payload.get("email") or ""),
+        provider=str(payload.get("provider") or ""),
+        session_id=session_id,
     )
     set_auth_session_cookie(response, request, new_token)
     return {"access_token": new_token}
@@ -444,6 +541,15 @@ async def logout(
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Clear backend-managed auth session cookie."""
+    token = _custom_session_token_from_request(request)
+    if token:
+        try:
+            payload = _decode_custom_session_token(token)
+        except HTTPException:
+            payload = {}
+        session_id = str(payload.get("sid") or "")
+        if session_id:
+            await revoke_auth_session(session_id)
     clear_auth_session_cookie(response, request)
     await log_audit_event(
         actor_id=user.id,
@@ -457,18 +563,14 @@ async def logout(
 @router.get("/auth/quota")
 async def get_user_quota(user: AuthUser = Depends(get_current_user)) -> dict:
     """Return the user's current usage quota information."""
-    await ensure_profile_exists(user.id)
+    await _ensure_active_profile_for_user(user.id)
     return await get_quota_info(user.id)
 
 
 @router.get("/auth/profile")
 async def get_my_profile(user: AuthUser = Depends(get_current_user)) -> dict:
     """Return profile for current user."""
-    await ensure_profile_exists(user.id)
-    data = await get_profile(user.id)
-    if data.get("error"):
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
+    return await _ensure_active_profile_for_user(user.id)
 
 
 @router.put("/auth/profile")
@@ -477,7 +579,7 @@ async def update_my_profile(
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Update profile for current user."""
-    await ensure_profile_exists(user.id)
+    await _ensure_active_profile_for_user(user.id)
     data = await update_profile(
         user.id,
         display_name=payload.display_name.strip(),
@@ -495,6 +597,14 @@ async def delete_account(
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
     """Permanently delete the authenticated user's account and all data."""
+    session_id = ""
+    token = _custom_session_token_from_request(request)
+    if token:
+        try:
+            payload = _decode_custom_session_token(token)
+        except HTTPException:
+            payload = {}
+        session_id = str(payload.get("sid") or "")
     result = await delete_user_account(user.id)
     if result.get("error"):
         phase = str(result.get("phase") or "unknown_phase")
@@ -522,6 +632,8 @@ async def delete_account(
                 "cleanup": cleanup,
             },
         )
+    if session_id:
+        await revoke_auth_session(session_id)
     await log_audit_event(
         actor_id=user.id,
         action="auth.delete_account",

@@ -106,11 +106,13 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     from ideago.api.dependencies import _cache, _orchestrator, shutdown_runtime_state
     from ideago.auth.dependencies import close_auth_http_client
+    from ideago.auth.session_store import close_auth_session_client
     from ideago.auth.supabase_admin import close_supabase_admin_client
     from ideago.observability.audit import close_audit_client
 
     await shutdown_runtime_state()
     await close_auth_http_client()
+    await close_auth_session_client()
     await close_supabase_admin_client()
     await close_audit_client()
     if _cache is not None and hasattr(_cache, "close"):

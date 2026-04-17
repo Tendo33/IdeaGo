@@ -67,12 +67,11 @@ class ReportRepository(Protocol):
         offset: int = 0,
         user_id: str = "",
         q: str = "",
-    ) -> tuple[list[ReportIndex], int]:
+    ) -> tuple[list[ReportIndex], bool, int]:
         """List reports, optionally filtered by user, sorted newest-first.
 
         Returns:
-            Tuple of (entries, total_count) where total_count is the full
-            count before limit/offset pagination.
+            Tuple of (entries, has_next_page, total_count).
         """
         ...
 

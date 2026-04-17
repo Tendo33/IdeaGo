@@ -74,21 +74,34 @@ describe('AdminPage', () => {
       active_processing: 0,
       plan_breakdown: { free: 1 },
     })
-    vi.mocked(adminListUsers).mockResolvedValue([
-      {
-        id: 'user-1',
-        display_name: 'Alice',
-        avatar_url: '',
-        bio: '',
-        created_at: new Date().toISOString(),
-        plan: 'free',
-        usage_count: 2,
-        plan_limit: 5,
-        role: 'user',
-        auth_provider: 'supabase',
-      },
-    ])
-    vi.mocked(adminSetQuota).mockResolvedValue(undefined)
+    vi.mocked(adminListUsers).mockResolvedValue({
+      items: [
+        {
+          id: 'user-1',
+          display_name: 'Alice',
+          avatar_url: '',
+          bio: '',
+          created_at: new Date().toISOString(),
+          plan: 'free',
+          usage_count: 2,
+          plan_limit: 5,
+          role: 'user',
+          auth_provider: 'supabase',
+        },
+      ],
+      total: 1,
+      has_next: false,
+      limit: 25,
+      offset: 0,
+    })
+    vi.mocked(adminSetQuota).mockResolvedValue({
+      id: 'user-1',
+      display_name: 'Alice',
+      plan: 'free',
+      usage_count: 2,
+      plan_limit: 8,
+      role: 'user',
+    })
 
     render(
       <MemoryRouter>
@@ -107,5 +120,7 @@ describe('AdminPage', () => {
     await waitFor(() => {
       expect(adminSetQuota).toHaveBeenCalledWith('user-1', { plan_limit: 8 })
     })
+    expect(screen.getByRole('button', { name: '8' })).toBeInTheDocument()
   })
+
 })

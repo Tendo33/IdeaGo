@@ -24,6 +24,7 @@ const logoutAuthSessionMock = vi.fn()
 const turnstileRenderMock = vi.fn()
 const turnstileResetMock = vi.fn()
 const turnstileRemoveMock = vi.fn()
+const clearHistoryCacheMock = vi.fn()
 
 type TurnstileRenderOptions = {
   callback?: (token: string) => void
@@ -35,6 +36,9 @@ type TurnstileRenderOptions = {
 let authUser: { id: string; email: string } | null = null
 let currentLanguage = 'zh-CN'
 let latestTurnstileOptions: TurnstileRenderOptions | null = null
+let authStateChangeCallback:
+  | ((event: string, session: { access_token: string; user: { id: string; email?: string } } | null) => void)
+  | null = null
 
 function installTurnstileMock() {
   turnstileRenderMock.mockImplementation(
@@ -112,6 +116,10 @@ vi.mock('@/lib/api/client', () => ({
   logoutAuthSession: (...args: unknown[]) => logoutAuthSessionMock(...args),
 }))
 
+vi.mock('@/features/history/historyCache', () => ({
+  clearHistoryCache: () => clearHistoryCacheMock(),
+}))
+
 function AuthStateProbe() {
   const auth = useContext(AuthContext)
   const user = auth?.user ?? null
@@ -148,6 +156,7 @@ describe('LoginPage registration locale metadata', () => {
     authUser = null
     currentLanguage = 'zh-CN'
     latestTurnstileOptions = null
+    authStateChangeCallback = null
     navigateMock.mockReset()
     signUpMock.mockReset()
     signInWithPasswordMock.mockReset()
@@ -165,6 +174,7 @@ describe('LoginPage registration locale metadata', () => {
     turnstileRenderMock.mockReset()
     turnstileResetMock.mockReset()
     turnstileRemoveMock.mockReset()
+    clearHistoryCacheMock.mockReset()
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'test-site-key')
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000')
     installTurnstileMock()
@@ -177,13 +187,16 @@ describe('LoginPage registration locale metadata', () => {
     startLinuxDoAuthMock.mockResolvedValue('https://linux.do/oauth2/authorize?state=test')
     logoutAuthSessionMock.mockResolvedValue(undefined)
     getSessionMock.mockResolvedValue({ data: { session: null } })
-    onAuthStateChangeMock.mockImplementation(() => ({
+    onAuthStateChangeMock.mockImplementation((callback?: typeof authStateChangeCallback) => {
+      authStateChangeCallback = callback ?? null
+      return ({
       data: {
         subscription: {
           unsubscribe: vi.fn(),
         },
       },
-    }))
+      })
+    })
     document.documentElement.classList.remove('dark')
     window.history.replaceState({}, '', '/login')
     window.location.hash = ''
@@ -1051,5 +1064,43 @@ describe('AuthProvider token refresh scheduling', () => {
     })
     expect(screen.getByText('anonymous')).toBeInTheDocument()
     expect(screen.queryByText('logout failed')).not.toBeInTheDocument()
+  })
+
+  it('clears the history cache when auth switches to a different signed-in user', async () => {
+    window.history.replaceState({}, '', '/')
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'first-token',
+          user: { id: 'user-123', email: 'first@example.com' },
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('user-123')).toBeInTheDocument()
+    })
+    const callCountBeforeSwitch = clearHistoryCacheMock.mock.calls.length
+    expect(authStateChangeCallback).toBeTypeOf('function')
+
+    act(() => {
+      authStateChangeCallback?.('SIGNED_IN', {
+        access_token: 'second-token',
+        user: { id: 'user-456', email: 'second@example.com' },
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('user-456')).toBeInTheDocument()
+    })
+    expect(clearHistoryCacheMock.mock.calls.length).toBe(callCountBeforeSwitch + 1)
   })
 })

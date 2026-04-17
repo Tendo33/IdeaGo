@@ -8,6 +8,7 @@ Uses service_role key to bypass RLS. Only used server-side for:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import httpx
 
@@ -132,6 +133,86 @@ async def check_and_increment_quota(user_id: str) -> QuotaResult:
         )
 
 
+async def check_quota_available(user_id: str) -> QuotaResult:
+    """Read quota without consuming usage and evaluate whether work is allowed."""
+    info = await get_quota_info(user_id)
+    if info.get("error"):
+        error = str(info["error"])
+        return QuotaResult(
+            allowed=False,
+            usage_count=0,
+            plan_limit=0,
+            plan="unknown",
+            error=error,
+        )
+
+    usage_count = int(info.get("usage_count", 0) or 0)
+    plan_limit = int(info.get("plan_limit", 0) or 0)
+    plan = str(info.get("plan", _DAILY_PLAN_NAME) or _DAILY_PLAN_NAME)
+    allowed = plan_limit <= 0 or usage_count < plan_limit
+    return QuotaResult(
+        allowed=allowed,
+        usage_count=usage_count,
+        plan_limit=plan_limit,
+        plan=plan,
+        error="" if allowed else "quota_exceeded",
+    )
+
+
+async def refund_quota_charge(user_id: str) -> bool:
+    """Best-effort refund for a previously charged analysis slot."""
+    if not _is_configured():
+        return True
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        rpc_resp = await client.post(
+            f"{settings.supabase_url}/rest/v1/rpc/refund_quota_charge",
+            headers=_headers(),
+            json={"p_user_id": user_id},
+        )
+        if rpc_resp.status_code in (200, 204):
+            return True
+        logger.warning(
+            "quota refund RPC failed, falling back to profile patch: {} {}",
+            rpc_resp.status_code,
+            rpc_resp.text,
+        )
+    except Exception:
+        logger.opt(exception=True).warning(
+            "quota refund RPC error for {}, falling back to profile patch", user_id
+        )
+
+    profile = await get_profile(user_id)
+    if profile.get("error"):
+        logger.warning("quota refund skipped; profile missing for {}", user_id)
+        return False
+
+    current_usage = profile.get("usage_count", 0)
+    if not isinstance(current_usage, int):
+        logger.warning("quota refund skipped; invalid usage_count for {}", user_id)
+        return False
+
+    next_usage = max(0, current_usage - 1)
+    try:
+        patch_resp = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=minimal"},
+            params={"id": f"eq.{user_id}"},
+            json={"usage_count": next_usage},
+        )
+        if patch_resp.status_code not in (200, 204):
+            logger.warning(
+                "quota refund failed: {} {}", patch_resp.status_code, patch_resp.text
+            )
+            return False
+        return True
+    except Exception:
+        logger.opt(exception=True).warning("quota refund error for {}", user_id)
+        return False
+
+
 async def get_quota_info(user_id: str) -> dict:
     """Read-only quota info for display purposes."""
     if not _is_configured():
@@ -173,6 +254,14 @@ async def ensure_profile_exists(
 
     settings = get_settings()
     client = _get_client()
+    existing = await get_profile(user_id)
+    if isinstance(existing, dict):
+        if not existing.get("error"):
+            return not bool(
+                existing.get("deletion_pending") or existing.get("deleted_at")
+            )
+        if existing.get("error") != "profile_not_found":
+            return False
     payload: dict[str, str] = {
         "id": user_id,
         "display_name": display_name,
@@ -205,20 +294,31 @@ async def get_profile(user_id: str) -> dict:
             "avatar_url": "",
             "bio": "",
             "created_at": "",
+            "usage_count": 0,
         }
 
     settings = get_settings()
     client = _get_client()
+    params = {
+        "id": f"eq.{user_id}",
+        "select": "display_name,avatar_url,bio,created_at,role,usage_count,deletion_pending,deleted_at",
+        "limit": "1",
+    }
     try:
         resp = await client.get(
             f"{settings.supabase_url}/rest/v1/profiles",
             headers={**_headers(), "Accept": "application/json"},
-            params={
-                "id": f"eq.{user_id}",
-                "select": "display_name,avatar_url,bio,created_at,role",
-                "limit": "1",
-            },
+            params=params,
         )
+        if resp.status_code == 400 and "deletion_pending" in resp.text:
+            resp = await client.get(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers={**_headers(), "Accept": "application/json"},
+                params={
+                    **params,
+                    "select": "display_name,avatar_url,bio,created_at,role,usage_count",
+                },
+            )
         if resp.status_code != 200:
             logger.warning("Get profile failed: {} {}", resp.status_code, resp.text)
             return {"error": "profile_fetch_failed"}
@@ -226,11 +326,80 @@ async def get_profile(user_id: str) -> dict:
         if isinstance(rows, list) and rows:
             row = rows[0]
             if isinstance(row, dict):
+                row.setdefault("deletion_pending", False)
+                row.setdefault("deleted_at", None)
                 return row
         return {"error": "profile_not_found"}
     except Exception:
         logger.opt(exception=True).warning("Get profile error")
         return {"error": "network_error"}
+
+
+async def mark_profile_deletion_pending(user_id: str) -> dict:
+    """Mark a profile as deleting to block recreation and session refresh."""
+    if not _is_configured():
+        return {"error": "supabase_not_configured"}
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=representation"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "id,deletion_pending,deleted_at",
+            },
+            json={
+                "deletion_pending": True,
+                "deleted_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                "mark_profile_deletion_pending failed: {} {}",
+                resp.status_code,
+                resp.text,
+            )
+            return {"error": "profile_delete_mark_failed"}
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            row = rows[0]
+            if isinstance(row, dict):
+                return row
+        return {"error": "profile_not_found"}
+    except Exception:
+        logger.opt(exception=True).warning("mark_profile_deletion_pending error")
+        return {"error": "network_error"}
+
+
+async def delete_profile_record(user_id: str) -> dict:
+    """Delete the profile row after the rest of account cleanup succeeds."""
+    if not _is_configured():
+        return {"error": "supabase_not_configured"}
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.delete(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=minimal"},
+            params={"id": f"eq.{user_id}"},
+        )
+        if resp.status_code not in (200, 204):
+            logger.warning(
+                "delete_profile_record failed: {} {}",
+                resp.status_code,
+                resp.text,
+            )
+            return {
+                "error": "profile_delete_failed",
+                "details": [f"profiles: {resp.status_code}"],
+            }
+        return {"status": "deleted"}
+    except Exception:
+        logger.opt(exception=True).warning("delete_profile_record error")
+        return {"error": "profile_delete_failed", "details": ["profiles: exception"]}
 
 
 async def update_profile(user_id: str, *, display_name: str, bio: str) -> dict:
@@ -269,14 +438,27 @@ async def update_profile(user_id: str, *, display_name: str, bio: str) -> dict:
         return {"error": "network_error"}
 
 
-async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
-    """List all user profiles (admin only). Returns a list of profile dicts."""
+async def list_profiles(
+    *, limit: int = 50, offset: int = 0, q: str = ""
+) -> tuple[list[dict], int]:
+    """List all user profiles (admin only). Returns rows plus total count."""
     if not _is_configured():
-        return []
+        return [], 0
 
     settings = get_settings()
     client = _get_client()
     try:
+        params = {
+            "select": "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit_override,role,auth_provider,deletion_pending,deleted_at",
+            "order": "created_at.desc",
+            "limit": str(limit),
+            "offset": str(offset),
+            "deletion_pending": "eq.false",
+        }
+        normalized_q = q.strip()
+        if normalized_q:
+            escaped = normalized_q.replace(",", r"\,")
+            params["or"] = f"(display_name.ilike.*{escaped}*,id.ilike.*{escaped}*)"
         resp = await client.get(
             f"{settings.supabase_url}/rest/v1/profiles",
             headers={
@@ -284,13 +466,23 @@ async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
                 "Accept": "application/json",
                 "Prefer": "count=exact",
             },
-            params={
-                "select": "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit_override,role,auth_provider",
-                "order": "created_at.desc",
-                "limit": str(limit),
-                "offset": str(offset),
-            },
+            params=params,
         )
+        if resp.status_code == 400 and "deletion_pending" in resp.text:
+            fallback_params = dict(params)
+            fallback_params.pop("deletion_pending", None)
+            fallback_params["select"] = (
+                "id,display_name,avatar_url,bio,created_at,plan,usage_count,plan_limit_override,role,auth_provider"
+            )
+            resp = await client.get(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers={
+                    **_headers(),
+                    "Accept": "application/json",
+                    "Prefer": "count=exact",
+                },
+                params=fallback_params,
+            )
         if resp.status_code != 200:
             logger.warning("list_profiles failed: {} {}", resp.status_code, resp.text)
             raise DependencyUnavailableError(
@@ -306,11 +498,19 @@ async def list_profiles(*, limit: int = 50, offset: int = 0) -> list[dict]:
             if not isinstance(row, dict):
                 continue
             payload = dict(row)
+            payload.setdefault("deletion_pending", False)
+            payload.setdefault("deleted_at", None)
             payload["plan_limit"] = _coerce_plan_limit(
                 payload.pop("plan_limit_override", None)
             )
             normalized.append(payload)
-        return normalized
+        content_range = resp.headers.get("content-range", "")
+        total = 0
+        if "/" in content_range:
+            total_raw = content_range.split("/")[-1]
+            if total_raw.isdigit():
+                total = int(total_raw)
+        return normalized, total
     except DependencyUnavailableError:
         raise
     except Exception as err:
@@ -370,11 +570,7 @@ async def set_user_quota(
 
 
 async def delete_user_data(user_id: str) -> dict:
-    """Cascade-delete all data for a user (GDPR / account deletion).
-
-    Deletes: reports, report_status, processing_reports, profile.
-    Returns {"deleted": True} on success, {"error": ...} on failure.
-    """
+    """Cascade-delete domain data for a user while leaving tombstone profile in place."""
     if not _is_configured():
         return {"error": "supabase_not_configured"}
 
@@ -400,18 +596,6 @@ async def delete_user_data(user_id: str) -> dict:
         except Exception:
             logger.opt(exception=True).warning("delete_user_data: {} failed", table)
             errors.append(f"{table}: exception")
-
-    try:
-        resp = await client.delete(
-            f"{base}/rest/v1/profiles",
-            headers=headers,
-            params={"id": f"eq.{user_id}"},
-        )
-        if resp.status_code not in (200, 204):
-            errors.append(f"profiles: {resp.status_code}")
-    except Exception:
-        logger.opt(exception=True).warning("delete_user_data: profiles failed")
-        errors.append("profiles: exception")
 
     if errors:
         logger.warning("delete_user_data partial failure for {}: {}", user_id, errors)
@@ -528,7 +712,21 @@ async def delete_user_account(user_id: str) -> dict:
         "domain_data": "pending",
         "billing": "pending",
         "auth_identity": "pending",
+        "profile": "pending",
     }
+
+    profile_mark_result = await mark_profile_deletion_pending(user_id)
+    if profile_mark_result.get("error"):
+        cleanup["profile"] = "failed"
+        return _account_cleanup_error(
+            phase="profile_delete_mark",
+            details=list(
+                profile_mark_result.get("details")
+                or [str(profile_mark_result["error"])]
+            ),
+            cleanup=cleanup,
+        )
+    cleanup["profile"] = "deletion_pending"
 
     billing_result = await delete_billing_customer_data(user_id)
     if billing_result.get("error"):
@@ -559,5 +757,18 @@ async def delete_user_account(user_id: str) -> dict:
             cleanup=cleanup,
         )
     cleanup["auth_identity"] = str(auth_result.get("status") or "skipped")
+
+    profile_delete_result = await delete_profile_record(user_id)
+    if profile_delete_result.get("error"):
+        cleanup["profile"] = "failed"
+        return _account_cleanup_error(
+            phase="profile_delete_finalize",
+            details=list(
+                profile_delete_result.get("details")
+                or [str(profile_delete_result["error"])]
+            ),
+            cleanup=cleanup,
+        )
+    cleanup["profile"] = "deleted"
 
     return {"status": "deleted", "cleanup": cleanup}

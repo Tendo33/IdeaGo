@@ -32,7 +32,11 @@ from ideago.api.errors import AppError, ErrorCode
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
-from ideago.auth.supabase_admin import check_and_increment_quota
+from ideago.auth.supabase_admin import (
+    check_and_increment_quota,
+    check_quota_available,
+    refund_quota_charge,
+)
 from ideago.notifications.service import notify_quota_warning, notify_report_ready
 from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
@@ -51,6 +55,12 @@ _ACTIVE_STREAM_PING_INTERVAL_SECONDS = 15
 _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS = 10.5
 _EXISTING_SLOT_CONFIRM_POLL_SECONDS = 0.1
 _RESERVE_RETRY_MAX = 3
+
+
+async def _refund_quota_charge_for_report(report_id: str, user_id: str) -> None:
+    refunded = await refund_quota_charge(user_id)
+    if not refunded:
+        logger.warning("Failed to refund quota charge for report {}", report_id)
 
 
 async def _mark_cancelled(report_id: str) -> None:
@@ -120,9 +130,11 @@ async def _run_pipeline(
                 logger.debug("Failed to send report-ready notification")
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
+        await _refund_quota_charge_for_report(report_id, user_id)
         await _mark_cancelled(report_id)
     except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
+        await _refund_quota_charge_for_report(report_id, user_id)
         await cache.put_status(
             report_id,
             "failed",
@@ -193,7 +205,7 @@ async def start_analysis(
             "Unable to reserve analysis slot. Please retry.",
         )
 
-    quota = await check_and_increment_quota(user.id)
+    quota = await check_quota_available(user.id)
     if not quota.allowed:
         app_metrics.increment_event(
             "analysis_start_failed",
@@ -206,27 +218,50 @@ async def start_analysis(
             f"Daily limit reached ({quota.plan_limit} analyses per day)",
         )
 
-    cache = get_cache()
-    await cache.put_status(
-        report_id,
-        "processing",
-        query,
-        message="Analysis is in progress",
-        user_id=user.id,
-    )
+    charged_quota = await check_and_increment_quota(user.id)
+    if not charged_quota.allowed:
+        app_metrics.increment_event(
+            "analysis_start_failed",
+            reason=getattr(charged_quota, "error", "") or "quota_exceeded",
+        )
+        await release_processing_report(report_id)
+        raise AppError(
+            429,
+            ErrorCode.QUOTA_EXCEEDED,
+            f"Daily limit reached ({charged_quota.plan_limit} analyses per day)",
+        )
 
-    get_or_create_report_run(report_id)
+    try:
+        cache = get_cache()
+        await cache.put_status(
+            report_id,
+            "processing",
+            query,
+            message="Analysis is in progress",
+            user_id=user.id,
+        )
 
-    if quota.usage_count >= int(quota.plan_limit * 0.8) and user.email:
-        try:
-            await notify_quota_warning(user.email, quota.usage_count, quota.plan_limit)
-        except Exception:
-            logger.debug("Failed to send quota warning notification")
+        get_or_create_report_run(report_id)
 
-    task = asyncio.create_task(
-        _run_pipeline(query, report_id, user.id, user_email=user.email)
-    )
-    await register_pipeline_task(report_id, task)
+        if (
+            charged_quota.usage_count >= int(charged_quota.plan_limit * 0.8)
+            and user.email
+        ):
+            try:
+                await notify_quota_warning(
+                    user.email, charged_quota.usage_count, charged_quota.plan_limit
+                )
+            except Exception:
+                logger.debug("Failed to send quota warning notification")
+
+        task = asyncio.create_task(
+            _run_pipeline(query, report_id, user.id, user_email=user.email)
+        )
+        await register_pipeline_task(report_id, task)
+    except Exception:
+        await _refund_quota_charge_for_report(report_id, user.id)
+        await release_processing_report(report_id)
+        raise
     return AnalyzeResponse(report_id=report_id)
 
 
@@ -367,7 +402,7 @@ async def _get_effective_owner(report_id: str) -> str:
 
 
 async def _assert_owner_or_deny(report_id: str, user_id: str) -> None:
-    """Raise 403/404 if the report/status belongs to another user or has no owner.
+    """Raise 404 if the report/status belongs to another user or has no owner.
 
     Fail-close: when no owner can be resolved, treat the report as not found.
     """
@@ -375,7 +410,7 @@ async def _assert_owner_or_deny(report_id: str, user_id: str) -> None:
     if not owner_id:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     if owner_id != user_id:
-        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 
 
 @router.get("/reports/{report_id}/stream")
@@ -407,8 +442,8 @@ async def cancel_analysis(
     if task is not None and not task.done():
         task.cancel()
         await _mark_cancelled(report_id)
-        await release_processing_report(report_id)
     else:
+        await _refund_quota_charge_for_report(report_id, user.id)
         await _mark_cancelled(report_id)
         await release_processing_report(report_id)
 

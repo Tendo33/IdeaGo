@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException, Request
 
 from ideago.auth.models import AuthUser
 from ideago.auth.session import AUTH_SESSION_COOKIE_NAME
+from ideago.auth.session_store import is_auth_session_active
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -245,7 +246,17 @@ def _extract_user_from_ideago_payload(payload: dict[str, Any]) -> AuthUser | Non
     if not user_id:
         return None
     role = payload.get("role", "user")
-    return AuthUser(id=user_id, email=payload.get("email", ""), role=role)
+    return AuthUser(
+        id=user_id,
+        email=payload.get("email", ""),
+        role=role,
+        provider=str(payload.get("provider") or ""),
+        session_id=str(payload.get("sid") or ""),
+    )
+
+
+def _profile_blocks_custom_session(profile: dict[str, Any]) -> bool:
+    return bool(profile.get("deletion_pending") or profile.get("deleted_at"))
 
 
 async def _is_custom_session_user_active(user_id: str) -> bool:
@@ -272,7 +283,16 @@ async def _is_custom_session_user_active(user_id: str) -> bool:
 
     if not isinstance(profile, dict):
         return False
-    return not bool(profile.get("error"))
+    error_code = str(profile.get("error") or "")
+    if error_code:
+        if error_code in {"profile_fetch_failed", "network_error"}:
+            logger.debug(
+                "Could not verify custom-session user activity due to transient profile error: {}",
+                error_code,
+            )
+            return True
+        return False
+    return not _profile_blocks_custom_session(profile)
 
 
 def _run_async_for_sync_context(coro: Any) -> Any:
@@ -348,6 +368,10 @@ async def _authenticate_token(token: str) -> AuthUser | None:
         if payload is not None:
             user = _extract_user_from_ideago_payload(payload)
             if user is None:
+                return None
+            if user.session_id and not await is_auth_session_active(
+                user.session_id, user_id=user.id
+            ):
                 return None
             if not await _is_custom_session_user_active(user.id):
                 return None

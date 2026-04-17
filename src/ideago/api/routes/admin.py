@@ -24,11 +24,24 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def admin_list_users(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    q: str = Query(default="", max_length=100),
     _admin: AuthUser = Depends(require_admin),
-) -> list[dict]:
+) -> dict:
     """Paginated user list with quota/plan info."""
     try:
-        return await list_profiles(limit=limit, offset=offset)
+        listed = await list_profiles(limit=limit, offset=offset, q=q)
+        if isinstance(listed, tuple):
+            items, total = listed
+        else:
+            items = listed
+            total = len(items)
+        return {
+            "items": items,
+            "total": total,
+            "has_next": offset + len(items) < total,
+            "limit": limit,
+            "offset": offset,
+        }
     except DependencyUnavailableError:
         raise AppError(
             503,
@@ -74,14 +87,14 @@ async def admin_set_quota(
 
 
 async def _count_table(table: str) -> int:
-    """Count rows in a Supabase table using HEAD + Prefer: count=exact."""
+    """Count rows in a Supabase table using planner estimates."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
         return -1
     headers = {
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
-        "Prefer": "count=exact",
+        "Prefer": "count=planned",
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ReportPage } from '../ReportPage'
-import { getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '@/lib/api/client'
+import { getQuotaInfo, getReportRuntimeStatus, getReportWithStatus, startAnalysis } from '@/lib/api/client'
 import { useSSE } from '@/lib/api/useSSE'
 import i18n from '@/lib/i18n/i18n'
 import type { ResearchReport } from '@/lib/types/research'
@@ -28,6 +28,7 @@ vi.mock('@/lib/api/client', () => ({
   isRequestAbortError: (error: unknown) => error instanceof Error && error.name === 'AbortError',
   getReportWithStatus: vi.fn(),
   getReportRuntimeStatus: vi.fn(),
+  getQuotaInfo: vi.fn(),
   cancelAnalysis: vi.fn(),
   startAnalysis: vi.fn(),
   exportReport: vi.fn(),
@@ -751,7 +752,7 @@ describe('ReportPage', () => {
     fireEvent.click(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') }))
 
     await waitFor(() => {
-      expect(startAnalysis).toHaveBeenCalledWith('AI CRM for recruiters')
+      expect(startAnalysis).toHaveBeenCalledWith('AI CRM for recruiters', undefined)
     })
   })
 
@@ -832,6 +833,12 @@ describe('ReportPage', () => {
     vi.mocked(startAnalysis).mockRejectedValue(
       new ApiError('Analysis failed: limit reached', 429, 'QUOTA_EXCEEDED'),
     )
+    vi.mocked(getQuotaInfo).mockResolvedValue({
+      usage_count: 5,
+      plan_limit: 5,
+      plan: 'daily',
+      reset_at: '2026-04-18T00:00:00+00:00',
+    })
 
     render(
       <MemoryRouter initialEntries={[{ pathname: '/reports/new', state: { query: 'test idea' } }]}>
@@ -847,5 +854,43 @@ describe('ReportPage', () => {
     expect(screen.getByRole('link', { name: /view history/i })).toHaveAttribute('href', '/reports')
     expect(screen.getByRole('link', { name: /view usage/i })).toHaveAttribute('href', '/profile')
     expect(screen.queryByRole('link', { name: /upgrade/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the shared quota warning when restarting a failed report exceeds quota', async () => {
+    vi.mocked(getReportWithStatus).mockResolvedValue({ status: 'missing' })
+    vi.mocked(getReportRuntimeStatus).mockResolvedValue({
+      status: 'failed',
+      report_id: 'retry-report',
+      error_code: 'PIPELINE_FAILURE',
+      message: 'Pipeline failed. Please retry.',
+      query: 'retry this idea',
+    })
+    vi.mocked(startAnalysis).mockRejectedValue(
+      new ApiError('Analysis failed: limit reached', 429, 'QUOTA_EXCEEDED'),
+    )
+    vi.mocked(getQuotaInfo).mockResolvedValue({
+      usage_count: 5,
+      plan_limit: 5,
+      plan: 'daily',
+      reset_at: '2026-04-18T00:00:00+00:00',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/reports/retry-report']}>
+        <Routes>
+          <Route path="/reports/:id" element={<ReportPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const restartButton = await screen.findByRole('button', {
+      name: i18n.t('report.failed.startAgain'),
+    })
+    fireEvent.click(restartButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/daily analysis limit/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/view your saved reports or check your usage details while you wait/i)).toBeInTheDocument()
   })
 })

@@ -359,6 +359,7 @@ export interface ReportListItem {
 export interface PaginatedReportList {
   items: ReportListItem[]
   total: number
+  has_next: boolean
   limit: number | null
   offset: number
 }

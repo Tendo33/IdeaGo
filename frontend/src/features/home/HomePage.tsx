@@ -1,14 +1,15 @@
-import { useEffect, useState, memo, useCallback } from 'react'
+import { memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBox } from './components/SearchBox'
-import { isRequestAbortError, listReports } from '../../lib/api/client'
 import { useTranslation } from 'react-i18next'
 import { Alert } from '../../components/ui/Alert'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { ReportListItem } from '../../lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
-import { readHistoryCache } from '@/features/history/historyCache'
+import { useReportsList } from '@/features/history/useReportsList'
+import { useAuth } from '@/lib/auth/useAuth'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 interface RecentReportItemProps {
   report: ReportListItem;
@@ -44,43 +45,22 @@ const RecentReportItem = memo(function RecentReportItem({ report, idx, onNavigat
   )
 })
 
-import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-
 export function HomePage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
+  const currentUserId = user?.id ?? ''
   const language = i18n.resolvedLanguage ?? i18n.language
-  const [cachedRecentReports] = useState<ReportListItem[] | null>(
-    () => readHistoryCache()?.reports.slice(0, 5) ?? null,
-  )
   useDocumentTitle(`${t('app.title')} — ${t('app.titleHighlight')}`)
-
-  const [recentReports, setRecentReports] = useState<ReportListItem[]>(() => cachedRecentReports ?? [])
-  const [recentReportsLoading, setRecentReportsLoading] = useState(() => cachedRecentReports === null)
-  const [recentReportsError, setRecentReportsError] = useState<string | null>(null)
 
   const handleNavigate = useCallback((id: string) => {
     navigate(`/reports/${id}`)
   }, [navigate])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    listReports({ limit: 5, offset: 0, signal: controller.signal })
-      .then(({ items }) => {
-        setRecentReports(items)
-        setRecentReportsError(null)
-      })
-      .catch(error => {
-        if (isRequestAbortError(error)) return
-        setRecentReportsError(t('home.errorLoadRecent'))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setRecentReportsLoading(false)
-        }
-      })
-    return () => controller.abort()
-  }, [cachedRecentReports, t])
+  const {
+    reports: recentReports,
+    loading: recentReportsLoading,
+    error: visibleRecentReportsError,
+  } = useReportsList({ userId: currentUserId, limit: 5 })
 
   const handleSubmit = useCallback((query: string) => {
     const validation = SearchBox.validateQuery(query)
@@ -137,13 +117,13 @@ export function HomePage() {
             {t('home.recentResearch')}
           </h2>
 
-          {recentReportsError && (
+          {visibleRecentReportsError && (
             <Alert variant="warning" className="mb-6">
-              <span className="font-bold">{recentReportsError}</span>
+              <span className="font-bold">{visibleRecentReportsError}</span>
             </Alert>
           )}
 
-          {!recentReportsError && recentReportsLoading && recentReports.length === 0 && (
+          {!visibleRecentReportsError && recentReportsLoading && recentReports.length === 0 && (
             <div className="space-y-3" aria-label={t('loading.page')}>
               {Array.from({ length: 3 }).map((_, index) => (
                 <div
@@ -169,7 +149,7 @@ export function HomePage() {
             </div>
           )}
 
-          {!recentReportsError && !recentReportsLoading && recentReports.length === 0 && (
+          {!visibleRecentReportsError && !recentReportsLoading && recentReports.length === 0 && (
             <div className="py-12 px-6 text-center border-2 border-dashed border-border">
               <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 {t('history.emptyState')}

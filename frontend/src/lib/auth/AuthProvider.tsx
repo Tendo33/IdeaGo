@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session as SupabaseSession } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 import { setAccessToken } from '@/lib/auth/token'
 import { AuthContext } from './AuthContext'
 import type { AuthSession } from './AuthContext'
 import { getMe, getMyProfile, logoutAuthSession } from '@/lib/api/client'
+import { clearHistoryCache } from '@/features/history/historyCache'
 
 function toSupabaseSession(session: SupabaseSession): AuthSession {
   return {
@@ -24,21 +25,25 @@ function shouldRecoverCookieSession(pathname: string): boolean {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<string>('user')
+  const [role, setRole] = useState<string>('')
   const [roleLoading, setRoleLoading] = useState(false)
+  const [roleError, setRoleError] = useState<string | null>(null)
+  const previousUserIdRef = useRef<string>('')
 
   const applySupabaseSession = useCallback((nextSession: SupabaseSession) => {
     setSession(toSupabaseSession(nextSession))
     setAccessToken(nextSession.access_token)
-    setRole('user')
+    setRole('')
     setRoleLoading(true)
+    setRoleError(null)
   }, [])
 
   const applyCustomSession = useCallback((nextSession: AuthSession) => {
     setSession(nextSession)
     setAccessToken(nextSession.access_token || null)
-    setRole('user')
+    setRole('')
     setRoleLoading(true)
+    setRoleError(null)
     setLoading(false)
   }, [])
 
@@ -57,8 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setSession(null)
     setAccessToken(null)
-    setRole('user')
+    setRole('')
     setRoleLoading(false)
+    setRoleError(null)
+    clearHistoryCache()
   }, [session])
 
   const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
@@ -94,8 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null)
       if (!shouldRecoverCookieSession(window.location.pathname)) {
         setSession(null)
-        setRole('user')
+        setRole('')
         setRoleLoading(false)
+        setRoleError(null)
         setLoading(false)
         return
       }
@@ -109,11 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: { id: me.id, email: me.email ?? '' },
         })
         setRoleLoading(true)
+        setRoleError(null)
       } catch {
         if (cancelled) return
         setSession(null)
-        setRole('user')
+        setRole('')
         setRoleLoading(false)
+        setRoleError(null)
+        clearHistoryCache()
       } finally {
         if (!cancelled) {
           setLoading(false)
@@ -144,9 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user?.id
   useEffect(() => {
+    const previousUserId = previousUserIdRef.current
+    if (!userId || (previousUserId && previousUserId !== userId)) {
+      clearHistoryCache()
+    }
+    previousUserIdRef.current = userId ?? ''
+  }, [userId])
+
+  useEffect(() => {
     if (!userId) {
-      setRole('user')
+      setRole('')
       setRoleLoading(false)
+      setRoleError(null)
       return
     }
 
@@ -160,15 +180,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (profile.role) {
           setRole(profile.role)
-        } else {
-          setRole('user')
         }
+        setRoleError(null)
         setRoleLoading(false)
       })
       .catch(error => {
         if (cancelled) return
         console.warn('Failed to hydrate auth profile', error)
-        setRole('user')
+        setRole(previous => previous)
+        setRoleError(error instanceof Error ? error.message : 'Failed to hydrate auth profile')
         setRoleLoading(false)
       })
     return () => {
@@ -186,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: effectiveRole,
         loading,
         roleLoading,
+        roleError,
         signOut,
         applyCustomSession,
         patchUser,

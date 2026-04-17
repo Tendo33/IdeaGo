@@ -74,7 +74,8 @@ class PaginatedReportList(BaseModel):
     """Paginated response for the reports list endpoint."""
 
     items: list[ReportListItem]
-    total: int
+    total: int = 0
+    has_next: bool = False
     limit: int | None = None
     offset: int = 0
 

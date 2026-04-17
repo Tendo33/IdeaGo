@@ -672,6 +672,7 @@
   "quota": {
     "exceeded": "您已达到今日分析次数上限。",
     "upgradeHint": "配额将在明天重置后恢复，届时您可以继续发起分析。",
+    "upgradeHintWithReset": "配额将在 {{resetAt}} 重置后恢复，届时您可以继续发起分析。",
     "reviewHistoryHint": "等待期间，您可以先查看历史报告或当前配额详情。",
     "viewHistory": "查看历史",
     "viewUsage": "查看用量",
@@ -703,11 +704,15 @@
     "menuLabel": "管理",
     "forbidden": "无权访问",
     "forbiddenMessage": "您没有访问此页面的权限。",
+    "roleUnknownTitle": "暂时无法确认管理权限",
+    "roleUnknownMessage": "当前无法确认您的管理员权限，请稍后重试。",
     "totalUsers": "用户数",
     "totalReports": "报告数",
     "activeProcessing": "处理中",
     "planBreakdown": "套餐分布",
     "usersTitle": "用户列表",
+    "searchPlaceholder": "按名称或 ID 搜索",
+    "resultsSummary": "{{count}} 位用户",
     "noUsers": "未找到用户。",
     "userFallbackName": "未命名用户",
     "actions": {

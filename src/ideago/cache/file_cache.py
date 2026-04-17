@@ -181,15 +181,15 @@ class FileCache:
         offset: int = 0,
         user_id: str = "",
         q: str = "",
-    ) -> tuple[list[ReportIndex], int]:
+    ) -> tuple[list[ReportIndex], bool, int]:
         """List cached reports, excluding expired entries.
 
         When *user_id* is provided, only reports belonging to that user are
         returned.
 
         Returns:
-            Tuple of (entries, total_count) where total_count is the full
-            count before pagination.
+            Tuple of (entries, has_next_page, total_count) where total_count is
+            the full count before pagination.
         """
         return await asyncio.to_thread(
             self._list_reports_sync, limit, offset, user_id, q
@@ -201,7 +201,7 @@ class FileCache:
         offset: int = 0,
         user_id: str = "",
         q: str = "",
-    ) -> tuple[list[ReportIndex], int]:
+    ) -> tuple[list[ReportIndex], bool, int]:
         with self._index_lock:
             index = self._read_index()
         reports = [
@@ -216,11 +216,13 @@ class FileCache:
             reports = [e for e in reports if normalized_q in e.query.lower()]
         reports.sort(key=lambda entry: entry.created_at, reverse=True)
         total = len(reports)
+        has_next = False
         if offset > 0:
             reports = reports[offset:]
         if limit is not None:
+            has_next = len(reports) > limit
             reports = reports[:limit]
-        return reports, total
+        return reports, has_next, total
 
     async def update_report_user_id(self, report_id: str, user_id: str) -> None:
         """Associate a report with a user in the index."""

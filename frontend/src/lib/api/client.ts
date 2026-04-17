@@ -49,6 +49,8 @@ export {
   adminSetQuota,
   type AdminStats,
   type AdminUser,
+  type AdminUserQuotaUpdate,
+  type PaginatedAdminUsers,
 } from './adminClient'
 
 import {

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, memo, useRef, useId } from 'react'
+import { useEffect, useState, memo, useId } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
-import { deleteReport, isRequestAbortError, listReports } from '@/lib/api/client'
+import { deleteReport } from '@/lib/api/client'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Alert } from '@/components/ui/Alert'
@@ -10,7 +10,8 @@ import { Button, buttonVariants } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import type { ReportListItem } from '@/lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
-import { readHistoryCache, writeHistoryCache, type HistoryCacheSnapshot } from '@/features/history/historyCache'
+import { useAuth } from '@/lib/auth/useAuth'
+import { useReportsList } from '@/features/history/useReportsList'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -64,22 +65,30 @@ const HistoryReportCard = memo(function HistoryReportCard({ report, isDeleting, 
 
 export function HistoryPage() {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
   const language = i18n.resolvedLanguage ?? i18n.language
-  const [initialCache] = useState<HistoryCacheSnapshot | null>(() => readHistoryCache())
+  const currentUserId = user?.id ?? ''
   useDocumentTitle(t('history.title') + ' — IdeaGo')
-  const [reports, setReports] = useState<ReportListItem[]>(() => initialCache?.reports ?? [])
-  const [loading, setLoading] = useState(() => initialCache === null)
-  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [reportToDelete, setReportToDelete] = useState<string | null>(null)
-  const initialCacheUsedRef = useRef(false)
   const titleId = useId()
   const descriptionId = useId()
-  const [pageIndex, setPageIndex] = useState(() => initialCache?.pageIndex ?? 0)
-  const [hasNextPage, setHasNextPage] = useState(() => initialCache?.hasNextPage ?? false)
+  const [pageIndex, setPageIndex] = useState(0)
   const hasActiveSearch = searchQuery.trim().length > 0 || debouncedQuery.length > 0
+  const {
+    reports,
+    hasNextPage,
+    loading,
+    error,
+    refresh,
+  } = useReportsList({
+    userId: currentUserId,
+    limit: PAGE_SIZE,
+    pageIndex,
+    query: debouncedQuery,
+  })
   const showSearchInput = !loading || hasActiveSearch
 
   useEffect(() => {
@@ -93,60 +102,12 @@ export function HistoryPage() {
     setPageIndex(0)
   }, [debouncedQuery])
 
-  const loadPage = useCallback(async (targetPage: number, signal?: AbortSignal) => {
-    const { items, total } = await listReports({
-      limit: PAGE_SIZE,
-      offset: targetPage * PAGE_SIZE,
-      q: debouncedQuery,
-      signal,
-    })
-    return {
-      reports: items,
-      hasNext: (targetPage + 1) * PAGE_SIZE < total,
-    }
-  }, [debouncedQuery])
-
   useEffect(() => {
-    const controller = new AbortController()
-    const canHydrateFromCache =
-      !initialCacheUsedRef.current &&
-      initialCache !== null &&
-      initialCache.pageIndex === pageIndex &&
-      debouncedQuery.length === 0
-
-    initialCacheUsedRef.current = true
-    if (!canHydrateFromCache) {
-      setLoading(true)
+    if (loading || error || reports.length > 0 || pageIndex === 0 || hasNextPage) {
+      return
     }
-
-    loadPage(pageIndex, controller.signal)
-      .then(({ reports: nextReports, hasNext }) => {
-        if (!controller.signal.aborted && nextReports.length === 0 && pageIndex > 0) {
-          setPageIndex(previous => Math.max(0, previous - 1))
-          return
-        }
-        setReports(nextReports)
-        setHasNextPage(hasNext)
-        setError(null)
-        if (!debouncedQuery) {
-          writeHistoryCache({
-            pageIndex,
-            hasNextPage: hasNext,
-            reports: nextReports,
-          })
-        }
-      })
-      .catch(error => {
-        if (isRequestAbortError(error)) return
-        setError(error instanceof Error ? error.message : t('history.errorLoad'))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false)
-        }
-      })
-    return () => controller.abort()
-  }, [debouncedQuery, initialCache, loadPage, pageIndex, t])
+    setPageIndex(previous => Math.max(0, previous - 1))
+  }, [error, hasNextPage, loading, pageIndex, reports.length])
 
   const handleDeleteClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -164,32 +125,17 @@ export function HistoryPage() {
       next.add(id)
       return next
     })
-    setError(null)
 
     try {
       await deleteReport(id)
       toast.success(t('history.deleted', 'Report deleted'))
-      const targetPage = reports.length === 1 && pageIndex > 0 ? pageIndex - 1 : pageIndex
-      if (targetPage !== pageIndex) {
-        setPageIndex(targetPage)
-        return
+      if (reports.length === 1 && pageIndex > 0) {
+        setPageIndex(previous => Math.max(0, previous - 1))
+      } else {
+        await refresh()
       }
-
-      const { reports: refreshed, hasNext } = await loadPage(targetPage)
-      if (refreshed.length === 0 && targetPage > 0) {
-        setPageIndex(targetPage - 1)
-        return
-      }
-      setReports(refreshed)
-      setHasNextPage(hasNext)
-      writeHistoryCache({
-        pageIndex: targetPage,
-        hasNextPage: hasNext,
-        reports: refreshed,
-      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('history.errorDelete')
-      setError(msg)
       toast.error(msg)
     } finally {
       setDeletingIds(previous => {

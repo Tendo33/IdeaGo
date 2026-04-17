@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import contextlib
-
 import httpx
 
 from ideago.api.errors import DependencyUnavailableError
@@ -161,6 +159,10 @@ class SupabaseReportRepository:
             logger.warning(
                 "Supabase put report failed: {} {}", resp.status_code, resp.text
             )
+            raise DependencyUnavailableError(
+                "report_persist_failed",
+                dependency="supabase_reports",
+            )
 
     async def delete(self, report_id: str, *, user_id: str = "") -> bool:
         if not user_id:
@@ -174,10 +176,22 @@ class SupabaseReportRepository:
             headers=self._headers(),
             params=params,
         )
+        if resp.status_code not in (200, 204):
+            return False
+        await client.delete(
+            self._url("report_status"),
+            headers=self._headers(),
+            params={"report_id": f"eq.{report_id}"},
+        )
+        await client.delete(
+            self._url("processing_reports"),
+            headers=self._headers(),
+            params={"report_id": f"eq.{report_id}"},
+        )
         if resp.status_code == 200:
             rows = resp.json()
             return len(rows) > 0 if isinstance(rows, list) else True
-        return resp.status_code == 204
+        return True
 
     async def list_reports(
         self,
@@ -186,8 +200,9 @@ class SupabaseReportRepository:
         offset: int = 0,
         user_id: str = "",
         q: str = "",
-    ) -> tuple[list[ReportIndex], int]:
+    ) -> tuple[list[ReportIndex], bool, int]:
         client = self._get_client()
+        requested_limit = limit
         params: dict[str, str] = {
             "select": "id,query,cache_key,created_at,competitor_count,user_id",
             "order": "created_at.desc",
@@ -198,7 +213,7 @@ class SupabaseReportRepository:
         if normalized_q:
             params["query"] = f"ilike.*{normalized_q}*"
         if limit is not None:
-            params["limit"] = str(limit)
+            params["limit"] = str(limit + 1)
         if offset > 0:
             params["offset"] = str(offset)
 
@@ -217,13 +232,11 @@ class SupabaseReportRepository:
                 "report_list_failed", dependency="supabase_reports"
             )
 
-        total = 0
-        content_range = resp.headers.get("content-range", "")
-        if "/" in content_range:
-            with contextlib.suppress(ValueError, IndexError):
-                total = int(content_range.rsplit("/", 1)[1])
-
         rows = resp.json()
+        has_next = False
+        if requested_limit is not None and len(rows) > requested_limit:
+            rows = rows[:requested_limit]
+            has_next = True
         result: list[ReportIndex] = []
         for row in rows:
             try:
@@ -239,9 +252,13 @@ class SupabaseReportRepository:
                 )
             except Exception:
                 continue
-        if not total:
-            total = len(result)
-        return result, total
+        content_range = resp.headers.get("content-range", "")
+        total = 0
+        if "/" in content_range:
+            total_raw = content_range.split("/")[-1]
+            if total_raw.isdigit():
+                total = int(total_raw)
+        return result, has_next, total
 
     # ── User ownership ───────────────────────────────────────────
 

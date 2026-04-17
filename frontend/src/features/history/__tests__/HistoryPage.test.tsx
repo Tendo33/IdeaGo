@@ -12,8 +12,19 @@ vi.mock('@/lib/api/client', () => ({
   listReports: vi.fn(),
 }))
 
-function paginated(items: Array<{ id: string; query: string; created_at: string; competitor_count: number }>, total?: number) {
-  return { items, total: total ?? items.length, limit: 20, offset: 0 }
+let mockUser: { id: string; email: string } | null = { id: 'user-1', email: 'user@example.com' }
+
+vi.mock('@/lib/auth/useAuth', () => ({
+  useAuth: () => ({
+    user: mockUser,
+  }),
+}))
+
+function paginated(
+  items: Array<{ id: string; query: string; created_at: string; competitor_count: number }>,
+  hasNext = false,
+) {
+  return { items, total: items.length, has_next: hasNext, limit: 20, offset: 0 }
 }
 
 describe('HistoryPage', () => {
@@ -21,6 +32,7 @@ describe('HistoryPage', () => {
     vi.clearAllMocks()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     window.sessionStorage.clear()
+    mockUser = { id: 'user-1', email: 'user@example.com' }
   })
 
   it('shows deleting state and prevents duplicate delete clicks', async () => {
@@ -93,9 +105,9 @@ describe('HistoryPage', () => {
     ]
 
     vi.mocked(listReports)
-      .mockResolvedValueOnce(paginated(firstPage, 21))
-      .mockResolvedValueOnce(paginated(secondPage, 21))
-      .mockResolvedValueOnce(paginated(firstPage, 21))
+      .mockResolvedValueOnce(paginated(firstPage, true))
+      .mockResolvedValueOnce(paginated(secondPage, false))
+      .mockResolvedValueOnce(paginated(firstPage, true))
 
     render(
       <MemoryRouter initialEntries={['/history']}>
@@ -143,9 +155,10 @@ describe('HistoryPage', () => {
     }))
 
     vi.mocked(listReports)
-      .mockResolvedValueOnce(paginated(firstPage, 21))
-      .mockResolvedValueOnce(paginated([], 20))
-      .mockResolvedValueOnce(paginated(firstPage, 20))
+      .mockResolvedValueOnce(paginated(firstPage, true))
+      .mockResolvedValueOnce(paginated([], false))
+      .mockResolvedValueOnce(paginated(firstPage, false))
+      .mockResolvedValue(paginated(firstPage, false))
 
     render(
       <MemoryRouter initialEntries={['/history']}>
@@ -213,8 +226,11 @@ describe('HistoryPage', () => {
 
   it('renders cached history immediately while refreshing in the background', async () => {
     window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify({
+      userId: 'user-1',
       pageIndex: 0,
+      limit: 20,
       hasNextPage: false,
+      total: 1,
       reports: [
         {
           id: 'cached-report',
@@ -244,6 +260,90 @@ describe('HistoryPage', () => {
     expect(screen.getByText('Cached report')).toBeInTheDocument()
   })
 
+  it('hydrates cached history after auth bootstrap completes', async () => {
+    window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify({
+      userId: 'user-1',
+      pageIndex: 0,
+      limit: 20,
+      hasNextPage: false,
+      total: 1,
+      reports: [
+        {
+          id: 'cached-report',
+          query: 'Hydrated cached history',
+          created_at: new Date().toISOString(),
+          competitor_count: 5,
+        },
+      ],
+    }))
+    mockUser = null
+
+    vi.mocked(listReports).mockImplementation(
+      () =>
+        new Promise(() => {
+          // keep pending so the test only observes cache hydration
+        }),
+    )
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText('Hydrated cached history')).not.toBeInTheDocument()
+
+    mockUser = { id: 'user-1', email: 'user@example.com' }
+    rerender(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Hydrated cached history')).toBeInTheDocument()
+  })
+
+  it('keeps next-page navigation enabled when history is seeded from a smaller cache snapshot', async () => {
+    window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify({
+      userId: 'user-1',
+      pageIndex: 0,
+      limit: 5,
+      hasNextPage: false,
+      total: 20,
+      reports: Array.from({ length: 5 }, (_, index) => ({
+        id: `cached-${index + 1}`,
+        query: `Cached report ${index + 1}`,
+        created_at: new Date().toISOString(),
+        competitor_count: 2,
+      })),
+    }))
+
+    vi.mocked(listReports).mockImplementation(
+      () =>
+        new Promise(() => {
+          // keep pending so the test only observes the seeded cache state
+        }),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Cached report 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next/i })).toBeEnabled()
+  })
+
   it('keeps the search input visible when a query returns zero matches', async () => {
     vi.mocked(listReports)
       .mockResolvedValueOnce(
@@ -256,7 +356,7 @@ describe('HistoryPage', () => {
           },
         ]),
       )
-      .mockResolvedValueOnce(paginated([], 0))
+      .mockResolvedValueOnce(paginated([], false))
 
     render(
       <MemoryRouter initialEntries={['/history']}>

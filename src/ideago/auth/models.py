@@ -16,3 +16,5 @@ class AuthUser(BaseModel):
     id: str = Field(description="Supabase user UUID")
     email: str = Field(default="", description="User email address")
     role: str = Field(default="user", description="User role: 'user' or 'admin'")
+    provider: str = Field(default="", description="Auth provider")
+    session_id: str = Field(default="", description="Backend-managed custom session id")

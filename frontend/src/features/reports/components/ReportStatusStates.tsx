@@ -3,11 +3,11 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, RefreshCw, Waves } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { startAnalysis } from '@/lib/api/client'
 import type { ResearchReport } from '@/lib/types/research'
 import { normalizeSourceErrorMessage } from '@/lib/utils/sourceErrorMessage'
 import { buttonVariants } from '@/components/ui/Button'
 import { broadenQuery } from './query'
+import { useCreateAnalysis } from '@/features/reports/hooks/useCreateAnalysis'
 
 export function BlueOceanState({ query }: { query: string }) {
   const navigate = useNavigate()
@@ -15,13 +15,14 @@ export function BlueOceanState({ query }: { query: string }) {
   const [broadenError, setBroadenError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const reduceMotion = useReducedMotion()
+  const { createAnalysis } = useCreateAnalysis()
 
   const handleBroaden = async () => {
     if (isSubmitting) return
     setIsSubmitting(true)
     setBroadenError(null)
     try {
-      const { report_id } = await startAnalysis(broadenQuery(query))
+      const { report_id } = await createAnalysis(broadenQuery(query))
       navigate(`/reports/${report_id}`)
     } catch (error) {
       setBroadenError(error instanceof Error ? error.message : t('report.error.broaden'))

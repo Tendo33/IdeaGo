@@ -29,11 +29,31 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
-  const { user, role, loading, roleLoading } = useAuth()
+  const { user, role, loading, roleLoading, roleError } = useAuth()
   const location = useLocation()
 
   if (loading || (user !== null && roleLoading)) return <RouteLoadingSpinner />
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!role) {
+    return (
+      <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
+        <div className="max-w-xl w-full border-4 border-warning bg-warning/10 p-8 md:p-16 shadow-lg text-center">
+          <ShieldOff className="w-16 h-16 text-warning mx-auto mb-6" aria-hidden="true" />
+          <h1 className="text-3xl font-black uppercase tracking-tight mb-4 text-warning">
+            {t('admin.roleUnknownTitle', 'Admin access could not be verified')}
+          </h1>
+          <p className="text-lg font-bold text-warning/80 mb-4">
+            {t('admin.roleUnknownMessage', 'We could not verify your admin role right now. Please retry in a moment.')}
+          </p>
+          {roleError && <p className="mb-8 text-sm text-warning/90">{roleError}</p>}
+          <Link to="/" className={buttonVariants({ variant: 'warning', size: 'lg' })}>
+            <ArrowLeft className="w-5 h-5 mr-3" aria-hidden="true" />
+            {t('error.backToHome')}
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (role !== 'admin') {
     return (

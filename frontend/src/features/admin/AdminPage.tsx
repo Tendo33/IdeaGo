@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Users, FileText, Loader2, Activity, Save } from 'lucide-react'
@@ -13,6 +13,7 @@ import {
   adminSetQuota,
   type AdminStats,
   type AdminUser,
+  type AdminUserQuotaUpdate,
 } from '@/lib/api/client'
 import { formatAppDate } from '@/lib/utils/dateLocale'
 
@@ -48,7 +49,15 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string |
   )
 }
 
-function UserRow({ user, onQuotaSaved, language }: { user: AdminUser; onQuotaSaved: () => void; language: string }) {
+function UserRow({
+  user,
+  onQuotaSaved,
+  language,
+}: {
+  user: AdminUser
+  onQuotaSaved: (user: AdminUserQuotaUpdate) => void
+  language: string
+}) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [limit, setLimit] = useState(String(user.plan_limit))
@@ -62,10 +71,10 @@ function UserRow({ user, onQuotaSaved, language }: { user: AdminUser; onQuotaSav
     setSaving(true)
     setError('')
     try {
-      await adminSetQuota(user.id, { plan_limit: Number(limit) })
+      const updated = await adminSetQuota(user.id, { plan_limit: Number(limit) })
       setEditing(false)
       toast.success(t('admin.messages.quotaUpdated', { name: quotaTargetName }))
-      onQuotaSaved()
+      onQuotaSaved(updated)
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('admin.messages.unknownError')
       setError(msg)
@@ -147,20 +156,51 @@ export function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [total, setTotal] = useState(0)
+  const latestLoadIdRef = useRef(0)
+  const PAGE_SIZE = 25
 
   const load = useCallback(async () => {
+    const loadId = latestLoadIdRef.current + 1
+    latestLoadIdRef.current = loadId
     setLoading(true)
     setError('')
     try {
-      const [s, u] = await Promise.all([adminGetStats(), adminListUsers({ limit: 100 })])
+      const [s, u] = await Promise.all([
+        adminGetStats(),
+        adminListUsers({
+          limit: PAGE_SIZE,
+          offset: pageIndex * PAGE_SIZE,
+          q: searchQuery,
+        }),
+      ])
+      if (latestLoadIdRef.current !== loadId) {
+        return
+      }
       setStats(s)
-      setUsers(u)
+      setUsers(u.items)
+      setHasNextPage(u.has_next)
+      setTotal(u.total)
     } catch (e) {
+      if (latestLoadIdRef.current !== loadId) {
+        return
+      }
       setError(e instanceof Error ? e.message : t('admin.messages.loadError'))
     } finally {
-      setLoading(false)
+      if (latestLoadIdRef.current === loadId) {
+        setLoading(false)
+      }
     }
-  }, [t])
+  }, [pageIndex, searchQuery, t])
+
+  const handleQuotaSaved = useCallback((updatedUser: AdminUserQuotaUpdate) => {
+    setUsers(previous =>
+      previous.map(user => (user.id === updatedUser.id ? { ...user, ...updatedUser } : user)),
+    )
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -208,6 +248,22 @@ export function AdminPage() {
               {t('admin.usersTitle')}
             </h2>
 
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => {
+                  setPageIndex(0)
+                  setSearchQuery(event.target.value)
+                }}
+                placeholder={t('admin.searchPlaceholder', 'Search by name or ID')}
+                className="w-full md:w-80 border-2 border-border bg-background px-4 py-3 text-sm font-bold focus:outline-none focus:ring-0 focus:border-primary"
+              />
+              <p className="text-sm font-bold text-muted-foreground">
+                {t('admin.resultsSummary', { count: total })}
+              </p>
+            </div>
+
             <div className="overflow-x-auto border-4 border-border">
               <table className="w-full text-left">
                 <thead>
@@ -223,7 +279,7 @@ export function AdminPage() {
                 </thead>
                 <tbody>
                   {users.map(user => (
-                    <UserRow key={user.id} user={user} onQuotaSaved={load} language={language} />
+                    <UserRow key={user.id} user={user} onQuotaSaved={handleQuotaSaved} language={language} />
                   ))}
                 </tbody>
               </table>
@@ -233,6 +289,30 @@ export function AdminPage() {
               <p className="text-center text-muted-foreground py-8 font-bold">
                 {t('admin.noUsers')}
               </p>
+            )}
+
+            {(users.length > 0 || pageIndex > 0) && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setPageIndex(previous => Math.max(0, previous - 1))}
+                  disabled={pageIndex === 0 || loading}
+                >
+                  {t('history.previous', 'Previous')}
+                </Button>
+                <span className="text-sm font-bold text-muted-foreground">
+                  {pageIndex + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setPageIndex(previous => previous + 1)}
+                  disabled={!hasNextPage || loading}
+                >
+                  {t('history.next', 'Next')}
+                </Button>
+              </div>
             )}
           </>
         )}

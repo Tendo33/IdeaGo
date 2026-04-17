@@ -123,8 +123,9 @@ async def test_cache_list_reports(tmp_path) -> None:
     await cache.put(_make_report("key1", "idea 1"))
     await cache.put(_make_report("key2", "idea 2"))
 
-    reports, total = await cache.list_reports()
+    reports, has_next, total = await cache.list_reports()
     assert len(reports) == 2
+    assert has_next is False
     assert total == 2
 
 
@@ -135,8 +136,11 @@ async def test_cache_list_reports_pagination_and_user_filter(tmp_path) -> None:
     await cache.put(_make_report("key2", "idea 2"), user_id="user-b")
     await cache.put(_make_report("key3", "idea 3"), user_id="user-a")
 
-    reports, total = await cache.list_reports(limit=1, offset=1, user_id="user-a")
+    reports, has_next, total = await cache.list_reports(
+        limit=1, offset=1, user_id="user-a"
+    )
     assert total == 2
+    assert has_next is False
     assert len(reports) == 1
     assert reports[0].user_id == "user-a"
 
@@ -153,7 +157,7 @@ async def test_cache_delete(tmp_path) -> None:
     result = await cache.get_by_id(report.id)
     assert result is None
 
-    reports, _ = await cache.list_reports()
+    reports, _, _ = await cache.list_reports()
     assert len(reports) == 0
 
 
@@ -203,7 +207,7 @@ async def test_cache_cleanup_expired(tmp_path) -> None:
     removed = await cache.cleanup_expired()
     assert removed == 1
 
-    reports, _ = await cache.list_reports()
+    reports, _, _ = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "fresh"
 
@@ -266,7 +270,7 @@ async def test_cache_overwrites_same_cache_key(tmp_path) -> None:
     r2 = _make_report("same_key", "second query")
     await cache.put(r2)
 
-    reports, _ = await cache.list_reports()
+    reports, _, _ = await cache.list_reports()
     assert len(reports) == 1
     assert reports[0].query == "second query"
 
@@ -285,8 +289,9 @@ async def test_cache_eviction_update_owner_and_status_edge_cases(tmp_path) -> No
     await cache.put(second, user_id="owner")
     await cache.put(third)
 
-    reports, total = await cache.list_reports()
+    reports, has_next, total = await cache.list_reports()
     assert total == 2
+    assert has_next is False
     assert all(entry.report_id != first.id for entry in reports)
 
     await cache.update_report_user_id(third.id, "new-owner")
@@ -354,7 +359,7 @@ async def test_cache_concurrent_put_preserves_all_entries(tmp_path) -> None:
     with patch.object(cache, "_read_index", side_effect=synchronized_read_index):
         await asyncio.gather(*(cache.put(report) for report in reports))
 
-    entries, _ = await cache.list_reports()
+    entries, _, _ = await cache.list_reports()
     assert len(entries) == len(reports)
 
 
@@ -477,8 +482,11 @@ async def test_supabase_repo_put_list_and_delete() -> None:
 
     with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
         await repo.put(report)
-        rows, total = await repo.list_reports(limit=10, offset=0, user_id="user-1")
+        rows, has_next, total = await repo.list_reports(
+            limit=10, offset=0, user_id="user-1"
+        )
         assert len(rows) == 1
+        assert has_next is False
         assert total == 1
         deleted = await repo.delete(report.id)
         assert deleted is True
@@ -516,8 +524,11 @@ async def test_supabase_repo_list_reports_accepts_partial_content() -> None:
     repo._client = fake_client
 
     with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
-        rows, total = await repo.list_reports(limit=5, offset=0, user_id="user-1")
+        rows, has_next, total = await repo.list_reports(
+            limit=5, offset=0, user_id="user-1"
+        )
         assert len(rows) == 1
+        assert has_next is False
         assert total == 6
 
 
@@ -545,6 +556,10 @@ async def test_supabase_repo_put_list_and_delete_error_paths() -> None:
         side_effect=[
             _FakeResponse(204),
             _FakeResponse(200, payload=[]),
+            _FakeResponse(204),
+            _FakeResponse(200, payload=[]),
+            _FakeResponse(200, payload=[]),
+            _FakeResponse(204),
         ]
     )
     fake_settings = type(
@@ -559,11 +574,13 @@ async def test_supabase_repo_put_list_and_delete_error_paths() -> None:
     with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
         repo = SupabaseReportRepository(ttl_hours=24)
         repo._client = fake_client
-        await repo.put(report, user_id="user-1")
+        with pytest.raises(DependencyUnavailableError):
+            await repo.put(report, user_id="user-1")
         with pytest.raises(DependencyUnavailableError):
             await repo.list_reports(limit=10, offset=0)
-        rows, total = await repo.list_reports(limit=10, offset=0)
+        rows, has_next, total = await repo.list_reports(limit=10, offset=0)
         assert rows == []
+        assert has_next is False
         assert total == 0
         assert await repo.delete(report.id) is True
         assert await repo.delete(report.id) is False

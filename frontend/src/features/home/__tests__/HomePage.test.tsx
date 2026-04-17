@@ -14,6 +14,14 @@ vi.mock('@/features/home/components/SearchBox', () => ({
   SearchBox: () => <div>SEARCH_BOX</div>,
 }))
 
+let mockUser: { id: string; email: string } | null = { id: 'user-1', email: 'user@example.com' }
+
+vi.mock('@/lib/auth/useAuth', () => ({
+  useAuth: () => ({
+    user: mockUser,
+  }),
+}))
+
 vi.mock('@/hooks/useDocumentTitle', () => ({
   useDocumentTitle: vi.fn(),
 }))
@@ -24,14 +32,18 @@ describe('HomePage recent reports', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     window.sessionStorage.clear()
+    mockUser = { id: 'user-1', email: 'user@example.com' }
   })
 
   it('renders cached recent reports immediately', () => {
     window.sessionStorage.setItem(
       HISTORY_CACHE_STORAGE_KEY,
       JSON.stringify({
+        userId: 'user-1',
         pageIndex: 0,
+        limit: 5,
         hasNextPage: false,
+        total: 1,
         reports: [
           {
             id: 'cached-report',
@@ -76,5 +88,87 @@ describe('HomePage recent reports', () => {
 
     expect(screen.queryByText(i18n.t('history.emptyState'))).not.toBeInTheDocument()
     expect(screen.getByLabelText(i18n.t('loading.page'))).toBeInTheDocument()
+  })
+
+  it('hydrates cached recent reports after auth bootstrap completes', () => {
+    window.sessionStorage.setItem(
+      HISTORY_CACHE_STORAGE_KEY,
+      JSON.stringify({
+        userId: 'user-1',
+        pageIndex: 0,
+        limit: 5,
+        hasNextPage: false,
+        total: 1,
+        reports: [
+          {
+            id: 'cached-report',
+            query: 'Hydrated cached report',
+            created_at: new Date().toISOString(),
+            competitor_count: 4,
+          },
+        ],
+      }),
+    )
+    mockUser = null
+
+    vi.mocked(listReports).mockImplementation(
+      () =>
+        new Promise(() => {
+          // keep pending; hydration should come from cache after rerender
+        }),
+    )
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText('Hydrated cached report')).not.toBeInTheDocument()
+
+    mockUser = { id: 'user-1', email: 'user@example.com' }
+    rerender(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Hydrated cached report')).toBeInTheDocument()
+  })
+
+  it('clips oversized shared cache to the recent reports limit', () => {
+    window.sessionStorage.setItem(
+      HISTORY_CACHE_STORAGE_KEY,
+      JSON.stringify({
+        userId: 'user-1',
+        pageIndex: 0,
+        limit: 20,
+        hasNextPage: false,
+        total: 20,
+        reports: Array.from({ length: 20 }, (_, index) => ({
+          id: `report-${index + 1}`,
+          query: `Shared cached report ${index + 1}`,
+          created_at: new Date().toISOString(),
+          competitor_count: index + 1,
+        })),
+      }),
+    )
+
+    vi.mocked(listReports).mockImplementation(
+      () =>
+        new Promise(() => {
+          // keep pending; initial paint should still respect the recent reports limit
+        }),
+    )
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Shared cached report 1')).toBeInTheDocument()
+    expect(screen.getByText('Shared cached report 5')).toBeInTheDocument()
+    expect(screen.queryByText('Shared cached report 6')).not.toBeInTheDocument()
   })
 })

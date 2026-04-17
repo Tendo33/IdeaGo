@@ -18,6 +18,7 @@ export interface AuthContextType {
   role: string
   loading: boolean
   roleLoading: boolean
+  roleError: string | null
   signOut: () => Promise<void>
   applyCustomSession: (session: AuthSession) => void
   patchUser: (updates: Partial<AuthSessionUser>) => void

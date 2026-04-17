@@ -143,7 +143,8 @@ describe('listReports', () => {
   it('returns paginated reports', async () => {
     const paginated = {
       items: [{ id: 'r1', query: 'test', created_at: '2026-01-01', competitor_count: 3 }],
-      total: 1,
+      total: null,
+      has_next: false,
       limit: 20,
       offset: 0,
     }
@@ -163,7 +164,7 @@ describe('listReports', () => {
   it('supports limit and offset query parameters', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 20 }),
+      json: () => Promise.resolve({ items: [], total: null, has_next: false, limit: 5, offset: 20 }),
     })
 
     await listReports({ limit: 5, offset: 20 })
@@ -177,7 +178,7 @@ describe('listReports', () => {
   it('uses cookie credentials and does not attach legacy bearer token headers', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ items: [], total: 0, limit: 5, offset: 0 }),
+      json: () => Promise.resolve({ items: [], total: null, has_next: false, limit: 5, offset: 0 }),
     })
 
     await listReports({ limit: 5, offset: 0 })

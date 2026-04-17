@@ -11,7 +11,11 @@ from typing import Literal, cast
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from ideago.api.dependencies import get_cache, is_report_id_processing
+from ideago.api.dependencies import (
+    get_cache,
+    is_report_id_processing,
+    release_processing_report,
+)
 from ideago.api.errors import AppError, DependencyUnavailableError, ErrorCode
 from ideago.api.schemas import (
     PaginatedReportList,
@@ -68,7 +72,7 @@ async def _assert_report_owner(
     if not owner_id:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
     if owner_id != user_id:
-        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
+        raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
 
 
 def _parse_status_updated_at(raw_value: object) -> datetime | None:
@@ -95,7 +99,7 @@ async def list_reports(
     cache = get_cache()
     capped_limit = min(limit, _MAX_LIST_LIMIT)
     try:
-        entries, total = await cache.list_reports(
+        entries, has_next, total = await cache.list_reports(
             limit=capped_limit,
             offset=offset,
             user_id=user.id,
@@ -117,7 +121,8 @@ async def list_reports(
             )
             for e in entries
         ],
-        total=total,
+        total=total if total is not None else 0,
+        has_next=has_next,
         limit=capped_limit,
         offset=offset,
     )
@@ -193,7 +198,8 @@ async def get_report_status(
         app_metrics.increment_event("report_status_not_found", reason="missing_owner")
         return ReportRuntimeStatus(status="not_found", report_id=report_id)
     if owner_id != user.id:
-        raise AppError(403, ErrorCode.NOT_AUTHORIZED, "Not authorized")
+        app_metrics.increment_event("report_status_not_found", reason="missing_owner")
+        return ReportRuntimeStatus(status="not_found", report_id=report_id)
 
     report = await cache.get_by_id(report_id, user_id=user.id)
     if report is not None:
@@ -251,6 +257,8 @@ async def delete_report(
         ) from None
     if not deleted:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
+    await cache.remove_status(report_id)
+    await release_processing_report(report_id)
     return {"status": "deleted"}
 
 

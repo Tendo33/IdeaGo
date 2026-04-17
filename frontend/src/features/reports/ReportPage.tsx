@@ -3,13 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
-import { isApiError, isRequestAbortError, startAnalysis } from '@/lib/api/client'
+import { isRequestAbortError } from '@/lib/api/client'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
 import { useCompetitorFilters } from '@/features/reports/components/useCompetitorFilters'
 import { useReportLifecycle } from '@/features/reports/components/useReportLifecycle'
+import { useCreateAnalysis } from '@/features/reports/hooks/useCreateAnalysis'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { formatAppDateTime } from '@/lib/utils/dateLocale'
 
 const ReportContentPane = lazy(async () => {
   const module = await import('@/features/reports/components/ReportContentPane')
@@ -41,18 +43,19 @@ function ReportContentLoadingFallback() {
 }
 
 export function ReportPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { id: paramId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const [createError, setCreateError] = useState<string | null>(null)
-  const [quotaExceeded, setQuotaExceeded] = useState(false)
+  const { createAnalysis, quotaInfo, clearQuotaInfo } = useCreateAnalysis()
 
   const isNewAnalysis = paramId === 'new'
   const effectiveId = isNewAnalysis ? undefined : paramId
   const searchQuery = new URLSearchParams(location.search).get('q')?.trim() || undefined
   const stateQuery = (location.state as { query?: string } | null)?.query?.trim() || undefined
   const createQuery = searchQuery || stateQuery
+  const language = i18n.resolvedLanguage ?? i18n.language
 
   const startQueuedAnalysis = useCallback(
     async (query: string | undefined, signal?: AbortSignal) => {
@@ -62,21 +65,18 @@ export function ReportPage() {
       }
 
       setCreateError(null)
-      setQuotaExceeded(false)
+      clearQuotaInfo()
 
       try {
-        const { report_id } = await startAnalysis(query, signal ? { signal } : undefined)
+        const { report_id } = await createAnalysis(query, signal ? { signal } : undefined)
         navigate(`/reports/${report_id}`, { replace: true })
       } catch (error) {
         if (isRequestAbortError(error)) return
-        if (isApiError(error) && error.is('QUOTA_EXCEEDED')) {
-          setQuotaExceeded(true)
-        }
         const message = error instanceof Error ? error.message : ''
         setCreateError(message || t('home.errorStartAnalysis'))
       }
     },
-    [navigate, t],
+    [clearQuotaInfo, createAnalysis, navigate, t],
   )
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export function ReportPage() {
     retryCurrentQuery,
     retryErrorState,
     cancelCurrentAnalysis,
-  } = useReportLifecycle(effectiveId, navigate)
+  } = useReportLifecycle(effectiveId, navigate, { createAnalysis })
 
   const handleCancel = useCallback(() => {
     if (isNewAnalysis) {
@@ -129,6 +129,10 @@ export function ReportPage() {
   useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
 
 
+  const quotaExceeded = Boolean(quotaInfo)
+  const quotaResetLabel = quotaInfo?.reset_at
+    ? formatAppDateTime(quotaInfo.reset_at, language)
+    : null
   const loadError = (isNewAnalysis ? createError : null) || lifecycleError
   const hasRecoverableCreateQuery = Boolean(createQuery)
   const hasRestartableReportQuery = Boolean(report?.query || runtimeStatus?.query)
@@ -233,7 +237,9 @@ export function ReportPage() {
                 {t('quota.exceeded', 'You have reached your daily analysis limit.')}
               </p>
               <p className="text-xs text-warning/80 mt-1">
-                {t('quota.upgradeHint', 'You can start another analysis after your quota resets tomorrow.')}
+                {quotaResetLabel
+                  ? t('quota.upgradeHintWithReset', { resetAt: quotaResetLabel })
+                  : t('quota.upgradeHint', 'You can start another analysis after your quota resets tomorrow.')}
               </p>
               <p className="text-xs text-warning/80 mt-1">
                 {t('quota.reviewHistoryHint', 'You can review your saved reports or check your usage details while you wait.')}

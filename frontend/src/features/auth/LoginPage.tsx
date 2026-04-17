@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@/components/ui/Button'
+import { Button } from '@/components/ui/Button'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
