@@ -95,7 +95,7 @@ export function ReportErrorBanner({
               onClick={action.onClick}
               disabled={action.disabled}
               aria-busy={action.disabled}
-              className="border-warning text-warning hover:bg-warning/10 focus-visible:ring-warning"
+              className="border-warning text-warning hover:bg-warning/10 active:translate-x-[1px] active:translate-y-[1px] focus-visible:ring-warning transition-all"
             >
               {action.label}
             </Button>

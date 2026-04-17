@@ -306,7 +306,7 @@ export function LoginPage() {
       <div className="max-w-md w-full border-4 border-border bg-card p-8 md:p-12 shadow-lg">
         <Link
           to="/"
-          className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8 bg-card" })}
+          className="topbar-action mb-8"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           {t('nav.home', 'Home')}

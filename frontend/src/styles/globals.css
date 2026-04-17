@@ -158,7 +158,7 @@
 @layer components {
   /* Brutalist components */
   .filter-chip {
-    @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-semibold tracking-wide border-2 border-border bg-background text-muted-foreground transition-all duration-150 cursor-pointer hover:text-foreground hover:bg-muted shadow-sm;
+    @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-semibold tracking-wide border-2 border-border bg-background text-muted-foreground transition-all duration-150 ease-brutal cursor-pointer hover:text-foreground hover:bg-muted shadow-sm;
   }
   .filter-chip-active {
     @apply bg-primary text-primary-foreground border-border hover:bg-primary/90 hover:text-primary-foreground;
@@ -184,14 +184,14 @@
   }
 
   .card {
-    @apply bg-card text-card-foreground rounded-none p-6 md:p-8 border-2 border-border shadow-md transition-all duration-200;
+    @apply bg-card text-card-foreground rounded-none p-6 md:p-8 border-2 border-border shadow-md transition-all duration-200 ease-brutal;
   }
   .card-clickable {
-    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none;
+    @apply cursor-pointer hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition-all duration-150 ease-brutal;
   }
 
   .input {
-    @apply px-4 py-3 border-2 border-border rounded-none text-base bg-background text-foreground transition-all duration-150 outline-none font-medium;
+    @apply px-4 py-3 border-2 border-border rounded-none text-base bg-background text-foreground transition-all duration-150 ease-brutal outline-none font-medium;
   }
   .input:focus {
     @apply border-primary ring-0 shadow;
@@ -206,7 +206,7 @@
   }
 
   .topbar-action {
-    @apply min-h-12 min-w-12 inline-flex items-center justify-center gap-2 border-2 border-border bg-background px-4 font-semibold tracking-wide text-foreground transition-all duration-150 cursor-pointer shadow;
+    @apply min-h-12 min-w-12 inline-flex items-center justify-center gap-2 border-2 border-border bg-background px-4 font-semibold tracking-wide text-foreground transition-all duration-150 ease-brutal cursor-pointer shadow;
   }
   .topbar-action:hover {
     @apply translate-x-[1px] translate-y-[1px] shadow-sm bg-muted;

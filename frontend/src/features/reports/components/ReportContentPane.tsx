@@ -205,7 +205,7 @@ export function ReportContentPane({
         </div>
       )}
 
-      <div className={`space-y-12 sm:space-y-16 transition-all duration-700 ease-out ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+      <div className={`space-y-12 sm:space-y-16 transition-all duration-300 ease-brutal ${showReport ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         {allFailed && (
           <AllFailedState
             sources={report.source_results}

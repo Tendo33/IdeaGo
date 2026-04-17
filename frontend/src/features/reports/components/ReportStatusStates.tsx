@@ -34,6 +34,7 @@ export function BlueOceanState({ query }: { query: string }) {
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
       animate={reduceMotion ? false : { opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       className="p-12 rounded-none bg-card border-2 border-border text-center shadow"
     >
       <Waves className="w-12 h-12 text-cta mx-auto mb-4" />
@@ -79,6 +80,7 @@ export function AllFailedState({ sources, onRetry, isRetrying = false }: AllFail
     <motion.div
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={reduceMotion ? false : { opacity: 1 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       className="p-10 rounded-none bg-card border-2 border-warning text-center shadow"
     >
       <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />

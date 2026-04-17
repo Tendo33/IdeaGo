@@ -242,13 +242,13 @@ export function ReportPage() {
             <div className="flex shrink-0 gap-2">
               <Link
                 to="/reports"
-                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-colors hover:bg-warning/10"
+                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-all duration-150 ease-brutal hover:bg-warning/10 active:translate-x-[1px] active:translate-y-[1px]"
               >
                 {t('quota.viewHistory', 'View history')}
               </Link>
               <Link
                 to="/profile"
-                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-colors hover:bg-warning/10"
+                className="inline-flex min-h-[40px] items-center border-2 border-warning px-3 text-xs font-black uppercase tracking-widest text-warning transition-all duration-150 ease-brutal hover:bg-warning/10 active:translate-x-[1px] active:translate-y-[1px]"
               >
                 {t('quota.viewUsage', 'View usage')}
               </Link>

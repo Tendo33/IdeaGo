@@ -98,7 +98,7 @@ export function PricingPage() {
     <div className="app-shell max-w-4xl pt-12 pb-16 md:pt-16 md:pb-24">
       <Link
         to="/"
-        className={buttonVariants({ variant: 'secondary', size: 'sm', className: "mb-8 bg-card" })}
+        className="topbar-action mb-8"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         {t('nav.home')}
@@ -126,7 +126,7 @@ export function PricingPage() {
           return (
             <div
               key={plan.name}
-              className={`border-4 bg-card p-6 md:p-8 transition-all duration-300 hover:translate-x-[-2px] hover:translate-y-[-2px] ${
+              className={`border-4 bg-card p-6 md:p-8 transition-all duration-150 ease-brutal hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
                 plan.highlighted
                   ? 'border-primary shadow-xl shadow-primary hover:shadow-2xl'
                   : 'border-border shadow-md hover:shadow-xl'
