@@ -268,6 +268,17 @@ def _profile_is_deleted_or_pending(profile: dict[str, object]) -> bool:
     return bool(profile.get("deletion_pending") or profile.get("deleted_at"))
 
 
+def _should_revoke_session_after_delete_failure(cleanup: object) -> bool:
+    if not isinstance(cleanup, dict):
+        return False
+    profile_state = str(cleanup.get("profile") or "")
+    return profile_state in {
+        "rollback_failed",
+        "deletion_pending",
+        "restored_access_only",
+    }
+
+
 def _raise_profile_error(error_code: str) -> None:
     if error_code == "profile_not_found":
         raise HTTPException(status_code=404, detail="profile_not_found")
@@ -610,6 +621,8 @@ async def delete_account(
         phase = str(result.get("phase") or "unknown_phase")
         details = list(result.get("details") or [])
         cleanup = result.get("cleanup", {})
+        if session_id and _should_revoke_session_after_delete_failure(cleanup):
+            await revoke_auth_session(session_id)
         await log_audit_event(
             actor_id=user.id,
             action="auth.delete_account",

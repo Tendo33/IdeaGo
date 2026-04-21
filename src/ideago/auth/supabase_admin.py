@@ -15,7 +15,9 @@ import httpx
 from ideago.api.errors import DependencyUnavailableError
 from ideago.billing.stripe_service import delete_customer_data
 from ideago.config.settings import get_settings
+from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
+from ideago.observability.metrics import metrics as app_metrics
 
 logger = get_logger(__name__)
 _DAILY_ANALYSIS_LIMIT = 5
@@ -402,6 +404,52 @@ async def delete_profile_record(user_id: str) -> dict:
         return {"error": "profile_delete_failed", "details": ["profiles: exception"]}
 
 
+async def restore_profile_after_failed_deletion(user_id: str) -> dict:
+    """Clear deletion markers so a partially failed deletion can be retried safely."""
+    if not _is_configured():
+        return {"error": "supabase_not_configured"}
+
+    settings = get_settings()
+    client = _get_client()
+    try:
+        resp = await client.patch(
+            f"{settings.supabase_url}/rest/v1/profiles",
+            headers={**_headers(), "Prefer": "return=representation"},
+            params={
+                "id": f"eq.{user_id}",
+                "select": "id,deletion_pending,deleted_at",
+            },
+            json={
+                "deletion_pending": False,
+                "deleted_at": None,
+            },
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                "restore_profile_after_failed_deletion failed: {} {}",
+                resp.status_code,
+                resp.text,
+            )
+            return {
+                "error": "profile_delete_restore_failed",
+                "details": [f"profiles: {resp.status_code}"],
+            }
+        rows = resp.json()
+        if isinstance(rows, list) and rows:
+            row = rows[0]
+            if isinstance(row, dict):
+                return row
+        return {"error": "profile_not_found"}
+    except Exception:
+        logger.opt(exception=True).warning(
+            "restore_profile_after_failed_deletion error"
+        )
+        return {
+            "error": "profile_delete_restore_failed",
+            "details": ["profiles: exception"],
+        }
+
+
 async def update_profile(user_id: str, *, display_name: str, bio: str) -> dict:
     """Update profile fields and return latest values."""
     if not _is_configured():
@@ -706,6 +754,64 @@ def _account_cleanup_error(
     }
 
 
+def _record_stuck_pending_deletion(
+    user_id: str,
+    *,
+    phase: str,
+    details: list[str],
+) -> None:
+    app_metrics.increment_event("account_delete_stuck_pending", reason=phase)
+    log_error_event(
+        logger,
+        error_code="ACCOUNT_DELETE_STUCK_PENDING",
+        subsystem="account_delete",
+        message="Account deletion remains in deletion_pending after partial failure",
+        details={
+            "user_id": user_id,
+            "phase": phase,
+            "details": details,
+        },
+    )
+
+
+async def _rollback_failed_account_deletion(
+    user_id: str,
+    *,
+    phase: str,
+    details: list[str],
+    cleanup: dict[str, str],
+) -> dict:
+    app_metrics.increment_event("account_delete_rollback_triggered", reason=phase)
+    log_error_event(
+        logger,
+        error_code="ACCOUNT_DELETE_ROLLBACK_TRIGGERED",
+        subsystem="account_delete",
+        message="Rolling back deletion_pending after partial account deletion failure",
+        details={"user_id": user_id, "phase": phase},
+    )
+    rollback_profile_state = "rolled_back"
+    if phase in {"domain_data_cleanup", "auth_identity_cleanup"}:
+        rollback_profile_state = "restored_access_only"
+    rollback = await restore_profile_after_failed_deletion(user_id)
+    if rollback.get("error"):
+        cleanup["profile"] = "rollback_failed"
+        rollback_details = details + list(
+            rollback.get("details") or [str(rollback.get("error"))]
+        )
+        _record_stuck_pending_deletion(
+            user_id,
+            phase=phase,
+            details=rollback_details,
+        )
+        return _account_cleanup_error(
+            phase=phase,
+            details=rollback_details,
+            cleanup=cleanup,
+        )
+    cleanup["profile"] = rollback_profile_state
+    return _account_cleanup_error(phase=phase, details=details, cleanup=cleanup)
+
+
 async def delete_user_account(user_id: str) -> dict:
     """Delete app data, billing artifacts, and auth identity in explicit phases."""
     cleanup = {
@@ -731,7 +837,8 @@ async def delete_user_account(user_id: str) -> dict:
     billing_result = await delete_billing_customer_data(user_id)
     if billing_result.get("error"):
         cleanup["billing"] = "failed"
-        return _account_cleanup_error(
+        return await _rollback_failed_account_deletion(
+            user_id,
             phase="billing_cleanup",
             details=list(billing_result.get("details") or [billing_result["error"]]),
             cleanup=cleanup,
@@ -741,7 +848,8 @@ async def delete_user_account(user_id: str) -> dict:
     domain_result = await delete_user_data(user_id)
     if domain_result.get("error"):
         cleanup["domain_data"] = "failed"
-        return _account_cleanup_error(
+        return await _rollback_failed_account_deletion(
+            user_id,
             phase="domain_data_cleanup",
             details=list(domain_result.get("details") or [domain_result["error"]]),
             cleanup=cleanup,
@@ -751,7 +859,8 @@ async def delete_user_account(user_id: str) -> dict:
     auth_result = await delete_auth_identity(user_id)
     if auth_result.get("error"):
         cleanup["auth_identity"] = "failed"
-        return _account_cleanup_error(
+        return await _rollback_failed_account_deletion(
+            user_id,
             phase="auth_identity_cleanup",
             details=list(auth_result.get("details") or [auth_result["error"]]),
             cleanup=cleanup,
@@ -760,13 +869,19 @@ async def delete_user_account(user_id: str) -> dict:
 
     profile_delete_result = await delete_profile_record(user_id)
     if profile_delete_result.get("error"):
-        cleanup["profile"] = "failed"
+        cleanup["profile"] = "deletion_pending"
+        details = list(
+            profile_delete_result.get("details")
+            or [str(profile_delete_result["error"])]
+        )
+        _record_stuck_pending_deletion(
+            user_id,
+            phase="profile_delete_finalize",
+            details=details,
+        )
         return _account_cleanup_error(
             phase="profile_delete_finalize",
-            details=list(
-                profile_delete_result.get("details")
-                or [str(profile_delete_result["error"])]
-            ),
+            details=details,
             cleanup=cleanup,
         )
     cleanup["profile"] = "deleted"

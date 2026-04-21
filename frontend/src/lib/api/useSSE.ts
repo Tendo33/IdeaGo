@@ -5,6 +5,7 @@ import { getStreamUrl } from '@/lib/api/client'
 import { readCurrentReturnTo } from '@/lib/auth/redirect'
 import { getAccessToken, setAccessToken } from '@/lib/auth/token'
 import { supabase } from '@/lib/supabase/client'
+import { clearHistoryCache } from '@/features/history/historyCache'
 import { findLastSseBoundary, parseSseChunk, shouldRetrySseStatus } from '@/lib/api/sse/parser'
 import { sseReducer } from '@/lib/api/sse/reducer'
 import { recordClientMetric } from '@/lib/telemetry/clientMetrics'
@@ -49,6 +50,7 @@ function clearReconnectTimer(timerRef: React.RefObject<ReturnType<typeof setTime
 
 function redirectToLogin(): void {
   setAccessToken(null)
+  clearHistoryCache()
   supabase.auth.signOut().catch(() => {})
   const returnTo = encodeURIComponent(readCurrentReturnTo())
   window.location.href = `/login?returnTo=${returnTo}`

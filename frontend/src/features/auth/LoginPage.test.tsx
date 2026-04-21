@@ -991,6 +991,31 @@ describe('AuthProvider token refresh scheduling', () => {
     expect(getMeMock).toHaveBeenCalledWith({ allowUnauthorized: true })
   })
 
+  it('does not call backend /auth/me when a Supabase session is already present', async () => {
+    window.history.replaceState({}, '', '/')
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'supabase-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <AuthStateProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('supabase-user')).toBeInTheDocument()
+    })
+    expect(getMeMock).not.toHaveBeenCalled()
+  })
+
   it('does not stay stuck in loading when getSession throws', async () => {
     window.history.replaceState({}, '', '/profile')
     getSessionMock.mockRejectedValueOnce(new Error('session bootstrap failed'))

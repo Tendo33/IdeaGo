@@ -15,6 +15,12 @@ import {
 } from '../client'
 import { setAccessToken } from '@/lib/auth/token'
 
+const clearHistoryCacheMock = vi.fn()
+
+vi.mock('@/features/history/historyCache', () => ({
+  clearHistoryCache: () => clearHistoryCacheMock(),
+}))
+
 const NativeURL = globalThis.URL
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -23,6 +29,7 @@ beforeEach(() => {
   mockFetch.mockReset()
   localStorage.clear()
   setAccessToken(null)
+  clearHistoryCacheMock.mockReset()
 })
 
 describe('startAnalysis', () => {
@@ -274,6 +281,19 @@ describe('deleteAccount', () => {
         },
       },
     } satisfies Partial<ApiError>)
+  })
+})
+
+describe('fetchWithTimeout auth recovery', () => {
+  it('clears history cache when a protected request returns 401', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: { message: 'expired' } }),
+    })
+
+    await expect(getReport('r1')).rejects.toThrow('Session expired. Redirecting to login.')
+    expect(clearHistoryCacheMock).toHaveBeenCalledTimes(1)
   })
 })
 

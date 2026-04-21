@@ -289,6 +289,9 @@ Quota contract notes:
 - admin overrides are stored in `profiles.plan_limit_override`
 - API responses continue exposing `plan_limit` as the effective display limit
 - `503 DEPENDENCY_UNAVAILABLE` means Supabase or hosted persistence is degraded, not that the user has no data
+- failed account deletion attempts now use phase-aware compensation:
+- early failures try to clear `deletion_pending`
+- later failures may only restore access or leave the account in a stuck-pending state that requires operator intervention
 
 ## API Overview
 
@@ -336,7 +339,12 @@ configured allowlist.
 - `POST /api/v1/billing/webhook`
 
 Remember: checkout, portal, and status are intentionally hidden from users until pricing is
-re-enabled.
+re-enabled. The webhook route stays mounted so Stripe events can still update hosted billing state.
+
+Analysis persistence notes:
+
+- the initial `processing` status write is treated as a critical dependency
+- if hosted status persistence fails, `POST /api/v1/analyze` now returns `503` and rolls back quota plus processing reservation
 
 ## Project Structure
 

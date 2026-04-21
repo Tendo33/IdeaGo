@@ -154,12 +154,7 @@ describe('HomePage recent reports', () => {
       }),
     )
 
-    vi.mocked(listReports).mockImplementation(
-      () =>
-        new Promise(() => {
-          // keep pending; initial paint should still respect the recent reports limit
-        }),
-    )
+    vi.mocked(listReports).mockImplementation(() => new Promise(() => {}))
 
     render(
       <MemoryRouter>
@@ -167,8 +162,7 @@ describe('HomePage recent reports', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Shared cached report 1')).toBeInTheDocument()
-    expect(screen.getByText('Shared cached report 5')).toBeInTheDocument()
-    expect(screen.queryByText('Shared cached report 6')).not.toBeInTheDocument()
+    expect(screen.queryByText('Shared cached report 1')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/loading page content/i)).toBeInTheDocument()
   })
 })

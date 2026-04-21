@@ -325,6 +325,10 @@ class SupabaseReportRepository:
         )
         if resp.status_code not in (200, 201):
             logger.warning("put_status failed: {} {}", resp.status_code, resp.text)
+            raise DependencyUnavailableError(
+                "report_status_persist_failed",
+                dependency="supabase_report_status",
+            )
 
     async def get_status(self, report_id: str) -> dict | None:
         client = self._get_client()

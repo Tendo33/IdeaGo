@@ -1,13 +1,13 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CompetitorCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
-import { isRequestAbortError } from '@/lib/api/client'
 import { ReportErrorBanner } from '@/features/reports/components/ReportErrorBanner'
 import { ReportProgressPane } from '@/features/reports/components/ReportProgressPane'
 import { useCompetitorFilters } from '@/features/reports/components/useCompetitorFilters'
-import { useReportLifecycle } from '@/features/reports/components/useReportLifecycle'
+import { useReportViewLifecycle } from '@/features/reports/components/useReportViewLifecycle'
+import { useReportCreateFlow } from '@/features/reports/components/useReportCreateFlow'
 import { useCreateAnalysis } from '@/features/reports/hooks/useCreateAnalysis'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -47,7 +47,6 @@ export function ReportPage() {
   const { id: paramId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const [createError, setCreateError] = useState<string | null>(null)
   const { createAnalysis, quotaInfo, clearQuotaInfo } = useCreateAnalysis()
 
   const isNewAnalysis = paramId === 'new'
@@ -56,41 +55,13 @@ export function ReportPage() {
   const stateQuery = (location.state as { query?: string } | null)?.query?.trim() || undefined
   const createQuery = searchQuery || stateQuery
   const language = i18n.resolvedLanguage ?? i18n.language
-
-  const startQueuedAnalysis = useCallback(
-    async (query: string | undefined, signal?: AbortSignal) => {
-      if (!query) {
-        navigate('/', { replace: true })
-        return
-      }
-
-      setCreateError(null)
-      clearQuotaInfo()
-
-      try {
-        const { report_id } = await createAnalysis(query, signal ? { signal } : undefined)
-        navigate(`/reports/${report_id}`, { replace: true })
-      } catch (error) {
-        if (isRequestAbortError(error)) return
-        const message = error instanceof Error ? error.message : ''
-        setCreateError(message || t('home.errorStartAnalysis'))
-      }
-    },
-    [clearQuotaInfo, createAnalysis, navigate, t],
-  )
-
-  useEffect(() => {
-    if (!isNewAnalysis) return
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      void startQueuedAnalysis(createQuery, controller.signal)
-    }, 0)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [createQuery, isNewAnalysis, startQueuedAnalysis])
+  const createFlow = useReportCreateFlow({
+    isEnabled: isNewAnalysis,
+    query: createQuery,
+    navigate,
+    createAnalysis,
+    clearQuotaInfo,
+  })
 
   const {
     loadPhase,
@@ -112,7 +83,7 @@ export function ReportPage() {
     retryCurrentQuery,
     retryErrorState,
     cancelCurrentAnalysis,
-  } = useReportLifecycle(effectiveId, navigate, { createAnalysis })
+  } = useReportViewLifecycle(effectiveId, navigate, { createAnalysis })
 
   const handleCancel = useCallback(() => {
     if (isNewAnalysis) {
@@ -123,13 +94,14 @@ export function ReportPage() {
   }, [isNewAnalysis, navigate, cancelCurrentAnalysis])
 
   const handleCreateErrorAction = useCallback(() => {
-    void startQueuedAnalysis(createQuery)
-  }, [createQuery, startQueuedAnalysis])
+    createFlow.retry()
+  }, [createFlow])
 
   useDocumentTitle(report ? `${report.query} — IdeaGo` : isNewAnalysis ? t('report.analyzing', 'Analyzing...') + ' — IdeaGo' : 'IdeaGo')
 
 
   const quotaExceeded = Boolean(quotaInfo)
+  const createError = createFlow.error
   const quotaResetLabel = quotaInfo?.reset_at
     ? formatAppDateTime(quotaInfo.reset_at, language)
     : null
@@ -212,7 +184,10 @@ export function ReportPage() {
   const hasBlockingError = Boolean(sseError || loadError)
   const showExistingReportLoading = !isNewAnalysis && !hasBlockingError && loadPhase === 'loading' && !report
   const showProgress =
-    !hasBlockingError && (loadPhase === 'processing' || (isNewAnalysis && loadPhase === 'loading' && !report))
+    !hasBlockingError &&
+    (loadPhase === 'processing' ||
+      (isNewAnalysis &&
+        (createFlow.phase === 'creating' || createFlow.phase === 'redirecting')))
   const allFailed = report
     ? report.source_results.length > 0 &&
       report.source_results.every(source => source.status === 'failed' || source.status === 'timeout')
@@ -266,7 +241,13 @@ export function ReportPage() {
           <ReportErrorBanner
             message={errorMessage || t('report.error.unknown')}
             onRetry={errorActionHandler}
-            errorKind={sseError ? 'system' : (loadErrorKind ?? 'system')}
+            errorKind={
+              isNewAnalysis && createError
+                ? 'start_failed'
+                : sseError
+                  ? 'system'
+                  : (loadErrorKind ?? 'system')
+            }
             runtimeStatus={runtimeStatus}
             actionLabel={errorActionLabel}
             actionDisabled={usesRestartAction && isRetryingAnalysis}

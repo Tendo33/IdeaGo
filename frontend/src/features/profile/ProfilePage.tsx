@@ -1,6 +1,6 @@
 import { Button, buttonVariants } from '@/components/ui/Button'
 import { useEffect, useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Dialog } from '@/components/ui/Dialog'
@@ -26,6 +26,25 @@ function getDeleteAccountErrorMessage(
 ): string {
   if (isApiError(error)) {
     const phase = typeof error.detail.phase === 'string' ? error.detail.phase : ''
+    const cleanup = (
+      typeof error.detail.cleanup === 'object' && error.detail.cleanup !== null
+        ? error.detail.cleanup
+        : {}
+    ) as Record<string, unknown>
+    const profileCleanup =
+      typeof cleanup.profile === 'string' ? cleanup.profile : ''
+    if (profileCleanup === 'rollback_failed' || profileCleanup === 'deletion_pending') {
+      return t(
+        'profile.deleteErrorDeletionStuck',
+        'Account deletion only partially completed and your account is still marked for deletion. Please contact support.',
+      )
+    }
+    if (profileCleanup === 'restored_access_only') {
+      return t(
+        'profile.deleteErrorRestoredAccessOnly',
+        'Account access was restored, but some data may already have been removed. Please review your workspace carefully.',
+      )
+    }
     if (phase === 'billing_cleanup') {
       return t(
         'profile.deleteErrorBilling',
@@ -44,6 +63,12 @@ function getDeleteAccountErrorMessage(
         'Your account data was removed, but sign-in access could not be revoked yet.',
       )
     }
+    if (phase === 'profile_delete_finalize') {
+      return t(
+        'profile.deleteErrorFinalize',
+        'Account cleanup finished, but the final profile removal did not complete. Please retry shortly.',
+      )
+    }
   }
 
   return error instanceof Error
@@ -51,9 +76,28 @@ function getDeleteAccountErrorMessage(
     : t('profile.deleteError', 'Failed to delete account')
 }
 
+function shouldSignOutAfterDeleteFailure(error: unknown): boolean {
+  if (!isApiError(error)) {
+    return false
+  }
+  const cleanup = (
+    typeof error.detail.cleanup === 'object' && error.detail.cleanup !== null
+      ? error.detail.cleanup
+      : {}
+  ) as Record<string, unknown>
+  const profileCleanup =
+    typeof cleanup.profile === 'string' ? cleanup.profile : ''
+  return (
+    profileCleanup === 'rollback_failed' ||
+    profileCleanup === 'deletion_pending' ||
+    profileCleanup === 'restored_access_only'
+  )
+}
+
 export function ProfilePage() {
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
+  const navigate = useNavigate()
   useDocumentTitle(t('profile.title', 'Profile') + ' — IdeaGo')
   const { user, signOut, patchUser } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -393,10 +437,24 @@ export function ProfilePage() {
                   setDeleteError('')
                   try {
                     await deleteAccount()
-                    await signOut().catch(() => {})
-                    window.location.href = '/'
+                    try {
+                      await signOut()
+                    } catch {
+                      // Best-effort local cleanup after account removal.
+                    }
+                    navigate('/', { replace: true })
                   } catch (err) {
-                    setDeleteError(getDeleteAccountErrorMessage(err, t))
+                    const message = getDeleteAccountErrorMessage(err, t)
+                    setDeleteError(message)
+                    if (shouldSignOutAfterDeleteFailure(err)) {
+                      try {
+                        await signOut()
+                      } catch {
+                        // Best-effort local cleanup after a stuck partial delete.
+                      }
+                      navigate('/login', { replace: true })
+                      return
+                    }
                     setDeleteLoading(false)
                   }
                 }}

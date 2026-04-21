@@ -309,7 +309,7 @@ describe('HistoryPage', () => {
     expect(await screen.findByText('Hydrated cached history')).toBeInTheDocument()
   })
 
-  it('keeps next-page navigation enabled when history is seeded from a smaller cache snapshot', async () => {
+  it('ignores cached history snapshots when the page size contract changes', async () => {
     window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify({
       userId: 'user-1',
       pageIndex: 0,
@@ -324,12 +324,7 @@ describe('HistoryPage', () => {
       })),
     }))
 
-    vi.mocked(listReports).mockImplementation(
-      () =>
-        new Promise(() => {
-          // keep pending so the test only observes the seeded cache state
-        }),
-    )
+    vi.mocked(listReports).mockImplementation(() => new Promise(() => {}))
 
     render(
       <MemoryRouter initialEntries={['/history']}>
@@ -340,8 +335,8 @@ describe('HistoryPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Cached report 1')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /next/i })).toBeEnabled()
+    expect(screen.queryByText('Cached report 1')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('.animate-pulse')).toHaveLength(4)
   })
 
   it('keeps the search input visible when a query returns zero matches', async () => {

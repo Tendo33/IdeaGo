@@ -6,7 +6,7 @@ import type { ReportRuntimeStatus } from '@/lib/types/research'
 interface ReportErrorBannerProps {
   message: string
   onRetry: () => void
-  errorKind?: 'system' | 'runtime'
+  errorKind?: 'system' | 'runtime' | 'start_failed'
   runtimeStatus?: ReportRuntimeStatus | null
   actionLabel?: string
   actionDisabled?: boolean
@@ -18,10 +18,16 @@ interface ReportErrorBannerProps {
 }
 
 function getBannerText(
-  errorKind: 'system' | 'runtime',
+  errorKind: 'system' | 'runtime' | 'start_failed',
   runtimeStatus: ReportRuntimeStatus | null | undefined,
   t: (key: string) => string,
 ): { title: string; retryLabel: string } {
+  if (errorKind === 'start_failed') {
+    return {
+      title: t('report.error.systemTitle'),
+      retryLabel: t('report.failed.retryShort'),
+    }
+  }
   if (errorKind === 'system') {
     if (runtimeStatus?.status === 'complete') {
       return {

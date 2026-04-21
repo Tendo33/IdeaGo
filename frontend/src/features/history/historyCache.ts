@@ -23,6 +23,7 @@ export function readHistoryCache(userId: string, limit?: number): HistoryCacheSn
     if (
       parsed.userId !== userId ||
       typeof parsed.pageIndex !== 'number' ||
+      parsed.pageIndex !== 0 ||
       typeof parsed.hasNextPage !== 'boolean' ||
       typeof parsed.total !== 'number' ||
       !Array.isArray(parsed.reports)
@@ -31,17 +32,16 @@ export function readHistoryCache(userId: string, limit?: number): HistoryCacheSn
     }
     const storedLimit = typeof parsed.limit === 'number' ? parsed.limit : parsed.reports.length
     const effectiveLimit = typeof limit === 'number' ? limit : storedLimit
-    const normalizedReports = parsed.reports.slice(0, effectiveLimit)
+    if (storedLimit !== effectiveLimit) {
+      return null
+    }
     return {
       userId,
       pageIndex: parsed.pageIndex,
       limit: storedLimit,
-      hasNextPage:
-        parsed.hasNextPage ||
-        parsed.reports.length > normalizedReports.length ||
-        parsed.total > normalizedReports.length,
+      hasNextPage: parsed.hasNextPage,
       total: parsed.total,
-      reports: normalizedReports,
+      reports: parsed.reports as ReportListItem[],
     }
   } catch {
     return null

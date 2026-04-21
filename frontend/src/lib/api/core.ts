@@ -4,6 +4,7 @@ import {
 } from '../auth/token'
 import { readCurrentReturnTo } from '../auth/redirect'
 import { supabase } from '../supabase/client'
+import { clearHistoryCache } from '@/features/history/historyCache'
 
 export const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`
 export const DEFAULT_TIMEOUT_MS = 15000
@@ -163,6 +164,7 @@ export async function fetchWithTimeout(
         return res
       }
       setAccessToken(null)
+      clearHistoryCache()
       supabase.auth.signOut().catch(() => {})
       const returnTo = encodeURIComponent(readCurrentReturnTo())
       window.location.href = `/login?returnTo=${returnTo}`

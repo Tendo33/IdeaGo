@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { isRequestAbortError, listReports } from '@/lib/api/client'
 import {
   readHistoryCache,
@@ -21,7 +21,7 @@ interface UseReportsListResult {
   loading: boolean
   error: string | null
   seededCache: HistoryCacheSnapshot | null | undefined
-  refresh: (signal?: AbortSignal) => Promise<void>
+  refresh: (options?: { signal?: AbortSignal; invalidateCache?: boolean }) => Promise<void>
 }
 
 export function useReportsList({
@@ -37,12 +37,19 @@ export function useReportsList({
   const [hasNextPage, setHasNextPage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const seededCacheRef = useRef<HistoryCacheSnapshot | null | undefined>(undefined)
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
+  const refresh = useCallback(async (options?: { signal?: AbortSignal; invalidateCache?: boolean }) => {
     if (!userId) return
+    const signal = options?.signal
+    const invalidateCache = options?.invalidateCache === true
 
     const shouldUseCache = pageIndex === 0 && normalizedQuery.length === 0
-    if (!(shouldUseCache && seededCache)) {
+    if (invalidateCache) {
+      seededCacheRef.current = null
+      setSeededCache(null)
+    }
+    if (!(shouldUseCache && seededCacheRef.current) || invalidateCache) {
       setLoading(true)
     }
 
@@ -58,13 +65,18 @@ export function useReportsList({
       setTotal(response.total)
       setError(null)
       if (shouldUseCache) {
-        writeHistoryCache({
+        const nextCache = {
           userId,
           pageIndex,
           limit,
           hasNextPage: response.has_next,
           total: response.total,
           reports: response.items,
+        }
+        seededCacheRef.current = nextCache
+        setSeededCache(nextCache)
+        writeHistoryCache({
+          ...nextCache,
         })
       }
     } catch (nextError) {
@@ -75,10 +87,11 @@ export function useReportsList({
         setLoading(false)
       }
     }
-  }, [limit, normalizedQuery, pageIndex, seededCache, userId])
+  }, [limit, normalizedQuery, pageIndex, userId])
 
   useEffect(() => {
     if (!userId) {
+      seededCacheRef.current = null
       setSeededCache(null)
       setReports([])
       setTotal(0)
@@ -89,20 +102,17 @@ export function useReportsList({
 
     const shouldUseCache = pageIndex === 0 && normalizedQuery.length === 0
     const cache = shouldUseCache ? readHistoryCache(userId, limit) : null
+    seededCacheRef.current = cache
     setSeededCache(cache)
     setReports(cache?.reports ?? [])
     setTotal(cache?.total ?? 0)
     setHasNextPage(cache?.hasNextPage ?? false)
     setLoading(cache === null)
     setError(null)
-  }, [limit, normalizedQuery, pageIndex, userId])
-
-  useEffect(() => {
-    if (!userId || seededCache === undefined) return
     const controller = new AbortController()
-    void refresh(controller.signal)
+    void refresh({ signal: controller.signal })
     return () => controller.abort()
-  }, [refresh, seededCache, userId])
+  }, [limit, normalizedQuery, pageIndex, refresh, userId])
 
   return {
     reports,

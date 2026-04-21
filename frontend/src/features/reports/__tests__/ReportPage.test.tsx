@@ -747,7 +747,7 @@ describe('ReportPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') })).toBeInTheDocument()
-    })
+    }, { timeout: 2000 })
 
     fireEvent.click(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') }))
 

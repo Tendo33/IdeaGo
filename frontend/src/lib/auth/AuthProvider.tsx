@@ -2,25 +2,16 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session as SupabaseSession } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 import { setAccessToken } from '@/lib/auth/token'
-import { AuthContext } from './AuthContext'
-import type { AuthSession } from './AuthContext'
-import { getMe, getMyProfile, logoutAuthSession } from '@/lib/api/client'
+import { AuthContext, type AuthSession } from './AuthContext'
+import { logoutAuthSession } from '@/lib/api/client'
 import { clearHistoryCache } from '@/features/history/historyCache'
-
-function toSupabaseSession(session: SupabaseSession): AuthSession {
-  return {
-    access_token: session.access_token,
-    provider: 'supabase',
-    user: {
-      id: session.user.id,
-      email: session.user.email ?? '',
-    },
-  }
-}
-
-function shouldRecoverCookieSession(pathname: string): boolean {
-  return pathname !== '/auth/callback'
-}
+import {
+  bootstrapSupabaseSession,
+  hydrateProfileRole,
+  recoverCookieSession,
+  shouldRecoverCookieSession,
+  toSupabaseSession,
+} from './sessionBootstrap'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
@@ -69,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session])
 
   const patchUser = useCallback((updates: Partial<AuthSession['user']>) => {
-    setSession(previous => {
+    setSession((previous: AuthSession | null) => {
       if (!previous) return previous
       return {
         ...previous,
@@ -86,10 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const bootstrap = async () => {
       try {
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession()
+        const supabaseSession = await bootstrapSupabaseSession(
+          () => supabase.auth.getSession(),
+        )
         if (cancelled) return
 
-        if (supabaseSession?.access_token && supabaseSession.user?.id) {
+        if (supabaseSession) {
           applySupabaseSession(supabaseSession)
           setLoading(false)
           return
@@ -109,13 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const me = await getMe({ allowUnauthorized: true })
+        const recoveredSession = await recoverCookieSession()
         if (cancelled) return
-        setSession({
-          access_token: '',
-          provider: 'linuxdo',
-          user: { id: me.id, email: me.email ?? '' },
-        })
+        setSession(recoveredSession)
         setRoleLoading(true)
         setRoleError(null)
       } catch {
@@ -143,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setAccessToken(null)
-      setSession(previous => (previous?.provider === 'linuxdo' ? previous : null))
+      setSession((previous: AuthSession | null) => (previous?.provider === 'linuxdo' ? previous : null))
       setRoleLoading(false)
     })
 
@@ -172,14 +161,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     setRoleLoading(true)
-    getMyProfile()
-      .then(profile => {
+    hydrateProfileRole()
+      .then(({ displayName, role: nextRole }) => {
         if (cancelled) return
-        if (profile.display_name) {
-          patchUser({ display_name: profile.display_name })
+        if (displayName) {
+          patchUser({ display_name: displayName })
         }
-        if (profile.role) {
-          setRole(profile.role)
+        if (nextRole) {
+          setRole(nextRole)
         }
         setRoleError(null)
         setRoleLoading(false)
@@ -187,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(error => {
         if (cancelled) return
         console.warn('Failed to hydrate auth profile', error)
-        setRole(previous => previous)
+        setRole((previous: string) => previous)
         setRoleError(error instanceof Error ? error.message : 'Failed to hydrate auth profile')
         setRoleLoading(false)
       })

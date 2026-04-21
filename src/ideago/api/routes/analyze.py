@@ -28,7 +28,7 @@ from ideago.api.dependencies import (
     remove_pipeline_task,
     reserve_processing_report,
 )
-from ideago.api.errors import AppError, ErrorCode
+from ideago.api.errors import AppError, DependencyUnavailableError, ErrorCode
 from ideago.api.schemas import AnalyzeRequest, AnalyzeResponse
 from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
@@ -38,6 +38,7 @@ from ideago.auth.supabase_admin import (
     refund_quota_charge,
 )
 from ideago.notifications.service import notify_quota_warning, notify_report_ready
+from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
 from ideago.pipeline.events import EventType, PipelineEvent
@@ -63,6 +64,41 @@ async def _refund_quota_charge_for_report(report_id: str, user_id: str) -> None:
         logger.warning("Failed to refund quota charge for report {}", report_id)
 
 
+async def _persist_terminal_status(
+    report_id: str,
+    status: str,
+    query: str = "",
+    *,
+    error_code: str | None = None,
+    message: str | None = None,
+    user_id: str = "",
+) -> None:
+    try:
+        await get_cache().put_status(
+            report_id,
+            status,
+            query,
+            error_code=error_code,
+            message=message,
+            user_id=user_id,
+        )
+    except DependencyUnavailableError as exc:
+        app_metrics.increment_event(
+            "analysis_status_persist_failed", reason=f"terminal_{status}"
+        )
+        log_error_event(
+            logger,
+            error_code="ANALYSIS_TERMINAL_STATUS_PERSIST_FAILED",
+            subsystem="analysis",
+            message=f"Failed to persist terminal status '{status}'",
+            details={
+                "report_id": report_id,
+                "status": status,
+                "dependency": exc.dependency or "supabase_report_status",
+            },
+        )
+
+
 async def _mark_cancelled(report_id: str) -> None:
     """Persist cancelled state and broadcast terminal cancellation event."""
     run_state = get_or_create_report_run(report_id)
@@ -80,7 +116,7 @@ async def _mark_cancelled(report_id: str) -> None:
     existing_status = await cache.get_status(report_id)
     if existing_status:
         existing_user_id = existing_status.get("user_id", "") or ""
-    await cache.put_status(
+    await _persist_terminal_status(
         report_id,
         "cancelled",
         error_code="PIPELINE_CANCELLED",
@@ -104,7 +140,6 @@ async def _run_pipeline(
     query: str, report_id: str, user_id: str = "", user_email: str = ""
 ) -> None:
     """Background task: run the pipeline and push events to the queue."""
-    cache = get_cache()
     run_state = get_or_create_report_run(report_id)
     callback = _RunStateCallback(report_id)
     try:
@@ -116,7 +151,7 @@ async def _run_pipeline(
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
-        await cache.put_status(
+        await _persist_terminal_status(
             report_id,
             "complete",
             query,
@@ -135,7 +170,7 @@ async def _run_pipeline(
     except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
         await _refund_quota_charge_for_report(report_id, user_id)
-        await cache.put_status(
+        await _persist_terminal_status(
             report_id,
             "failed",
             query,
@@ -258,6 +293,32 @@ async def start_analysis(
             _run_pipeline(query, report_id, user.id, user_email=user.email)
         )
         await register_pipeline_task(report_id, task)
+    except DependencyUnavailableError as exc:
+        app_metrics.increment_event(
+            "analysis_status_persist_failed",
+            reason=exc.dependency or "supabase_report_status",
+        )
+        log_error_event(
+            logger,
+            error_code="ANALYSIS_STATUS_PERSIST_FAILED",
+            subsystem="analysis",
+            message="Failed to persist initial processing status",
+            details={
+                "report_id": report_id,
+                "dependency": exc.dependency or "supabase_report_status",
+            },
+        )
+        await _refund_quota_charge_for_report(report_id, user.id)
+        await release_processing_report(report_id)
+        raise AppError(
+            503,
+            ErrorCode.DEPENDENCY_UNAVAILABLE,
+            "Unable to persist analysis status. Please retry.",
+            extra={
+                "dependency": exc.dependency or "supabase_report_status",
+                "reason": str(exc),
+            },
+        ) from exc
     except Exception:
         await _refund_quota_charge_for_report(report_id, user.id)
         await release_processing_report(report_id)

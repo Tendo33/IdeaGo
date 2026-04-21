@@ -31,6 +31,7 @@ export interface DeleteAccountResult {
     domain_data: string
     billing: string
     auth_identity: string
+    profile: 'rolled_back' | 'restored_access_only' | 'deletion_pending' | 'rollback_failed' | 'deleted'
   }
 }
 

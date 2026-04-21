@@ -12,6 +12,7 @@ import type { ReportListItem } from '@/lib/types/research'
 import { formatAppDate } from '@/lib/utils/dateLocale'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useReportsList } from '@/features/history/useReportsList'
+import { clearHistoryCache } from '@/features/history/historyCache'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -128,11 +129,12 @@ export function HistoryPage() {
 
     try {
       await deleteReport(id)
+      clearHistoryCache()
       toast.success(t('history.deleted', 'Report deleted'))
       if (reports.length === 1 && pageIndex > 0) {
         setPageIndex(previous => Math.max(0, previous - 1))
       } else {
-        await refresh()
+        await refresh({ invalidateCache: true })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('history.errorDelete')

@@ -74,7 +74,14 @@ Rules:
 
 - Stripe integration code should remain testable and isolated from route wiring
 - user-facing pricing flows are intentionally hidden until a task explicitly restores them
+- `/api/v1/billing/webhook` must stay mounted even while checkout, portal, and status remain hidden
 - webhook signature verification is still required whenever Stripe is configured
+
+## Failure Recovery Notes
+
+- initial `processing` status persistence for `POST /api/v1/analyze` is a critical write; on failure the request must fail and roll back quota plus processing reservation
+- terminal report status writes should remain observable even when persistence is degraded
+- account deletion must not leave users stuck in `deletion_pending` after a partial failure; rollback or surface a stuck-pending alert explicitly
 
 ## Source Intelligence V2
 

@@ -153,48 +153,71 @@ export function AdminPage() {
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language
   const [stats, setStats] = useState<AdminStats | null>(null)
+  const [statsError, setStatsError] = useState('')
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [usersError, setUsersError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [pageIndex, setPageIndex] = useState(0)
   const [hasNextPage, setHasNextPage] = useState(false)
   const [total, setTotal] = useState(0)
-  const latestLoadIdRef = useRef(0)
+  const usersAbortRef = useRef<AbortController | null>(null)
   const PAGE_SIZE = 25
 
-  const load = useCallback(async () => {
-    const loadId = latestLoadIdRef.current + 1
-    latestLoadIdRef.current = loadId
-    setLoading(true)
-    setError('')
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim())
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [debouncedQuery])
+
+  const loadStats = useCallback(async () => {
+    setStatsError('')
     try {
-      const [s, u] = await Promise.all([
-        adminGetStats(),
-        adminListUsers({
-          limit: PAGE_SIZE,
-          offset: pageIndex * PAGE_SIZE,
-          q: searchQuery,
-        }),
-      ])
-      if (latestLoadIdRef.current !== loadId) {
-        return
-      }
-      setStats(s)
+      const nextStats = await adminGetStats()
+      setStats(nextStats)
+    } catch (e) {
+      setStats(null)
+      setStatsError(e instanceof Error ? e.message : t('admin.messages.loadError'))
+    }
+  }, [t])
+
+  const loadUsers = useCallback(async () => {
+    usersAbortRef.current?.abort()
+    const controller = new AbortController()
+    usersAbortRef.current = controller
+    setLoading(true)
+    setUsersError('')
+    try {
+      const u = await adminListUsers({
+        limit: PAGE_SIZE,
+        offset: pageIndex * PAGE_SIZE,
+        q: debouncedQuery,
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
       setUsers(u.items)
       setHasNextPage(u.has_next)
       setTotal(u.total)
     } catch (e) {
-      if (latestLoadIdRef.current !== loadId) {
+      if (controller.signal.aborted) {
         return
       }
-      setError(e instanceof Error ? e.message : t('admin.messages.loadError'))
+      setUsers([])
+      setHasNextPage(false)
+      setTotal(0)
+      setUsersError(e instanceof Error ? e.message : t('admin.messages.loadError'))
     } finally {
-      if (latestLoadIdRef.current === loadId) {
+      if (!controller.signal.aborted) {
         setLoading(false)
       }
     }
-  }, [pageIndex, searchQuery, t])
+  }, [debouncedQuery, pageIndex, t])
 
   const handleQuotaSaved = useCallback((updatedUser: AdminUserQuotaUpdate) => {
     setUsers(previous =>
@@ -202,7 +225,13 @@ export function AdminPage() {
     )
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void loadStats() }, [loadStats])
+  useEffect(() => {
+    void loadUsers()
+    return () => usersAbortRef.current?.abort()
+  }, [loadUsers])
+
+  const combinedError = statsError || usersError
 
   return (
     <div className="min-h-screen px-4 py-8 bg-background text-foreground">
@@ -219,9 +248,9 @@ export function AdminPage() {
           {t('admin.title')}
         </h1>
 
-        {error && (
+        {combinedError && (
           <Alert variant="warning" className="mb-6">
-            <span className="font-bold">{error}</span>
+            <span className="font-bold">{combinedError}</span>
           </Alert>
         )}
 
@@ -231,18 +260,20 @@ export function AdminPage() {
           </div>
         )}
 
-        {!loading && stats && (
+        {!loading && (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-              <StatCard label={t('admin.totalUsers')} value={stats.total_users} icon={Users} />
-              <StatCard label={t('admin.totalReports')} value={stats.total_reports} icon={FileText} />
-              <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
-              <StatCard
-                label={t('admin.planBreakdown')}
-                value={Object.entries(stats.plan_breakdown).map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`).join(' · ')}
-                icon={Users}
-              />
-            </div>
+            {stats && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                <StatCard label={t('admin.totalUsers')} value={stats.total_users} icon={Users} />
+                <StatCard label={t('admin.totalReports')} value={stats.total_reports} icon={FileText} />
+                <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
+                <StatCard
+                  label={t('admin.planBreakdown')}
+                  value={Object.entries(stats.plan_breakdown).map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`).join(' · ')}
+                  icon={Users}
+                />
+              </div>
+            )}
 
             <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
               {t('admin.usersTitle')}
@@ -285,7 +316,7 @@ export function AdminPage() {
               </table>
             </div>
 
-            {users.length === 0 && (
+            {users.length === 0 && !usersError && (
               <p className="text-center text-muted-foreground py-8 font-bold">
                 {t('admin.noUsers')}
               </p>

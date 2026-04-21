@@ -306,6 +306,7 @@ flowchart TD
 - 管理员覆写值存储在 `profiles.plan_limit_override`
 - API 返回仍保持 `plan_limit` 作为前端展示和编辑的有效额度
 - `503 DEPENDENCY_UNAVAILABLE` 表示 Supabase 或持久化依赖降级，不代表业务空数据
+- 账户删除失败现在按阶段补偿：前半段会尝试清掉 `deletion_pending`，后半段失败可能只恢复访问能力，或保留 `deletion_pending` 并需要人工介入
 
 对依赖 Cookie 会话的写操作，请继续携带 `X-Requested-With`；当浏览器发送
 `Origin` 或 `Referer` 时，它们也必须命中已配置的 allowlist。
@@ -326,6 +327,12 @@ flowchart TD
 - `POST /api/v1/billing/webhook`
 
 注意：checkout、portal、status 现在仍是“代码已接好、用户入口未开放”的状态。
+`/api/v1/billing/webhook` 仍会保持真实挂载，确保 Stripe 事件可以正常进入后端。
+
+分析持久化说明：
+
+- `POST /api/v1/analyze` 的初始 `processing` 状态写入被视为关键写操作
+- 如果 hosted `report_status` 持久化失败，请求现在会返回 `503`，并回滚 quota 与 processing reservation
 
 ## 项目结构
 

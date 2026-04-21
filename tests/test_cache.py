@@ -676,7 +676,8 @@ async def test_supabase_repo_user_status_cleanup_and_close_edge_paths() -> None:
         with pytest.raises(DependencyUnavailableError):
             await repo.get_report_user_id("r-2")
         assert await repo.get_report_user_id("r-2") == ""
-        await repo.put_status("r-2", "processing", "query")
+        with pytest.raises(DependencyUnavailableError):
+            await repo.put_status("r-2", "processing", "query")
         with pytest.raises(DependencyUnavailableError):
             await repo.get_status("r-2")
         assert await repo.get_status("r-2") is None

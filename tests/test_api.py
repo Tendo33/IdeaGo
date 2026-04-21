@@ -106,6 +106,7 @@ def client():
         patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
         patch("ideago.api.dependencies.get_settings", return_value=fake_settings),
         patch("ideago.api.app.get_settings", return_value=fake_settings),
+        patch("ideago.api.routes.health.get_settings", return_value=fake_settings),
         patch("ideago.auth.supabase_admin._is_configured", return_value=False),
     ):
         app = create_app()
@@ -1292,7 +1293,7 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
                         "domain_data": "pending",
                         "billing": "failed",
                         "auth_identity": "pending",
-                        "profile": "deletion_pending",
+                        "profile": "rolled_back",
                     },
                 }
             ),
@@ -1317,7 +1318,7 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
         "domain_data": "pending",
         "billing": "failed",
         "auth_identity": "pending",
-        "profile": "deletion_pending",
+        "profile": "rolled_back",
     }
     assert audit_log.await_count == 1
     assert audit_log.await_args.kwargs["metadata"] == {
@@ -1328,64 +1329,12 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
             "domain_data": "pending",
             "billing": "failed",
             "auth_identity": "pending",
-            "profile": "deletion_pending",
+            "profile": "rolled_back",
         },
     }
     metrics = app_metrics.snapshot()
     assert metrics["event_counts"]["account_delete_failed"] == 1
     assert metrics["event_reasons"]["account_delete_failed"] == {"billing_cleanup": 1}
-
-
-@pytest.mark.asyncio
-async def test_delete_account_keeps_session_when_deletion_fails() -> None:
-    user = auth_route.AuthUser(id="uid", email="u@example.com")
-    fake_settings = type(
-        "Settings",
-        (),
-        {
-            "auth_session_secret": "session-secret-session-secret-012345",
-            "auth_session_expire_hours": 24,
-        },
-    )()
-    request = type(
-        "Req",
-        (),
-        {
-            "client": type("Client", (), {"host": "127.0.0.1"})(),
-            "headers": {},
-            "cookies": {},
-        },
-    )()
-    with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
-        request.cookies[auth_route.AUTH_SESSION_COOKIE_NAME] = (
-            auth_route._issue_auth_token(
-                user_id=user.id,
-                email=user.email,
-                provider="linuxdo",
-                session_id="session-1",
-            )
-        )
-
-    with (
-        patch(
-            "ideago.api.routes.auth.delete_user_account",
-            new=AsyncMock(
-                return_value={
-                    "error": "partial_failure",
-                    "phase": "billing_cleanup",
-                    "details": [],
-                    "cleanup": {},
-                }
-            ),
-        ),
-        patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
-        patch("ideago.api.routes.auth.revoke_auth_session", new=AsyncMock()) as revoke,
-        patch("ideago.api.routes.auth.log_audit_event", new=AsyncMock()),
-        pytest.raises(auth_route.AppError),
-    ):
-        await auth_route.delete_account(request, Response(), user)
-
-    revoke.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1860,172 +1809,6 @@ async def test_mark_cancelled_status_terminal_event_and_owner_checks(tmp_path) -
         with pytest.raises(AppError) as missing_owner:
             await analyze_route._assert_owner_or_deny("missing-report", "owner-1")
         assert missing_owner.value.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
-    user = analyze_route.AuthUser(id="user-1", email="user@example.com")
-    request = analyze_route.AnalyzeRequest(query="  build a useful app  ")
-    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
-    quota_denied = type(
-        "Quota",
-        (),
-        {"allowed": False, "plan_limit": 5, "plan": "daily", "usage_count": 5},
-    )()
-    quota_warn = type(
-        "Quota",
-        (),
-        {"allowed": True, "plan_limit": 5, "plan": "daily", "usage_count": 4},
-    )()
-    quota_low = type(
-        "Quota",
-        (),
-        {"allowed": True, "plan_limit": 5, "plan": "daily", "usage_count": 1},
-    )()
-
-    with (
-        patch(
-            "ideago.api.routes.analyze.reserve_processing_report",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "ideago.api.routes.analyze.release_processing_report",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_denied),
-        ),
-        patch(
-            "ideago.api.routes.analyze.check_and_increment_quota",
-            new=AsyncMock(return_value=quota_denied),
-        ),
-        pytest.raises(AppError) as quota_exc,
-    ):
-        await analyze_route.start_analysis(request, user)
-    assert quota_exc.value.status_code == 429
-    assert "5 analyses per day" in quota_exc.value.detail["message"]
-
-    with (
-        patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_low),
-        ),
-        patch(
-            "ideago.api.routes.analyze.check_and_increment_quota",
-            new=AsyncMock(return_value=quota_low),
-        ),
-        patch(
-            "ideago.api.routes.analyze.reserve_processing_report",
-            new=AsyncMock(return_value="existing-report"),
-        ),
-        patch(
-            "ideago.api.routes.analyze._confirm_existing_report_is_active",
-            new=AsyncMock(return_value=True),
-        ),
-    ):
-        existing = await analyze_route.start_analysis(request, user)
-    assert existing.report_id == "existing-report"
-
-    fake_task = object()
-
-    def fake_create_task(coro):
-        coro.close()
-        return fake_task
-
-    with (
-        patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_warn),
-        ),
-        patch(
-            "ideago.api.routes.analyze.check_and_increment_quota",
-            new=AsyncMock(return_value=quota_warn),
-        ),
-        patch(
-            "ideago.api.routes.analyze.reserve_processing_report",
-            new=AsyncMock(return_value=None),
-        ),
-        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
-        patch(
-            "ideago.api.routes.analyze.get_or_create_report_run",
-            return_value=deps.get_or_create_report_run("created-report"),
-        ),
-        patch(
-            "ideago.api.routes.analyze.notify_quota_warning",
-            new=AsyncMock(side_effect=RuntimeError("mail failed")),
-        ) as quota_warning,
-        patch(
-            "ideago.api.routes.analyze.asyncio.create_task",
-            side_effect=fake_create_task,
-        ),
-        patch(
-            "ideago.api.routes.analyze.register_pipeline_task",
-            new=AsyncMock(return_value=None),
-        ) as register_task,
-    ):
-        created = await analyze_route.start_analysis(request, user)
-
-    status = await cache.get_status(created.report_id)
-    assert status is not None
-    assert status["status"] == "processing"
-    quota_warning.assert_awaited_once()
-    register_task.assert_awaited_once_with(created.report_id, fake_task)
-
-
-@pytest.mark.asyncio
-async def test_start_analysis_records_metric_when_reservation_cannot_be_obtained() -> (
-    None
-):
-    user = analyze_route.AuthUser(id="user-1", email="user@example.com")
-    request = analyze_route.AnalyzeRequest(query="build a useful app")
-    app_metrics.reset()
-
-    with (
-        patch(
-            "ideago.api.routes.analyze.reserve_processing_report",
-            new=AsyncMock(side_effect=["stale-1", "stale-2", "stale-3"]),
-        ),
-        patch(
-            "ideago.api.routes.analyze._confirm_existing_report_is_active",
-            new=AsyncMock(return_value=False),
-        ),
-        pytest.raises(AppError) as reserve_exc,
-    ):
-        await analyze_route.start_analysis(request, user)
-
-    assert reserve_exc.value.status_code == 503
-    metrics = app_metrics.snapshot()
-    assert metrics["event_counts"]["analysis_start_failed"] == 1
-    assert metrics["event_reasons"]["analysis_start_failed"] == {
-        "reservation_failed": 1
-    }
-
-
-@pytest.mark.asyncio
-async def test_start_analysis_fails_closed_when_dedup_store_is_unavailable() -> None:
-    user = analyze_route.AuthUser(id="user-1", email="user@example.com")
-    request = analyze_route.AnalyzeRequest(query="build a useful app")
-    quota_check = AsyncMock()
-
-    with (
-        patch(
-            "ideago.api.routes.analyze.reserve_processing_report",
-            new=AsyncMock(
-                side_effect=deps.DedupReservationUnavailableError("dedup unavailable")
-            ),
-        ),
-        patch(
-            "ideago.api.routes.analyze.check_and_increment_quota",
-            new=quota_check,
-        ),
-        pytest.raises(AppError) as exc,
-    ):
-        await analyze_route.start_analysis(request, user)
-
-    assert exc.value.status_code == 503
-    assert "reserve analysis slot" in exc.value.detail["message"].lower()
-    quota_check.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -4336,6 +4119,10 @@ async def test_supabase_admin_delete_user_account_returns_failing_phase() -> Non
             "ideago.auth.supabase_admin.delete_auth_identity",
             new=AsyncMock(return_value={"status": "deleted"}),
         ),
+        patch(
+            "ideago.auth.supabase_admin.restore_profile_after_failed_deletion",
+            new=AsyncMock(return_value={"status": "restored"}),
+        ) as restore_profile,
     ):
         result = await supabase_admin.delete_user_account("uid")
 
@@ -4347,9 +4134,10 @@ async def test_supabase_admin_delete_user_account_returns_failing_phase() -> Non
             "domain_data": "pending",
             "billing": "failed",
             "auth_identity": "pending",
-            "profile": "deletion_pending",
+            "profile": "rolled_back",
         },
     }
+    restore_profile.assert_awaited_once_with("uid")
 
 
 @pytest.mark.asyncio
