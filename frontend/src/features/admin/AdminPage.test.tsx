@@ -165,6 +165,94 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: '8' })).toBeInTheDocument()
   })
 
+  it('resyncs the quota editor after external user data changes', async () => {
+    vi.mocked(adminGetStats).mockResolvedValue({
+      total_users: 1,
+      total_reports: 5,
+      active_processing: 0,
+      plan_breakdown: { free: 1 },
+    })
+    vi.mocked(adminSetQuota).mockResolvedValue({
+      id: 'user-1',
+      display_name: 'Alice',
+      plan: 'free',
+      usage_count: 2,
+      plan_limit: 8,
+      role: 'user',
+    })
+    vi.mocked(adminListUsers)
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'user-1',
+            display_name: 'Alice',
+            avatar_url: '',
+            bio: '',
+            created_at: new Date().toISOString(),
+            plan: 'free',
+            usage_count: 2,
+            plan_limit: 5,
+            role: 'user',
+            auth_provider: 'supabase',
+          },
+        ],
+        total: 1,
+        has_next: false,
+        limit: 25,
+        offset: 0,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'user-1',
+            display_name: 'Alice',
+            avatar_url: '',
+            bio: '',
+            created_at: new Date().toISOString(),
+            plan: 'free',
+            usage_count: 2,
+            plan_limit: 9,
+            role: 'user',
+            auth_provider: 'supabase',
+          },
+        ],
+        total: 1,
+        has_next: false,
+        limit: 25,
+        offset: 0,
+      })
+
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '5' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '5' }))
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '7' } })
+    fireEvent.click(screen.getByRole('button', { name: /admin.actions.saveQuotaFor:Alice/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '8' })).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('Search by name or ID'), {
+      target: { value: 'alice' },
+    })
+
+    await waitFor(() => {
+      expect(adminListUsers).toHaveBeenCalledTimes(2)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '9' })).toBeInTheDocument()
+    })
+  })
+
   it('debounces user search and does not reload stats on every keystroke', async () => {
     vi.mocked(adminGetStats).mockResolvedValue({
       total_users: 1,

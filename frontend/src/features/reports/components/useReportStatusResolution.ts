@@ -291,7 +291,6 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
       .catch(error => {
         if (isRequestAbortError(error)) return
         setSystemError(error instanceof Error ? error.message : t('report.error.unavailableStatus'))
-        options?.onProcessing?.()
       })
   }, [id, resolveMissingReportStatus, setReadyReportState, setSystemError, t])
 

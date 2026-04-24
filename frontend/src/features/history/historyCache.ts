@@ -52,12 +52,20 @@ export function writeHistoryCache(snapshot: HistoryCacheSnapshot): void {
   if (typeof window === 'undefined') {
     return
   }
-  window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify(snapshot))
+  try {
+    window.sessionStorage.setItem(HISTORY_CACHE_STORAGE_KEY, JSON.stringify(snapshot))
+  } catch {
+    // Ignore storage failures so auth/logout flows do not break in restricted browsers.
+  }
 }
 
 export function clearHistoryCache(): void {
   if (typeof window === 'undefined') {
     return
   }
-  window.sessionStorage.removeItem(HISTORY_CACHE_STORAGE_KEY)
+  try {
+    window.sessionStorage.removeItem(HISTORY_CACHE_STORAGE_KEY)
+  } catch {
+    // Ignore storage failures so auth/logout flows do not break in restricted browsers.
+  }
 }

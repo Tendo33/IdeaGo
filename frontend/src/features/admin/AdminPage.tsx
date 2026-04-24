@@ -67,6 +67,12 @@ function UserRow({
   const displayName = user.display_name || t('admin.userFallbackName')
   const quotaTargetName = user.display_name || user.id.slice(0, 8)
 
+  useEffect(() => {
+    if (!editing) {
+      setLimit(String(user.plan_limit))
+    }
+  }, [editing, user.plan_limit])
+
   const save = async () => {
     setSaving(true)
     setError('')

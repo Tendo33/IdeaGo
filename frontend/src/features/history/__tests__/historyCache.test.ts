@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearHistoryCache,
   readHistoryCache,
@@ -45,5 +45,38 @@ describe('historyCache', () => {
 
     clearHistoryCache()
     expect(readHistoryCache('user-1', 20)).toBeNull()
+  })
+
+  it('ignores sessionStorage write failures', () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new DOMException('Blocked', 'SecurityError')
+      })
+
+    expect(() =>
+      writeHistoryCache({
+        userId: 'user-1',
+        pageIndex: 0,
+        limit: 20,
+        hasNextPage: false,
+        total: 0,
+        reports: [],
+      }),
+    ).not.toThrow()
+
+    setItem.mockRestore()
+  })
+
+  it('ignores sessionStorage remove failures', () => {
+    const removeItem = vi
+      .spyOn(Storage.prototype, 'removeItem')
+      .mockImplementation(() => {
+        throw new DOMException('Blocked', 'SecurityError')
+      })
+
+    expect(() => clearHistoryCache()).not.toThrow()
+
+    removeItem.mockRestore()
   })
 })

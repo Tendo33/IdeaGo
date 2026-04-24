@@ -275,6 +275,37 @@ describe('useReportLifecycle', () => {
     })
   })
 
+  it('does not retry SSE when a status refresh fails', async () => {
+    const retry = vi.fn()
+    vi.mocked(useSSE).mockReturnValue({
+      events: [],
+      isComplete: false,
+      isReconnecting: false,
+      error: 'Connection lost',
+      cancelled: null,
+      retry,
+    })
+    vi.mocked(getReportWithStatus)
+      .mockResolvedValueOnce({ status: 'processing' })
+      .mockRejectedValueOnce(new Error('Status fetch failed'))
+
+    const { result } = renderHook(() => useReportLifecycle('r-processing-refresh', navigate))
+
+    await waitFor(() => {
+      expect(result.current.loadPhase).toBe('processing')
+      expect(result.current.sseError).toBe('Connection lost')
+    })
+
+    act(() => {
+      result.current.retryErrorState()
+    })
+
+    await waitFor(() => {
+      expect(result.current.loadError).toBe('Status fetch failed')
+    })
+    expect(retry).not.toHaveBeenCalled()
+  })
+
   it('keeps connection errors separate from runtime-status errors', async () => {
     vi.mocked(useSSE).mockReturnValue({
       events: [],
