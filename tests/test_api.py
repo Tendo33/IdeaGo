@@ -551,6 +551,24 @@ def test_get_report_status_cancelled_from_status_file(client, tmp_path) -> None:
     assert payload["error_code"] == "PIPELINE_CANCELLED"
 
 
+def test_get_report_status_returns_503_when_report_lookup_degrades(client) -> None:
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
+    mock_cache.get_by_id = AsyncMock(
+        side_effect=DependencyUnavailableError(
+            "report_lookup_failed", dependency="supabase_reports"
+        )
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
+        response = client.get("/api/v1/reports/report-123/status")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["error"]["code"] == "DEPENDENCY_UNAVAILABLE"
+
+
 def test_list_reports(client) -> None:
     mock_cache = AsyncMock(spec=FileCache)
     mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
@@ -633,6 +651,24 @@ def test_delete_report(client) -> None:
     with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
         response = client.delete("/api/v1/reports/some-id")
     assert response.status_code == 200
+
+
+def test_delete_report_succeeds_when_status_cleanup_degrades(client) -> None:
+    mock_cache = AsyncMock(spec=FileCache)
+    mock_cache.get_report_user_id = AsyncMock(return_value="test-user-id")
+    mock_cache.get_status = AsyncMock(return_value=None)
+    mock_cache.delete = AsyncMock(return_value=True)
+    mock_cache.remove_status = AsyncMock(
+        side_effect=DependencyUnavailableError(
+            "report_status_cleanup_failed", dependency="supabase_report_status"
+        )
+    )
+
+    with patch("ideago.api.routes.reports.get_cache", return_value=mock_cache):
+        response = client.delete("/api/v1/reports/some-id")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "deleted"}
 
 
 def test_delete_report_not_found(client) -> None:
@@ -4487,6 +4523,10 @@ async def test_billing_validate_redirect_and_service_paths() -> None:
         with pytest.raises(AppError):
             billing_route._validate_redirect_url(
                 "ftp://app.example.com/ok", "return_url"
+            )
+        with pytest.raises(AppError):
+            billing_route._validate_redirect_url(
+                "http://app.example.com/ok", "return_url"
             )
         with pytest.raises(AppError):
             billing_route._validate_redirect_url(

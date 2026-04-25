@@ -46,15 +46,15 @@ def _validate_redirect_url(url: str, label: str) -> None:
         raise AppError(400, ErrorCode.VALIDATION_ERROR, f"Invalid {label}")
 
     try:
-        allowed_host = urlparse(configured).netloc
+        allowed = urlparse(configured)
     except ValueError:
         return
 
-    if parsed.netloc != allowed_host:
+    if parsed.scheme != allowed.scheme or parsed.netloc != allowed.netloc:
         raise AppError(
             400,
             ErrorCode.VALIDATION_ERROR,
-            f"{label} must point to {allowed_host}",
+            f"{label} must point to {allowed.scheme}://{allowed.netloc}",
         )
 
 

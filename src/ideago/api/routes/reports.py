@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime
 from typing import Literal, cast
 
@@ -188,52 +189,58 @@ async def get_report_status(
             status_payload = await cache.get_status(report_id)
             if status_payload:
                 owner_id = status_payload.get("user_id", "") or ""
+        if not owner_id:
+            app_metrics.increment_event(
+                "report_status_not_found", reason="missing_owner"
+            )
+            return ReportRuntimeStatus(status="not_found", report_id=report_id)
+        if owner_id != user.id:
+            app_metrics.increment_event(
+                "report_status_not_found", reason="missing_owner"
+            )
+            return ReportRuntimeStatus(status="not_found", report_id=report_id)
+
+        report = await cache.get_by_id(report_id, user_id=user.id)
+        if report is not None:
+            return ReportRuntimeStatus(
+                status="complete",
+                report_id=report_id,
+                updated_at=report.updated_at,
+                query=report.query,
+            )
+
+        if is_report_id_processing(report_id):
+            return ReportRuntimeStatus(status="processing", report_id=report_id)
+
+        status_payload = await cache.get_status(report_id)
+        if status_payload:
+            status_value = status_payload.get("status")
+            if isinstance(status_value, str) and status_value in {
+                "processing",
+                "failed",
+                "cancelled",
+                "complete",
+            }:
+                runtime_status = cast(
+                    Literal["processing", "failed", "cancelled", "complete"],
+                    status_value,
+                )
+                return ReportRuntimeStatus(
+                    status=runtime_status,
+                    report_id=report_id,
+                    error_code=status_payload.get("error_code"),
+                    message=status_payload.get("message"),
+                    updated_at=_parse_status_updated_at(
+                        status_payload.get("updated_at")
+                    ),
+                    query=status_payload.get("query"),
+                )
     except DependencyUnavailableError:
         raise AppError(
             503,
             ErrorCode.DEPENDENCY_UNAVAILABLE,
             "Report store unavailable",
         ) from None
-    if not owner_id:
-        app_metrics.increment_event("report_status_not_found", reason="missing_owner")
-        return ReportRuntimeStatus(status="not_found", report_id=report_id)
-    if owner_id != user.id:
-        app_metrics.increment_event("report_status_not_found", reason="missing_owner")
-        return ReportRuntimeStatus(status="not_found", report_id=report_id)
-
-    report = await cache.get_by_id(report_id, user_id=user.id)
-    if report is not None:
-        return ReportRuntimeStatus(
-            status="complete",
-            report_id=report_id,
-            updated_at=report.updated_at,
-            query=report.query,
-        )
-
-    if is_report_id_processing(report_id):
-        return ReportRuntimeStatus(status="processing", report_id=report_id)
-
-    status_payload = await cache.get_status(report_id)
-    if status_payload:
-        status_value = status_payload.get("status")
-        if isinstance(status_value, str) and status_value in {
-            "processing",
-            "failed",
-            "cancelled",
-            "complete",
-        }:
-            runtime_status = cast(
-                Literal["processing", "failed", "cancelled", "complete"],
-                status_value,
-            )
-            return ReportRuntimeStatus(
-                status=runtime_status,
-                report_id=report_id,
-                error_code=status_payload.get("error_code"),
-                message=status_payload.get("message"),
-                updated_at=_parse_status_updated_at(status_payload.get("updated_at")),
-                query=status_payload.get("query"),
-            )
 
     app_metrics.increment_event("report_status_not_found", reason="missing_status")
     return ReportRuntimeStatus(status="not_found", report_id=report_id)
@@ -257,7 +264,8 @@ async def delete_report(
         ) from None
     if not deleted:
         raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
-    await cache.remove_status(report_id)
+    with suppress(DependencyUnavailableError):
+        await cache.remove_status(report_id)
     await release_processing_report(report_id)
     return {"status": "deleted"}
 
