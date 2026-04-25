@@ -84,6 +84,12 @@ async def test_cache_get_and_get_by_id_tenant_and_corrupt_paths(tmp_path) -> Non
     assert await cache.get("tenant-key", user_id="user-b") is None
     assert await cache.get_by_id(report.id, user_id="user-b") is None
 
+    anonymous = _make_report("anonymous-key", "anonymous query")
+    await cache.put(anonymous)
+    assert await cache.get("anonymous-key", user_id="user-a") is None
+    assert await cache.get_by_id(anonymous.id, user_id="user-a") is None
+    assert await cache.delete(anonymous.id, user_id="user-a") is False
+
     report_path = tmp_path / "cache" / f"{report.id}.json"
     report_path.unlink()
     assert await cache.get("tenant-key", user_id="user-a") is None
@@ -488,8 +494,20 @@ async def test_supabase_repo_put_list_and_delete() -> None:
         assert len(rows) == 1
         assert has_next is False
         assert total == 1
-        deleted = await repo.delete(report.id)
+        deleted = await repo.delete(report.id, user_id="user-1")
         assert deleted is True
+        assert fake_client.delete.await_args_list[0].kwargs["params"] == {
+            "id": f"eq.{report.id}",
+            "user_id": "eq.user-1",
+        }
+        assert fake_client.delete.await_args_list[1].kwargs["params"] == {
+            "report_id": f"eq.{report.id}",
+            "user_id": "eq.user-1",
+        }
+        assert fake_client.delete.await_args_list[2].kwargs["params"] == {
+            "report_id": f"eq.{report.id}",
+            "user_id": "eq.user-1",
+        }
 
 
 @pytest.mark.asyncio

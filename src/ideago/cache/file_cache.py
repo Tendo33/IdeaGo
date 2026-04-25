@@ -76,7 +76,7 @@ class FileCache:
             index = self._read_index()
         for entry in index:
             if entry.cache_key == cache_key:
-                if user_id and entry.user_id and entry.user_id != user_id:
+                if user_id and entry.user_id != user_id:
                     continue
                 if self._is_expired(entry.created_at, has_owner=bool(entry.user_id)):
                     return None
@@ -110,7 +110,7 @@ class FileCache:
             entry = next((e for e in index if e.report_id == report_id), None)
             if entry is None:
                 return None
-            if entry.user_id and entry.user_id != user_id:
+            if entry.user_id != user_id:
                 return None
         report_path = self._dir / f"{report_id}.json"
         if not report_path.exists():
@@ -265,7 +265,7 @@ class FileCache:
                 entry = next((e for e in index if e.report_id == report_id), None)
                 if entry is None:
                     return False
-                if entry.user_id and entry.user_id != user_id:
+                if entry.user_id != user_id:
                     return False
             new_index = [e for e in index if e.report_id != report_id]
             if len(new_index) >= len(index):

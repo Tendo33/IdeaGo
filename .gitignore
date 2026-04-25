@@ -216,3 +216,4 @@ temporary/
 scratch/
 .env.prod
 .worktrees/
+docs/health-check/

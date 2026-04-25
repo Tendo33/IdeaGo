@@ -178,15 +178,18 @@ class SupabaseReportRepository:
         )
         if resp.status_code not in (200, 204):
             return False
+        cleanup_params: dict[str, str] = {"report_id": f"eq.{report_id}"}
+        if user_id:
+            cleanup_params["user_id"] = f"eq.{user_id}"
         await client.delete(
             self._url("report_status"),
             headers=self._headers(),
-            params={"report_id": f"eq.{report_id}"},
+            params=cleanup_params,
         )
         await client.delete(
             self._url("processing_reports"),
             headers=self._headers(),
-            params={"report_id": f"eq.{report_id}"},
+            params=cleanup_params,
         )
         if resp.status_code == 200:
             rows = resp.json()
