@@ -695,11 +695,15 @@ def test_export_report(client, tmp_path) -> None:
     assert response.status_code == 200
     assert "text/markdown" in response.headers["content-type"]
     assert "Source Intelligence Report" in response.text
-    assert "Should We Build This?" in response.text
+    assert "Recommendation" in response.text
+    assert "Why Now" in response.text
     assert "Pain Signals" in response.text
     assert "Commercial Signals" in response.text
     assert "Whitespace Opportunities" in response.text
-    assert "Evidence And Confidence" in response.text
+    assert "Competitors" in response.text
+    assert "Evidence" in response.text
+    assert "Confidence" in response.text
+    assert "Evidence And Confidence" not in response.text
     assert "TestProduct" in response.text
 
 
@@ -4668,7 +4672,8 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     markdown = reports_route._report_to_markdown(rich_report)
 
     assert export_missing.value.status_code == 404
-    assert "Should We Build This?" in markdown
+    assert "Recommendation" in markdown
+    assert "Why Now" in markdown
     assert "Pain Signals" in markdown
     assert "Commercial Signals" in markdown
     assert "Whitespace Opportunities" in markdown
@@ -4676,7 +4681,21 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     assert "Pricing" in markdown
     assert "Strengths" in markdown
     assert "Weaknesses" in markdown
-    assert "Evidence And Confidence" in markdown
+    assert "Differentiation Angles" in markdown
+    assert "Evidence" in markdown
+    assert "Confidence" in markdown
+    assert "Evidence And Confidence" not in markdown
+    assert markdown.index("## Recommendation") < markdown.index("## Why Now")
+    assert markdown.index("## Why Now") < markdown.index("## Pain Signals")
+    assert markdown.index("## Pain Signals") < markdown.index("## Commercial Signals")
+    assert markdown.index("## Commercial Signals") < markdown.index(
+        "## Whitespace Opportunities"
+    )
+    assert markdown.index("## Whitespace Opportunities") < markdown.index(
+        "## Competitors"
+    )
+    assert markdown.index("## Competitors") < markdown.index("## Evidence")
+    assert markdown.index("## Evidence") < markdown.index("## Confidence")
 
 
 @pytest.mark.asyncio

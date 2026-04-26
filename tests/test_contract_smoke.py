@@ -39,6 +39,7 @@ def test_create_app_registers_hosted_route_families_and_billing_webhook() -> Non
     assert "/api/v1/billing/webhook" in routes
     assert "/api/v1/billing/checkout" in routes
     assert "/api/v1/billing/webhook" in _CSRF_EXEMPT_PATHS
+    assert "decision-first" in app.description.lower()
 
 
 def test_billing_webhook_is_reachable_and_exempt_from_csrf() -> None:

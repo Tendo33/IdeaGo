@@ -308,7 +308,7 @@ def _report_to_markdown(report: ResearchReport) -> str:
     lines.append(f"\n**App Type:** {report.intent.app_type}")
     lines.append(f"\n**Keywords:** {', '.join(report.intent.keywords_en)}")
 
-    lines.append("\n## Should We Build This?\n")
+    lines.append("\n## Recommendation\n")
     lines.append(
         f"- Recommendation: {report.recommendation_type.value}"
         if report.recommendation_type
@@ -318,6 +318,10 @@ def _report_to_markdown(report: ResearchReport) -> str:
         lines.append(f"- Summary: {report.go_no_go}")
     if report.opportunity_score.score > 0:
         lines.append(f"- Opportunity Score: {report.opportunity_score.score:.2f}/1.00")
+    if report.differentiation_angles:
+        lines.append("- Differentiation Angles:")
+        for angle in report.differentiation_angles:
+            lines.append(f"  - {angle}")
 
     if report.market_summary:
         lines.append(f"\n## Why Now\n\n{report.market_summary}")
@@ -384,22 +388,7 @@ def _report_to_markdown(report: ResearchReport) -> str:
             lines.append(f"\n**Relevance:** {c.relevance_score:.1f}/1.0")
             lines.append("")
 
-    if report.differentiation_angles:
-        lines.append("\n## Differentiated Recommendation\n")
-        for angle in report.differentiation_angles:
-            lines.append(f"- {angle}")
-
-    lines.append("\n## Evidence And Confidence\n")
-    lines.append(f"- Confidence Score: {report.confidence.score}/100")
-    lines.append(f"- Source Coverage: {report.confidence.source_coverage}")
-    lines.append(f"- Source Diversity: {report.confidence.source_diversity}")
-    lines.append(f"- Evidence Density: {report.confidence.evidence_density:.2f}")
-    lines.append(f"- Recency Score: {report.confidence.recency_score:.2f}")
-    lines.append(f"- Freshness: {report.confidence.freshness_hint}")
-    if report.confidence.reasons:
-        lines.append("- Confidence Reasons:")
-        for reason in report.confidence.reasons:
-            lines.append(f"  - {reason}")
+    lines.append("\n## Evidence\n")
     if report.evidence_summary.category_counts:
         lines.append("- Evidence Categories:")
         for category, count in sorted(report.evidence_summary.category_counts.items()):
@@ -424,6 +413,18 @@ def _report_to_markdown(report: ResearchReport) -> str:
                 lines.append(f"  - {item.snippet}")
             if item.url:
                 lines.append(f"  - {item.url}")
+
+    lines.append("\n## Confidence\n")
+    lines.append(f"- Confidence Score: {report.confidence.score}/100")
+    lines.append(f"- Source Coverage: {report.confidence.source_coverage}")
+    lines.append(f"- Source Diversity: {report.confidence.source_diversity}")
+    lines.append(f"- Evidence Density: {report.confidence.evidence_density:.2f}")
+    lines.append(f"- Recency Score: {report.confidence.recency_score:.2f}")
+    lines.append(f"- Freshness: {report.confidence.freshness_hint}")
+    if report.confidence.reasons:
+        lines.append("- Confidence Reasons:")
+        for reason in report.confidence.reasons:
+            lines.append(f"  - {reason}")
 
     lines.append("\n## Data Sources\n")
     for sr in report.source_results:
