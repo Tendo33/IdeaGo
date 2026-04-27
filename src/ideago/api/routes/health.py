@@ -32,7 +32,7 @@ async def _check_supabase() -> str:
                     "Authorization": f"Bearer {settings.supabase_service_role_key}",
                 },
             )
-        return "ok" if resp.status_code < 500 else f"error:{resp.status_code}"
+        return "ok" if 200 <= resp.status_code < 300 else f"error:{resp.status_code}"
     except Exception as exc:
         return f"unreachable:{type(exc).__name__}"
 

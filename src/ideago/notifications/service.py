@@ -83,7 +83,10 @@ async def notify_quota_warning(email: str, usage: int, limit: int) -> bool:
     return await sender.send(
         to=email,
         subject="IdeaGo: You're approaching your analysis limit",
-        body_text=f"You've used {usage} of {limit} analyses this month. Upgrade for more.",
+        body_text=(
+            f"You've used {usage} of {limit} analyses today. "
+            "Come back after your daily reset or upgrade for more."
+        ),
     )
 
 

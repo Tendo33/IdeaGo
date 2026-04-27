@@ -3091,6 +3091,8 @@ async def test_health_route_internal_checks_and_main_entrypoint(tmp_path) -> Non
     ok_client.get = AsyncMock(return_value=_AdminFakeResponse(200))
     bad_client = AsyncMock()
     bad_client.get = AsyncMock(return_value=_AdminFakeResponse(503))
+    unauthorized_client = AsyncMock()
+    unauthorized_client.get = AsyncMock(return_value=_AdminFakeResponse(401))
 
     with patch("ideago.api.routes.health.get_settings", return_value=no_supabase):
         assert await health_route._check_supabase() == "not_configured"
@@ -3114,6 +3116,15 @@ async def test_health_route_internal_checks_and_main_entrypoint(tmp_path) -> Non
         ),
     ):
         assert await health_route._check_supabase() == "error:503"
+
+    with (
+        patch("ideago.api.routes.health.get_settings", return_value=health_settings),
+        patch(
+            "ideago.api.routes.health.httpx.AsyncClient",
+            return_value=_AsyncClientContext(unauthorized_client),
+        ),
+    ):
+        assert await health_route._check_supabase() == "error:401"
 
     with (
         patch("ideago.api.routes.health.get_settings", return_value=health_settings),
@@ -4414,11 +4425,13 @@ async def test_auth_route_remaining_error_branches() -> None:
             "ideago.api.routes.auth._exchange_linuxdo_code",
             new=AsyncMock(side_effect=RuntimeError("unexpected")),
         ),
+        patch("ideago.api.routes.auth.logger.exception") as log_exception,
     ):
         unexpected_error = await auth_route.linuxdo_callback(
             request, code="ok", state=state, error=None, error_description=None
         )
     assert "Authentication+failed" in unexpected_error.headers["location"]
+    log_exception.assert_called_once_with("LinuxDo OAuth callback failed")
 
     bad_payload = jwt.encode(
         {"email": "u@example.com", "aud": "ideago-auth"},
@@ -5013,8 +5026,11 @@ async def test_admin_routes_and_notifications() -> None:
     ):
         await admin_route.admin_system_stats(_admin=admin_user)
 
+    sent_messages: list[dict[str, str]] = []
+
     class _Sender:
         async def send(self, **kwargs: str) -> bool:
+            sent_messages.append(kwargs)
             return kwargs["to"] == "u@example.com"
 
     with patch(
@@ -5027,6 +5043,7 @@ async def test_admin_routes_and_notifications() -> None:
             await notification_service.notify_quota_warning("u@example.com", 4, 5)
             is True
         )
+        assert "4 of 5 analyses today" in sent_messages[1]["body_text"]
         assert (
             await notification_service.notify_report_ready(
                 "u@example.com", "report-1", "A very long query"

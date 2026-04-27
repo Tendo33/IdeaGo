@@ -36,9 +36,11 @@ from ideago.auth.supabase_admin import (
 )
 from ideago.config.settings import get_settings
 from ideago.observability.audit import log_audit_event
+from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
 
 router = APIRouter(tags=["auth"])
+logger = get_logger(__name__)
 
 
 class ProfileUpdatePayload(BaseModel):
@@ -461,6 +463,7 @@ async def linuxdo_callback(
             exc.detail if isinstance(exc.detail, str) else "Authentication failed",
         )
     except Exception:
+        logger.exception("LinuxDo OAuth callback failed")
         return _redirect_error(redirect_to, "Authentication failed")
 
     await log_audit_event(
