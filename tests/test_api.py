@@ -26,6 +26,7 @@ from pydantic import ValidationError
 
 from ideago.api import app as app_module
 from ideago.api import dependencies as deps
+from ideago.api import rate_limit as rate_limit_module
 from ideago.api.app import create_app
 from ideago.api.errors import AppError, DependencyUnavailableError
 from ideago.api.routes import admin as admin_route
@@ -3441,7 +3442,6 @@ def test_api_app_rate_limit_and_sentry_helpers() -> None:
     with patch("sentry_sdk.init") as sentry_init:
         app_module._init_sentry(no_sentry)
     sentry_init.assert_not_called()
-
     create_settings = Settings(
         _env_file=None,
         environment="development",
@@ -3474,6 +3474,19 @@ def test_api_app_rate_limit_and_sentry_helpers() -> None:
         pytest.raises(RuntimeError),
     ):
         create_app()
+
+
+def test_rate_limit_key_ignores_untrusted_session_header() -> None:
+    request = type(
+        "Request",
+        (),
+        {
+            "client": type("Client", (), {"host": "203.0.113.10"})(),
+            "headers": {"X-Session-Id": "attacker-controlled"},
+        },
+    )()
+
+    assert rate_limit_module._resolve_rate_key(request, "") == "203.0.113.10"
 
 
 @pytest.mark.asyncio
@@ -5022,9 +5035,8 @@ async def test_admin_routes_and_notifications() -> None:
             "ideago.api.routes.admin.httpx.AsyncClient",
             return_value=_AsyncClientContext(degraded_plan_client),
         ),
-        pytest.raises(AppError) as stats_exc,
     ):
-        await admin_route.admin_system_stats(_admin=admin_user)
+        degraded_stats = await admin_route.admin_system_stats(_admin=admin_user)
 
     sent_messages: list[dict[str, str]] = []
 
@@ -5077,8 +5089,10 @@ async def test_admin_routes_and_notifications() -> None:
     assert users_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
     assert quota_dependency_exc.value.status_code == 503
     assert quota_dependency_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
-    assert stats_exc.value.status_code == 503
-    assert stats_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
+    assert degraded_stats["total_users"] == 0
+    assert degraded_stats["total_reports"] == 0
+    assert degraded_stats["active_processing"] == 0
+    assert degraded_stats["plan_breakdown"] == {}
 
 
 # ── Multi-user isolation tests ────────────────────────────────────────
