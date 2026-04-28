@@ -120,8 +120,7 @@ def _resolve_rate_key(request: Request, user_id: str) -> str:
     if user_id:
         return f"user:{user_id}"
     client_ip = request.client.host if request.client else "unknown"
-    session_id = request.headers.get("X-Session-Id", "")
-    return f"{client_ip}:{session_id}" if session_id else client_ip
+    return client_ip
 
 
 def _check_rate_limit_memory(

@@ -166,22 +166,19 @@ async def admin_system_stats(
                 if not plan_breakdown:
                     logger.warning("Plan breakdown RPC returned empty payload")
             else:
-                raise DependencyUnavailableError(
-                    "plan_breakdown_failed", dependency="supabase_rpc"
+                logger.warning(
+                    "Plan breakdown RPC failed: {} {}",
+                    resp.status_code,
+                    resp.text,
                 )
-        except DependencyUnavailableError:
-            raise AppError(
-                503,
-                ErrorCode.DEPENDENCY_UNAVAILABLE,
-                "Admin data unavailable",
-            ) from None
+                app_metrics.increment_event(
+                    "admin_plan_breakdown_degraded", reason="rpc_failed"
+                )
         except Exception:
             logger.debug("Failed to fetch plan breakdown")
-            raise AppError(
-                503,
-                ErrorCode.DEPENDENCY_UNAVAILABLE,
-                "Admin data unavailable",
-            ) from None
+            app_metrics.increment_event(
+                "admin_plan_breakdown_degraded", reason="exception"
+            )
 
     return {
         "total_users": total_users,
