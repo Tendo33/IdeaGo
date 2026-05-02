@@ -295,4 +295,51 @@ describe('AdminPage', () => {
     expect(vi.mocked(adminListUsers).mock.calls[1]?.[0]).toMatchObject({ q: 'abc' })
   })
 
+  it('blocks saving an empty quota value', async () => {
+    vi.mocked(adminGetStats).mockResolvedValue({
+      total_users: 1,
+      total_reports: 5,
+      active_processing: 0,
+      plan_breakdown: { free: 1 },
+    })
+    vi.mocked(adminListUsers).mockResolvedValue({
+      items: [
+        {
+          id: 'user-1',
+          display_name: 'Alice',
+          avatar_url: '',
+          bio: '',
+          created_at: new Date().toISOString(),
+          plan: 'free',
+          usage_count: 2,
+          plan_limit: 5,
+          role: 'user',
+          auth_provider: 'supabase',
+        },
+      ],
+      total: 1,
+      has_next: false,
+      limit: 25,
+      offset: 0,
+    })
+
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '5' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '5' }))
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '' } })
+
+    const saveButton = screen.getByRole('button', { name: /admin.actions.saveQuotaFor:Alice/i })
+    expect(saveButton).toBeDisabled()
+    fireEvent.click(saveButton)
+    expect(adminSetQuota).not.toHaveBeenCalled()
+  })
+
 })

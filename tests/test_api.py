@@ -3851,6 +3851,34 @@ async def test_supabase_admin_list_profiles_quota_update_and_delete_user_data() 
 
 
 @pytest.mark.asyncio
+async def test_supabase_admin_list_profiles_escapes_literal_search_term() -> None:
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    fake_client = AsyncMock()
+    response = _AdminFakeResponse(200, payload=[])
+    response.headers["content-range"] = "0-0/0"
+    fake_client.get = AsyncMock(return_value=response)
+
+    with (
+        patch("ideago.auth.supabase_admin._is_configured", return_value=True),
+        patch("ideago.auth.supabase_admin.get_settings", return_value=fake_settings),
+        patch("ideago.auth.supabase_admin._get_client", return_value=fake_client),
+    ):
+        listed = await supabase_admin.list_profiles(q=r"100%_growth*(us)")
+
+    assert listed == ([], 0)
+    assert fake_client.get.await_args.kwargs["params"]["or"] == (
+        r"(display_name.ilike.*100\%\_growth\*\(us\)*,id.ilike.*100\%\_growth\*\(us\)*)"
+    )
+
+
+@pytest.mark.asyncio
 async def test_supabase_admin_delete_user_data_not_configured() -> None:
     with patch("ideago.auth.supabase_admin._is_configured", return_value=False):
         result = await supabase_admin.delete_user_data("uid")

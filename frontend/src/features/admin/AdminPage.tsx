@@ -73,11 +73,28 @@ function UserRow({
     }
   }, [editing, user.plan_limit])
 
+  const trimmedLimit = limit.trim()
+  const parsedLimit = Number(trimmedLimit)
+  const hasValidLimit =
+    trimmedLimit.length > 0 &&
+    Number.isFinite(parsedLimit) &&
+    Number.isInteger(parsedLimit) &&
+    parsedLimit >= 0
+  const validationError = trimmedLimit.length === 0
+    ? t('admin.messages.invalidQuota', 'Enter a non-negative whole number')
+    : !hasValidLimit
+      ? t('admin.messages.invalidQuota', 'Enter a non-negative whole number')
+      : ''
+
   const save = async () => {
+    if (!hasValidLimit) {
+      setError(validationError)
+      return
+    }
     setSaving(true)
     setError('')
     try {
-      const updated = await adminSetQuota(user.id, { plan_limit: Number(limit) })
+      const updated = await adminSetQuota(user.id, { plan_limit: parsedLimit })
       setEditing(false)
       toast.success(t('admin.messages.quotaUpdated', { name: quotaTargetName }))
       onQuotaSaved(updated)
@@ -131,7 +148,7 @@ function UserRow({
               variant="secondary"
               size="icon"
               onClick={save}
-              disabled={saving}
+              disabled={saving || !hasValidLimit}
               className="h-9 w-9 text-primary"
               aria-label={t('admin.actions.saveQuotaFor', { name: quotaTargetName })}
             >

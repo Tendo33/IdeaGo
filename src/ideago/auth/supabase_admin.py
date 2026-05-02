@@ -26,6 +26,19 @@ _DAILY_PLAN_NAME = "daily"
 _http_client: httpx.AsyncClient | None = None
 
 
+def _escape_ilike_term(value: str) -> str:
+    """Escape PostgREST ilike wildcards so admin search stays literal."""
+    return (
+        value.replace("\\", r"\\")
+        .replace("%", r"\%")
+        .replace("_", r"\_")
+        .replace("*", r"\*")
+        .replace(",", r"\,")
+        .replace("(", r"\(")
+        .replace(")", r"\)")
+    )
+
+
 class BillingProfileLookupError(RuntimeError):
     """Raised when billing identifiers cannot be safely loaded from profile."""
 
@@ -505,7 +518,7 @@ async def list_profiles(
         }
         normalized_q = q.strip()
         if normalized_q:
-            escaped = normalized_q.replace(",", r"\,")
+            escaped = _escape_ilike_term(normalized_q)
             params["or"] = f"(display_name.ilike.*{escaped}*,id.ilike.*{escaped}*)"
         resp = await client.get(
             f"{settings.supabase_url}/rest/v1/profiles",

@@ -16,6 +16,19 @@ from ideago.observability.log_config import get_logger
 logger = get_logger(__name__)
 
 
+def _escape_ilike_term(value: str) -> str:
+    """Escape PostgREST ilike wildcards so search terms stay literal."""
+    return (
+        value.replace("\\", r"\\")
+        .replace("%", r"\%")
+        .replace("_", r"\_")
+        .replace("*", r"\*")
+        .replace(",", r"\,")
+        .replace("(", r"\(")
+        .replace(")", r"\)")
+    )
+
+
 class SupabaseReportRepository:
     """Stores reports and status in Supabase PostgreSQL via REST API."""
 
@@ -212,7 +225,7 @@ class SupabaseReportRepository:
         }
         if user_id:
             params["user_id"] = f"eq.{user_id}"
-        normalized_q = q.strip().replace("*", "")
+        normalized_q = _escape_ilike_term(q.strip())
         if normalized_q:
             params["query"] = f"ilike.*{normalized_q}*"
         if limit is not None:

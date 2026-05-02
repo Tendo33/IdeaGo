@@ -551,6 +551,33 @@ async def test_supabase_repo_list_reports_accepts_partial_content() -> None:
 
 
 @pytest.mark.asyncio
+async def test_supabase_repo_list_reports_escapes_literal_search_term() -> None:
+    fake_client = AsyncMock()
+    fake_client.get = AsyncMock(
+        return_value=_FakeResponse(200, payload=[], headers={"content-range": "0-0/0"})
+    )
+    fake_settings = type(
+        "Settings",
+        (),
+        {
+            "supabase_url": "https://example.supabase.co",
+            "supabase_service_role_key": "srk",
+        },
+    )()
+    repo = SupabaseReportRepository(ttl_hours=24)
+    repo._client = fake_client
+
+    with patch("ideago.cache.supabase_cache.get_settings", return_value=fake_settings):
+        await repo.list_reports(
+            limit=10, offset=0, user_id="user-1", q=r"100%_growth*(us)"
+        )
+
+    assert fake_client.get.await_args.kwargs["params"]["query"] == (
+        r"ilike.*100\%\_growth\*\(us\)*"
+    )
+
+
+@pytest.mark.asyncio
 async def test_supabase_repo_put_list_and_delete_error_paths() -> None:
     report = _make_report("cache-key-3", "query-3")
     fake_client = AsyncMock()
