@@ -59,7 +59,9 @@ export function AuthCallback() {
     setCallbackMode('linuxdo')
 
     getMe({ allowUnauthorized: true })
-      .then(user => {
+      .then(async user => {
+        if (cancelled) return
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         if (cancelled) return
         applyCustomSession({
           access_token: '',
