@@ -119,21 +119,25 @@ async def _count_table(table: str) -> int:
         ) from err
 
 
+async def _safe_count_table(table: str) -> int:
+    """Return a best-effort row count for admin stats."""
+    try:
+        value = await _count_table(table)
+    except DependencyUnavailableError:
+        logger.warning("Admin stats count degraded for table {}", table)
+        app_metrics.increment_event("admin_stats_count_degraded", reason=table)
+        return 0
+    return max(value, 0)
+
+
 @router.get("/stats")
 async def admin_system_stats(
     _admin: AuthUser = Depends(require_admin),
 ) -> dict:
     """Aggregate system statistics for the admin dashboard."""
-    try:
-        total_users = await _count_table("profiles")
-        total_reports = await _count_table("reports")
-        active_processing = await _count_table("processing_reports")
-    except DependencyUnavailableError:
-        raise AppError(
-            503,
-            ErrorCode.DEPENDENCY_UNAVAILABLE,
-            "Admin data unavailable",
-        ) from None
+    total_users = await _safe_count_table("profiles")
+    total_reports = await _safe_count_table("reports")
+    active_processing = await _safe_count_table("processing_reports")
 
     plan_breakdown: dict[str, int] = {}
     settings = get_settings()
