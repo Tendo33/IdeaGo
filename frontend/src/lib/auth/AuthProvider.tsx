@@ -133,7 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(null)
       setSession((previous: AuthSession | null) => (previous?.provider === 'linuxdo' ? previous : null))
+      setRole('')
       setRoleLoading(false)
+      setRoleError(null)
     })
 
     return () => {

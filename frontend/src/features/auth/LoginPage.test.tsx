@@ -127,6 +127,12 @@ function AuthStateProbe() {
   return <div>{loading ? 'loading' : (user?.id ?? 'anonymous')}</div>
 }
 
+function AuthRoleErrorProbe() {
+  const auth = useContext(AuthContext)
+  const roleError = auth?.roleError ?? ''
+  return <div>{roleError || 'no-role-error'}</div>
+}
+
 function AuthSignOutProbe() {
   const auth = useContext(AuthContext)
   const [error, setError] = useState('')
@@ -1127,5 +1133,43 @@ describe('AuthProvider token refresh scheduling', () => {
       expect(screen.getByText('user-456')).toBeInTheDocument()
     })
     expect(clearHistoryCacheMock.mock.calls.length).toBe(callCountBeforeSwitch + 1)
+  })
+
+  it('clears stale role hydration errors after a Supabase sign-out event', async () => {
+    window.history.replaceState({}, '', '/')
+    getSessionMock.mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'supabase-token',
+          user: { id: 'supabase-user', email: 'supabase@example.com' },
+        },
+      },
+    })
+    getMyProfileMock.mockRejectedValueOnce(new Error('profile hydration failed'))
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <AuthStateProbe />
+          <AuthRoleErrorProbe />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('supabase-user')).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(screen.getByText('profile hydration failed')).toBeInTheDocument()
+    })
+
+    act(() => {
+      authStateChangeCallback?.('SIGNED_OUT', null)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('anonymous')).toBeInTheDocument()
+    })
+    expect(screen.getByText('no-role-error')).toBeInTheDocument()
   })
 })

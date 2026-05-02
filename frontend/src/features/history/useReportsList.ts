@@ -97,6 +97,7 @@ export function useReportsList({
       setTotal(0)
       setHasNextPage(false)
       setLoading(false)
+      setError(null)
       return
     }
 

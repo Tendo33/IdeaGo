@@ -398,4 +398,35 @@ describe('HistoryPage', () => {
     })
     expect(screen.queryByText(/no reports yet/i)).not.toBeInTheDocument()
   })
+
+  it('clears stale history errors after the signed-in user disappears', async () => {
+    vi.mocked(listReports).mockRejectedValueOnce(new Error('Report store unavailable'))
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Report store unavailable')).toBeInTheDocument()
+    })
+
+    mockUser = null
+    rerender(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/reports/:id" element={<div>REPORT PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Report store unavailable')).not.toBeInTheDocument()
+    })
+  })
 })
