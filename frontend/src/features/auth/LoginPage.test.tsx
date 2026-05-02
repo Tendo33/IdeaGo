@@ -645,6 +645,7 @@ describe('LoginPage registration locale metadata', () => {
         email: 'linuxdo@example.com',
       },
     })
+    expect(supabaseSignOutMock).toHaveBeenCalledWith({ scope: 'local' })
     expect(navigateMock).toHaveBeenCalledWith('/reports/r-1', { replace: true })
   })
 
@@ -1093,6 +1094,7 @@ describe('AuthProvider token refresh scheduling', () => {
     await waitFor(() => {
       expect(supabaseSignOutMock).toHaveBeenCalled()
     })
+    expect(logoutAuthSessionMock).toHaveBeenCalled()
     expect(screen.getByText('anonymous')).toBeInTheDocument()
     expect(screen.queryByText('logout failed')).not.toBeInTheDocument()
   })

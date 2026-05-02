@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!session) return
 
     if (session.provider === 'supabase') {
+      await logoutAuthSession().catch(() => {})
       const result = await supabase.auth.signOut()
       if (result.error) {
         throw result.error
