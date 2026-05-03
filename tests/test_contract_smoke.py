@@ -41,6 +41,13 @@ def test_create_app_registers_hosted_route_families_and_billing_webhook() -> Non
     assert "/api/v1/billing/webhook" in _CSRF_EXEMPT_PATHS
     assert "decision-first" in app.description.lower()
 
+    route_map = {
+        route.path: route for route in app.routes if isinstance(route, APIRoute)
+    }
+    assert route_map["/api/v1/billing/checkout"].include_in_schema is False
+    assert route_map["/api/v1/billing/portal"].include_in_schema is False
+    assert route_map["/api/v1/billing/status"].include_in_schema is False
+
 
 def test_billing_webhook_is_reachable_and_exempt_from_csrf() -> None:
     settings = _dev_settings()
@@ -65,3 +72,19 @@ def test_billing_webhook_is_reachable_and_exempt_from_csrf() -> None:
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "BILLING_INVALID_SIGNATURE"
+
+
+def test_hidden_billing_routes_return_not_found_before_auth() -> None:
+    settings = _dev_settings()
+    with (
+        patch("ideago.auth.dependencies.get_settings", return_value=settings),
+        patch("ideago.api.dependencies.get_settings", return_value=settings),
+        patch("ideago.api.app.get_settings", return_value=settings),
+        patch("ideago.api.app._init_sentry"),
+    ):
+        app = create_app()
+        with TestClient(app) as client:
+            response = client.get("/api/v1/billing/status")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"

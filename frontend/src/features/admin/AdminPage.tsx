@@ -37,14 +37,28 @@ function getAdminProviderLabel(provider: string, t: TFunction): string {
   return provider
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: string | number; icon: typeof Users }) {
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string
+  value: string | number | null
+  icon: typeof Users
+}) {
+  const { t } = useTranslation()
+  const displayValue =
+    value === null || value === ''
+      ? t('admin.values.unavailable', 'Unavailable')
+      : value
+
   return (
     <div className="border-4 border-border bg-card p-6 shadow">
       <div className="flex items-center gap-3 mb-3">
         <Icon className="w-5 h-5 text-primary" />
         <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">{label}</span>
       </div>
-      <p className="text-4xl font-black text-foreground leading-none">{value}</p>
+      <p className="text-4xl font-black text-foreground leading-none break-words">{displayValue}</p>
     </div>
   )
 }
@@ -255,6 +269,11 @@ export function AdminPage() {
   }, [loadUsers])
 
   const combinedError = statsError || usersError
+  const statsDegraded =
+    stats !== null &&
+    (stats.total_users === null ||
+      stats.total_reports === null ||
+      stats.active_processing === null)
 
   return (
     <div className="min-h-screen px-4 py-8 bg-background text-foreground">
@@ -277,6 +296,17 @@ export function AdminPage() {
           </Alert>
         )}
 
+        {statsDegraded && (
+          <Alert variant="warning" className="mb-6">
+            <span className="font-bold">
+              {t(
+                'admin.messages.statsDegraded',
+                'Some admin stats are temporarily unavailable. Counts shown as unavailable are degraded, not zero.',
+              )}
+            </span>
+          </Alert>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -292,7 +322,11 @@ export function AdminPage() {
                 <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
                 <StatCard
                   label={t('admin.planBreakdown')}
-                  value={Object.entries(stats.plan_breakdown).map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`).join(' · ')}
+                  value={
+                    Object.entries(stats.plan_breakdown)
+                      .map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`)
+                      .join(' · ') || null
+                  }
                   icon={Users}
                 />
               </div>

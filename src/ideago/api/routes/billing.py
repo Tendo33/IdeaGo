@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ideago.api.errors import AppError, ErrorCode
-from ideago.auth.dependencies import get_current_user
+from ideago.auth.dependencies import get_optional_user
 from ideago.auth.models import AuthUser
 from ideago.billing.stripe_service import (
     construct_webhook_event,
@@ -26,6 +26,13 @@ logger = get_logger(__name__)
 def _raise_temporarily_unavailable() -> None:
     """Hide user-facing billing flows until pricing is re-enabled."""
     raise AppError(404, ErrorCode.NOT_FOUND, "Billing is temporarily unavailable")
+
+
+def _require_user(user: AuthUser | None) -> AuthUser:
+    """Keep auth enforcement local so hidden routes still return 404 first."""
+    if user is None:
+        raise AppError(401, ErrorCode.NOT_AUTHENTICATED, "Not authenticated")
+    return user
 
 
 def _validate_redirect_url(url: str, label: str) -> None:
@@ -87,13 +94,18 @@ class SubscriptionStatus(BaseModel):
     stripe_configured: bool
 
 
-@router.post("/billing/checkout", response_model=CheckoutResponse)
+@router.post(
+    "/billing/checkout",
+    response_model=CheckoutResponse,
+    include_in_schema=False,
+)
 async def create_checkout(
     body: CheckoutRequest,
-    user: AuthUser = Depends(get_current_user),
+    user: AuthUser | None = Depends(get_optional_user),
 ) -> CheckoutResponse:
     """Create a Stripe Checkout Session for upgrading to Pro."""
     _raise_temporarily_unavailable()
+    user = _require_user(user)
     if not is_configured():
         raise AppError(503, ErrorCode.BILLING_NOT_CONFIGURED, "Billing not configured")
 
@@ -128,13 +140,18 @@ async def create_checkout(
         ) from exc
 
 
-@router.post("/billing/portal", response_model=PortalResponse)
+@router.post(
+    "/billing/portal",
+    response_model=PortalResponse,
+    include_in_schema=False,
+)
 async def create_portal(
     body: PortalRequest,
-    user: AuthUser = Depends(get_current_user),
+    user: AuthUser | None = Depends(get_optional_user),
 ) -> PortalResponse:
     """Create a Stripe Customer Portal session for managing subscription."""
     _raise_temporarily_unavailable()
+    user = _require_user(user)
     if not is_configured():
         raise AppError(503, ErrorCode.BILLING_NOT_CONFIGURED, "Billing not configured")
 
@@ -156,12 +173,17 @@ async def create_portal(
         ) from exc
 
 
-@router.get("/billing/status", response_model=SubscriptionStatus)
+@router.get(
+    "/billing/status",
+    response_model=SubscriptionStatus,
+    include_in_schema=False,
+)
 async def get_subscription_status(
-    user: AuthUser = Depends(get_current_user),
+    user: AuthUser | None = Depends(get_optional_user),
 ) -> SubscriptionStatus:
     """Return the user's current plan and subscription status."""
     _raise_temporarily_unavailable()
+    user = _require_user(user)
     from ideago.auth.supabase_admin import get_quota_info
 
     quota = await get_quota_info(user.id)

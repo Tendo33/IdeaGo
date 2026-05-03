@@ -165,6 +165,35 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: '8' })).toBeInTheDocument()
   })
 
+  it('renders degraded admin counts as unavailable instead of zero', async () => {
+    vi.mocked(adminGetStats).mockResolvedValue({
+      total_users: null,
+      total_reports: 5,
+      active_processing: null,
+      plan_breakdown: {},
+    })
+    vi.mocked(adminListUsers).mockResolvedValue({
+      items: [],
+      total: 0,
+      has_next: false,
+      limit: 25,
+      offset: 0,
+    })
+
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(
+        'Some admin stats are temporarily unavailable. Counts shown as unavailable are degraded, not zero.',
+      )).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
+  })
+
   it('resyncs the quota editor after external user data changes', async () => {
     vi.mocked(adminGetStats).mockResolvedValue({
       total_users: 1,

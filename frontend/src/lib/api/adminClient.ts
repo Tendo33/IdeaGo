@@ -31,9 +31,9 @@ export interface AdminUserQuotaUpdate {
 }
 
 export interface AdminStats {
-  total_users: number
-  total_reports: number
-  active_processing: number
+  total_users: number | null
+  total_reports: number | null
+  active_processing: number | null
   plan_breakdown: Record<string, number>
 }
 

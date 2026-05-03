@@ -4750,6 +4750,7 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     )
     assert markdown.index("## Competitors") < markdown.index("## Evidence")
     assert markdown.index("## Evidence") < markdown.index("## Confidence")
+    assert markdown.index("## Confidence") < markdown.index("## Report Metadata")
 
 
 @pytest.mark.asyncio

@@ -20,6 +20,13 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+class AdminStatsResponse(BaseModel):
+    total_users: int | None
+    total_reports: int | None
+    active_processing: int | None
+    plan_breakdown: dict[str, int]
+
+
 @router.get("/users")
 async def admin_list_users(
     limit: int = Query(default=50, ge=1, le=200),
@@ -119,21 +126,21 @@ async def _count_table(table: str) -> int:
         ) from err
 
 
-async def _safe_count_table(table: str) -> int:
+async def _safe_count_table(table: str) -> int | None:
     """Return a best-effort row count for admin stats."""
     try:
         value = await _count_table(table)
     except DependencyUnavailableError:
         logger.warning("Admin stats count degraded for table {}", table)
         app_metrics.increment_event("admin_stats_count_degraded", reason=table)
-        return 0
+        return None
     return max(value, 0)
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=AdminStatsResponse)
 async def admin_system_stats(
     _admin: AuthUser = Depends(require_admin),
-) -> dict:
+) -> AdminStatsResponse:
     """Aggregate system statistics for the admin dashboard."""
     total_users = await _safe_count_table("profiles")
     total_reports = await _safe_count_table("reports")
@@ -184,12 +191,12 @@ async def admin_system_stats(
                 "admin_plan_breakdown_degraded", reason="exception"
             )
 
-    return {
-        "total_users": total_users,
-        "total_reports": total_reports,
-        "active_processing": active_processing,
-        "plan_breakdown": plan_breakdown,
-    }
+    return AdminStatsResponse(
+        total_users=total_users,
+        total_reports=total_reports,
+        active_processing=active_processing,
+        plan_breakdown=plan_breakdown,
+    )
 
 
 @router.get("/metrics")

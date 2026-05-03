@@ -303,10 +303,6 @@ def _report_to_markdown(report: ResearchReport) -> str:
     """Convert a ResearchReport to a Markdown string."""
     lines: list[str] = []
     lines.append("# Source Intelligence Report")
-    lines.append(f"\n**Query:** {report.query}")
-    lines.append(f"\n**Generated:** {report.created_at.strftime('%Y-%m-%d %H:%M UTC')}")
-    lines.append(f"\n**App Type:** {report.intent.app_type}")
-    lines.append(f"\n**Keywords:** {', '.join(report.intent.keywords_en)}")
 
     lines.append("\n## Recommendation\n")
     lines.append(
@@ -438,5 +434,11 @@ def _report_to_markdown(report: ResearchReport) -> str:
         lines.append(
             f"- {status_icon} **{sr.platform.value}**: {sr.status.value} ({sr.raw_count} results, {sr.duration_ms}ms)"
         )
+
+    lines.append("\n## Report Metadata\n")
+    lines.append(f"- Query: {report.query}")
+    lines.append(f"- Generated: {report.created_at.strftime('%Y-%m-%d %H:%M UTC')}")
+    lines.append(f"- App Type: {report.intent.app_type}")
+    lines.append(f"- Keywords: {', '.join(report.intent.keywords_en)}")
 
     return "\n".join(lines)
