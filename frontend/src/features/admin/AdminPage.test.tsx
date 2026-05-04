@@ -6,6 +6,7 @@ import {
   adminGetStats,
   adminListUsers,
   adminSetQuota,
+  type PaginatedAdminUsers,
 } from '@/lib/api/client'
 
 const translate = (
@@ -106,6 +107,47 @@ describe('AdminPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Stats unavailable')).toBeInTheDocument()
       expect(screen.getByText('Alice')).toBeInTheDocument()
+    })
+  })
+
+  it('shows stats as soon as they load even while the user list is still pending', async () => {
+    let releaseUsers!: () => void
+    const pendingUsers = new Promise<void>(resolve => {
+      releaseUsers = resolve
+    })
+    vi.mocked(adminGetStats).mockResolvedValue({
+      total_users: 7,
+      total_reports: 12,
+      active_processing: 1,
+      plan_breakdown: { free: 7 },
+    })
+    vi.mocked(adminListUsers).mockImplementation(
+      async (): Promise<PaginatedAdminUsers> => {
+        await pendingUsers
+        return {
+          items: [],
+          total: 0,
+          has_next: false,
+          limit: 25,
+          offset: 0,
+        }
+      },
+    )
+
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('7')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
+
+    releaseUsers()
+
+    await waitFor(() => {
+      expect(screen.getByText('admin.noUsers')).toBeInTheDocument()
     })
   })
 

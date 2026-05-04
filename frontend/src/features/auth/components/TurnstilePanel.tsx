@@ -102,11 +102,15 @@ export function TurnstilePanel({
       })
     }
 
+    const existingOnLoad = window.__ideagoTurnstileOnLoad
+    const handleScriptLoad = () => window.__ideagoTurnstileOnLoad?.()
+    let script: HTMLScriptElement | null = null
+
     if (window.turnstile) {
       renderWidget()
     } else {
       window.__ideagoTurnstileOnLoad = renderWidget
-      let script = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null
+      script = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null
 
       if (!script) {
         script = document.createElement('script')
@@ -114,7 +118,7 @@ export function TurnstilePanel({
         script.src = TURNSTILE_SCRIPT_SRC
         script.async = true
         script.defer = true
-        script.onload = () => window.__ideagoTurnstileOnLoad?.()
+        script.onload = handleScriptLoad
         script.onerror = () => {
           if (disposed) {
             return
@@ -124,12 +128,21 @@ export function TurnstilePanel({
         }
         document.head.appendChild(script)
       } else {
-        script.addEventListener('load', window.__ideagoTurnstileOnLoad)
+        script.addEventListener('load', handleScriptLoad)
       }
     }
 
     return () => {
       disposed = true
+      if (script) {
+        script.removeEventListener('load', handleScriptLoad)
+        if (script.onload === handleScriptLoad) {
+          script.onload = null
+        }
+      }
+      if (window.__ideagoTurnstileOnLoad === renderWidget) {
+        window.__ideagoTurnstileOnLoad = existingOnLoad
+      }
       if (widgetIdRef.current) {
         window.turnstile?.remove?.(widgetIdRef.current)
         widgetIdRef.current = null

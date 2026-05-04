@@ -51,7 +51,12 @@ def register_trace_id_middleware(app: FastAPI) -> None:
         trace_id = request.headers.get("X-Trace-Id") or uuid.uuid4().hex
         request.state.trace_id = trace_id
         start = time.monotonic()
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception:
+            latency_ms = (time.monotonic() - start) * 1000
+            app_metrics.record(request.url.path, 500, latency_ms)
+            raise
         latency_ms = (time.monotonic() - start) * 1000
         app_metrics.record(request.url.path, response.status_code, latency_ms)
         response.headers["X-Trace-Id"] = trace_id

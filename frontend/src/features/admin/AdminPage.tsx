@@ -192,7 +192,8 @@ export function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [statsError, setStatsError] = useState('')
   const [users, setUsers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -214,6 +215,7 @@ export function AdminPage() {
   }, [debouncedQuery])
 
   const loadStats = useCallback(async () => {
+    setStatsLoading(true)
     setStatsError('')
     try {
       const nextStats = await adminGetStats()
@@ -221,6 +223,8 @@ export function AdminPage() {
     } catch (e) {
       setStats(null)
       setStatsError(e instanceof Error ? e.message : t('admin.messages.loadError'))
+    } finally {
+      setStatsLoading(false)
     }
   }, [t])
 
@@ -228,7 +232,7 @@ export function AdminPage() {
     usersAbortRef.current?.abort()
     const controller = new AbortController()
     usersAbortRef.current = controller
-    setLoading(true)
+    setUsersLoading(true)
     setUsersError('')
     try {
       const u = await adminListUsers({
@@ -251,7 +255,7 @@ export function AdminPage() {
       setUsersError(e instanceof Error ? e.message : t('admin.messages.loadError'))
     } finally {
       if (!controller.signal.aborted) {
-        setLoading(false)
+        setUsersLoading(false)
       }
     }
   }, [debouncedQuery, pageIndex, t])
@@ -307,51 +311,49 @@ export function AdminPage() {
           </Alert>
         )}
 
-        {loading && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        {!statsLoading && stats && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <StatCard label={t('admin.totalUsers')} value={stats.total_users} icon={Users} />
+            <StatCard label={t('admin.totalReports')} value={stats.total_reports} icon={FileText} />
+            <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
+            <StatCard
+              label={t('admin.planBreakdown')}
+              value={
+                Object.entries(stats.plan_breakdown)
+                  .map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`)
+                  .join(' · ') || null
+              }
+              icon={Users}
+            />
           </div>
         )}
 
-        {!loading && (
+        <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
+          {t('admin.usersTitle')}
+        </h2>
+
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={event => {
+              setPageIndex(0)
+              setSearchQuery(event.target.value)
+            }}
+            placeholder={t('admin.searchPlaceholder', 'Search by name or ID')}
+            className="w-full md:w-80 border-2 border-border bg-background px-4 py-3 text-sm font-bold focus:outline-none focus:ring-0 focus:border-primary"
+          />
+          <p className="text-sm font-bold text-muted-foreground">
+            {t('admin.resultsSummary', { count: total })}
+          </p>
+        </div>
+
+        {usersLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
           <>
-            {stats && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-                <StatCard label={t('admin.totalUsers')} value={stats.total_users} icon={Users} />
-                <StatCard label={t('admin.totalReports')} value={stats.total_reports} icon={FileText} />
-                <StatCard label={t('admin.activeProcessing')} value={stats.active_processing} icon={Activity} />
-                <StatCard
-                  label={t('admin.planBreakdown')}
-                  value={
-                    Object.entries(stats.plan_breakdown)
-                      .map(([k, v]) => `${getAdminPlanLabel(k, t)}: ${v}`)
-                      .join(' · ') || null
-                  }
-                  icon={Users}
-                />
-              </div>
-            )}
-
-            <h2 className="text-2xl font-black uppercase tracking-tight mb-4">
-              {t('admin.usersTitle')}
-            </h2>
-
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={event => {
-                  setPageIndex(0)
-                  setSearchQuery(event.target.value)
-                }}
-                placeholder={t('admin.searchPlaceholder', 'Search by name or ID')}
-                className="w-full md:w-80 border-2 border-border bg-background px-4 py-3 text-sm font-bold focus:outline-none focus:ring-0 focus:border-primary"
-              />
-              <p className="text-sm font-bold text-muted-foreground">
-                {t('admin.resultsSummary', { count: total })}
-              </p>
-            </div>
-
             <div className="overflow-x-auto border-4 border-border">
               <table className="w-full text-left">
                 <thead>
@@ -385,7 +387,7 @@ export function AdminPage() {
                   type="button"
                   variant="secondary"
                   onClick={() => setPageIndex(previous => Math.max(0, previous - 1))}
-                  disabled={pageIndex === 0 || loading}
+                  disabled={pageIndex === 0 || usersLoading}
                 >
                   {t('history.previous', 'Previous')}
                 </Button>
@@ -396,7 +398,7 @@ export function AdminPage() {
                   type="button"
                   variant="secondary"
                   onClick={() => setPageIndex(previous => previous + 1)}
-                  disabled={!hasNextPage || loading}
+                  disabled={!hasNextPage || usersLoading}
                 >
                   {t('history.next', 'Next')}
                 </Button>

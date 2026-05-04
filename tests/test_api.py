@@ -2138,6 +2138,28 @@ def test_spa_fallback_serves_existing_static_file(tmp_path) -> None:
             assert "User-agent: *" in response.text
 
 
+def test_trace_middleware_records_500_for_unhandled_exceptions() -> None:
+    from fastapi import FastAPI
+
+    from ideago.api.http_middleware import register_trace_id_middleware
+
+    app_metrics.reset()
+    app = FastAPI()
+    register_trace_id_middleware(app)
+
+    @app.get("/boom")
+    async def boom() -> dict:
+        raise RuntimeError("boom")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/boom")
+
+    assert response.status_code == 500
+    metrics = app_metrics.snapshot()
+    assert metrics["request_count"] == 1
+    assert metrics["status_codes"][500] == 1
+
+
 @pytest.mark.asyncio
 async def test_periodic_cleanup_success_and_error_paths() -> None:
     fake_settings = type(

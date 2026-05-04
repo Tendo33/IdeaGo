@@ -249,6 +249,22 @@ describe('LoginPage registration locale metadata', () => {
     document.documentElement.classList.remove('dark')
   })
 
+  it('cleans up the deferred turnstile callback when the login page unmounts before the script loads', () => {
+    delete window.turnstile
+    const existingScript = document.getElementById('ideago-turnstile-script')
+    existingScript?.remove()
+
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/login']}>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(typeof window.__ideagoTurnstileOnLoad).toBe('function')
+    unmount()
+    expect(window.__ideagoTurnstileOnLoad).toBeUndefined()
+  })
+
   it('reuses captcha verification when switching from login to register', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
