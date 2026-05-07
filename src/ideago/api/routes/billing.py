@@ -31,7 +31,7 @@ def _raise_temporarily_unavailable() -> None:
 def _require_user(user: AuthUser | None) -> AuthUser:
     """Keep auth enforcement local so hidden routes still return 404 first."""
     if user is None:
-        raise AppError(401, ErrorCode.NOT_AUTHENTICATED, "Not authenticated")
+        raise AppError(401, ErrorCode.NOT_AUTHORIZED, "Not authenticated")
     return user
 
 

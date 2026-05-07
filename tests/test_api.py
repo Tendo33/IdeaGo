@@ -5131,8 +5131,8 @@ async def test_admin_routes_and_notifications() -> None:
         "offset": 5,
     }
     assert updated["plan_limit"] == 20
-    assert stats["total_users"] == 10
-    assert stats["plan_breakdown"] == {"free": 1, "pro": 1}
+    assert stats.total_users == 10
+    assert stats.plan_breakdown == {"free": 1, "pro": 1}
     assert metrics == {"requests": 1}
     assert health == {"status": "ok"}
     assert quota_exc.value.status_code == 400
@@ -5140,10 +5140,10 @@ async def test_admin_routes_and_notifications() -> None:
     assert users_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
     assert quota_dependency_exc.value.status_code == 503
     assert quota_dependency_exc.value.detail["code"] == "DEPENDENCY_UNAVAILABLE"
-    assert degraded_stats["total_users"] == 0
-    assert degraded_stats["total_reports"] == 0
-    assert degraded_stats["active_processing"] == 0
-    assert degraded_stats["plan_breakdown"] == {}
+    assert degraded_stats.total_users is None
+    assert degraded_stats.total_reports is None
+    assert degraded_stats.active_processing is None
+    assert degraded_stats.plan_breakdown == {}
 
 
 # ── Multi-user isolation tests ────────────────────────────────────────
