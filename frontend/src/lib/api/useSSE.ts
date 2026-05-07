@@ -56,6 +56,13 @@ function redirectToLogin(): void {
   window.location.href = `/login?returnTo=${returnTo}`
 }
 
+function parseBufferedEvents(buffer: string): Array<{ eventType: string; data: string }> {
+  if (!buffer.trim()) {
+    return []
+  }
+  return Array.from(parseSseChunk(buffer.endsWith('\n\n') ? buffer : `${buffer}\n\n`))
+}
+
 export function useSSE(reportId: string | null): UseSSEResult {
   const [state, dispatch] = useReducer(sseReducer, {
     events: [],
@@ -142,18 +149,8 @@ export function useSSE(reportId: string | null): UseSSEResult {
         const decoder = new TextDecoder()
         let buffer = ''
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lastBoundary = findLastSseBoundary(buffer)
-          if (lastBoundary === -1) continue
-
-          const toProcess = buffer.slice(0, lastBoundary)
-          buffer = buffer.slice(lastBoundary)
-
-          for (const { eventType, data } of parseSseChunk(toProcess)) {
+        const processChunk = (chunk: string) => {
+          for (const { eventType, data } of parseBufferedEvents(chunk)) {
             if (eventType === 'ping') {
               confirmConnection()
               continue
@@ -169,19 +166,41 @@ export function useSSE(reportId: string | null): UseSSEResult {
 
               if (event.type === 'report_ready') {
                 dispatch({ type: 'complete' })
-                return
+                return true
               }
               if (event.type === 'error') {
                 dispatch({ type: 'error', message: event.message })
-                return
+                return true
               }
               if (event.type === 'cancelled') {
                 dispatch({ type: 'cancelled', message: event.message })
-                return
+                return true
               }
             } catch {
               // Ignore malformed payloads while keeping stream alive.
             }
+          }
+
+          return false
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            if (processChunk(buffer)) {
+              return
+            }
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lastBoundary = findLastSseBoundary(buffer)
+          if (lastBoundary === -1) continue
+
+          const toProcess = buffer.slice(0, lastBoundary)
+          buffer = buffer.slice(lastBoundary)
+          if (processChunk(toProcess)) {
+            return
           }
         }
 

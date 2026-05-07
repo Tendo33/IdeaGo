@@ -263,6 +263,32 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
     [applyRuntimeStatus, setReadyReportState, t],
   )
 
+  const resolveProcessingAfterComplete = useCallback(
+    async (reportId: string, signal?: AbortSignal): Promise<void> => {
+      for (let attempt = 0; attempt < COMPLETE_MISSING_POLL_ATTEMPTS; attempt += 1) {
+        const result = await getReportWithStatus(reportId, { signal })
+
+        if (result.status === 'ready') {
+          setReadyReportState(result.report, true)
+          return
+        }
+
+        if (result.status === 'missing') {
+          await resolveMissingAfterComplete(reportId, signal)
+          return
+        }
+
+        if (attempt < COMPLETE_MISSING_POLL_ATTEMPTS - 1) {
+          await waitWithBackoff(attempt, signal)
+          continue
+        }
+
+        await resolveMissingReportStatus(reportId, signal)
+      }
+    },
+    [resolveMissingAfterComplete, resolveMissingReportStatus, setReadyReportState],
+  )
+
   const setSystemError = useCallback((message: string) => {
     clearRevealTimer()
     dispatch({ type: 'set_system_error', message })
@@ -332,8 +358,11 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
 
     if (result.status === 'missing') {
       await resolveMissingAfterComplete(id, signal)
+      return
     }
-  }, [id, resolveMissingAfterComplete, setReadyReportState])
+
+    await resolveProcessingAfterComplete(id, signal)
+  }, [id, resolveMissingAfterComplete, resolveProcessingAfterComplete, setReadyReportState])
 
   return {
     ...state,

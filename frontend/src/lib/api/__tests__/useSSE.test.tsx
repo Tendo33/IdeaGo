@@ -49,6 +49,15 @@ class MockResponseReader {
     }
   }
 
+  emitRaw(data: string) {
+    if (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift()!
+      resolve({ done: false, value: new TextEncoder().encode(data) })
+    } else {
+      this.chunks.push(data)
+    }
+  }
+
   close() {
     this.closed = true
     while (this.resolvers.length > 0) {
@@ -171,6 +180,34 @@ describe('useSSE', () => {
     await waitFor(() => {
       expect(result.current.events).toHaveLength(1)
       expect(result.current.events[0]?.stage).toBe('github_search')
+    })
+  })
+
+  it('processes a terminal event that arrives without a trailing SSE boundary', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emitRaw(
+        `event: report_ready\ndata: ${JSON.stringify({
+          type: 'report_ready',
+          stage: 'complete',
+          message: 'Report ready',
+          data: { report_id: 'r1' },
+          timestamp: '2026-02-24T14:00:00.000Z',
+        })}\n`,
+      )
+      reader.close()
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+      expect(result.current.error).toBeNull()
+      expect(result.current.events.at(-1)?.type).toBe('report_ready')
     })
   })
 
