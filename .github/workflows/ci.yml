@@ -92,3 +92,18 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  env_consistency:
+    name: Env Naming Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure compose env_file uses .env only
+        run: |
+          set -euo pipefail
+          if grep -RsnE 'env_file:\s*\.env\.(prod|production)' docker-compose.yml docker-compose.yaml compose.yml compose.yaml 2>/dev/null; then
+            echo "Found legacy env_file (.env.prod/.env.production). Use .env instead."
+            exit 1
+          fi

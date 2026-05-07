@@ -159,6 +159,12 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
+Environment file policy:
+
+- Root `.env`: backend runtime and Docker Compose variables
+- `frontend/.env`: frontend local development only
+- Production deployment: use root `.env` only (do not use `.env.prod` / `.env.production`)
+
 Minimum practical backend configuration for the hosted branch:
 
 - `OPENAI_API_KEY`
