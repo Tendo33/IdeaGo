@@ -211,6 +211,62 @@ describe('useSSE', () => {
     })
   })
 
+  it('processes an error event that arrives without a trailing SSE boundary', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emitRaw(
+        `event: error\ndata: ${JSON.stringify({
+          type: 'error',
+          stage: 'pipeline',
+          message: 'Pipeline failed',
+          data: { report_id: 'r1' },
+          timestamp: '2026-02-24T14:00:00.000Z',
+        })}\n`,
+      )
+      reader.close()
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+      expect(result.current.error).toBe('Pipeline failed')
+      expect(result.current.events.at(-1)?.type).toBe('error')
+    })
+  })
+
+  it('processes a cancelled event that arrives without a trailing SSE boundary', async () => {
+    const { result } = renderHook(() => useSSE('r1'))
+
+    await waitFor(() => {
+      expect(mockReaders).toHaveLength(1)
+    })
+    const reader = mockReaders[0]
+
+    act(() => {
+      reader.emitRaw(
+        `event: cancelled\ndata: ${JSON.stringify({
+          type: 'cancelled',
+          stage: 'pipeline',
+          message: 'Analysis cancelled by user',
+          data: { report_id: 'r1' },
+          timestamp: '2026-02-24T14:00:00.000Z',
+        })}\n`,
+      )
+      reader.close()
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+      expect(result.current.cancelled).toBe('Analysis cancelled by user')
+      expect(result.current.events.at(-1)?.type).toBe('cancelled')
+    })
+  })
+
   it('ignores stale source listeners after reconnect', async () => {
     vi.useFakeTimers()
     const { result } = renderHook(() => useSSE('r1'))
@@ -453,6 +509,13 @@ describe('useSSE', () => {
         },
         timestamp: '2026-02-24T16:00:02.000Z',
       })
+    })
+
+    await act(async () => {
+      await flushMicrotasks()
+    })
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 350))
     })
 
     await waitFor(() => {

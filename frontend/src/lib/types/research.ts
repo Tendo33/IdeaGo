@@ -41,6 +41,28 @@ export interface PipelineEvent {
   timestamp: string
 }
 
+export const REPORT_DETAIL_V2_FIELD_ORDER = [
+  'id',
+  'query',
+  'created_at',
+  'updated_at',
+  'intent',
+  'recommendation_type',
+  'go_no_go',
+  'market_summary',
+  'pain_signals',
+  'commercial_signals',
+  'whitespace_opportunities',
+  'opportunity_score',
+  'competitors',
+  'differentiation_angles',
+  'evidence_summary',
+  'confidence',
+  'source_results',
+  'cost_breakdown',
+  'report_meta',
+] as const
+
 export interface ProgressIntentData {
   appType?: string
   keywords: string[]

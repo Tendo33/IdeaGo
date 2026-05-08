@@ -35,7 +35,11 @@ from ideago.api.routes import auth as auth_route
 from ideago.api.routes import billing as billing_route
 from ideago.api.routes import health as health_route
 from ideago.api.routes import reports as reports_route
-from ideago.api.schemas import ReportDetailV2, ReportRuntimeStatus
+from ideago.api.schemas import (
+    REPORT_DETAIL_V2_FIELD_ORDER,
+    ReportDetailV2,
+    ReportRuntimeStatus,
+)
 from ideago.auth import dependencies as auth_deps
 from ideago.auth import supabase_admin
 from ideago.billing import stripe_service
@@ -4746,6 +4750,14 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     rich_report.competitors[0].strengths = ["Speed"]
     rich_report.competitors[0].weaknesses = ["Breadth"]
     markdown = reports_route._report_to_markdown(rich_report)
+    minimal_report = _make_test_report()
+    minimal_report.market_summary = ""
+    minimal_report.pain_signals = []
+    minimal_report.commercial_signals = []
+    minimal_report.whitespace_opportunities = []
+    minimal_report.competitors = []
+    minimal_report.differentiation_angles = []
+    minimal_markdown = reports_route._report_to_markdown(minimal_report)
 
     assert export_missing.value.status_code == 404
     assert "Recommendation" in markdown
@@ -4772,7 +4784,30 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
     )
     assert markdown.index("## Competitors") < markdown.index("## Evidence")
     assert markdown.index("## Evidence") < markdown.index("## Confidence")
+    assert markdown.index("## Confidence") < markdown.index("## Data Sources")
     assert markdown.index("## Confidence") < markdown.index("## Report Metadata")
+    assert markdown.index("## Data Sources") < markdown.index("## Report Metadata")
+    assert "## Why Now" not in minimal_markdown
+    assert "## Pain Signals" not in minimal_markdown
+    assert "## Commercial Signals" not in minimal_markdown
+    assert "## Whitespace Opportunities" not in minimal_markdown
+    assert "## Competitors" not in minimal_markdown
+    assert minimal_markdown.index("## Recommendation") < minimal_markdown.index(
+        "## Evidence"
+    )
+    assert minimal_markdown.index("## Evidence") < minimal_markdown.index(
+        "## Confidence"
+    )
+    assert minimal_markdown.index("## Confidence") < minimal_markdown.index(
+        "## Data Sources"
+    )
+    assert minimal_markdown.index("## Data Sources") < minimal_markdown.index(
+        "## Report Metadata"
+    )
+
+
+def test_report_detail_v2_field_order_contract() -> None:
+    assert tuple(ReportDetailV2.model_fields.keys()) == REPORT_DETAIL_V2_FIELD_ORDER
 
 
 @pytest.mark.asyncio
@@ -4993,15 +5028,19 @@ async def test_admin_routes_and_notifications() -> None:
             "supabase_service_role_key": "srk",
         },
     )()
-    count_response = _AdminFakeResponse(200)
-    count_response.headers["content-range"] = "0-9/10"
     plan_client = AsyncMock()
-    plan_client.head = AsyncMock(return_value=count_response)
     plan_client.post = AsyncMock(
         return_value=_AdminFakeResponse(
-            200, payload=[{"plan": "free", "count": 1}, {"plan": "pro", "count": 1}]
+            200,
+            payload={
+                "total_users": 10,
+                "total_reports": 8,
+                "active_processing": 2,
+                "plan_breakdown": {"free": 1, "pro": 1},
+            },
         )
     )
+    admin_route._clear_admin_stats_cache()
 
     with (
         patch(
@@ -5035,6 +5074,7 @@ async def test_admin_routes_and_notifications() -> None:
             _admin=admin_user,
         )
         stats = await admin_route.admin_system_stats(_admin=admin_user)
+        cached_stats = await admin_route.admin_system_stats(_admin=admin_user)
         metrics = await admin_route.admin_metrics(_admin=admin_user)
         health = await admin_route.admin_health(_admin=admin_user)
 
@@ -5074,12 +5114,10 @@ async def test_admin_routes_and_notifications() -> None:
         )
 
     degraded_plan_client = AsyncMock()
-    degraded_plan_client.head = AsyncMock(
-        return_value=_AdminFakeResponse(500, text="fail")
-    )
     degraded_plan_client.post = AsyncMock(
         return_value=_AdminFakeResponse(500, text="fail")
     )
+    admin_route._clear_admin_stats_cache()
     with (
         patch("ideago.api.routes.admin.get_settings", return_value=fake_settings),
         patch(
@@ -5132,7 +5170,11 @@ async def test_admin_routes_and_notifications() -> None:
     }
     assert updated["plan_limit"] == 20
     assert stats.total_users == 10
+    assert stats.total_reports == 8
+    assert stats.active_processing == 2
     assert stats.plan_breakdown == {"free": 1, "pro": 1}
+    assert cached_stats == stats
+    assert plan_client.post.await_count == 1
     assert metrics == {"requests": 1}
     assert health == {"status": "ok"}
     assert quota_exc.value.status_code == 400

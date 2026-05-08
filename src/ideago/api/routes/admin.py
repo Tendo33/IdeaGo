@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import httpx
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -18,6 +20,8 @@ from ideago.observability.metrics import metrics as app_metrics
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+_ADMIN_STATS_CACHE_TTL_SECONDS = 30.0
+_admin_stats_cache: tuple[float, AdminStatsResponse] | None = None
 
 
 class AdminStatsResponse(BaseModel):
@@ -25,6 +29,63 @@ class AdminStatsResponse(BaseModel):
     total_reports: int | None
     active_processing: int | None
     plan_breakdown: dict[str, int]
+
+
+def _clear_admin_stats_cache() -> None:
+    global _admin_stats_cache
+    _admin_stats_cache = None
+
+
+def _empty_admin_stats() -> AdminStatsResponse:
+    return AdminStatsResponse(
+        total_users=None,
+        total_reports=None,
+        active_processing=None,
+        plan_breakdown={},
+    )
+
+
+def _coerce_nullable_int(value: object) -> int | None:
+    return value if isinstance(value, int) and value >= 0 else None
+
+
+def _normalize_plan_breakdown(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    plan_breakdown: dict[str, int] = {}
+    for plan, count in value.items():
+        if isinstance(plan, str) and isinstance(count, int) and count >= 0:
+            plan_breakdown[plan] = count
+    return plan_breakdown
+
+
+def _parse_admin_stats_summary(payload: object) -> AdminStatsResponse:
+    if not isinstance(payload, dict):
+        raise ValueError("Admin stats summary payload must be an object")
+    return AdminStatsResponse(
+        total_users=_coerce_nullable_int(payload.get("total_users")),
+        total_reports=_coerce_nullable_int(payload.get("total_reports")),
+        active_processing=_coerce_nullable_int(payload.get("active_processing")),
+        plan_breakdown=_normalize_plan_breakdown(payload.get("plan_breakdown")),
+    )
+
+
+def _get_cached_admin_stats() -> AdminStatsResponse | None:
+    if _admin_stats_cache is None:
+        return None
+    expires_at, payload = _admin_stats_cache
+    if time.monotonic() >= expires_at:
+        _clear_admin_stats_cache()
+        return None
+    return payload.model_copy(deep=True)
+
+
+def _store_admin_stats_cache(payload: AdminStatsResponse) -> None:
+    global _admin_stats_cache
+    _admin_stats_cache = (
+        time.monotonic() + _ADMIN_STATS_CACHE_TTL_SECONDS,
+        payload.model_copy(deep=True),
+    )
 
 
 @router.get("/users")
@@ -93,48 +154,47 @@ async def admin_set_quota(
     return result
 
 
-async def _count_table(table: str) -> int:
-    """Count rows in a Supabase table using planner estimates."""
+async def _fetch_admin_stats_summary() -> AdminStatsResponse:
+    """Fetch aggregated admin stats from a single Supabase RPC."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
-        return -1
+        return _empty_admin_stats()
     headers = {
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
-        "Prefer": "count=planned",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.head(
-                f"{settings.supabase_url}/rest/v1/{table}",
+            resp = await client.post(
+                f"{settings.supabase_url}/rest/v1/rpc/get_admin_stats_summary",
                 headers=headers,
-                params={"select": "*"},
+                json={},
             )
-        content_range = resp.headers.get("content-range", "")
-        if "/" in content_range:
-            total = content_range.split("/")[-1]
-            return int(total) if total != "*" else -1
-        raise DependencyUnavailableError(
-            f"{table}_count_invalid_response", dependency="supabase_rest"
+        if resp.status_code != 200:
+            logger.warning(
+                "Admin stats summary RPC failed: {} {}",
+                resp.status_code,
+                resp.text,
+            )
+            app_metrics.increment_event(
+                "admin_stats_summary_degraded", reason="rpc_failed"
+            )
+            return _empty_admin_stats()
+
+        summary = _parse_admin_stats_summary(resp.json())
+        _store_admin_stats_cache(summary)
+        return summary
+    except ValueError as exc:
+        logger.warning("Admin stats summary payload invalid: {}", exc)
+        app_metrics.increment_event(
+            "admin_stats_summary_degraded", reason="invalid_payload"
         )
-    except DependencyUnavailableError:
-        raise
-    except Exception as err:
-        logger.debug("Failed to count table {}", table)
-        raise DependencyUnavailableError(
-            f"{table}_count_failed", dependency="supabase_rest"
-        ) from err
-
-
-async def _safe_count_table(table: str) -> int | None:
-    """Return a best-effort row count for admin stats."""
-    try:
-        value = await _count_table(table)
-    except DependencyUnavailableError:
-        logger.warning("Admin stats count degraded for table {}", table)
-        app_metrics.increment_event("admin_stats_count_degraded", reason=table)
-        return None
-    return max(value, 0)
+    except Exception:
+        logger.debug("Failed to fetch aggregated admin stats")
+        app_metrics.increment_event("admin_stats_summary_degraded", reason="exception")
+    return _empty_admin_stats()
 
 
 @router.get("/stats", response_model=AdminStatsResponse)
@@ -142,61 +202,10 @@ async def admin_system_stats(
     _admin: AuthUser = Depends(require_admin),
 ) -> AdminStatsResponse:
     """Aggregate system statistics for the admin dashboard."""
-    total_users = await _safe_count_table("profiles")
-    total_reports = await _safe_count_table("reports")
-    active_processing = await _safe_count_table("processing_reports")
-
-    plan_breakdown: dict[str, int] = {}
-    settings = get_settings()
-    if settings.supabase_url and settings.supabase_service_role_key:
-        headers = {
-            "apikey": settings.supabase_service_role_key,
-            "Authorization": f"Bearer {settings.supabase_service_role_key}",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(
-                    f"{settings.supabase_url}/rest/v1/rpc/get_plan_breakdown",
-                    headers={
-                        **headers,
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                    },
-                    json={},
-                )
-            if resp.status_code == 200:
-                rows = resp.json()
-                if isinstance(rows, list):
-                    for row in rows:
-                        if not isinstance(row, dict):
-                            continue
-                        plan = str(row.get("plan") or "free")
-                        count = row.get("count")
-                        if isinstance(count, int):
-                            plan_breakdown[plan] = max(0, count)
-                if not plan_breakdown:
-                    logger.warning("Plan breakdown RPC returned empty payload")
-            else:
-                logger.warning(
-                    "Plan breakdown RPC failed: {} {}",
-                    resp.status_code,
-                    resp.text,
-                )
-                app_metrics.increment_event(
-                    "admin_plan_breakdown_degraded", reason="rpc_failed"
-                )
-        except Exception:
-            logger.debug("Failed to fetch plan breakdown")
-            app_metrics.increment_event(
-                "admin_plan_breakdown_degraded", reason="exception"
-            )
-
-    return AdminStatsResponse(
-        total_users=total_users,
-        total_reports=total_reports,
-        active_processing=active_processing,
-        plan_breakdown=plan_breakdown,
-    )
+    cached = _get_cached_admin_stats()
+    if cached is not None:
+        return cached
+    return await _fetch_admin_stats_summary()
 
 
 @router.get("/metrics")

@@ -31,6 +31,20 @@ from ideago.models.research import ResearchReport
 from ideago.observability.metrics import metrics as app_metrics
 
 router = APIRouter(tags=["reports"])
+REPORT_MARKDOWN_PRIMARY_SECTION_ORDER = (
+    "Recommendation",
+    "Why Now",
+    "Pain Signals",
+    "Commercial Signals",
+    "Whitespace Opportunities",
+    "Competitors",
+    "Evidence",
+    "Confidence",
+)
+REPORT_MARKDOWN_SUPPLEMENTAL_SECTION_ORDER = (
+    "Data Sources",
+    "Report Metadata",
+)
 
 
 def _report_to_detail_v2(report: ResearchReport) -> ReportDetailV2:
@@ -300,7 +314,13 @@ async def export_report(
 
 
 def _report_to_markdown(report: ResearchReport) -> str:
-    """Convert a ResearchReport to a Markdown string."""
+    """Convert a ResearchReport to Markdown.
+
+    Export contract:
+    - primary report sections remain decision-first and end at `Confidence`
+    - supplemental sections (`Data Sources`, `Report Metadata`) are appended
+      after `Confidence` and are considered stable addenda to the export format
+    """
     lines: list[str] = []
     lines.append("# Source Intelligence Report")
 

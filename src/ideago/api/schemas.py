@@ -27,6 +27,28 @@ from ideago.models.research import (
     WhitespaceOpportunity,
 )
 
+REPORT_DETAIL_V2_FIELD_ORDER = (
+    "id",
+    "query",
+    "created_at",
+    "updated_at",
+    "intent",
+    "recommendation_type",
+    "go_no_go",
+    "market_summary",
+    "pain_signals",
+    "commercial_signals",
+    "whitespace_opportunities",
+    "opportunity_score",
+    "competitors",
+    "differentiation_angles",
+    "evidence_summary",
+    "confidence",
+    "source_results",
+    "cost_breakdown",
+    "report_meta",
+)
+
 
 class AnalyzeRequest(BaseModel):
     """Request body for the analyze endpoint."""
@@ -92,7 +114,11 @@ class ReportRuntimeStatus(BaseModel):
 
 
 class ReportDetailV2(BaseModel):
-    """Explicit API contract for report detail payloads."""
+    """Explicit API contract for report detail payloads.
+
+    Field order is part of the hosted contract and must remain aligned with
+    `REPORT_DETAIL_V2_FIELD_ORDER`.
+    """
 
     id: str = Field(description="Unique report ID")
     query: str = Field(description="Original user query")

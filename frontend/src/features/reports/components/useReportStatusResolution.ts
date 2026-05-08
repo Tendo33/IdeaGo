@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, type Dispatch } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getReportRuntimeStatus, getReportWithStatus, isRequestAbortError } from '@/lib/api/client'
+import { recordClientMetric } from '@/lib/telemetry/clientMetrics'
 import type { ReportRuntimeStatus, ResearchReport } from '@/lib/types/research'
 
 export type LoadPhase = 'loading' | 'processing' | 'ready'
@@ -9,6 +10,20 @@ export type ReportLoadErrorKind = 'system' | 'runtime'
 const COMPLETE_MISSING_POLL_ATTEMPTS = 3
 const COMPLETE_MISSING_BASE_DELAY_MS = 250
 const COMPLETE_MISSING_MAX_DELAY_MS = 1500
+const STREAM_RECONCILE_METRIC = 'report_stream_terminal_reconcile'
+
+type ReconcileOutcome =
+  | 'ready'
+  | 'processing'
+  | 'failed'
+  | 'cancelled'
+  | 'not_found'
+  | 'complete'
+  | 'system_error'
+
+interface ReconcileTelemetry {
+  retryCount: number
+}
 
 function waitWithBackoff(attempt: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) {
@@ -27,6 +42,26 @@ function waitWithBackoff(attempt: number, signal?: AbortSignal): Promise<void> {
       reject(new DOMException('Aborted', 'AbortError'))
     }
     signal?.addEventListener('abort', handleAbort)
+  })
+}
+
+function nowMs(): number {
+  return Date.now()
+}
+
+function recordStreamReconcileMetric(
+  reportId: string,
+  initialStatus: 'processing' | 'missing',
+  retryCount: number,
+  outcome: ReconcileOutcome,
+  startedAtMs: number,
+): void {
+  recordClientMetric(STREAM_RECONCILE_METRIC, {
+    reportId,
+    initialStatus,
+    retryCount,
+    outcome,
+    durationMs: Math.max(0, nowMs() - startedAtMs),
   })
 }
 
@@ -207,24 +242,39 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
   }, [t])
 
   const resolveMissingReportStatus = useCallback(
-    async (reportId: string, signal?: AbortSignal): Promise<void> => {
+    async (
+      reportId: string,
+      signal?: AbortSignal,
+      telemetry?: ReconcileTelemetry,
+    ): Promise<ReconcileOutcome> => {
+      if (telemetry) {
+        telemetry.retryCount += 1
+      }
       const status = await getReportRuntimeStatus(reportId, { signal })
       dispatch({ type: 'set_retry_query', retryQuery: status.query ?? null })
 
       if (status.status === 'processing') {
         dispatch({ type: 'set_processing', retryQuery: status.query ?? null })
-        return
+        return 'processing'
       }
 
       clearRevealTimer()
       applyRuntimeStatus(status)
+      return status.status
     },
     [applyRuntimeStatus, clearRevealTimer],
   )
 
   const resolveMissingAfterComplete = useCallback(
-    async (reportId: string, signal?: AbortSignal): Promise<void> => {
+    async (
+      reportId: string,
+      signal?: AbortSignal,
+      telemetry?: ReconcileTelemetry,
+    ): Promise<ReconcileOutcome> => {
       for (let attempt = 0; attempt < COMPLETE_MISSING_POLL_ATTEMPTS; attempt += 1) {
+        if (telemetry) {
+          telemetry.retryCount += 1
+        }
         const status = await getReportRuntimeStatus(reportId, { signal })
         dispatch({ type: 'set_retry_query', retryQuery: status.query ?? null })
 
@@ -234,14 +284,17 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
             continue
           }
           dispatch({ type: 'set_processing', retryQuery: status.query ?? null })
-          return
+          return 'processing'
         }
 
         if (status.status === 'complete') {
+          if (telemetry) {
+            telemetry.retryCount += 1
+          }
           const refreshed = await getReportWithStatus(reportId, { signal })
           if (refreshed.status === 'ready') {
             setReadyReportState(refreshed.report, true)
-            return
+            return 'ready'
           }
           if (attempt < COMPLETE_MISSING_POLL_ATTEMPTS - 1) {
             await waitWithBackoff(attempt, signal)
@@ -253,29 +306,37 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
             message: t('report.error.unavailableStatus'),
             kind: 'system',
           })
-          return
+          return 'system_error'
         }
 
         applyRuntimeStatus(status)
-        return
+        return status.status
       }
+
+      return 'system_error'
     },
     [applyRuntimeStatus, setReadyReportState, t],
   )
 
   const resolveProcessingAfterComplete = useCallback(
-    async (reportId: string, signal?: AbortSignal): Promise<void> => {
+    async (
+      reportId: string,
+      signal?: AbortSignal,
+      telemetry?: ReconcileTelemetry,
+    ): Promise<ReconcileOutcome> => {
       for (let attempt = 0; attempt < COMPLETE_MISSING_POLL_ATTEMPTS; attempt += 1) {
+        if (telemetry) {
+          telemetry.retryCount += 1
+        }
         const result = await getReportWithStatus(reportId, { signal })
 
         if (result.status === 'ready') {
           setReadyReportState(result.report, true)
-          return
+          return 'ready'
         }
 
         if (result.status === 'missing') {
-          await resolveMissingAfterComplete(reportId, signal)
-          return
+          return await resolveMissingAfterComplete(reportId, signal, telemetry)
         }
 
         if (attempt < COMPLETE_MISSING_POLL_ATTEMPTS - 1) {
@@ -283,8 +344,10 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
           continue
         }
 
-        await resolveMissingReportStatus(reportId, signal)
+        return await resolveMissingReportStatus(reportId, signal, telemetry)
       }
+
+      return 'system_error'
     },
     [resolveMissingAfterComplete, resolveMissingReportStatus, setReadyReportState],
   )
@@ -350,18 +413,38 @@ export function useReportStatusResolution(id: string | undefined): ReportStatusR
   const reconcileAfterStreamComplete = useCallback(async (signal?: AbortSignal) => {
     if (!id) return
 
+    const startedAtMs = nowMs()
     const result = await getReportWithStatus(id, { signal })
     if (result.status === 'ready') {
       setReadyReportState(result.report, true)
       return
     }
 
-    if (result.status === 'missing') {
-      await resolveMissingAfterComplete(id, signal)
-      return
-    }
+    const telemetry: ReconcileTelemetry = { retryCount: 0 }
 
-    await resolveProcessingAfterComplete(id, signal)
+    try {
+      const outcome =
+        result.status === 'missing'
+          ? await resolveMissingAfterComplete(id, signal, telemetry)
+          : await resolveProcessingAfterComplete(id, signal, telemetry)
+
+      recordStreamReconcileMetric(
+        id,
+        result.status,
+        telemetry.retryCount,
+        outcome,
+        startedAtMs,
+      )
+    } catch (error) {
+      recordStreamReconcileMetric(
+        id,
+        result.status,
+        telemetry.retryCount,
+        'system_error',
+        startedAtMs,
+      )
+      throw error
+    }
   }, [id, resolveMissingAfterComplete, resolveProcessingAfterComplete, setReadyReportState])
 
   return {
