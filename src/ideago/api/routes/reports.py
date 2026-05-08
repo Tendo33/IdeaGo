@@ -100,6 +100,27 @@ def _parse_status_updated_at(raw_value: object) -> datetime | None:
         return None
 
 
+def _processing_status_from_payload(
+    report_id: str, status: dict | None
+) -> ReportRuntimeStatus:
+    return ReportRuntimeStatus(
+        status="processing",
+        report_id=report_id,
+        updated_at=_parse_status_updated_at(status.get("updated_at"))
+        if status
+        else None,
+        query=status.get("query") if status else None,
+    )
+
+
+async def _get_status_for_processing_context(
+    cache: ReportRepository, report_id: str
+) -> dict | None:
+    with suppress(DependencyUnavailableError):
+        return await cache.get_status(report_id)
+    return None
+
+
 _MAX_LIST_LIMIT = 100
 
 
@@ -167,24 +188,21 @@ async def get_report(
         return _report_to_detail_v2(report)
 
     if is_report_id_processing(report_id):
+        status = await _get_status_for_processing_context(cache, report_id)
         return JSONResponse(
             status_code=202,
-            content=ReportRuntimeStatus(
-                status="processing",
-                report_id=report_id,
-            ).model_dump(mode="json"),
+            content=_processing_status_from_payload(report_id, status).model_dump(
+                mode="json"
+            ),
         )
 
     status = await cache.get_status(report_id)
     if status and status.get("status") == "processing":
         return JSONResponse(
             status_code=202,
-            content=ReportRuntimeStatus(
-                status="processing",
-                report_id=report_id,
-                updated_at=_parse_status_updated_at(status.get("updated_at")),
-                query=status.get("query"),
-            ).model_dump(mode="json"),
+            content=_processing_status_from_payload(report_id, status).model_dump(
+                mode="json"
+            ),
         )
 
     raise AppError(404, ErrorCode.REPORT_NOT_FOUND, "Report not found")
@@ -224,7 +242,8 @@ async def get_report_status(
             )
 
         if is_report_id_processing(report_id):
-            return ReportRuntimeStatus(status="processing", report_id=report_id)
+            status_payload = await _get_status_for_processing_context(cache, report_id)
+            return _processing_status_from_payload(report_id, status_payload)
 
         status_payload = await cache.get_status(report_id)
         if status_payload:

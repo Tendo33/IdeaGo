@@ -113,12 +113,15 @@ async def _mark_cancelled(report_id: str) -> None:
         )
     cache = get_cache()
     existing_user_id = ""
+    existing_query = ""
     existing_status = await cache.get_status(report_id)
     if existing_status:
         existing_user_id = existing_status.get("user_id", "") or ""
+        existing_query = existing_status.get("query", "") or ""
     await _persist_terminal_status(
         report_id,
         "cancelled",
+        existing_query,
         error_code="PIPELINE_CANCELLED",
         message="Analysis cancelled by user",
         user_id=existing_user_id,

@@ -424,6 +424,7 @@ def test_get_report_processing_returns_202_runtime_status(client, tmp_path) -> N
     assert payload["status"] == "processing"
     assert payload["report_id"] == report_id
     assert payload["query"] == "query text"
+    assert payload["query"] == "query text"
 
 
 def test_get_report_not_found(client) -> None:
@@ -1698,6 +1699,7 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
         status = await cache.get_status(report_id)
         assert status is not None
         assert status["status"] == "cancelled"
+        assert status["query"] == query
         assert status["error_code"] == "PIPELINE_CANCELLED"
         assert status["message"] == "Analysis cancelled by user"
         release_processing.assert_awaited_once_with(report_id)
@@ -1832,6 +1834,7 @@ async def test_mark_cancelled_status_terminal_event_and_owner_checks(tmp_path) -
         cancelled = await cache.get_status(report_id)
         assert cancelled is not None
         assert cancelled["status"] == "cancelled"
+        assert cancelled["query"] == "query"
         event = await analyze_route._status_terminal_event(report_id)
         assert event is not None
         assert event.type == EventType.CANCELLED
