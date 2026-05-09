@@ -2,11 +2,12 @@
 trigger: always_on
 ---
 
-**Read `ai_docs/` for project standards.** `ai_docs/AI_TOOLING_STANDARDS.md` has the full docs index.
+Read `.trellis/spec/README.md` before editing. Use `.trellis/spec/backend/` for
+backend work, `.trellis/spec/frontend/` for frontend work, and
+`.trellis/spec/shared/verification.md` before claiming completion.
 
-- Plan before implementation and keep edits minimal.
-- Backend rules: `ai_docs/BACKEND_STANDARDS.md`.
-- Frontend rules: `ai_docs/FRONTEND_STANDARDS.md`.
-- Scripts (rename/version): `ai_docs/SCRIPTS_GUIDE.md`.
-- Use explicit typing and predictable error handling.
-- Do not claim completion without relevant verification commands.
+- Keep edits minimal, typed, and branch-correct.
+- `main` must stay anonymous and personal-deployment friendly.
+- Do not add hosted auth, Supabase, Stripe, LinuxDo, profile, quota, admin, or
+  billing requirements to `main`.
+- Use `uv` for Python and `pnpm` for the frontend.

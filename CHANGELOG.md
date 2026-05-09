@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Documented the current anonymous `main`-branch runtime more explicitly across `README`, `README_CN`, `DEPLOYMENT`, and `ai_docs`, including the transient `/reports/new` creation flow, `pnpm`-only frontend package management, and stable anonymous `X-Session-Id` request behavior.
+- Documented the current anonymous `main`-branch runtime more explicitly across `README`, `README_CN`, `DEPLOYMENT`, and the legacy AI documentation, including the transient `/reports/new` creation flow, `pnpm`-only frontend package management, and stable anonymous `X-Session-Id` request behavior.
 - Clarified the decision-first report presentation contract so recommendation, why-now, pain, commercial, whitespace, competitors, evidence, and confidence stay aligned across backend, frontend, and AI tooling docs.
 - Recorded the current SSE reliability model in docs: capped reconnect attempts with `/status` fallback instead of unbounded reconnect loops.
 

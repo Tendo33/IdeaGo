@@ -1,50 +1,19 @@
 ---
 name: project-development-playbook
-description: Use when implementing project tasks that need consistent coding standards, verification, and frontend stack defaults.
+description: Use when implementing IdeaGo tasks that need branch, stack, and verification guidance.
 ---
 # Project Development Playbook
 
-## Goal
+This legacy skill is a thin Trellis pointer.
 
-Apply one consistent delivery workflow across backend and frontend tasks.
+Read these files before editing:
 
-**Reference:** Read `ai_docs/AI_TOOLING_STANDARDS.md` for the full docs index before starting.
+1. `.trellis/spec/README.md`
+2. `.trellis/spec/shared/index.md`
+3. `.trellis/spec/backend/index.md` for backend work
+4. `.trellis/spec/frontend/index.md` for frontend work
+5. `.trellis/spec/shared/verification.md` before completion
 
-## Workflow
-
-1. Confirm scope and assumptions.
-2. Choose implementation path (backend, frontend, full stack).
-3. Implement minimal changes aligned with project conventions.
-4. Run relevant verification commands.
-5. Report what changed and what was verified.
-
-## Backend Defaults
-
-- Python 3.10+
-- `uv` for dependencies and execution
-- `ruff` for lint/format
-- `pytest` for tests
-
-For deeper backend architecture rules, use `backend-engineering-playbook`.
-
-## Frontend Defaults
-
-Fixed stack: pnpm + React + TypeScript + Vite + Tailwind CSS + shadcn/ui.
-
-- Use shadcn/ui as the component library; customise via Tailwind and CSS variables.
-- UI primitives go in `frontend/src/components/ui`.
-- Domain modules go in `frontend/src/features/*`.
-
-## Verification Checklist
-
-Run what applies:
-
-```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
-pnpm --prefix frontend lint
-pnpm --prefix frontend typecheck
-pnpm --prefix frontend test
-pnpm --prefix frontend build
-```
+Key branch rule: `main` must stay anonymous and personal-deployment friendly.
+Do not add hosted auth, Supabase, Stripe, LinuxDo, profile, quota, admin, or
+billing requirements unless the task explicitly targets both branches.

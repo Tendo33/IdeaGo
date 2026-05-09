@@ -16,7 +16,7 @@
     <a href="#main-分支负责什么">分支范围</a> ·
     <a href="#工作原理">工作原理</a> ·
     <a href="DEPLOYMENT.md">部署说明</a> ·
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
+    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -135,8 +135,7 @@ uv sync --all-extras
 pnpm --prefix frontend install
 ```
 
-前端包管理器在 `main` 上只允许使用 `pnpm`。不要使用 `npm install`，也不要提交
-`package-lock.json`。
+前端包管理器在 `main` 上只允许使用 `pnpm`。不要使用 npm CLI，也不要提交 npm lockfile。
 
 ### 配置环境变量
 
@@ -342,10 +341,10 @@ Reddit 相关可选设置：
 
 ## 文档导航
 
-- 核心工程契约：[ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
-- 后端约定：[ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
-- 前端约定：[ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
-- 设置与环境变量：[ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Trellis spec 入口：[.trellis/spec/README.md](.trellis/spec/README.md)
+- 后端约定：[.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
+- 前端约定：[.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
+- 设置与环境变量：[.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - 部署说明：[DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 验证命令

@@ -17,7 +17,7 @@
     <a href="#what-lives-on-main">Branch Scope</a> ·
     <a href="#how-it-works">How It Works</a> ·
     <a href="DEPLOYMENT.md">Deployment</a> ·
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
+    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -139,8 +139,8 @@ uv sync --all-extras
 pnpm --prefix frontend install
 ```
 
-Frontend package management on `main` is `pnpm` only. Do not use `npm install` and do not commit
-`package-lock.json`.
+Frontend package management on `main` is `pnpm` only. Do not use the npm CLI and do not commit
+npm lockfiles.
 
 ### Configure
 
@@ -348,10 +348,10 @@ Sync rule:
 
 ## Documentation Map
 
-- Core engineering contract: [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
-- Backend conventions: [ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
-- Frontend conventions: [ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
-- Settings and env vars: [ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Trellis spec entrypoint: [.trellis/spec/README.md](.trellis/spec/README.md)
+- Backend conventions: [.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
+- Frontend conventions: [.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
+- Settings and env vars: [.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - Deployment runbook: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## Verification
