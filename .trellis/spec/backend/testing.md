@@ -22,6 +22,8 @@
 
 - quota charge/refund and processing reservation rollback
 - initial and terminal report status persistence
+- cancellation races between the route handler and background pipeline task,
+  especially preserving query and owner metadata
 - SSE terminal event semantics
 - LinuxDo cookie-session recovery
 - account deletion cleanup states

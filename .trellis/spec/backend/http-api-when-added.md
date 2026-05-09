@@ -7,7 +7,9 @@ The `saas` branch has a real FastAPI API.
 - `POST /api/v1/analyze`: start a report pipeline after auth, quota, and
   processing reservation checks.
 - `GET /api/v1/analyze/{report_id}/events`: stream pipeline events over SSE.
-- `POST /api/v1/reports/{report_id}/cancel`: cancel a processing report.
+- `POST /api/v1/reports/{report_id}/cancel`: cancel a processing report. The
+  cancelled terminal status must preserve the report query and owner id even
+  when the route handler and background pipeline task both observe cancellation.
 - `GET /api/v1/reports`: list authenticated user's reports.
 - `GET /api/v1/reports/{report_id}`: return report detail or `202` processing
   status.
