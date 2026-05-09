@@ -38,6 +38,18 @@ describe('CompetitorCard', () => {
     expect(screen.getByRole('link', { name: 'Open Example Product on link' })).toHaveTextContent('link')
   })
 
+  it('does not render unsafe external link protocols', () => {
+    const unsafeLinkCompetitor: Competitor = {
+      ...competitorFixture,
+      links: ['javascript:alert("xss")'],
+    }
+
+    render(<CompetitorCard competitor={unsafeLinkCompetitor} rank={1} variant="standard" />)
+
+    expect(screen.queryByRole('link', { name: /open example product/i })).not.toBeInTheDocument()
+    expect(screen.getByText('link unavailable')).toBeInTheDocument()
+  })
+
   it('shows a preview of strengths and weaknesses in standard cards before expansion', () => {
     render(
       <CompetitorCard competitor={competitorFixture} rank={2} variant="standard" />,

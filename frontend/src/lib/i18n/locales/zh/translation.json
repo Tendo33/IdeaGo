@@ -79,6 +79,9 @@
   },
   "report": {
     "analyzing": "分析中...",
+    "links": {
+      "unavailable": "链接不可用"
+    },
     "sections": {
       "summary": "分析概览",
       "landscape": "市场格局",

@@ -19,6 +19,19 @@ interface DataPoint {
   domId: string
 }
 
+type ScatterClickEntry = DataPoint | { payload?: DataPoint }
+
+function hasPayload(entry: ScatterClickEntry): entry is { payload?: DataPoint } {
+  return Object.prototype.hasOwnProperty.call(entry, 'payload')
+}
+
+function resolveScatterDataPoint(entry: ScatterClickEntry): DataPoint | null {
+  if (hasPayload(entry)) {
+    return entry.payload ?? null
+  }
+  return entry
+}
+
 const ZONE_COLORS = {
   high: 'var(--primary)',
   medium: 'var(--warning)',
@@ -82,7 +95,9 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
 
   const maxFeatures = Math.max(...data.map(d => d.features), 1)
 
-  const handleClick = (d: DataPoint) => {
+  const handleClick = (entry: ScatterClickEntry) => {
+    const d = resolveScatterDataPoint(entry)
+    if (!d) return
     const el = document.getElementById(d.domId)
     if (el) {
       const prefersReducedMotion =
@@ -146,8 +161,7 @@ export function LandscapeChart({ competitors }: LandscapeChartProps) {
           <Tooltip content={<CustomTooltip t={t} />} cursor={false} />
           <Scatter
             data={data}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={(entry: any) => handleClick(entry)}
+            onClick={(entry: ScatterClickEntry) => handleClick(entry)}
             className="cursor-pointer"
           >
             {data.map((d, i) => (

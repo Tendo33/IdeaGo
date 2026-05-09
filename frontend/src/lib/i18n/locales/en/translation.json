@@ -79,6 +79,9 @@
   },
   "report": {
     "analyzing": "Analyzing...",
+    "links": {
+      "unavailable": "link unavailable"
+    },
     "sections": {
       "summary": "Overview",
       "landscape": "Market Landscape",

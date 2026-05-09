@@ -1,6 +1,7 @@
 import { AlertTriangle, ExternalLink, Layers3, ShieldAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { EvidenceItem, EvidenceSummary } from '@/lib/types/research'
+import { sanitizeExternalUrl } from '@/lib/utils/externalUrl'
 
 export interface EvidenceSummaryPanelProps {
   evidenceSummary: EvidenceSummary | null | undefined
@@ -120,6 +121,7 @@ function EvidenceItemCard({
   unknownLabel,
   viewSourceLabel,
 }: EvidenceItemCardProps) {
+  const safeUrl = item.url ? sanitizeExternalUrl(item.url) : null
   const title = item.title || unknownLabel
   const categoryLabel = item.category || 'market'
   const platformLabel = item.platform || 'unknown'
@@ -144,9 +146,9 @@ function EvidenceItemCard({
             <p className="text-xs text-muted-foreground break-words leading-relaxed">{item.snippet}</p>
           ) : null}
         </div>
-        {item.url ? (
+        {safeUrl ? (
           <a
-            href={item.url}
+            href={safeUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex shrink-0 items-center gap-1 rounded-none px-1 text-xs text-cta transition-colors hover:text-cta-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

@@ -133,4 +133,22 @@ describe('EvidenceCostCard', () => {
       screen.getByText('No specific evidence snippets are available for this report.'),
     ).toBeInTheDocument()
   })
+
+  it('does not render unsafe evidence URLs as source links', () => {
+    render(
+      <EvidenceCostCard
+        evidenceSummary={{
+          ...evidenceSummary,
+          evidence_items: [
+            {
+              ...evidenceSummary.evidence_items[0],
+              url: 'javascript:alert("xss")',
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.queryByRole('link', { name: /visit source/i })).not.toBeInTheDocument()
+  })
 })

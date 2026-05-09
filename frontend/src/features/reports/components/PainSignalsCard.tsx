@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ExternalLink, Flame, Link2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PainSignal } from '@/lib/types/research'
+import { sanitizeExternalUrl } from '@/lib/utils/externalUrl'
 
 export interface PainSignalsCardProps {
   signals: PainSignal[]
@@ -124,7 +125,10 @@ function EvidenceLinksDisclosure({
   fallbackLabel,
 }: EvidenceLinksDisclosureProps) {
   const [open, setOpen] = useState(false)
-  const validUrls = urls.filter(url => typeof url === 'string' && url.trim().length > 0)
+  const validUrls = urls
+    .filter(url => typeof url === 'string' && url.trim().length > 0)
+    .map(url => sanitizeExternalUrl(url))
+    .filter((url): url is string => url !== null)
 
   if (validUrls.length === 0) {
     return null

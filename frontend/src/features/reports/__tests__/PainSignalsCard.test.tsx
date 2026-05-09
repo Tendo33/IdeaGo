@@ -34,4 +34,23 @@ describe('PainSignalsCard', () => {
       'https://example.com/evidence/cheaper-alternatives',
     )
   })
+
+  it('filters unsafe evidence link protocols', () => {
+    render(
+      <PainSignalsCard
+        signals={[
+          {
+            ...signals[0],
+            evidence_urls: ['https://example.com/safe', 'javascript:alert("xss")'],
+          },
+        ]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '2 evidence links' }))
+
+    const evidenceLinks = screen.getAllByRole('link')
+    expect(evidenceLinks).toHaveLength(1)
+    expect(evidenceLinks[0]).toHaveAttribute('href', 'https://example.com/safe')
+  })
 })

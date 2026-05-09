@@ -40,19 +40,19 @@ export function TermsPage() {
           )}
         </p>
 
-        <h2>{t('legal.terms.accountsTitle', '3. User Accounts')}</h2>
+        <h2>{t('legal.terms.accountsTitle', '3. Anonymous Use')}</h2>
         <p>
           {t(
             'legal.terms.accounts',
-            'You are responsible for maintaining the security of your account credentials. You must not share your account or use the Service for any unlawful purpose.',
+            'The personal deployment does not require user accounts. You are responsible for controlling access to your own deployment and using the Service lawfully.',
           )}
         </p>
 
-        <h2>{t('legal.terms.subscriptionTitle', '4. Subscriptions & Billing')}</h2>
+        <h2>{t('legal.terms.subscriptionTitle', '4. Providers & Costs')}</h2>
         <p>
           {t(
             'legal.terms.subscription',
-            'Paid plans are billed through Stripe. You can cancel at any time through your account settings. Refunds are handled per our refund policy.',
+            'The personal deployment does not include built-in billing or account management. If you configure external model or retrieval providers, your use of those providers is governed by their own terms.',
           )}
         </p>
 

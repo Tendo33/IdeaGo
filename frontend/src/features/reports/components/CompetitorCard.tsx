@@ -6,6 +6,7 @@ import { getCompetitorDomId, getCompetitorId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import { PlatformIcon } from './PlatformIcons'
 import type { Competitor } from '@/lib/types/research'
+import { sanitizeExternalUrl } from '@/lib/utils/externalUrl'
 
 interface CompetitorCardProps {
   competitor: Competitor
@@ -17,15 +18,25 @@ interface CompetitorCardProps {
 }
 
 function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; ariaLabel: string }) {
+  const { t } = useTranslation()
+  const safeHref = sanitizeExternalUrl(link)
+  if (!safeHref) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground min-h-[32px] px-2 py-1 -ml-2">
+        {t('report.links.unavailable', 'link unavailable')}
+      </span>
+    )
+  }
+
   let hostname = 'link'
   try {
-    const u = new URL(link)
+    const u = new URL(safeHref)
     hostname = u.hostname.replace(/^www\./, '')
   } catch { /* use defaults */ }
 
   return (
     <a
-      href={link}
+      href={safeHref}
       target="_blank"
       rel="noopener noreferrer"
       onClick={e => e.stopPropagation()}
