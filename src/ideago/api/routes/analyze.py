@@ -99,7 +99,12 @@ async def _persist_terminal_status(
         )
 
 
-async def _mark_cancelled(report_id: str) -> None:
+async def _mark_cancelled(
+    report_id: str,
+    *,
+    fallback_query: str = "",
+    fallback_user_id: str = "",
+) -> None:
     """Persist cancelled state and broadcast terminal cancellation event."""
     run_state = get_or_create_report_run(report_id)
     if not run_state.is_terminal:
@@ -112,12 +117,12 @@ async def _mark_cancelled(report_id: str) -> None:
             )
         )
     cache = get_cache()
-    existing_user_id = ""
-    existing_query = ""
+    existing_user_id = fallback_user_id
+    existing_query = fallback_query
     existing_status = await cache.get_status(report_id)
     if existing_status:
-        existing_user_id = existing_status.get("user_id", "") or ""
-        existing_query = existing_status.get("query", "") or ""
+        existing_user_id = existing_status.get("user_id", "") or existing_user_id
+        existing_query = existing_status.get("query", "") or existing_query
     await _persist_terminal_status(
         report_id,
         "cancelled",
@@ -169,7 +174,11 @@ async def _run_pipeline(
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
         await _refund_quota_charge_for_report(report_id, user_id)
-        await _mark_cancelled(report_id)
+        await _mark_cancelled(
+            report_id,
+            fallback_query=query,
+            fallback_user_id=user_id,
+        )
     except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
         await _refund_quota_charge_for_report(report_id, user_id)
@@ -504,11 +513,17 @@ async def cancel_analysis(
         )
 
     if task is not None and not task.done():
+        existing_status = await get_cache().get_status(report_id)
+        existing_query = existing_status.get("query", "") if existing_status else ""
         task.cancel()
-        await _mark_cancelled(report_id)
+        await _mark_cancelled(
+            report_id,
+            fallback_query=existing_query,
+            fallback_user_id=user.id,
+        )
     else:
         await _refund_quota_charge_for_report(report_id, user.id)
-        await _mark_cancelled(report_id)
+        await _mark_cancelled(report_id, fallback_user_id=user.id)
         await release_processing_report(report_id)
 
     logger.info("Analysis cancelled for report {}", report_id)
