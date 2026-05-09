@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
+  <img src="assets/banner_new.png" alt="IdeaGo banner" width="640" />
 
   <h1>IdeaGo</h1>
 
@@ -17,7 +17,7 @@
     <a href="#how-it-works">How It Works</a> ·
     <a href="DEPLOYMENT.md">Deployment</a> ·
     <a href="frontend/README.md">Frontend Docs</a> ·
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
+    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -97,28 +97,28 @@ is re-enabled on purpose.
 Signed-out visitors land on a marketing page. Signed-in users go directly to the product workspace
 to submit an idea and start analysis.
 
-![Landing and intake](docs/assets/1.png)
+![Landing and intake](assets/banner_new.png)
 
 ### Real-Time Research Pipeline
 
 Each analysis streams progress through intent parsing, query planning, platform adaptation,
 multi-source retrieval, extraction, aggregation, and report assembly.
 
-![Pipeline progress](docs/assets/2.png)
+![Pipeline progress](assets/usage_new.png)
 
 ### Decision Summary
 
 The report opens with the recommendation, why-now framing, opportunity score, and high-level
 signal counts.
 
-![Decision summary](docs/assets/3.png)
+![Decision summary](assets/usage_new.png)
 
 ### Evidence-Backed Landscape
 
 The hosted report workspace includes history, competitor details, trust metadata, charts, and
 supporting evidence across all six sources.
 
-![Report workspace](docs/assets/4.png)
+![Report workspace](assets/banner.png)
 
 ## Quick Start
 
@@ -380,10 +380,10 @@ Analysis persistence notes:
 
 ## Documentation Map
 
-- Core engineering contract: [ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
-- Backend conventions: [ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
-- Frontend conventions: [ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
-- Settings and env vars: [ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Trellis spec entrypoint: [.trellis/spec/README.md](.trellis/spec/README.md)
+- Backend conventions: [.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
+- Frontend conventions: [.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
+- Settings and env vars: [.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - Frontend-specific notes: [frontend/README.md](frontend/README.md)
 - Deployment runbook: [DEPLOYMENT.md](DEPLOYMENT.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)

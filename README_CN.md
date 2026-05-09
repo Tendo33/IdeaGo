@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/icon.png" alt="IdeaGo logo" width="96" />
+  <img src="assets/banner_new.png" alt="IdeaGo banner" width="640" />
 
   <h1>IdeaGo</h1>
 
@@ -17,7 +17,7 @@
     <a href="#工作原理">工作原理</a> ·
     <a href="DEPLOYMENT.md">部署说明</a> ·
     <a href="frontend/README.md">前端说明</a> ·
-    <a href="ai_docs/AI_TOOLING_STANDARDS.md">ai_docs</a>
+    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -93,25 +93,25 @@ Stripe 代码链路已经存在，但对用户的定价入口目前是故意隐�
 
 未登录用户先看到营销页；已登录用户直接进入产品工作区提交想法并开始分析。
 
-![Landing 与输入](docs/assets/1.png)
+![Landing 与输入](assets/banner_new.png)
 
 ### 实时研究流水线
 
 分析过程会实时展示：意图解析、查询规划、平台适配、多源抓取、信号提取、聚合和报告组装。
 
-![流水线进度](docs/assets/2.png)
+![流水线进度](assets/usage_new.png)
 
 ### 决策摘要
 
 报告最先展示 recommendation、why-now、机会分以及高层级信号数量。
 
-![决策摘要](docs/assets/3.png)
+![决策摘要](assets/usage_new.png)
 
 ### 证据驱动的报告工作区
 
 托管版报告页包含历史记录、竞品详情、信任元数据、图表与原始证据。
 
-![报告工作区](docs/assets/4.png)
+![报告工作区](assets/banner.png)
 
 ## 快速开始
 
@@ -362,10 +362,10 @@ flowchart TD
 
 ## 文档导航
 
-- 核心工程契约：[ai_docs/AI_TOOLING_STANDARDS.md](ai_docs/AI_TOOLING_STANDARDS.md)
-- 后端约定：[ai_docs/BACKEND_STANDARDS.md](ai_docs/BACKEND_STANDARDS.md)
-- 前端约定：[ai_docs/FRONTEND_STANDARDS.md](ai_docs/FRONTEND_STANDARDS.md)
-- 设置与环境变量：[ai_docs/SETTINGS_GUIDE.md](ai_docs/SETTINGS_GUIDE.md)
+- Trellis spec 入口：[.trellis/spec/README.md](.trellis/spec/README.md)
+- 后端约定：[.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
+- 前端约定：[.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
+- 设置与环境变量：[.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - 前端专属说明：[frontend/README.md](frontend/README.md)
 - 部署 runbook：[DEPLOYMENT.md](DEPLOYMENT.md)
 - 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)

@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-You are an expert in Python, modern tooling (uv, ruff, loguru), and scalable utility library development.
+You are an expert in Python, modern tooling (uv, ruff, loguru), FastAPI, and hosted product development.
 
 Write concise, technical responses with accurate Python examples.
 Use functional, declarative programming; avoid classes where possible except for Pydantic models. Prefer iteration and modularization over code duplication.
@@ -15,7 +15,7 @@ Avoid unnecessary complexity in conditional statements. For single-line statemen
 
 Prioritize error handling and edge cases:
 
-Python 3.8+
+Python 3.10+
 Loguru for logging
 Ruff for linting and formatting
 uv for package management
