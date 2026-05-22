@@ -126,7 +126,7 @@ function UserRow({
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
           {user.avatar_url && !imgError ? (
-            <img src={user.avatar_url} alt="" onError={() => setImgError(true)} className="w-8 h-8 border-2 border-border" />
+            <img src={user.avatar_url} alt="" aria-hidden="true" onError={() => setImgError(true)} className="w-8 h-8 border-2 border-border" />
           ) : (
             <div className="w-8 h-8 border-2 border-border bg-muted flex items-center justify-center text-[10px] font-black">
               {(user.display_name || user.id).charAt(0).toUpperCase()}

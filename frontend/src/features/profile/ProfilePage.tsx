@@ -226,6 +226,7 @@ export function ProfilePage() {
             <img
               src={profile.avatar_url}
               alt=""
+              aria-hidden="true"
               onError={() => setImgError(true)}
               className="w-20 h-20 shrink-0 border-4 border-border object-cover"
               loading="lazy"
