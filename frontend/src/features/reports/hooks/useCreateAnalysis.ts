@@ -9,10 +9,16 @@ export function useCreateAnalysis() {
   }, [])
 
   const createAnalysis = useCallback(
-    async (query: string, options?: { signal?: AbortSignal }) => {
+    async (
+      query: string,
+      options?: { signal?: AbortSignal; forceRefresh?: boolean },
+    ) => {
       clearQuotaInfo()
       try {
-        return await startAnalysis(query, options?.signal ? { signal: options.signal } : undefined)
+        return await startAnalysis(query, {
+          ...(options?.signal ? { signal: options.signal } : {}),
+          ...(options?.forceRefresh ? { forceRefresh: true } : {}),
+        })
       } catch (error) {
         if (isApiError(error) && error.is('QUOTA_EXCEEDED')) {
           try {

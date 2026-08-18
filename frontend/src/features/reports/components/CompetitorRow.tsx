@@ -6,6 +6,7 @@ import { getCompetitorDomId, getCompetitorId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import { PlatformIcon, platformColors } from './PlatformIcons'
 import type { Competitor } from '@/lib/types/research'
+import { safeHttpUrl } from '@/lib/utils/safeUrl'
 
 interface CompetitorRowProps {
   competitor: Competitor
@@ -17,7 +18,8 @@ interface CompetitorRowProps {
 
 export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, domId, compareSelected, onToggleCompare }: CompetitorRowProps) {
   const { t } = useTranslation()
-  const primaryLink = competitor.links[0]
+  // Untrusted, LLM-extracted: only render as a link when it is plain http(s).
+  const primaryLink = safeHttpUrl(competitor.links[0])
   const elementId = domId ?? getCompetitorDomId(competitor)
 
   return (
@@ -69,6 +71,7 @@ export const CompetitorRow = memo(function CompetitorRow({ competitor, rank, dom
             href={primaryLink}
             target="_blank"
             rel="noopener noreferrer"
+            referrerPolicy="no-referrer"
             className="p-1.5 rounded-none text-muted-foreground hover:text-cta transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             aria-label={t('report.accessibility.openCompetitor', { name: competitor.name })}
           >

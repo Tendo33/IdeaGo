@@ -176,11 +176,16 @@ Minimum practical backend configuration for the hosted branch:
 - `FRONTEND_APP_URL`
 - `TURNSTILE_SECRET_KEY`
 
-Minimum frontend build/runtime configuration:
+Frontend configuration is served at runtime from `GET /api/v1/config`, so the
+browser values live in the root `.env` next to the backend ones:
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_TURNSTILE_SITE_KEY`
+- `TURNSTILE_SITE_KEY` (paired with `TURNSTILE_SECRET_KEY`)
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (reused for the browser)
+
+Optional: `FRONTEND_SENTRY_DSN`, `PRICING_ENABLED`.
+
+The only build-time frontend input is `VITE_API_BASE_URL`, and it is only needed
+when the API is on a different origin than the SPA.
 
 Optional auth extensions:
 
@@ -196,8 +201,9 @@ Optional observability and billing:
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRO_PRICE_ID`
 
-For Docker builds, `VITE_*` values are build-time inputs. Set them before `docker compose build`
-or `docker compose up --build`.
+Docker builds no longer need Supabase/Turnstile values at build time — the SPA
+fetches them from the running backend. Only `VITE_API_BASE_URL` is a build arg,
+and it stays empty for the default same-origin deployment.
 
 ### Run In Development
 

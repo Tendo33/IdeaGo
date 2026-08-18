@@ -12,8 +12,6 @@ Project maintenance scripts live in `scripts/`.
 - `scripts/run_vulture.py`: dead-code detection workflow.
 - `scripts/generate_release_notes.py`: release-note draft generation.
 - `scripts/debug_producthunt_chain.py`: Product Hunt source debugging helper.
-- `scripts/benchmark_extract_token_subject.py`: extractor/token subject
-  benchmark helper.
 
 ## Commands
 

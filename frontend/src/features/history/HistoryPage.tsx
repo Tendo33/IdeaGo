@@ -1,4 +1,4 @@
-import { useEffect, useState, memo, useId } from 'react'
+import { useEffect, useRef, useState, memo, useId } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Clock, Users, FileText, Search, Loader2 } from 'lucide-react'
 import { deleteReport } from '@/lib/api/client'
@@ -77,6 +77,7 @@ export function HistoryPage() {
   const titleId = useId()
   const descriptionId = useId()
   const [pageIndex, setPageIndex] = useState(0)
+  const hasLoadedOnce = useRef(false)
   const hasActiveSearch = searchQuery.trim().length > 0 || debouncedQuery.length > 0
   const {
     reports,
@@ -90,7 +91,14 @@ export function HistoryPage() {
     pageIndex,
     query: debouncedQuery,
   })
-  const showSearchInput = !loading || hasActiveSearch
+  useEffect(() => {
+    if (!loading) hasLoadedOnce.current = true
+  }, [loading])
+
+  // Only the very first load blanks the page. Later refreshes (paging, search,
+  // delete) dim the existing list instead of collapsing the layout.
+  const isFirstLoad = loading && !hasLoadedOnce.current
+  const showSearchInput = !isFirstLoad || hasActiveSearch
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -186,20 +194,20 @@ export function HistoryPage() {
         </div>
 
         {error && (
-          <Alert variant="destructive" className="mb-8">
+          <Alert variant="destructive" className="mb-8" role="alert">
             <span className="font-bold">{error}</span>
           </Alert>
         )}
 
-        {loading && (
-          <div className="space-y-4">
+        {isFirstLoad && (
+          <div className="space-y-4" aria-busy="true">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-24 w-full bg-muted border-2 border-border animate-pulse"></div>
             ))}
           </div>
         )}
 
-        {!loading && !error && reports.length === 0 && !hasActiveSearch && (
+        {!isFirstLoad && !loading && !error && reports.length === 0 && !hasActiveSearch && (
           <div className="border-4 border-dashed border-border bg-card p-16 text-center shadow-none">
             <FileText className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
             <p className="mb-6 text-lg font-bold uppercase tracking-widest text-muted-foreground">{t('history.emptyState')}</p>
@@ -213,7 +221,10 @@ export function HistoryPage() {
         )}
 
         {reports.length > 0 && (
-          <div className="space-y-4">
+          <div
+            className={`space-y-4 transition-opacity ${loading ? 'opacity-60 pointer-events-none' : ''}`}
+            aria-busy={loading}
+          >
             {reports.map(report => (
               <HistoryReportCard
                 key={report.id}
@@ -227,7 +238,7 @@ export function HistoryPage() {
           </div>
         )}
 
-        {!loading && reports.length === 0 && hasActiveSearch && (
+        {!isFirstLoad && !loading && reports.length === 0 && hasActiveSearch && (
           <div className="py-12 text-center border-2 border-dashed border-border bg-muted/20">
             <p className="text-base font-bold uppercase tracking-widest text-muted-foreground">
               {t('history.noMatch', { query: searchQuery })}
@@ -235,7 +246,7 @@ export function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && (reports.length > 0 || pageIndex > 0) && (
+        {!isFirstLoad && !error && (reports.length > 0 || pageIndex > 0) && (
           <div className="mt-10 flex items-center justify-center gap-4">
             <Button
               variant="secondary"

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from ideago.models.research import OpportunityScoreBreakdown, Platform, RawResult
 from ideago.pipeline.pre_filter import (
+    _freshness_signal,
+    _parse_iso8601,
     _quality_score,
     _safe_float,
     _safe_int,
@@ -13,12 +17,21 @@ from ideago.pipeline.pre_filter import (
     filter_raw_results,
 )
 
+# The freshness component is f(raw_data["freshness_timestamp"], RawResult.fetched_at).
+# RawResult.fetched_at defaults to wall-clock now(), so leaving it unset makes every
+# scoring assertion below drift with the calendar and eventually fail on its own.
+# Pin the anchor, and place fixture timestamps 60 days before it so they land in the
+# ">30d, <=90d" bucket (freshness 0.8) these assertions were originally written against.
+_FIXED_FETCHED_AT = datetime(2026, 5, 19, tzinfo=timezone.utc)
+_RECENT_TIMESTAMP = "2026-03-20T00:00:00Z"
+
 
 def _raw(
     platform: Platform,
     title: str = "Test",
     description: str = "desc",
     url: str = "https://example.com",
+    fetched_at: datetime = _FIXED_FETCHED_AT,
     **raw_data: object,
 ) -> RawResult:
     return RawResult(
@@ -27,7 +40,13 @@ def _raw(
         url=url,
         platform=platform,
         raw_data=dict(raw_data),
+        fetched_at=fetched_at,
     )
+
+
+def test_fixture_fetched_at_is_pinned() -> None:
+    """Guard: fixtures must not inherit wall-clock fetched_at, or scoring tests rot."""
+    assert _raw(Platform.TAVILY).fetched_at == _FIXED_FETCHED_AT
 
 
 class TestFilterRawResults:
@@ -98,7 +117,7 @@ class TestFilterRawResults:
             query_family="competitor_discovery",
             source_native_score=0.98,
             engagement_proxy=0.98,
-            freshness_timestamp="2026-03-20T00:00:00Z",
+            freshness_timestamp=_RECENT_TIMESTAMP,
         )
         signal_rich = _raw(
             Platform.TAVILY,
@@ -108,7 +127,7 @@ class TestFilterRawResults:
             query_family=query_family,
             source_native_score=0.24,
             engagement_proxy=0.24,
-            freshness_timestamp="2026-03-20T00:00:00Z",
+            freshness_timestamp=_RECENT_TIMESTAMP,
         )
 
         filtered = filter_raw_results(
@@ -124,7 +143,10 @@ class TestFilterRawResults:
             popularity_only.raw_data["opportunity_score_breakdown"]
         )
         assert getattr(breakdown, expected_component) > 0.55
-        assert breakdown.score >= 0.52
+        # Locks the pinned anchor: if someone drops fetched_at back to wall-clock
+        # now(), this fails immediately instead of rotting silently months later.
+        assert breakdown.freshness == pytest.approx(0.8)
+        assert breakdown.score > popularity_breakdown.score
         assert popularity_breakdown.score <= 0.45
         assert breakdown.score - popularity_breakdown.score >= 0.15
 
@@ -174,7 +196,7 @@ class TestQualityScore:
             query_family="migration_discovery",
             score=42,
             num_comments=18,
-            freshness_timestamp="2026-03-22T00:00:00Z",
+            freshness_timestamp=_RECENT_TIMESTAMP,
         )
 
         score = _quality_score(result)
@@ -198,7 +220,7 @@ class TestQualityScore:
             query_family="competitor_discovery",
             stargazers_count=4800,
             forks_count=600,
-            freshness_timestamp="2026-03-22T00:00:00Z",
+            freshness_timestamp=_RECENT_TIMESTAMP,
         )
 
         breakdown = build_opportunity_score_breakdown(result)
@@ -208,6 +230,62 @@ class TestQualityScore:
         assert breakdown.solution_gap < 0.2
         assert breakdown.commercial_intent == pytest.approx(0.0)
         assert breakdown.score <= 0.4
+
+
+class TestFreshnessSignal:
+    """Freshness bucketing, exercised deterministically.
+
+    These buckets used to be covered only incidentally, by whatever distance the
+    real calendar happened to put between a fixture timestamp and wall-clock now().
+    That made both the assertions and the coverage itself date-dependent. Every
+    case below pins the anchor explicitly.
+    """
+
+    @pytest.mark.parametrize(
+        ("age_days", "expected"),
+        [
+            (0, 1.0),
+            (30, 1.0),
+            (31, 0.8),
+            (90, 0.8),
+            (91, 0.6),
+            (180, 0.6),
+            (181, 0.4),
+            (365, 0.4),
+            (366, 0.2),
+            (730, 0.2),
+            (731, 0.0),
+            (5000, 0.0),
+        ],
+    )
+    def test_buckets_by_age(self, age_days: int, expected: float) -> None:
+        published = _FIXED_FETCHED_AT - timedelta(days=age_days)
+        signal = _freshness_signal(published.isoformat(), _FIXED_FETCHED_AT)
+        assert signal == pytest.approx(expected)
+
+    def test_future_timestamp_clamps_to_newest_bucket(self) -> None:
+        """A source reporting a future date must not produce a negative age."""
+        published = _FIXED_FETCHED_AT + timedelta(days=10)
+        assert _freshness_signal(published.isoformat(), _FIXED_FETCHED_AT) == 1.0
+
+    @pytest.mark.parametrize("value", [None, "", "   ", "not-a-date", 12345, {}])
+    def test_unparseable_timestamp_yields_zero(self, value: object) -> None:
+        assert _freshness_signal(value, _FIXED_FETCHED_AT) == 0.0
+
+    def test_naive_timestamp_is_treated_as_utc(self) -> None:
+        assert _parse_iso8601("2026-05-19T00:00:00") == _FIXED_FETCHED_AT
+
+    def test_zulu_suffix_is_parsed(self) -> None:
+        assert _parse_iso8601("2026-05-19T00:00:00Z") == _FIXED_FETCHED_AT
+
+    def test_offset_timestamp_is_normalized_to_utc(self) -> None:
+        assert _parse_iso8601("2026-05-19T08:00:00+08:00") == _FIXED_FETCHED_AT
+
+    def test_fetched_at_in_other_timezone_is_normalized(self) -> None:
+        """The anchor is normalized to UTC before the age subtraction."""
+        anchor = _FIXED_FETCHED_AT.astimezone(timezone(timedelta(hours=9)))
+        published = _FIXED_FETCHED_AT - timedelta(days=100)
+        assert _freshness_signal(published.isoformat(), anchor) == pytest.approx(0.6)
 
 
 class TestSafeConversions:

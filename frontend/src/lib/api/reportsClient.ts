@@ -12,14 +12,19 @@ import {
   throwApiError,
 } from './core'
 
+export interface StartAnalysisOptions extends RequestOptions {
+  /** Skip the cache and gather fresh evidence. Consumes quota either way. */
+  forceRefresh?: boolean
+}
+
 export async function startAnalysis(
   query: string,
-  options: RequestOptions = {},
+  options: StartAnalysisOptions = {},
 ): Promise<{ report_id: string }> {
   const res = await fetchWithTimeout(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...mutationHeaders() },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, force_refresh: options.forceRefresh ?? false }),
   }, options, ANALYSIS_TIMEOUT_MS)
   if (!res.ok) await throwApiError(res, 'Analysis failed')
   return res.json()

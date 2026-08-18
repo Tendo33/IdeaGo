@@ -12,29 +12,20 @@ from typing import Any
 import httpx
 
 from ideago.config.settings import get_settings
+from ideago.http.clients import get_probe_client
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
 
-_audit_http_client: httpx.AsyncClient | None = None
-
 
 def _get_client() -> httpx.AsyncClient:
-    global _audit_http_client
-    if _audit_http_client is None:
-        _audit_http_client = httpx.AsyncClient(
-            timeout=5.0,
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-        )
-    return _audit_http_client
+    """Audit writes share the fast-failing probe client."""
+    return get_probe_client()
 
 
 async def close_audit_client() -> None:
-    """Shut down the shared HTTP client (called during app lifespan teardown)."""
-    global _audit_http_client
-    if _audit_http_client is not None:
-        await _audit_http_client.aclose()
-        _audit_http_client = None
+    """Kept for backwards compatibility; shared clients close via close_all_clients."""
+    return None
 
 
 async def log_audit_event(

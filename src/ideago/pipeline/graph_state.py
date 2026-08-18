@@ -24,6 +24,7 @@ class GraphState(TypedDict, total=False):
     query: str
     report_id: str
     user_id: str
+    force_refresh: bool
 
     intent: Intent
     query_plan: QueryPlan

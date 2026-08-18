@@ -1,40 +1,64 @@
 """Health check endpoints.
 
-Public ``/health`` returns a minimal status. Detailed dependency and source
+Public ``/health`` returns process liveness only. Detailed dependency and source
 information is served from ``/admin/health`` (see admin routes).
 """
 
 from __future__ import annotations
 
-import httpx
+import time
+
 from fastapi import APIRouter
 
 from ideago.api.dependencies import get_orchestrator
 from ideago.config.settings import get_settings
+from ideago.http.clients import get_probe_client
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["health"])
 
+# The public endpoint is unauthenticated and outside the rate limiter. Probing
+# Supabase on every hit turned it into a free amplifier: one cheap anonymous
+# request became one outbound Supabase call plus a TLS handshake. The Docker
+# HEALTHCHECK alone fired it ~2880 times a day. Results are cached, and the
+# public endpoint no longer waits on the probe at all.
+_DEPENDENCY_PROBE_TTL_SECONDS = 15.0
+_probe_cache: tuple[float, str] | None = None
 
-async def _check_supabase() -> str:
-    """Ping Supabase REST API. Returns 'ok' or error detail."""
+
+def _clear_probe_cache() -> None:
+    global _probe_cache
+    _probe_cache = None
+
+
+async def _check_supabase(*, use_cache: bool = True) -> str:
+    """Ping Supabase REST API. Returns 'ok' or an error detail."""
+    global _probe_cache
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
         return "not_configured"
+
+    if use_cache and _probe_cache is not None:
+        expires_at, cached = _probe_cache
+        if time.monotonic() < expires_at:
+            return cached
+
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"{settings.supabase_url}/rest/v1/",
-                headers={
-                    "apikey": settings.supabase_service_role_key,
-                    "Authorization": f"Bearer {settings.supabase_service_role_key}",
-                },
-            )
-        return "ok" if 200 <= resp.status_code < 300 else f"error:{resp.status_code}"
+        resp = await get_probe_client().get(
+            f"{settings.supabase_url}/rest/v1/",
+            headers={
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+            },
+        )
+        result = "ok" if 200 <= resp.status_code < 300 else f"error:{resp.status_code}"
     except Exception as exc:
-        return f"unreachable:{type(exc).__name__}"
+        result = f"unreachable:{type(exc).__name__}"
+
+    _probe_cache = (time.monotonic() + _DEPENDENCY_PROBE_TTL_SECONDS, result)
+    return result
 
 
 async def _check_stripe() -> str:
@@ -47,12 +71,13 @@ async def _check_stripe() -> str:
 
 @router.get("/health")
 async def health_check() -> dict:
-    """Return minimal service health status (public)."""
-    status = "ok"
-    supabase_status = await _check_supabase()
-    if supabase_status not in ("ok", "not_configured"):
-        status = "degraded"
-    return {"status": status}
+    """Return process liveness (public, unauthenticated, no outbound calls).
+
+    Deliberately does not probe dependencies: this endpoint answers "is the
+    process up", which is what container orchestrators and uptime monitors need.
+    Dependency status lives behind ``/admin/health``.
+    """
+    return {"status": "ok"}
 
 
 async def detailed_health_check() -> dict:

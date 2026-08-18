@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 
-import httpx
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
@@ -13,6 +12,7 @@ from ideago.auth.dependencies import require_admin
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import list_profiles, set_user_quota
 from ideago.config.settings import get_settings
+from ideago.http.clients import get_probe_client
 from ideago.observability.audit import log_audit_event
 from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
@@ -166,17 +166,16 @@ async def _fetch_admin_stats_summary() -> AdminStatsResponse:
         "Content-Type": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.supabase_url}/rest/v1/rpc/get_admin_stats_summary",
-                headers=headers,
-                json={},
-            )
+        resp = await get_probe_client().post(
+            f"{settings.supabase_url}/rest/v1/rpc/get_admin_stats_summary",
+            headers=headers,
+            json={},
+        )
         if resp.status_code != 200:
+            # Do not log the upstream body: PostgREST errors leak schema details.
             logger.warning(
-                "Admin stats summary RPC failed: {} {}",
+                "Admin stats summary RPC failed with status {}",
                 resp.status_code,
-                resp.text,
             )
             app_metrics.increment_event(
                 "admin_stats_summary_degraded", reason="rpc_failed"

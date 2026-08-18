@@ -98,6 +98,7 @@ class LangGraphEngine:
         callback: ProgressCallback | None = None,
         report_id: str | None = None,
         user_id: str = "",
+        force_refresh: bool = False,
     ) -> ResearchReport:
         """Execute graph and return the final research report."""
         per_run_metrics: dict[str, dict[str, Any]] = {}
@@ -136,6 +137,8 @@ class LangGraphEngine:
                     input_state["report_id"] = report_id
                 if user_id:
                     input_state["user_id"] = user_id
+                if force_refresh:
+                    input_state["force_refresh"] = True
                 result_state = await graph.ainvoke(input_state, config=config)
         except BaseException as run_exc:  # noqa: BLE001
             exc_type = type(run_exc)

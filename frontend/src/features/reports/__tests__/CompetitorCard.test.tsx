@@ -28,13 +28,26 @@ describe('CompetitorCard', () => {
     expect(container.innerHTML).not.toContain('google.com/s2/favicons')
   })
 
-  it('falls back to generic label for malformed links', () => {
+  it('does not render a link for URLs the browser cannot safely open', () => {
+    // Competitor links are LLM-extracted from untrusted pages. A malformed value
+    // used to render as `<a href="not-a-valid-url">link</a>`, which resolves
+    // relative to our own origin and drops the user into a dead route. Anything
+    // that is not plain http(s) — including `javascript:` — is now omitted.
     const invalidLinkCompetitor: Competitor = {
       ...competitorFixture,
       links: ['not-a-valid-url'],
     }
     render(<CompetitorCard competitor={invalidLinkCompetitor} rank={1} variant="standard" />)
-    expect(screen.getByRole('link', { name: 'Open Example Product on link' })).toHaveTextContent('link')
+    expect(screen.queryByRole('link', { name: /Open Example Product on/ })).toBeNull()
+  })
+
+  it('does not render a link for javascript: URLs', () => {
+    const hostileCompetitor: Competitor = {
+      ...competitorFixture,
+      links: ['javascript:alert(1)'],
+    }
+    render(<CompetitorCard competitor={hostileCompetitor} rank={1} variant="standard" />)
+    expect(screen.queryByRole('link', { name: /Open Example Product on/ })).toBeNull()
   })
 
   it('shows a preview of strengths and weaknesses in standard cards before expansion', () => {

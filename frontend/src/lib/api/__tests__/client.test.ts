@@ -49,10 +49,26 @@ describe('startAnalysis', () => {
           'Content-Type': 'application/json',
           'X-Requested-With': 'IdeaGo',
         }),
-        body: JSON.stringify({ query: 'my startup idea' }),
+        body: JSON.stringify({ query: 'my startup idea', force_refresh: false }),
       }),
     )
     expect(result).toEqual({ report_id: 'abc-123' })
+  })
+
+  it('opts in to force_refresh only when asked', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ report_id: 'abc-456' }),
+    })
+
+    await startAnalysis('my startup idea', { forceRefresh: true })
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/analyze'),
+      expect.objectContaining({
+        body: JSON.stringify({ query: 'my startup idea', force_refresh: true }),
+      }),
+    )
   })
 
   it('throws on non-ok response', async () => {

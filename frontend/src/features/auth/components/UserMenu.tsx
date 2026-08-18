@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
 import { getUserDisplayName, getUserInitial, truncateMiddle } from '@/lib/auth/AuthContext'
-import { PRICING_ENABLED } from '@/lib/featureFlags'
+import { isPricingEnabled } from '@/lib/featureFlags'
 import { LogIn, LogOut, UserCog, ShieldCheck, Crown } from 'lucide-react'
 
 export function UserMenu() {
@@ -35,7 +35,7 @@ export function UserMenu() {
     }
   }, [open])
 
-  const menuItemCount = 1 + (PRICING_ENABLED ? 1 : 0) + (role === 'admin' ? 1 : 0) + 1
+  const menuItemCount = 1 + (isPricingEnabled() ? 1 : 0) + (role === 'admin' ? 1 : 0) + 1
 
   const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'ArrowDown') {
@@ -168,7 +168,7 @@ export function UserMenu() {
             {t('profile.title')}
           </Link>
 
-          {PRICING_ENABLED && (
+          {isPricingEnabled() && (
             <Link
               to="/pricing"
               role="menuitem"
@@ -189,9 +189,9 @@ export function UserMenu() {
               to="/admin"
               role="menuitem"
               ref={node => {
-                menuItemRefs.current[PRICING_ENABLED ? 2 : 1] = node
+                menuItemRefs.current[isPricingEnabled() ? 2 : 1] = node
               }}
-              tabIndex={activeIndex === (PRICING_ENABLED ? 2 : 1) ? 0 : -1}
+              tabIndex={activeIndex === (isPricingEnabled() ? 2 : 1) ? 0 : -1}
               onClick={() => setOpen(false)}
               className="w-full inline-flex items-center gap-3 px-3 py-2 text-sm font-bold uppercase tracking-wider text-foreground border-2 border-transparent transition-all cursor-pointer hover:bg-muted hover:border-border"
             >

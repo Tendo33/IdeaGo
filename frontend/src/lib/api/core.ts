@@ -45,6 +45,8 @@ export interface RequestOptions {
   signal?: AbortSignal
   timeoutMs?: number
   allowUnauthorized?: boolean
+  /** Internal: set on the replayed request so a 401 loop cannot form. */
+  skipRefreshRetry?: boolean
 }
 
 export interface ListReportsOptions extends RequestOptions {
@@ -129,7 +131,107 @@ export async function buildErrorMessage(res: Response, prefix: string): Promise<
   return `${prefix}: ${parsed.message ?? res.status}`
 }
 
+/**
+ * Attempt a silent session renewal after a 401.
+ *
+ * The backend issues cookie-backed sessions and exposes `/auth/refresh` with a
+ * grace period, but nothing ever called it: any 401 — including a transient one
+ * from a Supabase JWKS blip — dumped the user straight to the login page and
+ * discarded whatever they were doing.
+ *
+ * Concurrent 401s share one in-flight attempt so a burst of parallel requests
+ * cannot stampede the refresh endpoint.
+ */
+let inFlightRefresh: Promise<boolean> | null = null
+
+async function requestSessionRefresh(): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/auth/refresh`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'X-Requested-With': 'IdeaGo' },
+    credentials: 'include',
+  })
+  if (!res.ok) return false
+  try {
+    const data = await res.json()
+    if (typeof data?.access_token === 'string' && data.access_token) {
+      setAccessToken(data.access_token)
+    }
+  } catch {
+    // Cookie-backed sessions renew without a body; that is still a success.
+  }
+  return true
+}
+
+export function refreshSessionOnce(): Promise<boolean> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = requestSessionRefresh()
+      .catch(() => false)
+      .finally(() => {
+        inFlightRefresh = null
+      })
+  }
+  return inFlightRefresh
+}
+
+/** Test seam: drop any in-flight refresh between cases. */
+export function resetSessionRefreshState(): void {
+  inFlightRefresh = null
+}
+
+function endSession(): never {
+  setAccessToken(null)
+  clearHistoryCache()
+  supabase.auth.signOut().catch(() => {})
+  const returnTo = encodeURIComponent(readCurrentReturnTo())
+  window.location.href = `/login?returnTo=${returnTo}`
+  throw new Error('Session expired. Redirecting to login.')
+}
+
 export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  options: RequestOptions,
+  fallbackTimeoutMs: number,
+): Promise<Response> {
+  const res = await sendOnce(url, init, options, fallbackTimeoutMs)
+  if (res.status !== 401 || options.allowUnauthorized || options.skipRefreshRetry) {
+    return res
+  }
+
+  // One renewal attempt, then replay the original request. Only if that also
+  // comes back 401 do we treat the session as genuinely gone.
+  const renewed = await refreshSessionOnce()
+  if (!renewed) endSession()
+
+  const retried = await sendOnce(
+    url,
+    { ...init, headers: mergeAuthHeader(init.headers) },
+    { ...options, skipRefreshRetry: true },
+    fallbackTimeoutMs,
+  )
+  if (retried.status === 401) endSession()
+  return retried
+}
+
+/** Re-stamp the Authorization header so the replay uses the renewed token. */
+function mergeAuthHeader(headers: HeadersInit | undefined): HeadersInit | undefined {
+  const token = getAccessToken()
+  if (!token) return headers
+  if (headers instanceof Headers) {
+    const next = new Headers(headers)
+    next.set('Authorization', `Bearer ${token}`)
+    return next
+  }
+  if (Array.isArray(headers)) {
+    return [...headers.filter(([key]) => key.toLowerCase() !== 'authorization'), [
+      'Authorization',
+      `Bearer ${token}`,
+    ]]
+  }
+  return { ...(headers ?? {}), Authorization: `Bearer ${token}` }
+}
+
+async function sendOnce(
   url: string,
   init: RequestInit,
   options: RequestOptions,
@@ -153,24 +255,12 @@ export async function fetchWithTimeout(
   }
 
   try {
-    const res = await fetch(url, {
+    return await fetch(url, {
       ...init,
       headers: init.headers,
       signal: timeoutController.signal,
       credentials: 'include',
     })
-    if (res.status === 401) {
-      if (options.allowUnauthorized) {
-        return res
-      }
-      setAccessToken(null)
-      clearHistoryCache()
-      supabase.auth.signOut().catch(() => {})
-      const returnTo = encodeURIComponent(readCurrentReturnTo())
-      window.location.href = `/login?returnTo=${returnTo}`
-      throw new Error('Session expired. Redirecting to login.')
-    }
-    return res
   } catch (error) {
     if (isRequestAbortError(error) && timedOut) {
       throw new Error('Request timed out. Please try again.')

@@ -7,8 +7,7 @@ FastAPI 认证依赖注入：优先使用后端自签 JWT，
 
 from __future__ import annotations
 
-import asyncio
-import threading
+import contextlib
 import time
 from typing import Any, NamedTuple
 
@@ -16,6 +15,7 @@ import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 
+from ideago.auth import session_cache
 from ideago.auth.models import AuthUser
 from ideago.auth.session import AUTH_SESSION_COOKIE_NAME
 from ideago.auth.session_store import is_auth_session_active
@@ -23,6 +23,9 @@ from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
+
+# Sentinel: distinguishes "not resolved yet" from "resolved to no user".
+_UNRESOLVED = object()
 
 _http_client: httpx.AsyncClient | None = None
 _jwks_cache: dict[str, Any] | None = None
@@ -35,6 +38,15 @@ _TRUSTED_SUPABASE_ALGORITHMS = frozenset(
 class _SupabaseJwtVerificationResult(NamedTuple):
     payload: dict[str, Any] | None
     should_fallback_remote: bool
+
+
+class _UnsupportedLocalAlgorithmError(ValueError):
+    """Raised when a Supabase token cannot be verified against JWKS locally.
+
+    Distinguishes "this project uses symmetric signing keys, so local
+    verification is impossible" from "this token is bogus". The former must
+    fall back to remote verification; the latter must be rejected.
+    """
 
 
 def _get_http_client() -> httpx.AsyncClient:
@@ -148,7 +160,7 @@ async def _get_supabase_signing_key(
     alg = header.get("alg")
     kid = header.get("kid")
     if not isinstance(alg, str) or alg not in _TRUSTED_SUPABASE_ALGORITHMS:
-        raise ValueError("Unsupported JWT signing algorithm")
+        raise _UnsupportedLocalAlgorithmError("Unsupported JWT signing algorithm")
     if not isinstance(kid, str) or not kid:
         raise ValueError("JWT kid is missing")
 
@@ -192,6 +204,17 @@ async def _verify_supabase_jwt(token: str) -> _SupabaseJwtVerificationResult:
         logger.debug("Supabase JWT expired")
     except jwt.InvalidTokenError as exc:
         logger.debug("Supabase JWT validation failed: {}", exc)
+    except _UnsupportedLocalAlgorithmError:
+        # Projects still on legacy symmetric (HS256) signing keys cannot be
+        # verified against JWKS at all. Without this branch every Supabase login
+        # would fail as a silent 401 with no diagnosable cause. Hand off to the
+        # authoritative remote check instead.
+        logger.warning(
+            "Supabase token uses a symmetric signing key; JWKS verification is "
+            "not possible. Falling back to remote verification. Migrate the "
+            "project to asymmetric JWT signing keys to avoid this round trip."
+        )
+        return _SupabaseJwtVerificationResult(None, True)
     except ValueError as exc:
         logger.debug("Supabase JWT validation failed: {}", exc)
     return _SupabaseJwtVerificationResult(None, False)
@@ -295,55 +318,33 @@ async def _is_custom_session_user_active(user_id: str) -> bool:
     return not _profile_blocks_custom_session(profile)
 
 
-def _run_async_for_sync_context(coro: Any) -> Any:
-    """Run an async coroutine from sync code, even if a loop is already running."""
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-
-    result: dict[str, Any] = {}
-    error: dict[str, BaseException] = {}
-
-    def _runner() -> None:
-        try:
-            result["value"] = asyncio.run(coro)
-        except BaseException as exc:  # pragma: no cover - defensive bridge
-            error["value"] = exc
-
-    thread = threading.Thread(target=_runner, daemon=True)
-    thread.start()
-    thread.join()
-    if "value" in error:
-        raise error["value"]
-    return result.get("value")
-
-
-def extract_token_subject(token: str) -> str:
-    """Best-effort extraction of user id from a bearer token for rate limiting."""
-    settings = get_settings()
-
-    if settings.auth_session_secret and _should_try_ideago_jwt(token):
-        payload = _verify_ideago_jwt(token, settings.auth_session_secret)
-        if payload is not None:
-            sub = payload.get("sub", "")
-            if isinstance(sub, str) and sub:
-                return sub
-
-    result = _run_async_for_sync_context(_verify_supabase_jwt(token))
-    if (
-        isinstance(result, _SupabaseJwtVerificationResult)
-        and result.payload is not None
-    ):
-        sub = result.payload.get("sub", "")
-        if isinstance(sub, str) and sub:
-            return sub
-
-    return ""
-
-
 async def get_optional_user(request: Request) -> AuthUser | None:
-    """Extract and verify the user from bearer token or auth cookie."""
+    """Extract and verify the user from bearer token or auth cookie.
+
+    Resolution is memoized per request because two independent callers run for
+    the same request: the rate-limit middleware and the route dependency.
+    Without memoization the whole verification — including its network calls —
+    happened twice.
+
+    The memo lives on ``request.state`` when available. Callers that pass a
+    lightweight request stub (no ``state``) still work; they just do not get
+    the memo.
+    """
+    state = getattr(request, "state", None)
+    if state is not None:
+        cached = getattr(state, "_auth_user_resolution", _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached  # type: ignore[return-value]
+
+    user = await _resolve_user(request)
+
+    if state is not None:
+        with contextlib.suppress(AttributeError):  # immutable stub
+            state._auth_user_resolution = user
+    return user
+
+
+async def _resolve_user(request: Request) -> AuthUser | None:
     auth_header = request.headers.get("Authorization", "")
     bearer_token = auth_header.removeprefix("Bearer ").strip()
     cookie_jar = getattr(request, "cookies", {}) or {}
@@ -359,6 +360,29 @@ async def get_optional_user(request: Request) -> AuthUser | None:
     return None
 
 
+async def _custom_session_state(user: AuthUser) -> session_cache.SessionState:
+    """Resolve session + profile liveness, using the short-lived cache."""
+    cached = session_cache.get(user.session_id)
+    if cached is not None:
+        return cached
+
+    session_active = True
+    if user.session_id:
+        session_active = await is_auth_session_active(user.session_id, user_id=user.id)
+
+    # Skip the profile round trip when the session is already known dead.
+    profile_active = (
+        await _is_custom_session_user_active(user.id) if session_active else False
+    )
+
+    state = session_cache.SessionState(
+        session_active=session_active, profile_active=profile_active
+    )
+    if user.session_id:
+        session_cache.put(user.session_id, user.id, state)
+    return state
+
+
 async def _authenticate_token(token: str) -> AuthUser | None:
     """Best-effort token authentication for one candidate token."""
     settings = get_settings()
@@ -369,13 +393,8 @@ async def _authenticate_token(token: str) -> AuthUser | None:
             user = _extract_user_from_ideago_payload(payload)
             if user is None:
                 return None
-            if user.session_id and not await is_auth_session_active(
-                user.session_id, user_id=user.id
-            ):
-                return None
-            if not await _is_custom_session_user_active(user.id):
-                return None
-            return user
+            state = await _custom_session_state(user)
+            return user if state.is_usable else None
 
     jwks_result = await _verify_supabase_jwt(token)
     if jwks_result.payload is not None:

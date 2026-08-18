@@ -170,7 +170,7 @@ class SupabaseReportRepository:
         )
         if resp.status_code not in (200, 201):
             logger.warning(
-                "Supabase put report failed: {} {}", resp.status_code, resp.text
+                "Supabase put report failed with status {}", resp.status_code
             )
             raise DependencyUnavailableError(
                 "report_persist_failed",
@@ -340,7 +340,7 @@ class SupabaseReportRepository:
             json=body,
         )
         if resp.status_code not in (200, 201):
-            logger.warning("put_status failed: {} {}", resp.status_code, resp.text)
+            logger.warning("put_status failed with status {}", resp.status_code)
             raise DependencyUnavailableError(
                 "report_status_persist_failed",
                 dependency="supabase_report_status",

@@ -6,6 +6,7 @@ import { getCompetitorDomId, getCompetitorId } from '../competitor'
 import { RelevanceRing } from './RelevanceRing'
 import { PlatformIcon } from './PlatformIcons'
 import type { Competitor } from '@/lib/types/research'
+import { safeHttpUrl, safeUrlHostname } from '@/lib/utils/safeUrl'
 
 interface CompetitorCardProps {
   competitor: Competitor
@@ -17,17 +18,18 @@ interface CompetitorCardProps {
 }
 
 function LinkWithHost({ link, name, ariaLabel }: { link: string; name: string; ariaLabel: string }) {
-  let hostname = 'link'
-  try {
-    const u = new URL(link)
-    hostname = u.hostname.replace(/^www\./, '')
-  } catch { /* use defaults */ }
+  // Competitor links come from LLM extraction over untrusted pages. Anything
+  // that is not plain http(s) is shown as inert text instead of a link.
+  const safeLink = safeHttpUrl(link)
+  if (!safeLink) return null
+  const hostname = safeUrlHostname(safeLink) ?? 'link'
 
   return (
     <a
-      href={link}
+      href={safeLink}
       target="_blank"
       rel="noopener noreferrer"
+      referrerPolicy="no-referrer"
       onClick={e => e.stopPropagation()}
       className="inline-flex min-h-[44px] items-center gap-1.5 px-2 py-1 text-xs text-cta transition-colors duration-200 cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none hover:text-cta-hover"
       aria-label={ariaLabel.replace('{{host}}', hostname).replace('{{name}}', name)}

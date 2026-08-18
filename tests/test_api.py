@@ -40,12 +40,14 @@ from ideago.api.schemas import (
     ReportDetailV2,
     ReportRuntimeStatus,
 )
+from ideago.auth import account_deletion, session_cache, supabase_admin
 from ideago.auth import dependencies as auth_deps
-from ideago.auth import supabase_admin
+from ideago.auth.session import OAUTH_STATE_COOKIE_NAME
 from ideago.billing import stripe_service
 from ideago.cache.base import ReportIndex
 from ideago.cache.file_cache import FileCache
 from ideago.config.settings import Settings
+from ideago.http import clients as http_clients
 from ideago.models.research import (
     CommercialSignal,
     Competitor,
@@ -65,12 +67,36 @@ from ideago.notifications import service as notification_service
 from ideago.observability.metrics import metrics as app_metrics
 from ideago.pipeline.events import EventType, PipelineEvent
 
+# The LinuxDo callback now requires the browser to prove it started the
+# handshake. Stubbed states must carry the matching binding hash, and fake
+# requests must present the binding cookie.
+_TEST_OAUTH_BINDING = "test-oauth-binding"
+
+
+def _audit_request():
+    """Minimal request stub for routes that record an audit IP."""
+    return type("Req", (), {"client": type("Client", (), {"host": "127.0.0.1"})()})()
+
+
+def _bound_state(**extra):
+    """Build a stubbed parsed-state payload bound to _TEST_OAUTH_BINDING."""
+    return {"bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING), **extra}
+
 
 @pytest.fixture(autouse=True)
 def reset_runtime_state() -> None:
     app_module._rate_limit_store.clear()
     app_metrics.reset()
     auth_deps._clear_jwks_cache()
+    session_cache.clear()
+    # Shared HTTP clients are created lazily and cached in module globals. A test
+    # that patches client construction can otherwise leave a mock installed for
+    # the rest of the session, which shows up much later as a confusing
+    # AttributeError during an unrelated lifespan shutdown.
+    http_clients._supabase_client = None
+    http_clients._external_client = None
+    http_clients._probe_client = None
+    health_route._clear_probe_cache()
     with contextlib.suppress(RuntimeError):
         asyncio.run(deps.shutdown_runtime_state())
     with contextlib.suppress(RuntimeError):
@@ -80,6 +106,11 @@ def reset_runtime_state() -> None:
     app_module._rate_limit_store.clear()
     app_metrics.reset()
     auth_deps._clear_jwks_cache()
+    session_cache.clear()
+    http_clients._supabase_client = None
+    http_clients._external_client = None
+    http_clients._probe_client = None
+    health_route._clear_probe_cache()
     with contextlib.suppress(RuntimeError):
         asyncio.run(deps.shutdown_runtime_state())
     with contextlib.suppress(RuntimeError):
@@ -866,7 +897,12 @@ def test_linuxdo_callback_sets_cookie_and_redirects_to_callback(client) -> None:
         patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
-            return_value={"redirect_to": "https://ideago.simonsun.cc/auth/callback"},
+            return_value={
+                # The callback now requires the browser to prove it started the
+                # handshake, so the stubbed state must carry the binding hash.
+                "bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING),
+                "redirect_to": "https://ideago.simonsun.cc/auth/callback",
+            },
         ),
         patch(
             "ideago.api.routes.auth._exchange_linuxdo_code",
@@ -892,6 +928,7 @@ def test_linuxdo_callback_sets_cookie_and_redirects_to_callback(client) -> None:
         ),
         patch("ideago.api.routes.auth._issue_auth_token", return_value="ideago-token"),
     ):
+        client.cookies.set(OAUTH_STATE_COOKIE_NAME, _TEST_OAUTH_BINDING)
         response = client.get(
             "/api/v1/auth/linuxdo/callback?code=ok&state=good",
             follow_redirects=False,
@@ -921,7 +958,6 @@ def test_auth_me_accepts_backend_session_jwt() -> None:
         (),
         {
             "auth_session_secret": "session-secret-session-secret-012345",
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
         },
@@ -980,13 +1016,14 @@ def test_build_and_parse_state_token_round_trip() -> None:
     fake_settings = type("Settings", (), {"auth_session_secret": "x" * 32})()
 
     with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
-        token = auth_route._build_state_token(
+        token, binding = auth_route._build_state_token(
             redirect_to="https://app.example.com/auth/callback"
         )
         payload = auth_route._parse_state_token(token)
 
     assert payload["redirect_to"] == "https://app.example.com/auth/callback"
     assert payload["aud"] == "ideago-linuxdo-state"
+    assert payload["bh"] == auth_route._hash_state_binding(binding)
 
 
 def test_build_state_token_requires_auth_session_secret() -> None:
@@ -1026,8 +1063,8 @@ async def test_exchange_linuxdo_code_success_failure_and_missing_token() -> None
     with (
         patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
         patch(
-            "ideago.api.routes.auth.httpx.AsyncClient",
-            return_value=_AsyncClientContext(fake_client),
+            "ideago.api.routes.auth.get_external_client",
+            return_value=(fake_client),
         ),
     ):
         assert (
@@ -1071,8 +1108,8 @@ async def test_fetch_linuxdo_userinfo_success_and_errors() -> None:
     with (
         patch("ideago.api.routes.auth.get_settings", return_value=fake_settings),
         patch(
-            "ideago.api.routes.auth.httpx.AsyncClient",
-            return_value=_AsyncClientContext(fake_client),
+            "ideago.api.routes.auth.get_external_client",
+            return_value=(fake_client),
         ),
     ):
         data = await auth_route._fetch_linuxdo_userinfo("ok")
@@ -1309,7 +1346,7 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
         {
             "client": type("Client", (), {"host": "127.0.0.1"})(),
             "headers": {},
-            "cookies": {},
+            "cookies": {OAUTH_STATE_COOKIE_NAME: _TEST_OAUTH_BINDING},
         },
     )()
     app_metrics.reset()
@@ -1359,7 +1396,10 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
     assert delete_exc.value.status_code == 500
     assert "billing_cleanup" in delete_exc.value.detail["message"]
     assert delete_exc.value.detail["phase"] == "billing_cleanup"
-    assert delete_exc.value.detail["details"] == ["subscription_cancel_failed"]
+    # Internal table names / upstream codes are no longer echoed to the client;
+    # they go to logs and audit, correlated by incident_id.
+    assert "details" not in delete_exc.value.detail
+    assert delete_exc.value.detail["incident_id"]
     assert delete_exc.value.detail["cleanup"] == {
         "domain_data": "pending",
         "billing": "failed",
@@ -1367,7 +1407,11 @@ async def test_auth_profile_and_delete_account_error_paths() -> None:
         "profile": "rolled_back",
     }
     assert audit_log.await_count == 1
-    assert audit_log.await_args.kwargs["metadata"] == {
+    audit_metadata = audit_log.await_args.kwargs["metadata"]
+    # The audit trail keeps the internals the client no longer receives, plus the
+    # incident id that ties the two together.
+    assert audit_metadata["incident_id"] == delete_exc.value.detail["incident_id"]
+    assert {k: v for k, v in audit_metadata.items() if k != "incident_id"} == {
         "outcome": "failed",
         "phase": "billing_cleanup",
         "details": ["subscription_cancel_failed"],
@@ -1395,7 +1439,7 @@ async def test_auth_callback_quota_and_profile_success_paths() -> None:
                 "https://api.example.com/api/v1/auth/linuxdo/callback"
             ),
             "headers": {},
-            "cookies": {},
+            "cookies": {OAUTH_STATE_COOKIE_NAME: _TEST_OAUTH_BINDING},
         },
     )()
     fake_settings = type(
@@ -1409,15 +1453,20 @@ async def test_auth_callback_quota_and_profile_success_paths() -> None:
 
     with patch("ideago.api.routes.auth.get_settings", return_value=fake_settings):
         bad_state = await auth_route.linuxdo_callback(request, code="ok", state=None)
+        # Real state here (not a stub), so present the binding it actually minted;
+        # otherwise the callback correctly rejects it before the missing-code check.
+        real_state, real_binding = auth_route._build_state_token(
+            redirect_to="https://app.example.com/auth/callback"
+        )
+        request.cookies[OAUTH_STATE_COOKIE_NAME] = real_binding
         bad_code = await auth_route.linuxdo_callback(
             request,
             code=None,
-            state=auth_route._build_state_token(
-                redirect_to="https://app.example.com/auth/callback"
-            ),
+            state=real_state,
             error=None,
             error_description=None,
         )
+        request.cookies[OAUTH_STATE_COOKIE_NAME] = _TEST_OAUTH_BINDING
 
     assert "Missing+OAuth+state" in bad_state.headers["location"]
     assert "Missing+authorization+code" in bad_code.headers["location"]
@@ -1610,28 +1659,40 @@ async def test_stream_status_only_processing_emits_failed_terminal_event() -> No
 
 @pytest.mark.asyncio
 async def test_stream_status_only_processing_times_out_with_terminal_error() -> None:
+    """Status-only streaming gives up after the wait ceiling, cheaply.
+
+    The poll used to run at a fixed 2s interval, so a single viewer waiting out
+    the 180s ceiling issued 90 PostgREST status reads. Backoff keeps the same
+    ceiling for a fraction of the request volume; this test pins both the
+    terminal behaviour and the cost.
+    """
     report_id = "report-status-only-stale-processing"
-    ping_iterations = 90
     mock_cache = AsyncMock(spec=FileCache)
-    mock_cache.get_status = AsyncMock(
-        side_effect=[{"status": "processing"}] * (ping_iterations + 5)
-    )
-    sleep_mock = AsyncMock(return_value=None)
+    mock_cache.get_status = AsyncMock(return_value={"status": "processing"})
+    slept: list[float] = []
+
+    async def _record_sleep(delay):
+        slept.append(delay)
 
     with (
         patch("ideago.api.routes.analyze.get_cache", return_value=mock_cache),
-        patch("ideago.api.routes.analyze.asyncio.sleep", new=sleep_mock),
+        patch("ideago.api.routes.analyze.asyncio.sleep", new=_record_sleep),
     ):
         stream = analyze_route._stream_events(report_id)
-        pings = [await anext(stream) for _ in range(ping_iterations)]
-        terminal = await anext(stream)
-        await stream.aclose()
+        events = [event async for event in stream]
 
+    pings, terminal = events[:-1], events[-1]
+    assert pings, "should ping while the report still looks like it is processing"
     assert all(item["event"] == "ping" for item in pings)
     assert terminal["event"] == EventType.ERROR.value
     payload = json.loads(terminal["data"])
     assert payload["data"]["error_code"] == "PIPELINE_PROCESSING_STALE"
-    assert sleep_mock.await_count == ping_iterations
+
+    # Same ceiling, far fewer reads than the old fixed-interval loop.
+    assert sum(slept) >= analyze_route._STATUS_ONLY_MAX_WAIT_SECONDS
+    assert len(slept) < 30, f"backoff should keep polls well under 90, got {len(slept)}"
+    assert slept[0] == analyze_route._STATUS_ONLY_INITIAL_DELAY_SECONDS
+    assert max(slept) <= analyze_route._STATUS_ONLY_MAX_DELAY_SECONDS
 
 
 @pytest.mark.asyncio
@@ -1885,10 +1946,6 @@ async def test_start_analysis_retries_when_dedup_hit_is_stale(tmp_path) -> None:
             new=AsyncMock(return_value=False),
         ) as confirm_mock,
         patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_low),
-        ),
-        patch(
             "ideago.api.routes.analyze.check_and_increment_quota",
             new=AsyncMock(return_value=quota_low),
         ),
@@ -2116,10 +2173,16 @@ def test_app_middlewares_rate_limit_headers_and_spa_fallback_branches(tmp_path) 
     assert reports_second.status_code == 429
     assert static_file.status_code == 200
     assert "<svg" in static_file.text
+    # Interactive docs are closed in production, so /docs falls through to the
+    # SPA and must carry the strict CSP rather than the relaxed docs one.
     assert docs_response.status_code == 200
     assert (
-        "script-src 'self' 'unsafe-inline' https:;"
+        "script-src 'self' https://challenges.cloudflare.com;"
         in docs_response.headers["Content-Security-Policy"]
+    )
+    assert (
+        "'unsafe-inline' https:;"
+        not in docs_response.headers["Content-Security-Policy"]
     )
     assert api_not_found.status_code == 404
     assert suffix_not_found.status_code == 404
@@ -2537,25 +2600,6 @@ def _make_supabase_auth_settings(**overrides: object) -> object:
     return type("Settings", (), values)()
 
 
-def test_extract_token_subject_with_ideago_jwt() -> None:
-    token = jwt.encode(
-        {"sub": "user-123", "aud": "ideago-auth"},
-        "test-secret-test-secret-0123456789",
-        algorithm="HS256",
-    )
-    fake_settings = type(
-        "Settings",
-        (),
-        {
-            "auth_session_secret": "test-secret-test-secret-0123456789",
-            "supabase_jwt_secret": "",
-        },
-    )()
-
-    with patch("ideago.auth.dependencies.get_settings", return_value=fake_settings):
-        assert auth_deps.extract_token_subject(token) == "user-123"
-
-
 def test_verify_ideago_jwt_invalid_and_extract_helpers() -> None:
     expired = jwt.encode(
         {
@@ -2578,36 +2622,6 @@ def test_verify_ideago_jwt_invalid_and_extract_helpers() -> None:
     assert auth_deps._extract_user_from_jwt_payload({}) is None
     assert auth_deps._extract_user_from_api_response({}) is None
     assert auth_deps._extract_user_from_ideago_payload({}) is None
-
-
-def test_extract_token_subject_with_supabase_jwks_jwt() -> None:
-    token, public_jwk = _build_supabase_jwks_token()
-    fake_settings = type(
-        "Settings",
-        (),
-        {
-            "auth_session_secret": "",
-            "supabase_url": "https://example.supabase.co",
-            "supabase_anon_key": "anon-key",
-            "supabase_jwt_audience": "authenticated",
-            "supabase_jwks_cache_ttl_seconds": 300,
-            "get_supabase_jwks_url": lambda self: (
-                "https://example.supabase.co/auth/v1/.well-known/jwks.json"
-            ),
-            "get_supabase_jwt_issuer": lambda self: (
-                "https://example.supabase.co/auth/v1"
-            ),
-        },
-    )()
-
-    with (
-        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.auth.dependencies._fetch_jwks",
-            new=AsyncMock(return_value={"keys": [public_jwk]}),
-        ),
-    ):
-        assert auth_deps.extract_token_subject(token) == "supa-user"
 
 
 @pytest.mark.asyncio
@@ -3042,36 +3056,10 @@ async def test_verify_supabase_jwt_and_remote_error_paths() -> None:
         }
 
 
-def test_extract_token_subject_returns_empty_when_no_valid_sub() -> None:
-    fake_settings = _make_supabase_auth_settings()
-    with (
-        patch("ideago.auth.dependencies.get_settings", return_value=fake_settings),
-        patch(
-            "ideago.auth.dependencies._verify_supabase_jwt",
-            new=AsyncMock(
-                return_value=auth_deps._SupabaseJwtVerificationResult(
-                    payload={"email": "x@example.com"},
-                    should_fallback_remote=False,
-                )
-            ),
-        ),
-    ):
-        assert auth_deps.extract_token_subject("token") == ""
-
-
 @pytest.mark.asyncio
-async def test_run_async_bridge_admin_resolution_and_require_admin() -> None:
-    async def compute() -> str:
-        return "ok"
-
-    results: list[str] = []
-
-    async def runner() -> None:
-        results.append(auth_deps._run_async_for_sync_context(compute()))
-
-    await runner()
-    assert results == ["ok"]
-
+async def test_admin_role_resolution_and_require_admin() -> None:
+    # The sync/async thread bridge this test also covered was removed along with
+    # extract_token_subject, its only caller.
     user = auth_deps.AuthUser(id="user-1", email="u@example.com", role="user")
     admin_user = auth_deps.AuthUser(id="admin-1", email="a@example.com", role="admin")
 
@@ -3128,48 +3116,53 @@ async def test_health_route_internal_checks_and_main_entrypoint(tmp_path) -> Non
         assert await health_route._check_supabase() == "not_configured"
         assert await health_route._check_stripe() == "not_configured"
 
+    health_route._clear_probe_cache()
     with (
         patch("ideago.api.routes.health.get_settings", return_value=health_settings),
         patch(
-            "ideago.api.routes.health.httpx.AsyncClient",
-            return_value=_AsyncClientContext(ok_client),
+            "ideago.api.routes.health.get_probe_client",
+            return_value=ok_client,
         ),
     ):
         assert await health_route._check_supabase() == "ok"
         assert await health_route._check_stripe() == "ok"
 
+    health_route._clear_probe_cache()
     with (
         patch("ideago.api.routes.health.get_settings", return_value=health_settings),
         patch(
-            "ideago.api.routes.health.httpx.AsyncClient",
-            return_value=_AsyncClientContext(bad_client),
+            "ideago.api.routes.health.get_probe_client",
+            return_value=bad_client,
         ),
     ):
         assert await health_route._check_supabase() == "error:503"
 
+    health_route._clear_probe_cache()
     with (
         patch("ideago.api.routes.health.get_settings", return_value=health_settings),
         patch(
-            "ideago.api.routes.health.httpx.AsyncClient",
-            return_value=_AsyncClientContext(unauthorized_client),
+            "ideago.api.routes.health.get_probe_client",
+            return_value=unauthorized_client,
         ),
     ):
         assert await health_route._check_supabase() == "error:401"
 
+    health_route._clear_probe_cache()
     with (
         patch("ideago.api.routes.health.get_settings", return_value=health_settings),
         patch(
-            "ideago.api.routes.health.httpx.AsyncClient",
+            "ideago.api.routes.health.get_probe_client",
             side_effect=RuntimeError("boom"),
         ),
     ):
         assert await health_route._check_supabase() == "unreachable:RuntimeError"
 
-    with patch(
-        "ideago.api.routes.health._check_supabase",
-        new=AsyncMock(return_value="error:503"),
-    ):
-        assert await health_route.health_check() == {"status": "degraded"}
+    probe = AsyncMock(return_value="error:503")
+    with patch("ideago.api.routes.health._check_supabase", new=probe):
+        # Liveness only: an unhealthy dependency must not be probed here, and
+        # must not turn the public endpoint into a degraded response.
+        assert await health_route.health_check() == {"status": "ok"}
+        assert probe.await_count == 0
 
     fake_orchestrator = type(
         "Orchestrator",
@@ -3218,7 +3211,16 @@ async def test_health_route_internal_checks_and_main_entrypoint(tmp_path) -> Non
         patch("uvicorn.run") as uvicorn_run,
     ):
         runpy.run_module("ideago.__main__", run_name="__main__")
-    uvicorn_run.assert_called_once_with("app", host="127.0.0.1", port=9000)
+    # Proxy headers must be passed through: without them uvicorn discards
+    # X-Forwarded-* from a non-loopback proxy and every client IP resolves to
+    # the proxy, silently poisoning audit logs and Turnstile risk scoring.
+    uvicorn_run.assert_called_once_with(
+        "app",
+        host="127.0.0.1",
+        port=9000,
+        proxy_headers=True,
+        forwarded_allow_ips="127.0.0.1",
+    )
 
 
 @pytest.mark.asyncio
@@ -3575,9 +3577,13 @@ async def test_supabase_admin_quota_success_and_errors() -> None:
 
 
 @pytest.mark.asyncio
-async def test_supabase_admin_refund_quota_prefers_rpc_and_falls_back_to_patch() -> (
-    None
-):
+async def test_supabase_admin_refund_quota_uses_only_the_atomic_rpc() -> None:
+    """The read-modify-write fallback was removed: it lost concurrent refunds.
+
+    Two simultaneous refunds both read usage_count=5 and both wrote 4, so one
+    refund silently disappeared. A failed refund is now reported (and recorded
+    for reconciliation) instead of being patched over with a racy write.
+    """
     fake_settings = type(
         "Settings",
         (),
@@ -3611,14 +3617,15 @@ async def test_supabase_admin_refund_quota_prefers_rpc_and_falls_back_to_patch()
         patch(
             "ideago.auth.supabase_admin.get_profile",
             new=AsyncMock(return_value={"usage_count": 2}),
-        ),
+        ) as profile_mock,
     ):
-        fallback_ok = await supabase_admin.refund_quota_charge("uid")
+        rpc_failed = await supabase_admin.refund_quota_charge("uid")
 
     assert rpc_ok is True
     rpc_client.post.assert_awaited_once()
-    assert fallback_ok is True
-    fallback_client.patch.assert_awaited_once()
+    assert rpc_failed is False, "a failed refund must be reported, not faked"
+    fallback_client.patch.assert_not_awaited()
+    profile_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3823,8 +3830,8 @@ async def test_supabase_admin_list_profiles_quota_update_and_delete_user_data() 
         listed = await supabase_admin.list_profiles(limit=10, offset=5)
         updated = await supabase_admin.set_user_quota("u1", plan_limit=20)
         no_payload = await supabase_admin.set_user_quota("u1")
-        deleted = await supabase_admin.delete_user_data("u1")
-        partial = await supabase_admin.delete_user_data("u2")
+        deleted = await account_deletion.delete_user_data("u1")
+        partial = await account_deletion.delete_user_data("u2")
 
     with (
         patch("ideago.auth.supabase_admin._is_configured", return_value=True),
@@ -3910,7 +3917,7 @@ async def test_supabase_admin_list_profiles_escapes_literal_search_term() -> Non
 @pytest.mark.asyncio
 async def test_supabase_admin_delete_user_data_not_configured() -> None:
     with patch("ideago.auth.supabase_admin._is_configured", return_value=False):
-        result = await supabase_admin.delete_user_data("uid")
+        result = await account_deletion.delete_user_data("uid")
     assert result["error"] == "supabase_not_configured"
 
 
@@ -3949,7 +3956,7 @@ async def test_run_state_callback_and_stream_event_edge_paths(tmp_path) -> None:
         assert failed_events[0]["event"] == EventType.ERROR.value
 
         with (
-            patch.object(analyze_route, "_STATUS_ONLY_MAX_PINGS", 1),
+            patch.object(analyze_route, "_STATUS_ONLY_MAX_WAIT_SECONDS", 2.0),
             patch(
                 "ideago.api.routes.analyze.asyncio.sleep",
                 new=AsyncMock(return_value=None),
@@ -4090,8 +4097,8 @@ async def test_supabase_admin_remaining_edge_paths() -> None:
             "uid", display_name="n", bio="b"
         )
         quota_user_missing = await supabase_admin.set_user_quota("uid", usage_count=3)
-        partial_exception = await supabase_admin.delete_user_data("uid-ex")
-        partial_status = await supabase_admin.delete_user_data("uid-status")
+        partial_exception = await account_deletion.delete_user_data("uid-ex")
+        partial_status = await account_deletion.delete_user_data("uid-status")
 
     with (
         patch("ideago.auth.supabase_admin._is_configured", return_value=True),
@@ -4121,15 +4128,15 @@ async def test_supabase_admin_delete_user_account_orchestrates_all_cleanup_phase
             new=AsyncMock(return_value={"status": "marked"}),
         ) as mark_profile,
         patch(
-            "ideago.auth.supabase_admin.delete_user_data",
+            "ideago.auth.account_deletion.delete_user_data",
             new=AsyncMock(return_value={"deleted": True}),
         ) as delete_user_data,
         patch(
-            "ideago.auth.supabase_admin.delete_billing_customer_data",
+            "ideago.auth.account_deletion.delete_billing_customer_data",
             new=AsyncMock(return_value={"status": "deleted"}),
         ) as delete_billing,
         patch(
-            "ideago.auth.supabase_admin.delete_auth_identity",
+            "ideago.auth.account_deletion.delete_auth_identity",
             new=AsyncMock(return_value={"status": "deleted"}),
         ) as delete_identity,
         patch(
@@ -4137,7 +4144,7 @@ async def test_supabase_admin_delete_user_account_orchestrates_all_cleanup_phase
             new=AsyncMock(return_value={"status": "deleted"}),
         ) as delete_profile,
     ):
-        result = await supabase_admin.delete_user_account("uid")
+        result = await account_deletion.delete_user_account("uid")
 
     mark_profile.assert_awaited_once_with("uid")
     delete_user_data.assert_awaited_once_with("uid")
@@ -4179,15 +4186,15 @@ async def test_supabase_admin_delete_user_account_cleans_billing_before_domain_d
             new=AsyncMock(return_value={"status": "marked"}),
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_user_data",
+            "ideago.auth.account_deletion.delete_user_data",
             new=delete_domain_data,
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_billing_customer_data",
+            "ideago.auth.account_deletion.delete_billing_customer_data",
             new=delete_billing,
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_auth_identity",
+            "ideago.auth.account_deletion.delete_auth_identity",
             new=delete_identity,
         ),
         patch(
@@ -4195,7 +4202,7 @@ async def test_supabase_admin_delete_user_account_cleans_billing_before_domain_d
             new=AsyncMock(return_value={"status": "deleted"}),
         ),
     ):
-        result = await supabase_admin.delete_user_account("uid")
+        result = await account_deletion.delete_user_account("uid")
 
     assert result["status"] == "deleted"
     assert calls == ["billing:uid", "domain:uid", "auth:uid"]
@@ -4224,11 +4231,11 @@ async def test_supabase_admin_delete_user_account_returns_failing_phase() -> Non
             new=AsyncMock(return_value={"status": "marked"}),
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_user_data",
+            "ideago.auth.account_deletion.delete_user_data",
             new=AsyncMock(return_value={"deleted": True}),
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_billing_customer_data",
+            "ideago.auth.account_deletion.delete_billing_customer_data",
             new=AsyncMock(
                 return_value={
                     "error": "billing_cleanup_failed",
@@ -4237,7 +4244,7 @@ async def test_supabase_admin_delete_user_account_returns_failing_phase() -> Non
             ),
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_auth_identity",
+            "ideago.auth.account_deletion.delete_auth_identity",
             new=AsyncMock(return_value={"status": "deleted"}),
         ),
         patch(
@@ -4245,7 +4252,7 @@ async def test_supabase_admin_delete_user_account_returns_failing_phase() -> Non
             new=AsyncMock(return_value={"status": "restored"}),
         ) as restore_profile,
     ):
-        result = await supabase_admin.delete_user_account("uid")
+        result = await account_deletion.delete_user_account("uid")
 
     assert result == {
         "error": "partial_failure",
@@ -4278,7 +4285,7 @@ async def test_delete_billing_customer_data_surfaces_profile_lookup_failure() ->
         patch("ideago.auth.supabase_admin._is_configured", return_value=True),
         patch("ideago.auth.supabase_admin._get_client", return_value=_Client()),
     ):
-        result = await supabase_admin.delete_billing_customer_data("uid")
+        result = await account_deletion.delete_billing_customer_data("uid")
 
     assert result == {
         "error": "billing_lookup_failed",
@@ -4298,6 +4305,7 @@ async def test_auth_route_remaining_error_branches() -> None:
                 "https://api.example.com/api/v1/auth/linuxdo/callback"
             ),
             "headers": {},
+            "cookies": {OAUTH_STATE_COOKIE_NAME: _TEST_OAUTH_BINDING},
         },
     )()
 
@@ -4324,7 +4332,7 @@ async def test_auth_route_remaining_error_branches() -> None:
             )
         with pytest.raises(HTTPException) as linuxdo_start_not_configured:
             await auth_route.linuxdo_start(
-                request, auth_route.LinuxDoStartRequest(redirect_to=None)
+                request, Response(), auth_route.LinuxDoStartRequest(redirect_to=None)
             )
         with pytest.raises(HTTPException) as refresh_not_configured:
             await auth_route.refresh_token(request, Response())
@@ -4354,6 +4362,7 @@ async def test_auth_route_remaining_error_branches() -> None:
         with pytest.raises(HTTPException) as invalid_redirect:
             await auth_route.linuxdo_start(
                 request,
+                Response(),
                 auth_route.LinuxDoStartRequest(
                     redirect_to="ftp://evil.example.com", captcha_token="ok"
                 ),
@@ -4367,6 +4376,7 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         await auth_route.linuxdo_start(
             request,
+            Response(),
             auth_route.LinuxDoStartRequest(
                 redirect_to="https://app.example.com/auth/callback",
                 captcha_token=None,
@@ -4384,6 +4394,7 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         await auth_route.linuxdo_start(
             request,
+            Response(),
             auth_route.LinuxDoStartRequest(
                 redirect_to="https://app.example.com/auth/callback",
                 captcha_token="bad-token",
@@ -4400,6 +4411,7 @@ async def test_auth_route_remaining_error_branches() -> None:
     ):
         redirect_response = await auth_route.linuxdo_start(
             request,
+            Response(),
             auth_route.LinuxDoStartRequest(
                 redirect_to="https://app.example.com/auth/callback",
                 captcha_token="good-token",
@@ -4427,7 +4439,10 @@ async def test_auth_route_remaining_error_branches() -> None:
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
-            return_value={"redirect_to": "https://evil.example.com/callback"},
+            return_value={
+                "bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING),
+                "redirect_to": "https://evil.example.com/callback",
+            },
         ),
     ):
         provider_error_redirect = await auth_route.linuxdo_callback(
@@ -4445,7 +4460,10 @@ async def test_auth_route_remaining_error_branches() -> None:
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
-            return_value={"redirect_to": "http://app.example.com/auth/callback"},
+            return_value={
+                "bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING),
+                "redirect_to": "http://app.example.com/auth/callback",
+            },
         ),
     ):
         downgraded_redirect = await auth_route.linuxdo_callback(
@@ -4464,7 +4482,8 @@ async def test_auth_route_remaining_error_branches() -> None:
         patch(
             "ideago.api.routes.auth._parse_state_token",
             return_value={
-                "redirect_to": "https://app.example.com/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1"
+                "bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING),
+                "redirect_to": "https://app.example.com/auth/callback?provider=linuxdo&returnTo=%2Freports%2Fr-1",
             },
         ),
         patch(
@@ -4489,7 +4508,10 @@ async def test_auth_route_remaining_error_branches() -> None:
         patch("ideago.api.routes.auth.get_settings", return_value=good_settings),
         patch(
             "ideago.api.routes.auth._parse_state_token",
-            return_value={"redirect_to": "https://app.example.com/auth/callback"},
+            return_value={
+                "bh": auth_route._hash_state_binding(_TEST_OAUTH_BINDING),
+                "redirect_to": "https://app.example.com/auth/callback",
+            },
         ),
         patch(
             "ideago.api.routes.auth._exchange_linuxdo_code",
@@ -4623,8 +4645,8 @@ async def test_billing_validate_redirect_and_service_paths() -> None:
     with (
         patch("ideago.billing.stripe_service.get_settings", return_value=good_settings),
         patch(
-            "httpx.AsyncClient",
-            return_value=_AsyncClientContext(fake_http_client),
+            "ideago.billing.stripe_service.get_supabase_client",
+            return_value=fake_http_client,
         ),
         patch(
             "ideago.billing.stripe_service.stripe.Customer.create",
@@ -4733,7 +4755,9 @@ async def test_billing_and_reports_remaining_success_and_error_branches(
             "processing-from-status",
             user=report_user,
         )
-        deleted = await reports_route.delete_report(report.id, user=report_user)
+        deleted = await reports_route.delete_report(
+            _audit_request(), report.id, user=report_user
+        )
 
     assert processing_response.status_code == 202
     assert deleted == {"status": "deleted"}
@@ -4915,18 +4939,12 @@ async def test_billing_claim_event_handle_webhook_and_routes() -> None:
     with (
         patch("ideago.billing.stripe_service.get_settings", return_value=fake_settings),
         patch(
-            "httpx.AsyncClient",
-            side_effect=[
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(webhook_client),
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(webhook_client),
-                _AsyncClientContext(claim_client),
-                _AsyncClientContext(webhook_client),
-            ],
+            "ideago.billing.stripe_service.get_probe_client",
+            return_value=claim_client,
+        ),
+        patch(
+            "ideago.billing.stripe_service.get_supabase_client",
+            return_value=webhook_client,
         ),
     ):
         assert (
@@ -5057,8 +5075,8 @@ async def test_admin_routes_and_notifications() -> None:
         patch("ideago.api.routes.admin.log_audit_event", new=AsyncMock()),
         patch("ideago.api.routes.admin.get_settings", return_value=fake_settings),
         patch(
-            "ideago.api.routes.admin.httpx.AsyncClient",
-            return_value=_AsyncClientContext(plan_client),
+            "ideago.api.routes.admin.get_probe_client",
+            return_value=(plan_client),
         ),
         patch(
             "ideago.api.routes.admin.app_metrics.snapshot", return_value={"requests": 1}
@@ -5124,8 +5142,8 @@ async def test_admin_routes_and_notifications() -> None:
     with (
         patch("ideago.api.routes.admin.get_settings", return_value=fake_settings),
         patch(
-            "ideago.api.routes.admin.httpx.AsyncClient",
-            return_value=_AsyncClientContext(degraded_plan_client),
+            "ideago.api.routes.admin.get_probe_client",
+            return_value=(degraded_plan_client),
         ),
     ):
         degraded_stats = await admin_route.admin_system_stats(_admin=admin_user)
@@ -5245,7 +5263,6 @@ def test_user_b_cannot_delete_user_a_report(tmp_path) -> None:
         (),
         {
             "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
         },
@@ -5285,7 +5302,6 @@ def test_user_b_cannot_export_user_a_report(tmp_path) -> None:
         (),
         {
             "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
         },
@@ -5332,7 +5348,6 @@ def test_owner_check_falls_back_to_status_user_id(tmp_path) -> None:
         (),
         {
             "auth_session_secret": auth_secret,
-            "supabase_jwt_secret": "",
             "supabase_url": "",
             "supabase_anon_key": "",
         },

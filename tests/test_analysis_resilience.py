@@ -37,10 +37,6 @@ async def test_start_analysis_rolls_back_when_processing_status_cannot_persist()
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_ok),
-        ),
-        patch(
             "ideago.api.routes.analyze.check_and_increment_quota",
             new=AsyncMock(return_value=quota_ok),
         ),

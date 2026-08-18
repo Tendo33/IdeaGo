@@ -96,11 +96,16 @@ def register_exception_handlers(
     async def _unhandled_error_handler(
         request: Request, exc: Exception
     ) -> JSONResponse:
+        trace_id = getattr(request.state, "trace_id", "")
+        # Registering a catch-all Exception handler stops the exception
+        # propagating to Sentry's middleware, so unhandled errors were being
+        # logged locally and never reported. Capture explicitly.
+        _capture_unhandled(exc, trace_id=trace_id, path=request.url.path)
         log_error_event_fn(
             logger,
             error_code=ErrorCode.INTERNAL_ERROR.value,
             subsystem="api",
-            trace_id=getattr(request.state, "trace_id", ""),
+            trace_id=trace_id,
             message="unhandled exception",
             include_exception=True,
         )
@@ -113,3 +118,18 @@ def register_exception_handlers(
                 }
             },
         )
+
+
+def _capture_unhandled(exc: Exception, *, trace_id: str, path: str) -> None:
+    """Report to Sentry when it is configured, tagging the trace id."""
+    try:
+        import sentry_sdk
+    except ImportError:  # pragma: no cover - sentry is a hard dependency today
+        return
+    if sentry_sdk.Hub.current.client is None:
+        return
+    with sentry_sdk.push_scope() as scope:
+        if trace_id:
+            scope.set_tag("trace_id", trace_id)
+        scope.set_tag("path", path)
+        sentry_sdk.capture_exception(exc)

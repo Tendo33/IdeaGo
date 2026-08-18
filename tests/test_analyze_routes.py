@@ -43,10 +43,6 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_denied),
-        ),
-        patch(
             "ideago.api.routes.analyze.check_and_increment_quota",
             new=AsyncMock(return_value=quota_denied),
         ),
@@ -57,10 +53,6 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
     assert "5 analyses per day" in quota_exc.value.detail["message"]
 
     with (
-        patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_low),
-        ),
         patch(
             "ideago.api.routes.analyze.check_and_increment_quota",
             new=AsyncMock(return_value=quota_low),
@@ -84,10 +76,6 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
         return fake_task
 
     with (
-        patch(
-            "ideago.api.routes.analyze.check_quota_available",
-            new=AsyncMock(return_value=quota_warn),
-        ),
         patch(
             "ideago.api.routes.analyze.check_and_increment_quota",
             new=AsyncMock(return_value=quota_warn),

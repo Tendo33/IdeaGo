@@ -16,6 +16,7 @@ import {
   type AdminUserQuotaUpdate,
 } from '@/lib/api/client'
 import { formatAppDate } from '@/lib/utils/dateLocale'
+import { safeImageUrl } from '@/lib/utils/safeUrl'
 
 function getAdminRoleLabel(role: string, t: TFunction): string {
   if (role === 'admin') return t('admin.values.roles.admin')
@@ -78,6 +79,9 @@ function UserRow({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [imgError, setImgError] = useState(false)
+  // User-controlled URL: an admin browsing the user list would otherwise fetch
+  // whatever host a user typed, leaking IP/UA and enabling presence probing.
+  const avatarUrl = safeImageUrl(user.avatar_url)
   const displayName = user.display_name || t('admin.userFallbackName')
   const quotaTargetName = user.display_name || user.id.slice(0, 8)
 
@@ -125,8 +129,16 @@ function UserRow({
     <tr className="border-b-2 border-border/30 hover:bg-muted/30 transition-colors">
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
-          {user.avatar_url && !imgError ? (
-            <img src={user.avatar_url} alt="" aria-hidden="true" onError={() => setImgError(true)} className="w-8 h-8 border-2 border-border" />
+          {avatarUrl && !imgError ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
+              className="w-8 h-8 border-2 border-border"
+            />
           ) : (
             <div className="w-8 h-8 border-2 border-border bg-muted flex items-center justify-center text-[10px] font-black">
               {(user.display_name || user.id).charAt(0).toUpperCase()}
@@ -201,6 +213,7 @@ export function AdminPage() {
   const [hasNextPage, setHasNextPage] = useState(false)
   const [total, setTotal] = useState(0)
   const usersAbortRef = useRef<AbortController | null>(null)
+  const hasLoadedOnce = useRef(false)
   const PAGE_SIZE = 25
 
   useEffect(() => {
@@ -245,6 +258,7 @@ export function AdminPage() {
       setUsers(u.items)
       setHasNextPage(u.has_next)
       setTotal(u.total)
+      hasLoadedOnce.current = true
     } catch (e) {
       if (controller.signal.aborted) {
         return
@@ -272,6 +286,7 @@ export function AdminPage() {
     return () => usersAbortRef.current?.abort()
   }, [loadUsers])
 
+  const isFirstLoad = usersLoading && !hasLoadedOnce.current
   const combinedError = statsError || usersError
   const statsDegraded =
     stats !== null &&
@@ -295,7 +310,7 @@ export function AdminPage() {
         </h1>
 
         {combinedError && (
-          <Alert variant="warning" className="mb-6">
+          <Alert variant="warning" className="mb-6" role="alert">
             <span className="font-bold">{combinedError}</span>
           </Alert>
         )}
@@ -343,28 +358,38 @@ export function AdminPage() {
             placeholder={t('admin.searchPlaceholder', 'Search by name or ID')}
             className="w-full md:w-80 border-2 border-border bg-background px-4 py-3 text-sm font-bold focus:outline-none focus:ring-0 focus:border-primary"
           />
-          <p className="text-sm font-bold text-muted-foreground">
+          <p className="text-sm font-bold text-muted-foreground" aria-live="polite">
             {t('admin.resultsSummary', { count: total })}
           </p>
         </div>
 
-        {usersLoading ? (
+        {isFirstLoad ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
+            <span className="sr-only">{t('loading.page')}</span>
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto border-4 border-border">
+            {/* Refreshes overlay the existing rows instead of replacing them, so
+                paging and searching no longer collapse the layout and lose the
+                scroll position. */}
+            <div
+              className={`overflow-x-auto border-4 border-border transition-opacity ${
+                usersLoading ? 'opacity-60 pointer-events-none' : ''
+              }`}
+              aria-busy={usersLoading}
+            >
               <table className="w-full text-left">
+                <caption className="sr-only">{t('admin.usersTitle')}</caption>
                 <thead>
                   <tr className="border-b-4 border-border bg-muted">
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.user')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.role')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.plan')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.provider')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.usage')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.limit')}</th>
-                    <th className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.joined')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.user')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.role')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.plan')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.provider')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.usage')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.limit')}</th>
+                    <th scope="col" className="py-3 px-4 text-xs font-black uppercase tracking-widest">{t('admin.col.joined')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -391,8 +416,8 @@ export function AdminPage() {
                 >
                   {t('history.previous', 'Previous')}
                 </Button>
-                <span className="text-sm font-bold text-muted-foreground">
-                  {pageIndex + 1}
+                <span className="text-sm font-bold text-muted-foreground" aria-live="polite">
+                  {pageIndex + 1} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}
                 </span>
                 <Button
                   type="button"

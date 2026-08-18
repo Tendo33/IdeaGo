@@ -19,6 +19,7 @@ import { ArrowLeft, Save, Loader2, User, Mail, FileText, Shield, BarChart3, Tras
 import { formatAppDate, formatAppDateTime } from '@/lib/utils/dateLocale'
 
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { safeImageUrl } from '@/lib/utils/safeUrl'
 
 function getDeleteAccountErrorMessage(
   error: unknown,
@@ -222,11 +223,12 @@ export function ProfilePage() {
       {/* Avatar + info header */}
         <div className="border-4 border-border bg-card p-6 md:p-8 shadow-md hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 mb-8">
           <div className="flex items-center gap-6">
-          {profile?.avatar_url && !imgError ? (
+          {safeImageUrl(profile?.avatar_url) && !imgError ? (
             <img
-              src={profile.avatar_url}
+              src={safeImageUrl(profile?.avatar_url) ?? undefined}
               alt=""
               aria-hidden="true"
+              referrerPolicy="no-referrer"
               onError={() => setImgError(true)}
               className="w-20 h-20 shrink-0 border-4 border-border object-cover"
               loading="lazy"

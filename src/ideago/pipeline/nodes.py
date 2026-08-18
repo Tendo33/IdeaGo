@@ -343,6 +343,13 @@ class PipelineNodes:
         report_id = state.get("report_id")
         user_id = state.get("user_id", "")
 
+        if state.get("force_refresh"):
+            # The caller explicitly asked for fresh evidence; a cached answer
+            # would defeat the point. Quota is charged normally because the
+            # pipeline really does run.
+            logger.info("Bypassing cache for key {} (force_refresh)", intent.cache_key)
+            return {"is_cache_hit": False}
+
         cached = await self._cache.get(intent.cache_key, user_id=user_id)
         if cached is None:
             return {"is_cache_hit": False}
@@ -356,7 +363,10 @@ class PipelineNodes:
             EventType.REPORT_READY,
             "cache",
             "Found cached report",
-            {"report_id": cached.id},
+            # Flagged so the caller can refund the quota charge: a cache hit
+            # costs no LLM work, and charging for it reads to the user as paying
+            # twice for the same answer.
+            {"report_id": cached.id, "cache_hit": True},
         )
         return {"is_cache_hit": True, "report": cached}
 
@@ -977,10 +987,28 @@ class PipelineNodes:
         return {"report": report}
 
     async def persist_report_node(self, state: GraphState) -> GraphState:
-        """Persist report to cache and emit terminal ready event."""
+        """Persist report and terminal status, then emit the ready event.
+
+        Ordering matters. ``REPORT_READY`` is the client's cue to fetch the
+        report, so everything the client will look for must already be durable
+        when it fires. Previously the status row was written afterwards, by the
+        caller, which left a window where the stream said "ready" but
+        ``GET /reports/{id}`` still answered "processing" — the reason the
+        frontend grew three layers of reconciliation polling.
+
+        These are still two writes rather than one transaction, but they now
+        both complete before the event, which closes the observable window.
+        """
         report = state["report"]
         user_id = state.get("user_id", "")
         await self._cache.put(report, user_id=user_id)
+        await self._cache.put_status(
+            report.id,
+            "complete",
+            report.query,
+            message="Report ready",
+            user_id=user_id,
+        )
         await _emit(
             self._callback,
             EventType.REPORT_READY,

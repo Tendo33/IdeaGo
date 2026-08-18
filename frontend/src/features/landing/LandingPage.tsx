@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { buttonVariants } from '@/components/ui/Button'
 import { ThemeModeMenu, type ThemeMode } from '@/app/ThemeModeMenu'
-import { PRICING_ENABLED } from '@/lib/featureFlags'
+import { isPricingEnabled } from '@/lib/featureFlags'
 import {
   ArrowRight,
   Search,
@@ -197,7 +197,7 @@ export function LandingPage({
           >
             {isChinese ? 'EN' : 'ZH'}
           </button>
-          {PRICING_ENABLED && (
+          {isPricingEnabled() && (
             <Link
               to="/pricing"
               className="topbar-action bg-secondary text-secondary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"

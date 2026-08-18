@@ -45,18 +45,6 @@ export interface CurrentUser {
   email: string
 }
 
-export async function refreshAuthToken(options: RequestOptions = {}): Promise<string> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/auth/refresh`,
-    { method: 'POST', headers: mutationHeaders() },
-    options,
-    DEFAULT_TIMEOUT_MS,
-  )
-  if (!res.ok) throw new Error(await buildErrorMessage(res, 'Token refresh failed'))
-  const data = await res.json()
-  return data.access_token
-}
-
 export async function startLinuxDoAuth(
   { redirectTo, captchaToken }: StartLinuxDoAuthOptions,
   options: RequestOptions = {},

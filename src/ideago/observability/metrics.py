@@ -11,6 +11,13 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+# Path counting keyed on the raw request path grew without bound: every report
+# UUID contributed several distinct keys, so a long-running process accumulated
+# them forever. Callers now pass a route template, and this cap backstops
+# anything that slips through.
+_MAX_TRACKED_PATHS = 500
+_OVERFLOW_PATH_KEY = "<other>"
+
 
 @dataclass
 class _Metrics:
@@ -33,10 +40,26 @@ class _Metrics:
             if status_code >= 400:
                 self.error_count += 1
             self.status_codes[status_code] += 1
-            self.path_counts[path] += 1
+            self._record_path_locked(path)
             self.latency_sum_ms += latency_ms
             if latency_ms > self.latency_max_ms:
                 self.latency_max_ms = latency_ms
+
+    def _record_path_locked(self, path: str) -> None:
+        """Count a path, keeping the key space bounded.
+
+        Callers pass a route template (``/api/v1/reports/{report_id}``), not a
+        concrete path, so cardinality is bounded by the route table. This guard
+        is a backstop: if an unmatched or dynamic path ever reaches here, the
+        dict must not grow without limit on a long-running process.
+        """
+        if path in self.path_counts:
+            self.path_counts[path] += 1
+            return
+        if len(self.path_counts) >= _MAX_TRACKED_PATHS:
+            self.path_counts[_OVERFLOW_PATH_KEY] += 1
+            return
+        self.path_counts[path] += 1
 
     def increment_event(
         self, name: str, *, reason: str | None = None, count: int = 1

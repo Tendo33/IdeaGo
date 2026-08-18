@@ -51,6 +51,11 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      # Run the cross-layer suite on its own too, so a failure there is
+      # immediately visible instead of buried in the full run's output.
+      - name: Integration suite
+        run: uv run pytest tests/integration -q --no-cov
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -107,3 +112,37 @@ jobs:
             echo "Found legacy env_file (.env.prod/.env.production). Use .env instead."
             exit 1
           fi
+
+      # Public frontend config (Supabase / Turnstile / Sentry) must be served by
+      # GET /api/v1/config at runtime. It used to be baked in via VITE_* build
+      # args, which release.yml never passed — so every published image shipped
+      # a login page that could not work. These guards stop that regressing.
+      - name: Dockerfile must not bake public frontend config
+        run: |
+          set -euo pipefail
+          if grep -nE '^ARG[[:space:]]+VITE_(SUPABASE|TURNSTILE|SENTRY)' Dockerfile; then
+            echo "::error::Public frontend config must come from GET /api/v1/config, not from build args."
+            exit 1
+          fi
+          if grep -nE '^ARG[[:space:]]+SUPABASE_(URL|ANON_KEY)' Dockerfile; then
+            echo "::error::Backend Supabase values must not be build args for the frontend stage."
+            exit 1
+          fi
+
+      - name: Compose must not pass public config as build args
+        run: |
+          set -euo pipefail
+          if grep -nE '^[[:space:]]+(VITE_(SUPABASE|TURNSTILE|SENTRY)|SUPABASE_(URL|ANON_KEY)):' docker-compose.yml; then
+            echo "::error::docker-compose build args must not carry public frontend config."
+            exit 1
+          fi
+
+      - name: Runtime config endpoint must exist and be mounted
+        run: |
+          set -euo pipefail
+          test -f src/ideago/api/routes/config.py \
+            || { echo "::error::Missing src/ideago/api/routes/config.py"; exit 1; }
+          grep -q 'config\.router' src/ideago/api/app.py \
+            || { echo "::error::config router is not mounted in api/app.py"; exit 1; }
+          grep -q 'loadRuntimeConfig' frontend/src/app/main.tsx \
+            || { echo "::error::frontend bootstrap does not load runtime config"; exit 1; }

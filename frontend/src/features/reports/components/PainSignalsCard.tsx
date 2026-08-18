@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ExternalLink, Flame, Link2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PainSignal } from '@/lib/types/research'
+import { safeHttpUrl, safeUrlHostname } from '@/lib/utils/safeUrl'
 
 export interface PainSignalsCardProps {
   signals: PainSignal[]
@@ -124,7 +125,11 @@ function EvidenceLinksDisclosure({
   fallbackLabel,
 }: EvidenceLinksDisclosureProps) {
   const [open, setOpen] = useState(false)
-  const validUrls = urls.filter(url => typeof url === 'string' && url.trim().length > 0)
+  // Evidence URLs are LLM-extracted from third-party pages: drop anything that
+  // is not plain http(s) rather than rendering it as a clickable link.
+  const validUrls = urls
+    .map(url => safeHttpUrl(url))
+    .filter((url): url is string => url !== null)
 
   if (validUrls.length === 0) {
     return null
@@ -153,6 +158,7 @@ function EvidenceLinksDisclosure({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
               className="inline-flex items-center gap-1.5 border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-cta hover:text-cta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
@@ -166,10 +172,6 @@ function EvidenceLinksDisclosure({
 }
 
 function buildEvidenceLinkLabel(url: string, index: number, fallbackLabel: string): string {
-  try {
-    const parsed = new URL(url)
-    return `${parsed.hostname.replace(/^www\./, '')} #${index + 1}`
-  } catch {
-    return `${fallbackLabel} ${index + 1}`
-  }
+  const hostname = safeUrlHostname(url)
+  return hostname ? `${hostname} #${index + 1}` : `${fallbackLabel} ${index + 1}`
 }

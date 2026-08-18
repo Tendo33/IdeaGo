@@ -1,6 +1,9 @@
 import type { PipelineEvent } from '@/lib/types/research'
 
 const MAX_EVENT_HISTORY = 200
+// A backlog drains in a few ticks instead of one-per-tick: with a divisor of 4,
+// 40 queued events clear in ~5 ticks rather than 40.
+const FLUSH_BATCH_DIVISOR = 4
 
 export interface SSEState {
   events: PipelineEvent[]
@@ -53,11 +56,20 @@ export function sseReducer(state: SSEState, action: SSEAction): SSEState {
         }
         return state
       }
-      const nextEvent = state.pendingEvents[0]
+      // Drain in batches rather than one event per tick.
+      //
+      // The staggered reveal reads well while events trickle in live, but the
+      // backend replays the full history on reconnect (and when opening an
+      // in-progress report). At one event per 300ms a 40-event replay took
+      // ~12 seconds to catch up, during which the progress pane looked frozen
+      // and behind reality. Draining a batch keeps the pacing for live runs
+      // while letting a backlog catch up quickly.
+      const batchSize = Math.max(1, Math.ceil(state.pendingEvents.length / FLUSH_BATCH_DIVISOR))
+      const batch = state.pendingEvents.slice(0, batchSize)
       return {
         ...state,
-        events: [...state.events, nextEvent].slice(-MAX_EVENT_HISTORY),
-        pendingEvents: state.pendingEvents.slice(1),
+        events: [...state.events, ...batch].slice(-MAX_EVENT_HISTORY),
+        pendingEvents: state.pendingEvents.slice(batchSize),
       }
     }
     case 'connected':

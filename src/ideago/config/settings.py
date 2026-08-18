@@ -376,11 +376,6 @@ class Settings(BaseSettings):
         default="",
         description="Supabase anon (publishable) key / Supabase 匿名密钥",
     )
-    supabase_jwt_secret: str = Field(
-        default="",
-        description="Supabase JWT secret for local token verification "
-        "(Dashboard → Settings → API → JWT Secret)",
-    )
     supabase_service_role_key: str = Field(
         default="",
         description="Supabase service_role key for backend-only DB operations "
@@ -414,6 +409,17 @@ class Settings(BaseSettings):
         le=24 * 365,
         description="Backend session JWT expiration time in hours",
     )
+    auth_session_cache_ttl_seconds: int = Field(
+        default=30,
+        ge=0,
+        le=600,
+        description=(
+            "How long resolved custom-session auth state is cached in-process. "
+            "Revocations performed by this process invalidate the cache "
+            "immediately; this window only applies to out-of-process changes. "
+            "Set to 0 to disable caching. / 自定义会话认证状态的进程内缓存秒数"
+        ),
+    )
     frontend_app_url: str = Field(
         default="",
         description="Public frontend base URL for OAuth callback redirects",
@@ -421,6 +427,13 @@ class Settings(BaseSettings):
     turnstile_secret_key: str = Field(
         default="",
         description="Cloudflare Turnstile secret key for backend verification",
+    )
+    turnstile_site_key: str = Field(
+        default="",
+        description=(
+            "Cloudflare Turnstile site key. Public value served to the browser "
+            "through GET /api/v1/config. / Turnstile 站点密钥（公开值）"
+        ),
     )
     linuxdo_client_id: str = Field(
         default="",
@@ -518,6 +531,22 @@ class Settings(BaseSettings):
         le=1.0,
         description="Sentry performance traces sample rate (0.0-1.0)",
     )
+    frontend_sentry_dsn: str = Field(
+        default="",
+        description=(
+            "Sentry DSN for the browser bundle. Public value served through "
+            "GET /api/v1/config. Usually a different project than SENTRY_DSN."
+        ),
+    )
+
+    # --- Public feature flags / 公开功能开关 ---
+    pricing_enabled: bool = Field(
+        default=False,
+        description=(
+            "Expose pricing discovery in the SPA. Served through "
+            "GET /api/v1/config. / 是否在前端暴露定价入口"
+        ),
+    )
 
     # --- Server / 服务配置 ---
     host: str = Field(
@@ -533,6 +562,44 @@ class Settings(BaseSettings):
     cors_allow_origins: str = Field(
         default="*",
         description="Comma-separated CORS allow origins, use * for all",
+    )
+    trust_proxy_headers: bool = Field(
+        default=True,
+        description=(
+            "Honour X-Forwarded-* headers. Required for correct client IPs "
+            "behind a reverse proxy. / 是否信任 X-Forwarded-* 头"
+        ),
+    )
+    forwarded_allow_ips: str = Field(
+        default="127.0.0.1",
+        description=(
+            "Comma-separated proxy addresses whose X-Forwarded-* headers are "
+            "trusted. In Docker the proxy is another container, so the default "
+            "loopback value silently discards them — set this to the proxy "
+            "address, or '*' only when the app port is unreachable from "
+            "outside. / 可信反向代理地址"
+        ),
+    )
+
+    # --- Quota / 配额 ---
+    daily_analysis_limit: int = Field(
+        default=5,
+        ge=0,
+        le=10000,
+        description=(
+            "Default analyses per user per day when no per-user override "
+            "exists. Must match public.get_plan_limit() in the database. "
+            "/ 每用户每日默认分析次数"
+        ),
+    )
+    quota_warning_threshold: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Fraction of the daily limit that triggers a usage warning "
+            "notification. / 触发配额告警的使用率阈值"
+        ),
     )
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -599,6 +666,13 @@ class Settings(BaseSettings):
         if log_path.is_absolute():
             return log_path
         return self.get_project_root() / log_path
+
+    def get_forwarded_allow_ips(self) -> str | list[str]:
+        """Return proxy addresses in the shape uvicorn expects."""
+        raw = self.forwarded_allow_ips.strip()
+        if not raw or raw == "*":
+            return "*"
+        return [item.strip() for item in raw.split(",") if item.strip()]
 
     def get_cors_allow_origins(self) -> list[str]:
         """Return parsed CORS origins from comma-separated config."""

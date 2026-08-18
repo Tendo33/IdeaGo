@@ -1,6 +1,13 @@
--- Combined Supabase migrations for fresh project bootstrap.
--- Execute this whole file in Supabase Dashboard > SQL Editor.
--- Order preserved from 001 through 012.
+-- BOOTSTRAP SNAPSHOT — covers migrations 001 through 012 ONLY.
+--
+-- For a brand-new project, either:
+--   (a) run this file, then run 013 onwards individually, or
+--   (b) skip this file and run 001 onwards individually
+-- Do NOT do both: running this file and then 001-012 again is redundant.
+--
+-- This file is not updated as new migrations land. Migrations 013+ live in
+-- their own numbered files and must be applied separately either way.
+-- Execute in Supabase Dashboard > SQL Editor.
 -- Current baseline:
 -- - Billing UI is disabled in the app
 -- - Signed-in users are limited to 5 analyses per day

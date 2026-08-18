@@ -34,10 +34,11 @@ from ideago.api.rate_limit import (
     get_rate_limit_store,
     register_rate_limit_middleware,
 )
-from ideago.api.routes import admin, analyze, auth, billing, health, reports
+from ideago.api.routes import admin, analyze, auth, billing, config, health, reports
 from ideago.config.settings import get_settings
 from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
+from ideago.observability.retention import run_retention_jobs
 
 logger = get_logger(__name__)
 time = time_module
@@ -91,6 +92,29 @@ async def _periodic_cleanup() -> None:
         evicted = _evict_stale_rate_limit_keys()
         if evicted > 0:
             logger.debug("Evicted {} stale rate-limit keys", evicted)
+        from ideago.auth import session_cache
+
+        expired_sessions = session_cache.evict_expired()
+        if expired_sessions > 0:
+            logger.debug("Evicted {} expired session-cache entries", expired_sessions)
+
+        # Every cleanup_* function defined in supabase/migrations/ runs here.
+        # They existed for months without a caller; four tables grew unbounded.
+        try:
+            retention_removed = await run_retention_jobs(
+                cleanup_interval_seconds=_CLEANUP_INTERVAL_SECONDS
+            )
+            for rpc, count in retention_removed.items():
+                if count > 0:
+                    logger.debug("Retention {} removed {} rows", rpc, count)
+        except Exception:
+            log_error_event(
+                logger,
+                error_code="RETENTION_SWEEP_FAILED",
+                subsystem="maintenance",
+                message="retention sweep failed",
+                include_exception=True,
+            )
 
 
 @asynccontextmanager
@@ -105,9 +129,11 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await _cleanup_task
 
     from ideago.api.dependencies import _cache, _orchestrator, shutdown_runtime_state
+    from ideago.auth import session_cache
     from ideago.auth.dependencies import close_auth_http_client
     from ideago.auth.session_store import close_auth_session_client
     from ideago.auth.supabase_admin import close_supabase_admin_client
+    from ideago.http.clients import close_all_clients
     from ideago.observability.audit import close_audit_client
 
     await shutdown_runtime_state()
@@ -115,6 +141,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_auth_session_client()
     await close_supabase_admin_client()
     await close_audit_client()
+    await close_all_clients()
+    session_cache.clear()
     if _cache is not None and hasattr(_cache, "close"):
         await _cache.close()
     await close_rate_limit_http_client()
@@ -167,11 +195,15 @@ def _configure_cors(app: FastAPI, settings) -> None:  # type: ignore[no-untyped-
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Without this the browser hides the trace id from JS on cross-origin
+        # responses, which is exactly when it is most needed for support.
+        expose_headers=["X-Trace-Id"],
     )
 
 
 def _register_routes(app: FastAPI) -> None:
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(config.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(analyze.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
@@ -210,6 +242,11 @@ def create_app() -> FastAPI:
     settings = get_settings()
     _init_sentry(settings)
 
+    # Interactive docs enumerate every admin/auth/billing route, its parameters
+    # and its error codes — free reconnaissance for anyone probing the hosted
+    # deployment. Keep them for local work, close them in production.
+    expose_docs = settings.environment != "production"
+
     app = FastAPI(
         title="IdeaGo",
         version=__version__,
@@ -217,13 +254,27 @@ def create_app() -> FastAPI:
             "Decision-first Source Intelligence V2 platform for validating startup ideas"
         ),
         lifespan=_lifespan,
+        docs_url="/docs" if expose_docs else None,
+        redoc_url="/redoc" if expose_docs else None,
+        openapi_url="/openapi.json" if expose_docs else None,
     )
 
-    _configure_cors(app, settings)
+    # Middleware order matters and is not the order you read it in.
+    # Starlette's add_middleware inserts at position 0, so the LAST registered
+    # middleware is the OUTERMOST. CORS must be registered last so that it wraps
+    # everything: the rate limiter's 429 and the CSRF guard's 403 short-circuit
+    # before reaching the router, and without CORS on the outside those
+    # responses reach a cross-origin browser with no Access-Control-Allow-Origin
+    # header — so the SPA sees an opaque network error instead of "rate limited"
+    # or "CSRF check failed".
+    #
+    # Resulting execution order (outermost first):
+    #   CORS -> trace_id -> security_headers -> rate_limit -> csrf -> routes
     register_csrf_protection_middleware(app)
     register_rate_limit_middleware(app, settings=settings, logger=logger)
     register_security_headers_middleware(app, environment=settings.environment)
     register_trace_id_middleware(app)
+    _configure_cors(app, settings)
     register_exception_handlers(app, logger, log_error_event_fn=log_error_event)
     _register_routes(app)
     _register_spa_fallback(app)

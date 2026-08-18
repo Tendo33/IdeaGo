@@ -58,3 +58,50 @@ Do not treat every cleanup failure as a full rollback.
 3. `POST /api/v1/analyze` in a hosted environment with healthy persistence
 4. `POST /api/v1/billing/webhook` using a signed test event
 5. `DELETE /api/v1/auth/account` in staging with a disposable account
+
+
+## Auth Session Cache
+
+Custom-session (LinuxDo) auth state is cached in-process for
+`AUTH_SESSION_CACHE_TTL_SECONDS` (default 30, `0` disables).
+
+Before this cache, every authenticated request cost two PostgREST round trips
+(session row + profile row), and the rate-limit middleware resolved the user
+independently of the route dependency, so both ran twice.
+
+The trade-off is explicit: a revocation performed **outside this process**
+becomes visible after at most the TTL. Revocations performed by this process
+invalidate the cache immediately, so the practical delay is zero:
+
+- `revoke_auth_session` → `session_cache.invalidate(session_id)`
+- `mark_profile_deletion_pending` → `session_cache.invalidate_user(user_id)`
+- `delete_user_account` → `session_cache.invalidate_user(user_id)`
+
+Any new revocation path **must** invalidate the cache, or access will outlive
+the revocation. `AUTH_SESSION_CACHE_TTL_SECONDS=0` is the hot kill switch.
+
+## Retention
+
+Every `cleanup_*` function in `supabase/migrations/` must have a caller.
+Most run from the hourly maintenance task via
+`ideago.observability.retention.build_retention_jobs()`;
+`cleanup_expired_reports` and `cleanup_rate_limit_hits` run from their own call
+sites. `tests/test_retention.py` asserts this correspondence — if you add a
+cleanup function to a migration and nothing calls it, that test fails.
+
+## Public Runtime Config
+
+`GET /api/v1/config` serves the browser's public configuration at runtime so a
+single image works for any deployment. It is built from an **explicit
+allowlist** in `api/routes/config.py`. Never serialize `Settings` wholesale
+there: a future secret-valued field would silently become world-readable.
+`tests/test_config_route.py` pins the field set and asserts that known secrets
+never appear in the response.
+
+## Single-Process Constraint
+
+The deployment runs one uvicorn process. PostgreSQL-backed dedup, the Postgres
+checkpointer and PostgREST rate limiting are multi-worker safe, but three pieces
+of state are still per-process: in-flight pipeline tasks (so cancel does not
+cross workers), SSE run state, and metrics. See `DEPLOYMENT.md` §8b before
+scaling out.

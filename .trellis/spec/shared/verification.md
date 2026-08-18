@@ -35,6 +35,16 @@ pnpm --prefix frontend test
 pnpm --prefix frontend build
 ```
 
+## Cross-Layer Checks
+
+The integration suite exercises `POST /analyze` → SSE terminal event →
+`GET /reports/{id}` against the real app. Run it whenever you touch analyze,
+reports, middleware ordering, or report persistence:
+
+```bash
+uv run pytest tests/integration -q
+```
+
 ## Docs And Platform Checks
 
 ```bash

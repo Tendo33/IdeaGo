@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { getRuntimeConfig } from '@/lib/config/runtime'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const { supabaseUrl, supabaseAnonKey } = getRuntimeConfig()
 const MISSING_SUPABASE_ENV_MESSAGE =
   'Supabase URL or anon key is missing — auth will not work.'
 

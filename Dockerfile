@@ -2,17 +2,14 @@ FROM node:20-slim AS frontend-build
 WORKDIR /build
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
+# Public config (Supabase, Turnstile, Sentry) is NOT baked in here — the SPA
+# fetches it from GET /api/v1/config at startup, so one image serves any
+# deployment. Only VITE_API_BASE_URL can still be a build input, because it is
+# needed to locate that endpoint; leave it empty for same-origin deployments,
+# which is the default for this image.
 ARG VITE_API_BASE_URL=""
-ARG VITE_SUPABASE_URL=""
-ARG VITE_SUPABASE_ANON_KEY=""
-ARG VITE_TURNSTILE_SITE_KEY=""
-ARG SUPABASE_URL=""
-ARG SUPABASE_ANON_KEY=""
 COPY frontend/ .
 RUN export VITE_API_BASE_URL="${VITE_API_BASE_URL}" \
-    && export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$SUPABASE_URL}" \
-    && export VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-$SUPABASE_ANON_KEY}" \
-    && export VITE_TURNSTILE_SITE_KEY="${VITE_TURNSTILE_SITE_KEY}" \
     && pnpm build
 
 FROM python:3.13-slim

@@ -12,6 +12,7 @@ from functools import partial
 import stripe
 
 from ideago.config.settings import get_settings
+from ideago.http.clients import get_probe_client, get_supabase_client
 from ideago.observability.log_config import get_logger
 
 logger = get_logger(__name__)
@@ -40,8 +41,6 @@ async def get_or_create_customer(user_id: str, email: str) -> str:
     if not settings.supabase_url or not settings.supabase_service_role_key:
         raise RuntimeError("Supabase not configured")
 
-    import httpx
-
     headers = {
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
@@ -49,39 +48,39 @@ async def get_or_create_customer(user_id: str, email: str) -> str:
         "Accept": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            f"{settings.supabase_url}/rest/v1/profiles",
-            headers=headers,
-            params={
-                "id": f"eq.{user_id}",
-                "select": "stripe_customer_id",
-                "limit": "1",
-            },
-        )
-        if resp.status_code == 200:
-            rows = resp.json()
-            if rows and rows[0].get("stripe_customer_id"):
-                return rows[0]["stripe_customer_id"]
+    client = get_supabase_client()
+    resp = await client.get(
+        f"{settings.supabase_url}/rest/v1/profiles",
+        headers=headers,
+        params={
+            "id": f"eq.{user_id}",
+            "select": "stripe_customer_id",
+            "limit": "1",
+        },
+    )
+    if resp.status_code == 200:
+        rows = resp.json()
+        if rows and rows[0].get("stripe_customer_id"):
+            return rows[0]["stripe_customer_id"]
 
-        loop = asyncio.get_running_loop()
-        customer = await loop.run_in_executor(
-            None,
-            partial(stripe.Customer.create, email=email, metadata={"user_id": user_id}),
-        )
+    loop = asyncio.get_running_loop()
+    customer = await loop.run_in_executor(
+        None,
+        partial(stripe.Customer.create, email=email, metadata={"user_id": user_id}),
+    )
 
-        patch_resp = await client.patch(
-            f"{settings.supabase_url}/rest/v1/profiles",
-            headers={**headers, "Prefer": "return=minimal"},
-            params={"id": f"eq.{user_id}"},
-            json={"stripe_customer_id": customer.id},
+    patch_resp = await client.patch(
+        f"{settings.supabase_url}/rest/v1/profiles",
+        headers={**headers, "Prefer": "return=minimal"},
+        params={"id": f"eq.{user_id}"},
+        json={"stripe_customer_id": customer.id},
+    )
+    if patch_resp.status_code not in (200, 204):
+        logger.warning(
+            "Failed to save stripe_customer_id for user {}: {}",
+            user_id,
+            patch_resp.status_code,
         )
-        if patch_resp.status_code not in (200, 204):
-            logger.warning(
-                "Failed to save stripe_customer_id for user {}: {}",
-                user_id,
-                patch_resp.status_code,
-            )
 
     return customer.id
 
@@ -187,8 +186,6 @@ async def _try_claim_event(event_id: str, event_type: str) -> bool:
     if not settings.supabase_url or not settings.supabase_service_role_key:
         return True
 
-    import httpx
-
     headers = {
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
@@ -197,21 +194,50 @@ async def _try_claim_event(event_id: str, event_type: str) -> bool:
         "Accept": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.supabase_url}/rest/v1/processed_webhook_events",
-                headers=headers,
-                json={"event_id": event_id, "event_type": event_type},
-            )
-            if resp.status_code == 409:
-                return False
-            if resp.status_code in (200, 201):
-                rows = resp.json()
-                return not (isinstance(rows, list) and len(rows) == 0)
-            return True
+        client = get_probe_client()
+        resp = await client.post(
+            f"{settings.supabase_url}/rest/v1/processed_webhook_events",
+            headers=headers,
+            json={"event_id": event_id, "event_type": event_type},
+        )
+        if resp.status_code == 409:
+            return False
+        if resp.status_code in (200, 201):
+            rows = resp.json()
+            return not (isinstance(rows, list) and len(rows) == 0)
+        return True
     except Exception:
         logger.opt(exception=True).debug("Idempotency claim failed, proceeding anyway")
         return True
+
+
+async def _release_event_claim(event_id: str) -> None:
+    """Give a claimed-but-unprocessed event back so Stripe's retry can work.
+
+    Claiming before processing is what makes concurrent delivery safe, but if
+    processing then fails the claim must not survive: Stripe retries, the retry
+    sees the claim, skips the work, and returns 200. The billing change is then
+    lost permanently with no error anywhere.
+    """
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        return
+    try:
+        await get_probe_client().delete(
+            f"{settings.supabase_url}/rest/v1/processed_webhook_events",
+            headers={
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                "Prefer": "return=minimal",
+            },
+            params={"event_id": f"eq.{event_id}"},
+        )
+    except Exception:
+        logger.opt(exception=True).error(
+            "Failed to release Stripe event claim {} — this event will not be "
+            "reprocessed on retry and needs manual replay",
+            event_id,
+        )
 
 
 async def handle_webhook_event(event: stripe.Event) -> None:
@@ -219,12 +245,22 @@ async def handle_webhook_event(event: stripe.Event) -> None:
 
     Uses insert-first idempotency: claims the event atomically before
     processing. If a concurrent worker already claimed it, this call
-    returns early.
+    returns early. If processing fails, the claim is released so Stripe's
+    retry can pick it up again.
     """
     if not await _try_claim_event(event.id, event.type):
         logger.debug("Skipping already-claimed Stripe event {}", event.id)
         return
 
+    try:
+        await _process_webhook_event(event)
+    except Exception:
+        await _release_event_claim(event.id)
+        raise
+
+
+async def _process_webhook_event(event: stripe.Event) -> None:
+    """Apply a Stripe event to hosted billing state."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_service_role_key:
         logger.warning("Supabase not configured; skipping webhook processing")
@@ -240,55 +276,53 @@ async def handle_webhook_event(event: stripe.Event) -> None:
     event_type = event.type
     data_object = event.data.object
 
-    import httpx
+    client = get_supabase_client()
+    if event_type == "checkout.session.completed":
+        customer_id = data_object.get("customer", "")
+        subscription_id = data_object.get("subscription", "")
+        if customer_id and subscription_id:
+            await client.patch(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={"stripe_customer_id": f"eq.{customer_id}"},
+                json={
+                    "plan": "pro",
+                    "stripe_subscription_id": subscription_id,
+                },
+            )
+            logger.info(
+                "Checkout completed: customer={} subscription={}",
+                customer_id,
+                subscription_id,
+            )
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        if event_type == "checkout.session.completed":
-            customer_id = data_object.get("customer", "")
-            subscription_id = data_object.get("subscription", "")
-            if customer_id and subscription_id:
-                await client.patch(
-                    f"{settings.supabase_url}/rest/v1/profiles",
-                    headers=headers,
-                    params={"stripe_customer_id": f"eq.{customer_id}"},
-                    json={
-                        "plan": "pro",
-                        "stripe_subscription_id": subscription_id,
-                    },
-                )
-                logger.info(
-                    "Checkout completed: customer={} subscription={}",
-                    customer_id,
-                    subscription_id,
-                )
+    elif event_type in (
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    ):
+        subscription = data_object
+        customer_id = subscription.get("customer", "")
+        status = subscription.get("status", "")
 
-        elif event_type in (
-            "customer.subscription.updated",
-            "customer.subscription.deleted",
-        ):
-            subscription = data_object
-            customer_id = subscription.get("customer", "")
-            status = subscription.get("status", "")
+        plan = "pro" if status in ("active", "trialing") else "free"
 
-            plan = "pro" if status in ("active", "trialing") else "free"
+        update_body: dict[str, str | None] = {"plan": plan}
+        if status in ("canceled", "unpaid", "incomplete_expired"):
+            update_body["stripe_subscription_id"] = None
 
-            update_body: dict[str, str | None] = {"plan": plan}
-            if status in ("canceled", "unpaid", "incomplete_expired"):
-                update_body["stripe_subscription_id"] = None
-
-            if customer_id:
-                await client.patch(
-                    f"{settings.supabase_url}/rest/v1/profiles",
-                    headers=headers,
-                    params={"stripe_customer_id": f"eq.{customer_id}"},
-                    json=update_body,
-                )
-                logger.info(
-                    "Subscription {}: customer={} status={} -> plan={}",
-                    event_type.split(".")[-1],
-                    customer_id,
-                    status,
-                    plan,
-                )
-        else:
-            logger.debug("Unhandled Stripe event: {}", event_type)
+        if customer_id:
+            await client.patch(
+                f"{settings.supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={"stripe_customer_id": f"eq.{customer_id}"},
+                json=update_body,
+            )
+            logger.info(
+                "Subscription {}: customer={} status={} -> plan={}",
+                event_type.split(".")[-1],
+                customer_id,
+                status,
+                plan,
+            )
+    else:
+        logger.debug("Unhandled Stripe event: {}", event_type)

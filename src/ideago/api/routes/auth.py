@@ -8,7 +8,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import httpx
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -19,8 +18,11 @@ from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.auth.session import (
     AUTH_SESSION_COOKIE_NAME,
+    OAUTH_STATE_COOKIE_NAME,
     clear_auth_session_cookie,
+    clear_oauth_state_cookie,
     set_auth_session_cookie,
+    set_oauth_state_cookie,
 )
 from ideago.auth.session_store import (
     create_auth_session,
@@ -35,7 +37,9 @@ from ideago.auth.supabase_admin import (
     update_profile,
 )
 from ideago.config.settings import get_settings
+from ideago.http.clients import get_external_client
 from ideago.observability.audit import log_audit_event
+from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
 from ideago.observability.metrics import metrics as app_metrics
 
@@ -91,21 +95,42 @@ def _is_safe_redirect(url: str) -> bool:
         return False
 
 
-def _build_state_token(*, redirect_to: str) -> str:
+def _build_state_token(*, redirect_to: str) -> tuple[str, str]:
+    """Mint a signed OAuth state token plus the browser-binding secret.
+
+    Returns ``(state_token, binding)``. Only the *hash* of the binding travels
+    inside the token; the secret itself goes into an HttpOnly cookie. The
+    callback then requires both halves, which is what stops an attacker from
+    replaying a state they minted into a victim's browser.
+    """
     settings = get_settings()
     if not settings.auth_session_secret:
         raise HTTPException(
             status_code=503, detail="AUTH_SESSION_SECRET is not configured"
         )
     now = datetime.now(timezone.utc)
+    binding = secrets.token_urlsafe(32)
     payload = {
         "redirect_to": redirect_to,
-        "nonce": secrets.token_urlsafe(16),
+        "bh": _hash_state_binding(binding),
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=10)).timestamp()),
         "aud": "ideago-linuxdo-state",
     }
-    return jwt.encode(payload, settings.auth_session_secret, algorithm="HS256")
+    return jwt.encode(payload, settings.auth_session_secret, algorithm="HS256"), binding
+
+
+def _hash_state_binding(binding: str) -> str:
+    """Hash the binding so a leaked state token cannot reveal the secret."""
+    return hashlib.sha256(binding.encode()).hexdigest()
+
+
+def _state_binding_matches(payload: dict, presented: str) -> bool:
+    """Constant-time check that the browser holds the binding for this state."""
+    expected = str(payload.get("bh") or "")
+    if not expected or not presented:
+        return False
+    return secrets.compare_digest(expected, _hash_state_binding(presented))
 
 
 def _parse_state_token(state: str) -> dict:
@@ -139,38 +164,32 @@ async def _exchange_linuxdo_code(*, code: str, redirect_uri: str) -> str:
         "client_id": settings.linuxdo_client_id,
         "client_secret": settings.linuxdo_client_secret,
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(settings.linuxdo_token_url, data=form_data)
-        if resp.status_code != 200:
-            raise HTTPException(
-                status_code=400, detail="Failed to exchange LinuxDo authorization code"
-            )
-        data = resp.json()
-        token = data.get("access_token")
-        if not isinstance(token, str) or not token:
-            raise HTTPException(
-                status_code=400, detail="LinuxDo token response missing access_token"
-            )
-        return token
+    resp = await get_external_client().post(settings.linuxdo_token_url, data=form_data)
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=400, detail="Failed to exchange LinuxDo authorization code"
+        )
+    data = resp.json()
+    token = data.get("access_token")
+    if not isinstance(token, str) or not token:
+        raise HTTPException(
+            status_code=400, detail="LinuxDo token response missing access_token"
+        )
+    return token
 
 
 async def _fetch_linuxdo_userinfo(access_token: str) -> dict:
     settings = get_settings()
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            settings.linuxdo_userinfo_url,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        if resp.status_code != 200:
-            raise HTTPException(
-                status_code=400, detail="Failed to fetch LinuxDo user info"
-            )
-        data = resp.json()
-        if not isinstance(data, dict):
-            raise HTTPException(
-                status_code=400, detail="Invalid LinuxDo user info payload"
-            )
-        return data
+    resp = await get_external_client().get(
+        settings.linuxdo_userinfo_url,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch LinuxDo user info")
+    data = resp.json()
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Invalid LinuxDo user info payload")
+    return data
 
 
 def _extract_linuxdo_identity(userinfo: dict) -> tuple[str, str, str]:
@@ -336,11 +355,10 @@ async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -
         form_data["remoteip"] = remote_ip
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-                data=form_data,
-            )
+        resp = await get_external_client().post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data=form_data,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=502, detail="Captcha verification failed"
@@ -358,6 +376,7 @@ async def _verify_turnstile_token(*, token: str, remote_ip: str | None = None) -
 @router.post("/auth/linuxdo/start", response_model=None)
 async def linuxdo_start(
     request: Request,
+    response: Response,
     payload: LinuxDoStartRequest,
 ) -> RedirectResponse | LinuxDoStartPayload:
     settings = get_settings()
@@ -379,7 +398,7 @@ async def linuxdo_start(
     if not is_valid_captcha:
         raise HTTPException(status_code=401, detail="Invalid captcha token")
 
-    state = _build_state_token(redirect_to=target)
+    state, binding = _build_state_token(redirect_to=target)
     callback_url = _backend_linuxdo_callback_url(request)
     query = urlencode(
         {
@@ -392,8 +411,14 @@ async def linuxdo_start(
     )
     authorize_url = f"{settings.linuxdo_authorize_url}?{query}"
     if prefetch:
+        # Returning a model: FastAPI merges cookies set on the injected Response.
+        set_oauth_state_cookie(response, request, binding)
         return LinuxDoStartPayload(url=authorize_url)
-    return RedirectResponse(url=authorize_url, status_code=302)
+    # Returning a Response directly: the injected Response is discarded, so the
+    # cookie has to go on the redirect itself.
+    redirect = RedirectResponse(url=authorize_url, status_code=302)
+    set_oauth_state_cookie(redirect, request, binding)
+    return redirect
 
 
 @router.get("/auth/linuxdo/callback", name="linuxdo_callback")
@@ -420,6 +445,18 @@ async def linuxdo_callback(
 
     if not _is_safe_redirect(redirect_to):
         redirect_to = fallback
+
+    # Prove this browser is the one that started the handshake. Without this a
+    # signed state alone lets an attacker plant their own session in a victim's
+    # browser. Checked before the code exchange so a mismatch costs nothing.
+    cookie_jar = getattr(request, "cookies", {}) or {}
+    presented_binding = str(cookie_jar.get(OAUTH_STATE_COOKIE_NAME, "")).strip()
+    if not _state_binding_matches(parsed_state, presented_binding):
+        app_metrics.increment_event("auth_oauth_state_rejected", reason="binding")
+        logger.warning("Rejected LinuxDo callback with unbound OAuth state")
+        rejected = _redirect_error(redirect_to, "Invalid OAuth state")
+        clear_oauth_state_cookie(rejected, request)
+        return rejected
 
     if error:
         return _redirect_error(redirect_to, error_description or error)
@@ -474,6 +511,8 @@ async def linuxdo_callback(
     )
     response = RedirectResponse(url=redirect_to, status_code=302)
     set_auth_session_cookie(response, request, app_access_token)
+    # The binding is single-use: drop it as soon as it has done its job.
+    clear_oauth_state_cookie(response, request)
     return response
 
 
@@ -624,6 +663,10 @@ async def delete_account(
         phase = str(result.get("phase") or "unknown_phase")
         details = list(result.get("details") or [])
         cleanup = result.get("cleanup", {})
+        # `details` carries internal table names and upstream status codes.
+        # The frontend only needs `phase` and the `cleanup` state enum to pick
+        # its wording, so correlate via an incident id and keep the rest in logs.
+        incident_id = uuid.uuid4().hex[:12]
         if session_id and _should_revoke_session_after_delete_failure(cleanup):
             await revoke_auth_session(session_id)
         await log_audit_event(
@@ -634,18 +677,31 @@ async def delete_account(
                 "phase": phase,
                 "details": details,
                 "cleanup": cleanup,
+                "incident_id": incident_id,
             },
             ip_address=request.client.host if request.client else None,
         )
         app_metrics.increment_event("account_delete_failed", reason=phase)
+        log_error_event(
+            logger,
+            error_code="ACCOUNT_DELETE_FAILED",
+            subsystem="account_delete",
+            message="Account deletion failed",
+            details={
+                "incident_id": incident_id,
+                "phase": phase,
+                "details": details,
+                "cleanup": cleanup,
+            },
+        )
         raise AppError(
             500,
             ErrorCode.INTERNAL_ERROR,
             f"Failed to delete account during {phase}",
             extra={
                 "phase": phase,
-                "details": details,
                 "cleanup": cleanup,
+                "incident_id": incident_id,
             },
         )
     if session_id:

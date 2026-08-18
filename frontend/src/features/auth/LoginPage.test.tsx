@@ -88,10 +88,7 @@ vi.mock('@/lib/auth/useAuth', () => ({
 }))
 
 vi.mock('@/lib/auth/token', () => ({
-  saveCustomAuthSession: vi.fn(),
   setAccessToken: vi.fn(),
-  readCustomAuthSession: vi.fn(() => null),
-  clearCustomAuthSession: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => ({

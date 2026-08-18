@@ -667,7 +667,7 @@ describe('ReportPage', () => {
 
     await waitFor(() => {
       expect(startAnalysis).toHaveBeenNthCalledWith(1, 'retryable idea', expect.any(Object))
-      expect(startAnalysis).toHaveBeenNthCalledWith(2, 'retryable idea', undefined)
+      expect(startAnalysis).toHaveBeenNthCalledWith(2, 'retryable idea', expect.any(Object))
     })
   })
 
@@ -752,7 +752,10 @@ describe('ReportPage', () => {
     fireEvent.click(screen.getByRole('button', { name: i18n.t('report.failed.startAgain') }))
 
     await waitFor(() => {
-      expect(startAnalysis).toHaveBeenCalledWith('AI CRM for recruiters', undefined)
+      expect(startAnalysis).toHaveBeenCalledWith(
+        'AI CRM for recruiters',
+        expect.any(Object),
+      )
     })
   })
 

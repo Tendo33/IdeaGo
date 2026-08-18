@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ideago.auth import supabase_admin
+from ideago.auth import account_deletion
 from ideago.observability.metrics import metrics as app_metrics
 
 
@@ -48,15 +48,15 @@ async def test_delete_user_account_rolls_back_profile_when_phase_fails(
             new=AsyncMock(return_value={"status": "restored"}),
         ) as restore_profile,
         patch(
-            "ideago.auth.supabase_admin.delete_billing_customer_data",
+            "ideago.auth.account_deletion.delete_billing_customer_data",
             new=patches["delete_billing_customer_data"],
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_user_data",
+            "ideago.auth.account_deletion.delete_user_data",
             new=patches["delete_user_data"],
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_auth_identity",
+            "ideago.auth.account_deletion.delete_auth_identity",
             new=patches["delete_auth_identity"],
         ),
         patch(
@@ -64,7 +64,7 @@ async def test_delete_user_account_rolls_back_profile_when_phase_fails(
             new=patches["delete_profile_record"],
         ),
     ):
-        result = await supabase_admin.delete_user_account("uid")
+        result = await account_deletion.delete_user_account("uid")
 
     assert result["error"] == "partial_failure"
     assert result["phase"] == phase_name
@@ -95,7 +95,7 @@ async def test_delete_user_account_marks_profile_as_stuck_when_rollback_fails() 
             new=AsyncMock(return_value={"status": "marked"}),
         ),
         patch(
-            "ideago.auth.supabase_admin.delete_billing_customer_data",
+            "ideago.auth.account_deletion.delete_billing_customer_data",
             new=AsyncMock(
                 return_value={
                     "error": "billing_cleanup_failed",
@@ -113,7 +113,7 @@ async def test_delete_user_account_marks_profile_as_stuck_when_rollback_fails() 
             ),
         ),
     ):
-        result = await supabase_admin.delete_user_account("uid")
+        result = await account_deletion.delete_user_account("uid")
 
     assert result == {
         "error": "partial_failure",

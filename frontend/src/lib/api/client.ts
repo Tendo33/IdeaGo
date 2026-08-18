@@ -28,7 +28,6 @@ export {
 } from './reportsClient'
 
 export {
-  refreshAuthToken,
   startLinuxDoAuth,
   getMe,
   logoutAuthSession,

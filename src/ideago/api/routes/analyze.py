@@ -10,6 +10,7 @@ import hashlib
 import time
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
@@ -34,9 +35,9 @@ from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.auth.supabase_admin import (
     check_and_increment_quota,
-    check_quota_available,
     refund_quota_charge,
 )
+from ideago.config.settings import get_settings
 from ideago.notifications.service import notify_quota_warning, notify_report_ready
 from ideago.observability.error_catalog import log_error_event
 from ideago.observability.log_config import get_logger
@@ -47,14 +48,13 @@ logger = get_logger(__name__)
 
 router = APIRouter(tags=["analyze"])
 _TERMINAL_EVENTS = {EventType.REPORT_READY, EventType.ERROR, EventType.CANCELLED}
-_STATUS_ONLY_PING_INTERVAL_SECONDS = 2
+_STATUS_ONLY_INITIAL_DELAY_SECONDS = 2.0
+_STATUS_ONLY_MAX_DELAY_SECONDS = 15.0
 _STATUS_ONLY_MAX_WAIT_SECONDS = 180
-_STATUS_ONLY_MAX_PINGS = (
-    _STATUS_ONLY_MAX_WAIT_SECONDS // _STATUS_ONLY_PING_INTERVAL_SECONDS
-)
 _ACTIVE_STREAM_PING_INTERVAL_SECONDS = 15
 _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS = 10.5
-_EXISTING_SLOT_CONFIRM_POLL_SECONDS = 0.1
+_EXISTING_SLOT_CONFIRM_INITIAL_DELAY_SECONDS = 0.1
+_EXISTING_SLOT_CONFIRM_MAX_DELAY_SECONDS = 1.5
 _RESERVE_RETRY_MAX = 3
 
 
@@ -144,8 +144,46 @@ class _RunStateCallback:
         await run_state.publish(event)
 
 
+def _was_served_from_cache(run_state) -> bool:  # type: ignore[no-untyped-def]
+    """True when the report came straight from cache, doing no LLM work."""
+    return any(
+        event.type == EventType.REPORT_READY and bool(event.data.get("cache_hit"))
+        for event in run_state.history_snapshot()
+    )
+
+
+# Quota warnings fired on every request once usage crossed the threshold, so a
+# user near their limit received one email per analysis. One per user per UTC
+# day is the intent. Kept in-process: the quota itself resets daily, the cost of
+# a missed warning is low, and a dedicated table would be disproportionate.
+_quota_warning_sent: dict[str, str] = {}
+_QUOTA_WARNING_MAX_ENTRIES = 5000
+
+
+def _claim_quota_warning(user_id: str, *, today: str | None = None) -> bool:
+    """Return True at most once per user per day."""
+    if not user_id:
+        return False
+    day = today or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _quota_warning_sent.get(user_id) == day:
+        return False
+    if len(_quota_warning_sent) >= _QUOTA_WARNING_MAX_ENTRIES:
+        # Yesterday's entries can never match again; drop them.
+        for key, value in list(_quota_warning_sent.items()):
+            if value != day:
+                _quota_warning_sent.pop(key, None)
+        if len(_quota_warning_sent) >= _QUOTA_WARNING_MAX_ENTRIES:
+            _quota_warning_sent.clear()
+    _quota_warning_sent[user_id] = day
+    return True
+
+
 async def _run_pipeline(
-    query: str, report_id: str, user_id: str = "", user_email: str = ""
+    query: str,
+    report_id: str,
+    user_id: str = "",
+    user_email: str = "",
+    force_refresh: bool = False,
 ) -> None:
     """Background task: run the pipeline and push events to the queue."""
     run_state = get_or_create_report_run(report_id)
@@ -153,7 +191,11 @@ async def _run_pipeline(
     try:
         orchestrator = get_orchestrator()
         report = await orchestrator.run(
-            query, callback=callback, report_id=report_id, user_id=user_id
+            query,
+            callback=callback,
+            report_id=report_id,
+            user_id=user_id,
+            force_refresh=force_refresh,
         )
         if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
             logger.info("Skipping completion for cancelled report {}", report_id)
@@ -166,6 +208,10 @@ async def _run_pipeline(
             message="Report ready",
             user_id=user_id,
         )
+        if _was_served_from_cache(run_state):
+            # Nothing was spent producing this, so nothing should be charged.
+            app_metrics.increment_event("quota_refunded", reason="cache_hit")
+            await _refund_quota_charge_for_report(report_id, user_id)
         if user_email:
             try:
                 await notify_report_ready(user_email, report_id, query)
@@ -252,19 +298,9 @@ async def start_analysis(
             "Unable to reserve analysis slot. Please retry.",
         )
 
-    quota = await check_quota_available(user.id)
-    if not quota.allowed:
-        app_metrics.increment_event(
-            "analysis_start_failed",
-            reason=getattr(quota, "error", "") or "quota_exceeded",
-        )
-        await release_processing_report(report_id)
-        raise AppError(
-            429,
-            ErrorCode.QUOTA_EXCEEDED,
-            f"Daily limit reached ({quota.plan_limit} analyses per day)",
-        )
-
+    # One atomic check-and-increment. A separate read beforehand cost an extra
+    # round trip and opened a race window: the read could pass, concurrent
+    # requests could exhaust the quota, and this request would still charge.
     charged_quota = await check_and_increment_quota(user.id)
     if not charged_quota.allowed:
         app_metrics.increment_event(
@@ -290,9 +326,12 @@ async def start_analysis(
 
         get_or_create_report_run(report_id)
 
+        warning_threshold = get_settings().quota_warning_threshold
         if (
-            charged_quota.usage_count >= int(charged_quota.plan_limit * 0.8)
+            charged_quota.usage_count
+            >= int(charged_quota.plan_limit * warning_threshold)
             and user.email
+            and _claim_quota_warning(user.id)
         ):
             try:
                 await notify_quota_warning(
@@ -302,7 +341,13 @@ async def start_analysis(
                 logger.debug("Failed to send quota warning notification")
 
         task = asyncio.create_task(
-            _run_pipeline(query, report_id, user.id, user_email=user.email)
+            _run_pipeline(
+                query,
+                report_id,
+                user.id,
+                user_email=user.email,
+                force_refresh=request.force_refresh,
+            )
         )
         await register_pipeline_task(report_id, task)
     except DependencyUnavailableError as exc:
@@ -374,12 +419,19 @@ async def _status_terminal_event(report_id: str) -> PipelineEvent | None:
 async def _confirm_existing_report_is_active(report_id: str) -> bool:
     """Confirm dedup hit points to a still-active report.
 
-    When the original request fails quota, it releases processing slot before
-    writing processing status. This probe waits until the slot is either
+    When the original request fails quota, it releases the processing slot
+    before writing processing status. This probe waits until the slot is either
     confirmed active (status written) or released (stale dedup hit).
+
+    Backs off exponentially: a fixed 0.1s poll over a 10.5s window meant up to
+    ~105 PostgREST reads per attempt, and with retries a caller could sit here
+    for ~31s — past the client's own 30s timeout — while generating hundreds of
+    requests. Backoff keeps the same worst-case latency at a fraction of the
+    request volume.
     """
     cache = get_cache()
     deadline = time.monotonic() + _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS
+    delay = _EXISTING_SLOT_CONFIRM_INITIAL_DELAY_SECONDS
     while True:
         status = await cache.get_status(report_id)
         if status:
@@ -391,21 +443,27 @@ async def _confirm_existing_report_is_active(report_id: str) -> bool:
         if not await is_processing_report(report_id):
             return False
         if time.monotonic() >= deadline:
-            # Slot still held after quota-timeout window; treat as active to
+            # Slot still held after the quota-timeout window; treat as active to
             # avoid duplicate task creation under transient visibility delay.
             return True
-        await asyncio.sleep(_EXISTING_SLOT_CONFIRM_POLL_SECONDS)
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, _EXISTING_SLOT_CONFIRM_MAX_DELAY_SECONDS)
 
 
 async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
     """Yield replay + live SSE events for a report run."""
     run_state = get_report_run(report_id)
     if run_state is None:
-        processing_ping_count = 0
+        # No in-process runtime for this report (another worker, or a restart).
+        # Fall back to polling the persisted status — with backoff, because a
+        # fixed 2s poll over the 180s ceiling meant up to 90 PostgREST reads per
+        # connected viewer.
+        waited = 0.0
+        delay = _STATUS_ONLY_INITIAL_DELAY_SECONDS
         while True:
             status = await get_cache().get_status(report_id)
             if status and status.get("status") == "processing":
-                if processing_ping_count >= _STATUS_ONLY_MAX_PINGS:
+                if waited >= _STATUS_ONLY_MAX_WAIT_SECONDS:
                     stale_terminal = PipelineEvent(
                         type=EventType.ERROR,
                         stage="pipeline",
@@ -423,9 +481,10 @@ async def _stream_events(report_id: str) -> AsyncGenerator[dict, None]:
                         "data": stale_terminal.to_sse(),
                     }
                     return
-                processing_ping_count += 1
                 yield {"event": "ping", "data": "{}"}
-                await asyncio.sleep(_STATUS_ONLY_PING_INTERVAL_SECONDS)
+                await asyncio.sleep(delay)
+                waited += delay
+                delay = min(delay * 2, _STATUS_ONLY_MAX_DELAY_SECONDS)
                 continue
 
             terminal = await _status_terminal_event(report_id)

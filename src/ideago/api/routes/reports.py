@@ -9,7 +9,7 @@ from contextlib import suppress
 from datetime import datetime
 from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from ideago.api.dependencies import (
@@ -28,6 +28,7 @@ from ideago.auth.dependencies import get_current_user
 from ideago.auth.models import AuthUser
 from ideago.cache.base import ReportRepository
 from ideago.models.research import ResearchReport
+from ideago.observability.audit import log_audit_event
 from ideago.observability.metrics import metrics as app_metrics
 
 router = APIRouter(tags=["reports"])
@@ -281,6 +282,7 @@ async def get_report_status(
 
 @router.delete("/reports/{report_id}")
 async def delete_report(
+    request: Request,
     report_id: str,
     user: AuthUser = Depends(get_current_user),
 ) -> dict:
@@ -300,6 +302,13 @@ async def delete_report(
     with suppress(DependencyUnavailableError):
         await cache.remove_status(report_id)
     await release_processing_report(report_id)
+    await log_audit_event(
+        actor_id=user.id,
+        action="report.delete",
+        target_type="report",
+        target_id=report_id,
+        ip_address=request.client.host if request.client else None,
+    )
     return {"status": "deleted"}
 
 

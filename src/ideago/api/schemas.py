@@ -58,6 +58,13 @@ class AnalyzeRequest(BaseModel):
         max_length=1000,
         description="Natural language startup idea description",
     )
+    force_refresh: bool = Field(
+        default=False,
+        description=(
+            "Skip the cache and gather fresh evidence. Consumes quota like any "
+            "other analysis, since the pipeline actually runs."
+        ),
+    )
 
     @field_validator("query")
     @classmethod

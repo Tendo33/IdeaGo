@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from ideago.auth import session_cache
 from ideago.config.settings import get_settings
 from ideago.observability.log_config import get_logger
 
@@ -140,6 +141,9 @@ async def is_auth_session_active(session_id: str, *, user_id: str = "") -> bool:
 async def revoke_auth_session(session_id: str) -> bool:
     if not session_id:
         return False
+    # Drop the cached liveness first so the revocation is visible on the very
+    # next request rather than after the cache TTL.
+    session_cache.invalidate(session_id)
     if not _is_configured():
         session = _memory_sessions.get(session_id)
         if session is None:

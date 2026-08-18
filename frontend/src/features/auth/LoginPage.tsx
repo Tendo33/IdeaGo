@@ -12,6 +12,7 @@ import {
   normalizeAuthReturnTo,
 } from '@/lib/auth/redirect'
 import { startLinuxDoAuth } from '@/lib/api/client'
+import { getRuntimeConfig } from '@/lib/config/runtime'
 import { ArrowLeft, LogIn, UserPlus, Mail, Loader2, KeyRound } from 'lucide-react'
 import {
   TurnstilePanel,
@@ -56,7 +57,7 @@ export function LoginPage() {
       ? 'dark'
       : 'light',
   )
-  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? ''
+  const turnstileSiteKey = getRuntimeConfig().turnstileSiteKey
   const emailLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
   const authBlocked = !turnstileSiteKey || captchaStatus !== 'success' || !captchaToken
 

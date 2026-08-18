@@ -43,6 +43,20 @@ def _request_uses_cookie_session(request: Request) -> bool:
     return bool(str(cookie_jar.get(AUTH_SESSION_COOKIE_NAME, "")).strip())
 
 
+def _metrics_path(request: Request) -> str:
+    """Return the route template for metrics, never the concrete path.
+
+    ``/api/v1/reports/<uuid>`` as a metrics key means one key per report, which
+    is unbounded. The matched route's ``path_format`` collapses those into
+    ``/api/v1/reports/{report_id}``.
+    """
+    route = request.scope.get("route")
+    path_format = getattr(route, "path_format", None) or getattr(route, "path", None)
+    if isinstance(path_format, str) and path_format:
+        return path_format
+    return "<unmatched>"
+
+
 def register_trace_id_middleware(app: FastAPI) -> None:
     """Attach a trace ID and request timing metrics to every request."""
 
@@ -55,10 +69,10 @@ def register_trace_id_middleware(app: FastAPI) -> None:
             response: Response = await call_next(request)
         except Exception:
             latency_ms = (time.monotonic() - start) * 1000
-            app_metrics.record(request.url.path, 500, latency_ms)
+            app_metrics.record(_metrics_path(request), 500, latency_ms)
             raise
         latency_ms = (time.monotonic() - start) * 1000
-        app_metrics.record(request.url.path, response.status_code, latency_ms)
+        app_metrics.record(_metrics_path(request), response.status_code, latency_ms)
         response.headers["X-Trace-Id"] = trace_id
         return response
 

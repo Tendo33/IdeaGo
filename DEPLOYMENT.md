@@ -71,18 +71,38 @@ TURNSTILE_SECRET_KEY=your-turnstile-secret
 CORS_ALLOW_ORIGINS=https://your-domain.example
 ```
 
-### Minimum frontend build settings
+### Frontend configuration (runtime, not build-time)
+
+Public frontend values are **no longer baked into the bundle**. The SPA fetches
+them from `GET /api/v1/config` before it mounts, so a single image works for any
+deployment. Set them in the root `.env` alongside the rest of the backend config:
 
 ```bash
-VITE_API_BASE_URL=
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_TURNSTILE_SITE_KEY=your-turnstile-site-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+TURNSTILE_SITE_KEY=your-turnstile-site-key
+FRONTEND_SENTRY_DSN=            # optional, browser Sentry project
+PRICING_ENABLED=false           # optional, exposes /pricing in the SPA
+```
+
+`GET /api/v1/config` serves exactly six values through an explicit allowlist:
+`supabase_url`, `supabase_anon_key`, `turnstile_site_key`, `sentry_dsn`,
+`pricing_enabled`, `environment`. Secrets are never included, and a test asserts
+the field set so adding one is a deliberate act.
+
+The only remaining build-time frontend input is `VITE_API_BASE_URL`, because it
+is needed to locate that endpoint in the first place:
+
+```bash
+VITE_API_BASE_URL=      # leave empty for same-origin (the default for this image)
 ```
 
 Notes:
 
-- `VITE_*` values are build-time inputs for the frontend bundle.
+- Leave `VITE_API_BASE_URL` empty unless the API lives on a different origin than
+  the SPA. The published image serves both from one origin.
+- Legacy `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` / `VITE_TURNSTILE_SITE_KEY`
+  in `frontend/.env` still work as a local-dev fallback, but runtime values win.
 - `FRONTEND_APP_URL` must match the real browser origin used by users.
 - `AUTH_SESSION_SECRET` signs backend-managed LinuxDo auth tokens.
 - Leave `CORS_ALLOW_ORIGINS=*` only in local development.
@@ -135,6 +155,41 @@ Important hosted tables and RPCs on `saas` include:
 - processing/runtime state
 - quota and plan breakdown helpers
 - rate-limit helpers
+
+### Attack protection (required for the captcha to do anything)
+
+The SPA renders a Turnstile widget and passes the resulting `captchaToken` to
+Supabase on sign-in, sign-up and password reset. **Supabase only verifies that
+token if CAPTCHA protection is enabled in the project**, otherwise the token is
+ignored and the widget is decoration — a bot can call the Supabase auth API
+directly with the public anon key, create accounts in bulk and burn LLM quota.
+
+In the Supabase dashboard: *Authentication → Attack Protection → Enable CAPTCHA
+protection*, provider **Cloudflare Turnstile**, secret = the same
+`TURNSTILE_SECRET_KEY` this backend uses.
+
+The backend verifies Turnstile itself for the LinuxDo flow, so that path is
+covered regardless of this setting.
+
+### Scheduled cleanup
+
+Retention RPCs are invoked by the backend's own hourly maintenance task
+(`cleanup_stale_processing_slots`, `cleanup_old_webhook_events`,
+`cleanup_audit_log`, `cleanup_auth_sessions`, plus `cleanup_expired_reports` and
+`cleanup_rate_limit_hits` from their own call sites). No pg_cron configuration is
+required — but the corresponding migrations must be applied, or the calls fail
+with `PGRST202` and the tables grow unbounded. `tests/test_retention.py` asserts
+that every `cleanup_*` function defined in the migrations has a caller.
+
+### Migration order
+
+`supabase/migrations/000_all_migrations.sql` is a **bootstrap snapshot covering
+001–012 only**. For a brand-new project either:
+
+- run `000_all_migrations.sql`, then `013` through the highest number, or
+- run `001` through the highest number individually
+
+Do not run both `000` and `001`–`012`.
 
 ### Provider configuration
 
@@ -190,17 +245,13 @@ docker compose build
 docker compose up -d
 ```
 
-The compose build forwards these frontend-related build args:
+The compose build forwards a single frontend build arg:
 
-- `VITE_API_BASE_URL`
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_TURNSTILE_SITE_KEY`
+- `VITE_API_BASE_URL` (empty by default — same-origin)
 
-It also forwards:
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
+Everything else the browser needs is served at runtime from `GET /api/v1/config`,
+so rebuilding is not required to change Supabase, Turnstile, Sentry, or the
+pricing flag. Restart the container and the SPA picks up the new values.
 
 The cache volume persists `CACHE_DIR`.
 
@@ -212,9 +263,40 @@ For production:
 - keep `FRONTEND_APP_URL` aligned with the public HTTPS origin
 - set `CORS_ALLOW_ORIGINS` explicitly
 - preserve `X-Forwarded-Proto=https` so secure cookie logic behaves correctly
+- **set `FORWARDED_ALLOW_IPS` to your proxy's address**
+
+That last point is easy to miss and fails silently. Uvicorn only trusts
+`X-Forwarded-*` headers from `127.0.0.1` by default. In Docker the proxy is a
+different container with a different address, so the headers are discarded and
+`request.client.host` resolves to the proxy for every request. The visible
+consequences are that audit-log entries all record the same IP, and the
+`remoteip` handed to Turnstile is wrong, weakening its risk scoring.
+
+```bash
+FORWARDED_ALLOW_IPS=172.18.0.2     # the proxy container's address
+# or, only when the app port cannot be reached from outside the network:
+FORWARDED_ALLOW_IPS=*
+TRUST_PROXY_HEADERS=true           # default
+```
 
 If you deploy frontend and backend under the same origin, you can usually leave `VITE_API_BASE_URL`
 empty and rely on same-origin requests.
+
+## 8b. Single Process Only
+
+The image runs one uvicorn process. Some building blocks are already
+multi-worker safe (PostgreSQL-backed dedup reservations, the LangGraph Postgres
+checkpointer, PostgREST-backed rate limiting), which makes it tempting to scale
+out. **Do not add workers or replicas yet.** Three pieces of runtime state are
+still per-process:
+
+| State | Consequence of scaling out today |
+|---|---|
+| In-flight pipeline tasks | Cancel only reaches the worker holding the task. Another worker refunds the quota and marks the report cancelled while the real run keeps going, later flipping the status back to `complete`. |
+| SSE run state | A viewer connected to a different worker falls back to polling the status row instead of receiving live progress. |
+| In-process metrics | `/admin/metrics` reports one worker's partial view. |
+
+Resolve those before scaling; adding workers is not a configuration-only change.
 
 ## 9. Runtime Security Notes
 
@@ -248,7 +330,8 @@ instead of pretending the dataset is empty.
 ## 11. Verification Checklist
 
 - backend starts with your hosted env vars
-- frontend bundle builds with the correct `VITE_*` values
+- `GET /api/v1/config` returns your Supabase URL, anon key, and Turnstile site key
+- the login page renders a Turnstile widget (proves runtime config reached the browser)
 - `GET /api/v1/health` returns success
 - login page renders and Turnstile loads
 - Supabase login succeeds

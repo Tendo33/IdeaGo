@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/Button'
+import * as Sentry from '@sentry/react'
 import { Component, Suspense, lazy, useEffect, useState, type ReactNode, type ErrorInfo } from 'react'
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation, withTranslation, type WithTranslation } from 'react-i18next'
@@ -7,7 +8,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth/AuthProvider'
 import { ProtectedRoute, AdminRoute } from '@/lib/auth/ProtectedRoute'
 import { useAuth } from '@/lib/auth/useAuth'
-import { PRICING_ENABLED } from '@/lib/featureFlags'
+import { isPricingEnabled } from '@/lib/featureFlags'
 import { UserMenu } from '@/features/auth/components/UserMenu'
 import { ThemeModeMenu, type ThemeMode } from './ThemeModeMenu'
 
@@ -169,6 +170,11 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // Sentry is initialized at bootstrap but never heard about render crashes,
+    // so the errors users actually hit were invisible in production.
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: info.componentStack ?? '' } },
+    })
     console.error('ErrorBoundary caught:', error, info)
   }
 
@@ -182,8 +188,9 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-destructive break-words">
               {t('error.title')}
             </h1>
-            <p className="text-lg font-bold text-destructive/80 mb-8 border-l-4 border-destructive pl-4 text-left break-words whitespace-pre-wrap">
-              {this.state.error?.message ?? t('error.fallbackMessage')}
+            {/* Raw exception text is for the console and Sentry, not the user. */}
+            <p className="text-lg font-bold text-destructive/80 mb-8 border-l-4 border-destructive pl-4 text-left break-words">
+              {t('error.fallbackMessage')}
             </p>
             <Button
               variant="destructive"
@@ -262,7 +269,7 @@ function NavBar({
         >
           {isChinese ? 'EN' : 'ZH'}
         </button>
-        {PRICING_ENABLED && (
+        {isPricingEnabled() && (
           <Link
             to="/pricing"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
@@ -311,7 +318,7 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
     pathname === '/login' ||
     pathname === '/terms' ||
     pathname === '/privacy' ||
-    (PRICING_ENABLED && pathname === '/pricing')
+    (isPricingEnabled() && pathname === '/pricing')
   const showNav = !loading && (user !== null || showNavForSignedOutPublicRoute)
   useDocumentLanguageSync()
 
@@ -330,7 +337,7 @@ function AppShell({ themeMode, onSelectThemeMode }: { themeMode: ThemeMode; onSe
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<HomeOrLanding themeMode={themeMode} onSelectThemeMode={onSelectThemeMode} />} />
-            {PRICING_ENABLED && <Route path="/pricing" element={<PricingPage />} />}
+            {isPricingEnabled() && <Route path="/pricing" element={<PricingPage />} />}
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/reports/:id" element={<ProtectedRoute><ReportPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
