@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/app/App.tsx"
+        ],
+        "createdAt": "2026-08-18T05:07:16.750Z",
+        "reason": "Claude decided: pre-existing house style, not introduced by this change. border-l-4 accent appears in 5 places across 4 files (App.tsx:192, HomePage:85, HistoryPage:176, PricingPage:108/112) inside a neo-brutalist system with 114 border-2 + 52 border-4 usages. Changing only this instance would break consistency; a redesign is out of scope for an audit-remediation task."
+      }
+    ]
+  }
+}
