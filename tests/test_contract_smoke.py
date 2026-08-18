@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from fastapi.routing import APIRoute
+from fastapi import FastAPI
+from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 from fastapi.testclient import TestClient
 
 from ideago.api.app import create_app
@@ -22,6 +23,19 @@ def _dev_settings() -> Settings:
     )
 
 
+def _api_route_contexts(app: FastAPI) -> list[RouteContext]:
+    """Resolve every APIRoute with its effective mounted path.
+
+    `include_router` keeps included routers as a single node in `app.routes`,
+    so the routes have to be walked through their contexts to see prefixes.
+    """
+    return [
+        ctx
+        for ctx in iter_route_contexts(app.routes)
+        if isinstance(ctx.route, APIRoute)
+    ]
+
+
 def test_create_app_registers_hosted_route_families_and_billing_webhook() -> None:
     settings = _dev_settings()
     with (
@@ -30,7 +44,7 @@ def test_create_app_registers_hosted_route_families_and_billing_webhook() -> Non
     ):
         app = create_app()
 
-    routes = {route.path for route in app.routes if isinstance(route, APIRoute)}
+    routes = {ctx.path for ctx in _api_route_contexts(app)}
 
     assert "/api/v1/auth/me" in routes
     assert "/api/v1/analyze" in routes
@@ -41,9 +55,7 @@ def test_create_app_registers_hosted_route_families_and_billing_webhook() -> Non
     assert "/api/v1/billing/webhook" in _CSRF_EXEMPT_PATHS
     assert "decision-first" in app.description.lower()
 
-    route_map = {
-        route.path: route for route in app.routes if isinstance(route, APIRoute)
-    }
+    route_map = {ctx.path: ctx for ctx in _api_route_contexts(app)}
     assert route_map["/api/v1/billing/checkout"].include_in_schema is False
     assert route_map["/api/v1/billing/portal"].include_in_schema is False
     assert route_map["/api/v1/billing/status"].include_in_schema is False
