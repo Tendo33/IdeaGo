@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
+from fastapi.routing import APIRoute, iter_route_contexts
 from fastapi.testclient import TestClient
 
 from ideago.api import dependencies as deps
@@ -26,10 +27,12 @@ def test_personal_mode_exposes_only_public_core_routes(
     personal_defaults: None,
 ) -> None:
     app = create_app()
+    # `include_router` results stay nested under a single node in `app.routes`,
+    # so the effective prefixed paths only show up through their contexts.
     paths = {
-        route.path
-        for route in app.routes
-        if hasattr(route, "path") and route.path.startswith("/api/v1/")
+        ctx.path
+        for ctx in iter_route_contexts(app.routes)
+        if isinstance(ctx.route, APIRoute) and ctx.path.startswith("/api/v1/")
     }
 
     assert "/api/v1/health" in paths
