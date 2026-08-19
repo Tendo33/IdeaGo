@@ -61,4 +61,12 @@ comparison.
   entities, and brand pages rarely repeat category words.
 - HackerNews' median first competitor hit sits at rank 21 (Tavily's is rank 1).
 - Reddit returns 403 on every unauthenticated `search.json` call. Verified not a
-  user-agent problem. Needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`.
+  user-agent problem. Needs `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET`. A
+  breaker now stops after the first 401/403 per instance, since the fallback
+  path is serialized and would otherwise pay one round trip per query to learn
+  the same thing. A 429 does not trip it — rate limiting is transient, lockout
+  is not.
+- Product Hunt rate-limits aggressively and previously treated every non-200
+  alike, so a single 429 zeroed the source (1 of 8 eval cases). It now retries
+  once, honouring `Retry-After` when the wait fits inside the ~30s source
+  budget and failing fast when it does not.

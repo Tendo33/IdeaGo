@@ -9,6 +9,7 @@ could hold ten of them at once on a single-process server.
 from __future__ import annotations
 
 import asyncio
+from unittest import mock
 
 import pytest
 
@@ -149,3 +150,129 @@ async def test_counts_are_scoped_per_user(monkeypatch) -> None:
     finally:
         for task in tasks:
             task.cancel()
+
+
+class TestTotalTimeBudget:
+    """A run with no outer bound would hold its admission slot indefinitely.
+
+    Per-stage timeouts do not bound the total: each LLM call retries three times
+    per endpoint and every fallback endpoint multiplies that again. The
+    arithmetic worst case is roughly ten minutes with no fallbacks and past
+    twenty with two — long enough to turn the capacity cap into a slow deadlock.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_hung_pipeline_is_cut_off(self, monkeypatch, tmp_path) -> None:
+        from ideago.api.routes import analyze as analyze_route
+        from ideago.cache.file_cache import FileCache
+        from ideago.pipeline.events import EventType
+
+        cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+        _install(monkeypatch, analysis_total_timeout_seconds=60)
+        # Shrink the budget past the settings floor for a fast test.
+        monkeypatch.setattr(
+            analyze_route,
+            "get_settings",
+            lambda: type("S", (), {"analysis_total_timeout_seconds": 0.05})(),
+        )
+
+        class HangingOrchestrator:
+            async def run(self, *_args, **_kwargs):
+                await asyncio.Event().wait()
+
+        with (
+            mock.patch.object(analyze_route, "get_cache", return_value=cache),
+            mock.patch.object(
+                analyze_route, "get_orchestrator", return_value=HangingOrchestrator()
+            ),
+        ):
+            await analyze_route._run_pipeline("a query that hangs", "report-hang")
+
+        status = await cache.get_status("report-hang")
+        assert status is not None
+        assert status["status"] == "failed"
+        assert status["error_code"] == "PIPELINE_TIMEOUT"
+
+        run_state = deps.get_report_run("report-hang")
+        assert run_state is not None
+        errors = [e for e in run_state.history if e.type == EventType.ERROR]
+        assert errors
+        assert errors[-1].data["error_code"] == "PIPELINE_TIMEOUT"
+
+    @pytest.mark.asyncio
+    async def test_timing_out_releases_the_admission_slot(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        """Otherwise the cap would leak a slot on every hang."""
+        from ideago.api.routes import analyze as analyze_route
+        from ideago.cache.file_cache import FileCache
+
+        cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+        _install(monkeypatch)
+        monkeypatch.setattr(
+            analyze_route,
+            "get_settings",
+            lambda: type("S", (), {"analysis_total_timeout_seconds": 0.05})(),
+        )
+
+        class HangingOrchestrator:
+            async def run(self, *_args, **_kwargs):
+                await asyncio.Event().wait()
+
+        async def drive() -> None:
+            with (
+                mock.patch.object(analyze_route, "get_cache", return_value=cache),
+                mock.patch.object(
+                    analyze_route,
+                    "get_orchestrator",
+                    return_value=HangingOrchestrator(),
+                ),
+            ):
+                await analyze_route._run_pipeline("hang", "report-slot", USER)
+
+        task = asyncio.create_task(drive())
+        _register("report-slot", USER, task)
+        assert deps.active_analysis_count_for_user(USER) == 1
+        await task
+        assert deps.active_analysis_count_for_user(USER) == 0
+
+    @pytest.mark.asyncio
+    async def test_a_user_cancel_is_not_reported_as_a_timeout(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        """wait_for sits between the cancel and the pipeline; the two must not blur."""
+        from ideago.api.routes import analyze as analyze_route
+        from ideago.cache.file_cache import FileCache
+
+        cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+        _install(monkeypatch)
+        monkeypatch.setattr(
+            analyze_route,
+            "get_settings",
+            lambda: type("S", (), {"analysis_total_timeout_seconds": 30})(),
+        )
+
+        class HangingOrchestrator:
+            async def run(self, *_args, **_kwargs):
+                await asyncio.Event().wait()
+
+        async def drive() -> None:
+            with (
+                mock.patch.object(analyze_route, "get_cache", return_value=cache),
+                mock.patch.object(
+                    analyze_route,
+                    "get_orchestrator",
+                    return_value=HangingOrchestrator(),
+                ),
+            ):
+                await analyze_route._run_pipeline("cancel me", "report-cancel", USER)
+
+        task = asyncio.create_task(drive())
+        await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+        status = await cache.get_status("report-cancel")
+        assert status is not None
+        assert status["status"] == "cancelled"
+        assert status["error_code"] != "PIPELINE_TIMEOUT"

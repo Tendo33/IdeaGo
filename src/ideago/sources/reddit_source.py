@@ -103,6 +103,12 @@ class RedditSource:
         self._client_id = client_id
         self._client_secret = client_secret
         self._enable_public_fallback = enable_public_fallback
+        # Reddit closed unauthenticated search.json, so the public fallback now
+        # 403s on every call — verified not to be a user-agent problem. The
+        # fallback path is serialized (one request at a time behind a lock), so
+        # without a breaker each analysis pays N sequential round trips to learn
+        # the same thing N times. One is enough.
+        self._public_fallback_forbidden = False
         self._reddit_t = _max_age_days_to_reddit_t(max_age_days)
         self._public_fallback_limit = max(1, min(public_fallback_limit, 25))
         self._public_fallback_delay_seconds = max(0.0, public_fallback_delay_seconds)
@@ -370,6 +376,8 @@ class RedditSource:
                     "Reddit public fallback rate limit exceeded",
                     status_code=429,
                 )
+            if resp.status_code in (401, 403):
+                self._public_fallback_forbidden = True
             if resp.status_code != 200:
                 logger.warning(
                     "Reddit public fallback returned {status} for query '{query}'",
@@ -463,6 +471,13 @@ class RedditSource:
                 try:
                     async with request_lock:
                         if use_public_fallback:
+                            if self._public_fallback_forbidden:
+                                raise SourceSearchError(
+                                    self.platform.value,
+                                    "Reddit public fallback is blocked; "
+                                    "skipped after the first rejection",
+                                    status_code=403,
+                                )
                             result = await self._search_single_query_public(
                                 resolved_query,
                                 limit,

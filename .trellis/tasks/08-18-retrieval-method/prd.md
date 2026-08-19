@@ -273,6 +273,85 @@ uv run pytest                                → 904 passed, 0 failed, 覆盖率
 
 ## 剩余同类候选（结构性、可证）
 
-- 单次分析无总时限
-- Reddit 明知必然 403 仍每次消耗 5 次查询 × 1.5s 延迟（`is_available()` 返回 True）
-- Product Hunt 遇 429 无退避
+三条全部完成，见下节。
+
+---
+
+# 第四轮：三项运行时缺陷（2026-08-19）
+
+## ① 单次分析无总时限
+
+`await orchestrator.run(...)` 外没有任何 `wait_for`。分阶段超时约束不了总时长：
+
+| 阶段 | 最坏 |
+|---|---|
+| parse_intent | 120s × 3 次重试 × 端点数 |
+| fetch_sources | ceil(6/3) × 30s = 60s |
+| extract_map | ceil(6/3) × 60s = 120s |
+| analyze | 60s |
+
+无 fallback 端点时合计约 **10 分钟**；配 2 个 fallback 端点则 parse_intent 一节
+就是 1080s，总计 **超过 22 分钟**。
+
+这条在第三轮之后变得更要紧：准入闸只有 8 个全局槽位，**一个卡住的分析会永久占槽**，
+闸门会退化成慢性死锁。总时限是准入控制能成立的前提。
+
+新增 `analysis_total_timeout_seconds`（默认 600），超时走完整终态：退配额 +
+持久化 `failed` / `PIPELINE_TIMEOUT` + 推送终态事件，与其他结局一样释放槽位。
+
+### 关键设计约束
+
+`wait_for` 夹在「用户主动取消」和「流水线」之间，两者不能混淆：内部超时以
+`TimeoutError` 浮现，`task.cancel()` 仍以 `CancelledError` 穿透。
+`except asyncio.TimeoutError` 必须排在 `except Exception` 之前（前者是后者的子类）。
+已有专门测试钉住这一点。
+
+## ② Reddit 公共回退熔断
+
+### 先修正我自己的错误诊断
+
+我先前称「5 条查询 × 1.5s = 7.5s 浪费」。**实测证否**：403 在
+`await asyncio.sleep(delay)` 之前抛出，异常路径根本不睡。日志时间戳全部相同。
+
+另外「`is_available()` 返回 True」也需要限定：代码默认
+`enable_public_fallback=False`，`is_available()` 正确返回 False。是本机 `.env`
+显式设了 `REDDIT_ENABLE_PUBLIC_FALLBACK=true` 才走上必然 403 的路。
+
+### 真实代价与修复
+
+回退路径是串行的（`max_concurrency=1` + `request_lock`），所以真实浪费是
+**N 次串行 HTTP 往返**，每次都在确认同一件已知的事。
+
+加熔断：首次 401/403 后本实例不再尝试。实测 5 条查询的 HTTP 请求
+**从 5 次降到 1 次**。429 不触发熔断——限流是暂时的，封禁不是。
+
+## ③ Product Hunt 429 无退避
+
+所有非 200 一视同仁。实测语料 8 个用例中 **1 个（en-api-screenshot）因单次 429
+整源归零**。
+
+加一次重试并遵循 `Retry-After`，但**仅当等待能装进源级预算**（上限 8s）；
+超出则快速失败，把时间留给其他源。无 header 时默认退避 2s；HTTP-date 格式
+视为不可用而非猜测时钟偏移。
+
+## 验证证据
+
+```
+uv run ruff check src tests scripts          → All checks passed!
+uv run ruff format --check src tests scripts → 141 files already formatted
+uv run mypy src                              → Success: no issues found in 90 source files
+uv run pytest                                → 915 passed, 0 failed, 覆盖率 84.97%
+```
+
+新增测试：`TestTotalTimeBudget`（3 例，含取消与超时不得混淆）、
+`TestProductHuntRateLimitBackoff`（5 例）、`TestRedditPublicFallbackBreaker`（3 例）。
+
+## 本轮方法论小结
+
+四轮下来的分野很清楚：
+
+- **猜启发式改善模糊指标**（第一、二轮）→ 2 次被数据否决，全部撤回
+- **修结构性缺陷**（第三、四轮）→ 5 项全部落地，每项都有可复现的量化证据
+
+而且第四轮里我自己的两条诊断（Reddit sleep 浪费、`is_available()` 返回值）
+都是先测量才发现说错了。**先量化再动手**是这两轮成立的关键。

@@ -1579,3 +1579,145 @@ async def test_reddit_token_failure_raises() -> None:
         pytest.raises(SourceSearchError, match="OAuth token request failed"),
     ):
         await src._ensure_token()
+
+
+class TestProductHuntRateLimitBackoff:
+    """Every non-200 used to be treated alike, so one 429 zeroed the source.
+
+    Measured in 1 of 8 eval cases. A single backoff recovers it — but the caller
+    allows the source only ~30s in total, so an unbounded wait would blow that
+    budget and lose the source anyway.
+    """
+
+    @pytest.mark.asyncio
+    async def test_retries_once_after_a_429(self) -> None:
+        src = ProductHuntSource(dev_token="ph-token")
+        with (
+            patch.object(src._client, "post", new_callable=AsyncMock) as mock_post,
+            patch("ideago.sources.producthunt_source.asyncio.sleep", new=AsyncMock()),
+        ):
+            mock_post.side_effect = [
+                httpx.Response(429, headers={"Retry-After": "1"}, json={}),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            ]
+            results = await src.search(["html to markdown"], limit=10)
+
+        assert results, "a retried 429 should still yield results"
+
+    @pytest.mark.asyncio
+    async def test_waits_for_the_duration_the_server_asked_for(self) -> None:
+        src = ProductHuntSource(dev_token="ph-token")
+        with (
+            patch.object(src._client, "post", new_callable=AsyncMock) as mock_post,
+            patch(
+                "ideago.sources.producthunt_source.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            mock_post.side_effect = [
+                httpx.Response(429, headers={"Retry-After": "3"}, json={}),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_TOPICS_RESPONSE),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+                httpx.Response(200, json=MOCK_PRODUCTHUNT_POSTS_RESPONSE),
+            ]
+            await src.search(["html to markdown"], limit=10)
+
+        mock_sleep.assert_awaited_once_with(3.0)
+
+    @pytest.mark.asyncio
+    async def test_gives_up_when_the_wait_exceeds_the_source_budget(self) -> None:
+        """Waiting 120s inside a ~30s budget loses the source either way."""
+        src = ProductHuntSource(dev_token="ph-token")
+        with (
+            patch.object(src._client, "post", new_callable=AsyncMock) as mock_post,
+            patch(
+                "ideago.sources.producthunt_source.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            mock_post.return_value = httpx.Response(
+                429, headers={"Retry-After": "120"}, json={}
+            )
+            with pytest.raises(SourceSearchError):
+                await src._graphql("query {}", {})
+
+        mock_sleep.assert_not_awaited()
+        assert mock_post.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_uses_a_default_when_no_retry_after_header(self) -> None:
+        src = ProductHuntSource(dev_token="ph-token")
+        with (
+            patch.object(src._client, "post", new_callable=AsyncMock) as mock_post,
+            patch(
+                "ideago.sources.producthunt_source.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            mock_post.side_effect = [
+                httpx.Response(429, json={}),
+                httpx.Response(200, json={"data": {}}),
+            ]
+            await src._graphql("query {}", {})
+
+        mock_sleep.assert_awaited_once_with(2.0)
+
+    @pytest.mark.asyncio
+    async def test_unparseable_retry_after_is_not_guessed_at(self) -> None:
+        src = ProductHuntSource(dev_token="ph-token")
+        with (
+            patch.object(src._client, "post", new_callable=AsyncMock) as mock_post,
+            patch(
+                "ideago.sources.producthunt_source.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            mock_post.return_value = httpx.Response(
+                429, headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}, json={}
+            )
+            with pytest.raises(SourceSearchError):
+                await src._graphql("query {}", {})
+
+        mock_sleep.assert_not_awaited()
+
+
+class TestRedditPublicFallbackBreaker:
+    """Reddit closed unauthenticated search.json, so the fallback 403s always.
+
+    The fallback path is serialized behind a lock, so without a breaker each
+    analysis pays one sequential round trip per query to learn the same thing
+    every time.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stops_after_the_first_rejection(self) -> None:
+        src = RedditSource(client_id="", client_secret="", enable_public_fallback=True)
+        with patch.object(src._public_client, "get", new_callable=AsyncMock) as get:
+            get.return_value = httpx.Response(403, text="forbidden")
+            with pytest.raises(SourceSearchError):
+                await src.search(["a", "b", "c", "d", "e"])
+
+        assert get.await_count == 1, "should not retry a structurally closed endpoint"
+
+    @pytest.mark.asyncio
+    async def test_a_401_also_trips_the_breaker(self) -> None:
+        src = RedditSource(client_id="", client_secret="", enable_public_fallback=True)
+        with patch.object(src._public_client, "get", new_callable=AsyncMock) as get:
+            get.return_value = httpx.Response(401, text="unauthorized")
+            with pytest.raises(SourceSearchError):
+                await src.search(["a", "b", "c"])
+
+        assert get.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_a_429_does_not_trip_it(self) -> None:
+        """Rate limiting is transient; being locked out is not."""
+        src = RedditSource(client_id="", client_secret="", enable_public_fallback=True)
+        with patch.object(src._public_client, "get", new_callable=AsyncMock) as get:
+            get.return_value = httpx.Response(429, text="slow down")
+            with pytest.raises(SourceSearchError):
+                await src.search(["a", "b", "c"])
+
+        assert get.await_count == 3

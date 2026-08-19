@@ -127,3 +127,20 @@ records the owning user alongside each task and releases the slot in
 `_run_pipeline`'s `finally`. Both caps are per-process, so they scale with the
 single-process constraint above — raise them together with worker count, not
 independently.
+
+### Total Time Budget
+
+A capacity cap only works if slots come back. Per-stage timeouts do not bound
+the total run: each LLM call retries three times per endpoint, and every
+configured fallback endpoint multiplies that again. The arithmetic worst case is
+about ten minutes with no fallbacks and past twenty with two.
+
+`_run_pipeline` therefore wraps `orchestrator.run()` in
+`asyncio.wait_for(analysis_total_timeout_seconds)` (default 600). A timeout
+refunds quota, persists `failed` with `PIPELINE_TIMEOUT`, and emits a terminal
+error event, so it releases its slot the same way any other outcome does.
+
+`wait_for` sits between a user-initiated cancel and the pipeline, but the two
+stay distinguishable: an internal expiry surfaces as `TimeoutError`, while
+`task.cancel()` still propagates `CancelledError`. Both paths are pinned by
+tests — do not collapse the two handlers.

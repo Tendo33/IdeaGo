@@ -15,6 +15,14 @@ from ideago.pipeline.query_builder import infer_query_family
 from ideago.sources.errors import SourceSearchError
 
 logger = get_logger(__name__)
+# Product Hunt rate-limits aggressively, and every non-200 was treated alike:
+# one 429 dropped the whole source to zero results (measured in 1 of 8 eval
+# cases). A single backoff recovers it, but the caller only allows ~30s for the
+# entire source, so an unbounded honouring of Retry-After would blow that budget
+# and take the source down anyway. Retry only when the wait actually fits.
+_MAX_RATE_LIMIT_BACKOFF_SECONDS = 8.0
+_DEFAULT_RATE_LIMIT_BACKOFF_SECONDS = 2.0
+
 _TOPIC_FALLBACK_SLUGS = [
     "developer-tools",
     "productivity",
@@ -107,6 +115,29 @@ class ProductHuntSource:
         }
         return payload
 
+    @staticmethod
+    def _rate_limit_backoff(resp: httpx.Response) -> float | None:
+        """Seconds to wait before one retry, or None when it will not fit.
+
+        Product Hunt sends Retry-After in seconds. Values beyond the source's
+        own budget are not worth waiting for — failing fast leaves the other
+        sources their time.
+        """
+        raw = resp.headers.get("Retry-After", "").strip()
+        if not raw:
+            return _DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+        try:
+            delay = float(raw)
+        except ValueError:
+            # A HTTP-date form is legal but rare here; treat it as unusable
+            # rather than guessing at clock skew.
+            return None
+        if delay <= 0:
+            return _DEFAULT_RATE_LIMIT_BACKOFF_SECONDS
+        if delay > _MAX_RATE_LIMIT_BACKOFF_SECONDS:
+            return None
+        return delay
+
     async def _graphql(
         self,
         query: str,
@@ -117,6 +148,22 @@ class ProductHuntSource:
                 self._GRAPHQL_PATH,
                 json={"query": query, "variables": variables},
             )
+            if resp.status_code == 429:
+                backoff = self._rate_limit_backoff(resp)
+                if backoff is None:
+                    logger.warning(
+                        "Product Hunt rate limit asks for longer than the source "
+                        "budget allows; giving up without retry"
+                    )
+                else:
+                    logger.info(
+                        "Product Hunt rate-limited; retrying once in {}s", backoff
+                    )
+                    await asyncio.sleep(backoff)
+                    resp = await self._client.post(
+                        self._GRAPHQL_PATH,
+                        json={"query": query, "variables": variables},
+                    )
             if resp.status_code != 200:
                 logger.warning(
                     "Product Hunt API returned {status}",

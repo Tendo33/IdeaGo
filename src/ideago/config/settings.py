@@ -602,6 +602,19 @@ class Settings(BaseSettings):
         ),
     )
 
+    analysis_total_timeout_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=3600,
+        description=(
+            "Hard ceiling on one analysis. Per-stage timeouts do not bound the "
+            "total: LLM calls retry 3x per endpoint, and every fallback endpoint "
+            "multiplies that again, so a single run can occupy an admission slot "
+            "far longer than any stage limit suggests. "
+            "/ 单次分析的总时长上限"
+        ),
+    )
+
     # --- Quota / 配额 ---
     daily_analysis_limit: int = Field(
         default=5,

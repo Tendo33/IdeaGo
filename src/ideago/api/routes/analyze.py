@@ -225,12 +225,21 @@ async def _run_pipeline(
     callback = _RunStateCallback(report_id)
     try:
         orchestrator = get_orchestrator()
-        report = await orchestrator.run(
-            query,
-            callback=callback,
-            report_id=report_id,
-            user_id=user_id,
-            force_refresh=force_refresh,
+        # Per-stage timeouts do not bound the total. Each LLM call retries up to
+        # three times per endpoint and every configured fallback endpoint
+        # multiplies that again, so the arithmetic worst case runs to ~10
+        # minutes with no fallbacks and beyond 20 with two. A run that long
+        # holds an admission slot the whole time, which would turn the capacity
+        # cap into a slow deadlock. This is the outer bound.
+        report = await asyncio.wait_for(
+            orchestrator.run(
+                query,
+                callback=callback,
+                report_id=report_id,
+                user_id=user_id,
+                force_refresh=force_refresh,
+            ),
+            timeout=get_settings().analysis_total_timeout_seconds,
         )
         if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
             logger.info("Skipping completion for cancelled report {}", report_id)
@@ -259,6 +268,36 @@ async def _run_pipeline(
             report_id,
             fallback_query=query,
             fallback_user_id=user_id,
+        )
+    except asyncio.TimeoutError:
+        # wait_for already cancelled the pipeline; only the caller sees a
+        # timeout. A user-initiated cancel still arrives as CancelledError
+        # through wait_for, so the two stay distinguishable.
+        budget = get_settings().analysis_total_timeout_seconds
+        logger.warning(
+            "Pipeline exceeded its {}s budget for report {}", budget, report_id
+        )
+        app_metrics.increment_event("analysis_timed_out", reason="total_budget")
+        await _refund_quota_charge_for_report(report_id, user_id)
+        message = f"Analysis exceeded its {budget}s time budget. Please retry."
+        await _persist_terminal_status(
+            report_id,
+            "failed",
+            query,
+            error_code=ErrorCode.PIPELINE_TIMEOUT.value,
+            message=message,
+            user_id=user_id,
+        )
+        await run_state.publish(
+            PipelineEvent(
+                type=EventType.ERROR,
+                stage="pipeline",
+                message=message,
+                data={
+                    "report_id": report_id,
+                    "error_code": ErrorCode.PIPELINE_TIMEOUT.value,
+                },
+            )
         )
     except Exception:
         logger.exception("Pipeline failed for report {}", report_id)
