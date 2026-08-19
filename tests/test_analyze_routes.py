@@ -108,7 +108,11 @@ async def test_start_analysis_quota_and_existing_report_paths(tmp_path) -> None:
     assert status is not None
     assert status["status"] == "processing"
     quota_warning.assert_awaited_once()
-    register_task.assert_awaited_once_with(created.report_id, fake_task)
+    # user_id is now recorded so admission control can bound how many
+    # analyses a single account holds at once.
+    register_task.assert_awaited_once_with(
+        created.report_id, fake_task, user_id="user-1"
+    )
 
 
 @pytest.mark.asyncio

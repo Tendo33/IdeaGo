@@ -1971,7 +1971,11 @@ async def test_start_analysis_retries_when_dedup_hit_is_stale(tmp_path) -> None:
     status = await cache.get_status(created.report_id)
     assert status is not None
     assert status["status"] == "processing"
-    register_task.assert_awaited_once_with(created.report_id, fake_task)
+    # user_id is now recorded so admission control can bound how many
+    # analyses a single account holds at once.
+    register_task.assert_awaited_once_with(
+        created.report_id, fake_task, user_id="user-1"
+    )
 
 
 @pytest.mark.asyncio

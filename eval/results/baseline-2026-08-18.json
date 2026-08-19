@@ -1,0 +1,1084 @@
+{
+  "mode": "live",
+  "generated_at": "2026-08-18T11:06:36.080955+00:00",
+  "conditions": {
+    "sources": [
+      "tavily",
+      "github",
+      "hackernews",
+      "appstore",
+      "producthunt",
+      "reddit"
+    ],
+    "source_max_age_days": 730,
+    "max_results_per_source": 10,
+    "reddit_oauth_configured": false,
+    "reddit_public_fallback": true
+  },
+  "cases": {
+    "zh-web-research-notes": {
+      "tavily": {
+        "count": 41,
+        "competitor_hits": [
+          "Mendeley",
+          "Obsidian",
+          "Zotero"
+        ],
+        "competitor_hit_rate": 0.6,
+        "cjk_ratio": 0.22,
+        "freshness": {
+          "unknown": 41
+        },
+        "opportunity_score": {
+          "min": 0.0804,
+          "median": 0.5089,
+          "max": 0.6273
+        },
+        "queries": [
+          "文献管理 笔记工具 参考文献 竞品",
+          "research notes reference manager citation management academic notes alternative",
+          "research notes reference manager citation management academic notes pain points",
+          "research notes reference manager citation management academic notes workflow",
+          "research notes reference manager citation management academic notes pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 0,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {},
+        "opportunity_score": {},
+        "queries": [
+          "research notes reference manager citation management academic notes",
+          "topic:research-notes topic:reference-manager topic:citation-management",
+          "research notes web app",
+          "research notes saas"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 24,
+        "competitor_hits": [
+          "Notion",
+          "Obsidian",
+          "Zotero"
+        ],
+        "competitor_hit_rate": 0.6,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 2,
+          "<=1y": 8,
+          "<=2y": 13,
+          "<=90d": 1
+        },
+        "opportunity_score": {
+          "min": 0.1041,
+          "median": 0.208,
+          "max": 0.3852
+        },
+        "queries": [
+          "research notes reference manager citation management academic notes",
+          "research notes reference manager",
+          "web app",
+          "research notes citation management",
+          "saas"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 26,
+        "competitor_hits": [
+          "Mendeley",
+          "Notion",
+          "Obsidian",
+          "Roam",
+          "Zotero"
+        ],
+        "competitor_hit_rate": 1.0,
+        "cjk_ratio": 0.462,
+        "freshness": {
+          "<=180d": 2,
+          "<=1y": 2,
+          "<=2y": 1,
+          "<=90d": 2,
+          ">2y": 19
+        },
+        "opportunity_score": {
+          "min": 0.0744,
+          "median": 0.1596,
+          "max": 0.3004
+        },
+        "queries": [
+          "research notes",
+          "research notes review problem",
+          "reference manager",
+          "research notes review",
+          "research notes problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 0,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {},
+        "opportunity_score": {},
+        "queries": [
+          "saas",
+          "research notes",
+          "research notes positioning",
+          "web-app",
+          "reference manager"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "research notes reference manager citation management academic notes pain",
+          "research notes reference manager citation management academic notes alternative",
+          "switch from research notes",
+          "research notes reference manager citation management academic notes recommend",
+          "research notes webapp"
+        ]
+      }
+    },
+    "zh-mobile-hydration": {
+      "tavily": {
+        "count": 37,
+        "competitor_hits": [
+          "Plant Nanny",
+          "WaterMinder",
+          "Waterllama"
+        ],
+        "competitor_hit_rate": 0.75,
+        "cjk_ratio": 0.27,
+        "freshness": {
+          "unknown": 37
+        },
+        "opportunity_score": {
+          "min": 0.092,
+          "median": 0.5301,
+          "max": 0.6776
+        },
+        "queries": [
+          "喝水提醒 久坐提醒 健康提醒 竞品",
+          "water reminder hydration tracker sedentary reminder health reminder app alternative",
+          "water reminder hydration tracker sedentary reminder health reminder app pain points",
+          "water reminder hydration tracker sedentary reminder health reminder app workflow",
+          "water reminder hydration tracker sedentary reminder health reminder app pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 1,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 1
+        },
+        "opportunity_score": {
+          "min": 0.1755,
+          "median": 0.1755,
+          "max": 0.1755
+        },
+        "queries": [
+          "water reminder hydration tracker sedentary reminder health reminder app",
+          "topic:water-reminder topic:hydration-tracker topic:sedentary-reminder",
+          "water reminder mobile app"
+        ],
+        "query_count": 3
+      },
+      "hackernews": {
+        "count": 12,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 1,
+          "<=1y": 4,
+          "<=2y": 6,
+          "<=90d": 1
+        },
+        "opportunity_score": {
+          "min": 0.0621,
+          "median": 0.208,
+          "max": 0.4436
+        },
+        "queries": [
+          "water reminder hydration tracker sedentary reminder health reminder app",
+          "water reminder hydration tracker",
+          "mobile app",
+          "water reminder sedentary reminder",
+          "water reminder health reminder app"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 29,
+        "competitor_hits": [
+          "Plant Nanny",
+          "WaterMinder",
+          "Waterllama"
+        ],
+        "competitor_hit_rate": 0.75,
+        "cjk_ratio": 0.793,
+        "freshness": {
+          "<=1y": 2,
+          ">2y": 27
+        },
+        "opportunity_score": {
+          "min": 0.0723,
+          "median": 0.1804,
+          "max": 0.262
+        },
+        "queries": [
+          "water reminder",
+          "lifestyle",
+          "water reminder review problem",
+          "hydration tracker",
+          "utilities"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 2,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 2
+        },
+        "opportunity_score": {
+          "min": 0.1224,
+          "median": 0.1224,
+          "max": 0.1224
+        },
+        "queries": [
+          "mobile-apps",
+          "water reminder",
+          "water reminder positioning",
+          "ios",
+          "hydration tracker"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "water reminder hydration tracker sedentary reminder health reminder app pain",
+          "water reminder hydration tracker sedentary reminder health reminder app alternative",
+          "switch from water reminder",
+          "water reminder hydration tracker sedentary reminder health reminder app recommend",
+          "water reminder app"
+        ]
+      }
+    },
+    "zh-cli-deploy": {
+      "tavily": {
+        "count": 29,
+        "competitor_hits": [
+          "CapRover",
+          "Coolify",
+          "Dokku",
+          "Vercel"
+        ],
+        "competitor_hit_rate": 0.8,
+        "cjk_ratio": 0.31,
+        "freshness": {
+          "unknown": 29
+        },
+        "opportunity_score": {
+          "min": 0.0699,
+          "median": 0.5244,
+          "max": 0.6779
+        },
+        "queries": [
+          "一键部署 命令行部署 自建服务器 竞品",
+          "deployment cli self hosted deploy one click deploy paas self hosted alternative",
+          "deployment cli self hosted deploy one click deploy paas self hosted pain points",
+          "deployment cli self hosted deploy one click deploy paas self hosted workflow",
+          "deployment cli self hosted deploy one click deploy paas self hosted pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 17,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 1,
+          "<=1y": 2,
+          "<=2y": 2,
+          "<=30d": 8,
+          "<=90d": 4
+        },
+        "opportunity_score": {
+          "min": 0.0901,
+          "median": 0.1675,
+          "max": 0.2828
+        },
+        "queries": [
+          "deployment cli self hosted deploy one click deploy paas self hosted",
+          "topic:deployment-cli topic:self-hosted-deploy topic:one-click-deploy",
+          "deployment cli cli tool",
+          "deployment cli command line"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 23,
+        "competitor_hits": [
+          "Vercel"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 1,
+          "<=1y": 8,
+          "<=2y": 11,
+          "<=30d": 1,
+          "<=90d": 2
+        },
+        "opportunity_score": {
+          "min": 0.0603,
+          "median": 0.192,
+          "max": 0.374
+        },
+        "queries": [
+          "deployment cli self hosted deploy one click deploy paas self hosted",
+          "deployment cli self hosted deploy",
+          "cli tool",
+          "deployment cli one click deploy",
+          "deployment cli paas self hosted"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 11,
+        "competitor_hits": [
+          "Coolify",
+          "Vercel"
+        ],
+        "competitor_hit_rate": 0.4,
+        "cjk_ratio": 0.091,
+        "freshness": {
+          "<=180d": 7,
+          "<=1y": 1,
+          "<=30d": 1,
+          "<=90d": 2
+        },
+        "opportunity_score": {
+          "min": 0.1288,
+          "median": 0.1768,
+          "max": 0.236
+        },
+        "queries": [
+          "deployment cli",
+          "deployment cli review problem",
+          "self hosted deploy",
+          "deployment cli review",
+          "deployment cli problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 6,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 6
+        },
+        "opportunity_score": {
+          "min": 0.1234,
+          "median": 0.2418,
+          "max": 0.2418
+        },
+        "queries": [
+          "developer-tools",
+          "deployment cli",
+          "deployment cli positioning",
+          "command-line-tools",
+          "self hosted deploy"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "deployment cli self hosted deploy one click deploy paas self hosted pain",
+          "deployment cli self hosted deploy one click deploy paas self hosted alternative",
+          "switch from deployment cli",
+          "deployment cli self hosted deploy one click deploy paas self hosted recommend",
+          "deployment cli cli"
+        ]
+      }
+    },
+    "zh-api-invoice-ocr": {
+      "tavily": {
+        "count": 33,
+        "competitor_hits": [
+          "Mindee",
+          "Nanonets",
+          "Rossum",
+          "Veryfi"
+        ],
+        "competitor_hit_rate": 0.8,
+        "cjk_ratio": 0.273,
+        "freshness": {
+          "unknown": 33
+        },
+        "opportunity_score": {
+          "min": 0.1025,
+          "median": 0.5381,
+          "max": 0.6791
+        },
+        "queries": [
+          "发票识别 报销录入 票据 OCR 竞品",
+          "invoice ocr receipt recognition api expense automation document extraction api alternative",
+          "invoice ocr receipt recognition api expense automation document extraction api pain points",
+          "invoice ocr receipt recognition api expense automation document extraction api workflow",
+          "invoice ocr receipt recognition api expense automation document extraction api pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 1,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 1.0,
+        "freshness": {
+          "<=30d": 1
+        },
+        "opportunity_score": {
+          "min": 0.1509,
+          "median": 0.1509,
+          "max": 0.1509
+        },
+        "queries": [
+          "invoice ocr receipt recognition api expense automation document extraction api",
+          "topic:invoice-ocr topic:receipt-recognition-api topic:expense-automation",
+          "invoice ocr api",
+          "invoice ocr sdk"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 26,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 5,
+          "<=1y": 10,
+          "<=2y": 9,
+          "<=30d": 2
+        },
+        "opportunity_score": {
+          "min": 0.0288,
+          "median": 0.1869,
+          "max": 0.256
+        },
+        "queries": [
+          "invoice ocr receipt recognition api expense automation document extraction api",
+          "invoice ocr receipt recognition api",
+          "api",
+          "invoice ocr expense automation",
+          "developer tool"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 11,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.455,
+        "freshness": {
+          "<=180d": 2,
+          "<=1y": 1,
+          "<=2y": 1,
+          ">2y": 7
+        },
+        "opportunity_score": {
+          "min": 0.0424,
+          "median": 0.0962,
+          "max": 0.2104
+        },
+        "queries": [
+          "invoice ocr",
+          "invoice ocr review problem",
+          "receipt recognition api",
+          "invoice ocr review",
+          "invoice ocr problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 11,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 11
+        },
+        "opportunity_score": {
+          "min": 0.1224,
+          "median": 0.1234,
+          "max": 0.2357
+        },
+        "queries": [
+          "developer-tools",
+          "invoice ocr",
+          "invoice ocr positioning",
+          "apis",
+          "receipt recognition api"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "invoice ocr receipt recognition api expense automation document extraction api pain",
+          "invoice ocr receipt recognition api expense automation document extraction api alternative",
+          "switch from invoice ocr",
+          "invoice ocr receipt recognition api expense automation document extraction api recommend",
+          "invoice ocr api"
+        ]
+      }
+    },
+    "en-web-recruiting-crm": {
+      "tavily": {
+        "count": 29,
+        "competitor_hits": [
+          "Bullhorn",
+          "Loxo",
+          "Manatal",
+          "Recruit CRM",
+          "Zoho Recruit"
+        ],
+        "competitor_hit_rate": 1.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "unknown": 29
+        },
+        "opportunity_score": {
+          "min": 0.113,
+          "median": 0.5143,
+          "max": 0.6595
+        },
+        "queries": [
+          "best recruiting crm applicant tracking candidate pipeline staffing software competitor",
+          "recruiting crm applicant tracking candidate pipeline staffing software alternative",
+          "recruiting crm applicant tracking candidate pipeline staffing software pain points",
+          "recruiting crm applicant tracking candidate pipeline staffing software workflow",
+          "recruiting crm applicant tracking candidate pipeline staffing software pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 0,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {},
+        "opportunity_score": {},
+        "queries": [
+          "recruiting crm applicant tracking candidate pipeline staffing software",
+          "topic:recruiting-crm topic:applicant-tracking topic:candidate-pipeline",
+          "recruiting crm web app",
+          "recruiting crm saas"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 28,
+        "competitor_hits": [
+          "Bullhorn"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 5,
+          "<=1y": 7,
+          "<=2y": 15,
+          "<=90d": 1
+        },
+        "opportunity_score": {
+          "min": 0.0916,
+          "median": 0.192,
+          "max": 0.3852
+        },
+        "queries": [
+          "recruiting crm applicant tracking candidate pipeline staffing software",
+          "recruiting crm applicant tracking",
+          "web app",
+          "recruiting crm candidate pipeline",
+          "saas"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 16,
+        "competitor_hits": [
+          "Recruit CRM"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.062,
+        "freshness": {
+          "<=1y": 2,
+          "<=90d": 1,
+          ">2y": 13
+        },
+        "opportunity_score": {
+          "min": 0.0424,
+          "median": 0.0767,
+          "max": 0.197
+        },
+        "queries": [
+          "recruiting crm",
+          "recruiting crm review problem",
+          "applicant tracking",
+          "recruiting crm review",
+          "recruiting crm problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 0,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {},
+        "opportunity_score": {},
+        "queries": [
+          "saas",
+          "recruiting crm",
+          "recruiting crm positioning",
+          "web-app",
+          "applicant tracking"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "recruiting crm applicant tracking candidate pipeline staffing software pain",
+          "recruiting crm applicant tracking candidate pipeline staffing software alternative",
+          "switch from recruiting crm",
+          "recruiting crm applicant tracking candidate pipeline staffing software recommend",
+          "recruiting crm webapp"
+        ]
+      }
+    },
+    "en-mobile-plant-care": {
+      "tavily": {
+        "count": 31,
+        "competitor_hits": [
+          "Blossom",
+          "PictureThis",
+          "PlantNet",
+          "Planta",
+          "Vera"
+        ],
+        "competitor_hit_rate": 1.0,
+        "cjk_ratio": 0.032,
+        "freshness": {
+          "unknown": 31
+        },
+        "opportunity_score": {
+          "min": 0.1009,
+          "median": 0.5603,
+          "max": 0.6966
+        },
+        "queries": [
+          "best plant identification plant care reminder houseplant app watering reminder competitor",
+          "plant identification plant care reminder houseplant app watering reminder alternative",
+          "plant identification plant care reminder houseplant app watering reminder pain points",
+          "plant identification plant care reminder houseplant app watering reminder workflow",
+          "plant identification plant care reminder houseplant app watering reminder pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 0,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {},
+        "opportunity_score": {},
+        "queries": [
+          "plant identification plant care reminder houseplant app watering reminder",
+          "topic:plant-identification topic:plant-care-reminder topic:houseplant-app",
+          "plant identification mobile app"
+        ],
+        "query_count": 3
+      },
+      "hackernews": {
+        "count": 10,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 1,
+          "<=1y": 3,
+          "<=2y": 5,
+          "<=90d": 1
+        },
+        "opportunity_score": {
+          "min": 0.1862,
+          "median": 0.208,
+          "max": 0.4436
+        },
+        "queries": [
+          "plant identification plant care reminder houseplant app watering reminder",
+          "plant identification plant care reminder",
+          "mobile app",
+          "plant identification houseplant app",
+          "plant identification watering reminder"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 41,
+        "competitor_hits": [
+          "Blossom",
+          "PictureThis",
+          "PlantNet",
+          "Vera"
+        ],
+        "competitor_hit_rate": 0.8,
+        "cjk_ratio": 0.707,
+        "freshness": {
+          "<=1y": 2,
+          "<=2y": 2,
+          ">2y": 37
+        },
+        "opportunity_score": {
+          "min": 0.0723,
+          "median": 0.1195,
+          "max": 0.262
+        },
+        "queries": [
+          "plant identification",
+          "lifestyle",
+          "plant identification review problem",
+          "plant care reminder",
+          "utilities"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 1,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 1
+        },
+        "opportunity_score": {
+          "min": 0.1224,
+          "median": 0.1224,
+          "max": 0.1224
+        },
+        "queries": [
+          "mobile-apps",
+          "plant identification",
+          "plant identification positioning",
+          "ios",
+          "plant care reminder"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "plant identification plant care reminder houseplant app watering reminder pain",
+          "plant identification plant care reminder houseplant app watering reminder alternative",
+          "switch from plant identification",
+          "plant identification plant care reminder houseplant app watering reminder recommend",
+          "plant identification app"
+        ]
+      }
+    },
+    "en-cli-secrets": {
+      "tavily": {
+        "count": 31,
+        "competitor_hits": [
+          "1Password",
+          "Doppler",
+          "Infisical",
+          "Vault",
+          "sops"
+        ],
+        "competitor_hit_rate": 1.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "unknown": 31
+        },
+        "opportunity_score": {
+          "min": 0.1127,
+          "median": 0.4685,
+          "max": 0.6594
+        },
+        "queries": [
+          "best secrets management environment variables cli secret sync developer secrets competitor",
+          "secrets management environment variables cli secret sync developer secrets alternative",
+          "secrets management environment variables cli secret sync developer secrets pain points",
+          "secrets management environment variables cli secret sync developer secrets workflow",
+          "secrets management environment variables cli secret sync developer secrets pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 6,
+        "competitor_hits": [
+          "Vault"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 1,
+          "<=1y": 1,
+          "<=2y": 1,
+          "<=30d": 3
+        },
+        "opportunity_score": {
+          "min": 0.0745,
+          "median": 0.1551,
+          "max": 0.2284
+        },
+        "queries": [
+          "secrets management environment variables cli secret sync developer secrets",
+          "topic:secrets-management topic:environment-variables-cli topic:secret-sync",
+          "secrets management cli tool",
+          "secrets management command line"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 28,
+        "competitor_hits": [
+          "1Password",
+          "Doppler",
+          "Infisical",
+          "Vault",
+          "sops"
+        ],
+        "competitor_hit_rate": 1.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 3,
+          "<=1y": 11,
+          "<=2y": 12,
+          "<=30d": 1,
+          "<=90d": 1
+        },
+        "opportunity_score": {
+          "min": 0.009,
+          "median": 0.1902,
+          "max": 0.374
+        },
+        "queries": [
+          "secrets management environment variables cli secret sync developer secrets",
+          "secrets management environment variables cli",
+          "cli tool",
+          "secrets management secret sync",
+          "secrets management developer secrets"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 11,
+        "competitor_hits": [
+          "1Password"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.818,
+        "freshness": {
+          "<=1y": 1,
+          "<=2y": 1,
+          ">2y": 9
+        },
+        "opportunity_score": {
+          "min": 0.0807,
+          "median": 0.1256,
+          "max": 0.1944
+        },
+        "queries": [
+          "secrets management",
+          "secrets management review problem",
+          "environment variables cli",
+          "secrets management review",
+          "secrets management problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "count": 4,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=30d": 4
+        },
+        "opportunity_score": {
+          "min": 0.2408,
+          "median": 0.2418,
+          "max": 0.2418
+        },
+        "queries": [
+          "developer-tools",
+          "secrets management",
+          "secrets management positioning",
+          "command-line-tools",
+          "environment variables cli"
+        ],
+        "query_count": 5
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "secrets management environment variables cli secret sync developer secrets pain",
+          "secrets management environment variables cli secret sync developer secrets alternative",
+          "switch from secrets management",
+          "secrets management environment variables cli secret sync developer secrets recommend",
+          "secrets management cli"
+        ]
+      }
+    },
+    "en-api-screenshot": {
+      "tavily": {
+        "count": 21,
+        "competitor_hits": [
+          "Browserless",
+          "ScreenshotOne",
+          "Screenshotapi",
+          "Urlbox"
+        ],
+        "competitor_hit_rate": 0.8,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "unknown": 21
+        },
+        "opportunity_score": {
+          "min": 0.0797,
+          "median": 0.5419,
+          "max": 0.6248
+        },
+        "queries": [
+          "best screenshot api url to image web page rendering api headless browser screenshot competitor",
+          "screenshot api url to image web page rendering api headless browser screenshot alternative",
+          "screenshot api url to image web page rendering api headless browser screenshot pain points",
+          "screenshot api url to image web page rendering api headless browser screenshot workflow",
+          "screenshot api url to image web page rendering api headless browser screenshot pricing"
+        ],
+        "query_count": 5
+      },
+      "github": {
+        "count": 8,
+        "competitor_hits": [
+          "Browserless"
+        ],
+        "competitor_hit_rate": 0.2,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=1y": 1,
+          "<=2y": 4,
+          "<=30d": 3
+        },
+        "opportunity_score": {
+          "min": 0.0983,
+          "median": 0.1762,
+          "max": 0.2988
+        },
+        "queries": [
+          "screenshot api url to image web page rendering api headless browser screenshot",
+          "topic:screenshot-api topic:url-to-image topic:web-page-rendering-api",
+          "screenshot api api",
+          "screenshot api sdk"
+        ],
+        "query_count": 4
+      },
+      "hackernews": {
+        "count": 36,
+        "competitor_hits": [
+          "ScreenshotOne",
+          "Urlbox"
+        ],
+        "competitor_hit_rate": 0.4,
+        "cjk_ratio": 0.0,
+        "freshness": {
+          "<=180d": 8,
+          "<=1y": 11,
+          "<=2y": 12,
+          "<=30d": 3,
+          "<=90d": 2
+        },
+        "opportunity_score": {
+          "min": 0.0288,
+          "median": 0.1869,
+          "max": 0.3398
+        },
+        "queries": [
+          "screenshot api url to image web page rendering api headless browser screenshot",
+          "screenshot api url to image",
+          "api",
+          "screenshot api web page rendering api",
+          "developer tool"
+        ],
+        "query_count": 5
+      },
+      "appstore": {
+        "count": 9,
+        "competitor_hits": [],
+        "competitor_hit_rate": 0.0,
+        "cjk_ratio": 0.444,
+        "freshness": {
+          "<=180d": 3,
+          "<=1y": 1,
+          "<=90d": 2,
+          ">2y": 3
+        },
+        "opportunity_score": {
+          "min": 0.0424,
+          "median": 0.1152,
+          "max": 0.1804
+        },
+        "queries": [
+          "screenshot api",
+          "screenshot api review problem",
+          "url to image",
+          "screenshot api review",
+          "screenshot api problem"
+        ],
+        "query_count": 5
+      },
+      "producthunt": {
+        "error": "SourceSearchError: producthunt search failed: Product Hunt API non-200 response (status=429)",
+        "queries": [
+          "developer-tools",
+          "screenshot api",
+          "screenshot api positioning",
+          "apis",
+          "url to image"
+        ]
+      },
+      "reddit": {
+        "error": "SourceSearchError: reddit search failed: Reddit public fallback non-200 response (status=403)",
+        "queries": [
+          "screenshot api url to image web page rendering api headless browser screenshot pain",
+          "screenshot api url to image web page rendering api headless browser screenshot alternative",
+          "switch from screenshot api",
+          "screenshot api url to image web page rendering api headless browser screenshot recommend",
+          "screenshot api api"
+        ]
+      }
+    }
+  }
+}

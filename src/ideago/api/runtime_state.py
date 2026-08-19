@@ -129,21 +129,48 @@ class ProcessingDedupRegistry:
 
 
 class PipelineTaskRegistry:
+    """Tracks in-flight pipeline tasks, and how many each user owns.
+
+    Ownership is recorded so admission control can bound concurrent work. Rate
+    limiting bounds *request arrival*; it says nothing about how much work is
+    already running. A user could hold ten multi-minute analyses at once, each
+    fanning out to six concurrent source fetches, on a single-process server.
+    """
+
     def __init__(self, lock: threading.RLock) -> None:
         self._lock = lock
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._owners: dict[str, str] = {}
 
     @property
     def tasks(self) -> dict[str, asyncio.Task[None]]:
         return self._tasks
 
-    def register(self, report_id: str, task: asyncio.Task[None]) -> None:
+    def register(
+        self, report_id: str, task: asyncio.Task[None], *, user_id: str = ""
+    ) -> None:
         with self._lock:
             self._tasks[report_id] = task
+            if user_id:
+                self._owners[report_id] = user_id
 
     def remove(self, report_id: str) -> asyncio.Task[None] | None:
         with self._lock:
+            self._owners.pop(report_id, None)
             return self._tasks.pop(report_id, None)
+
+    def active_count(self) -> int:
+        """Number of tasks still running."""
+        with self._lock:
+            return sum(1 for task in self._tasks.values() if not task.done())
+
+    def active_count_for_user(self, user_id: str) -> int:
+        with self._lock:
+            return sum(
+                1
+                for report_id, task in self._tasks.items()
+                if not task.done() and self._owners.get(report_id) == user_id
+            )
 
     def get(self, report_id: str) -> asyncio.Task[None] | None:
         with self._lock:
@@ -156,3 +183,4 @@ class PipelineTaskRegistry:
     def clear(self) -> None:
         with self._lock:
             self._tasks.clear()
+            self._owners.clear()

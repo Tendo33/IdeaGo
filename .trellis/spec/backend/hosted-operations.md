@@ -105,3 +105,25 @@ checkpointer and PostgREST rate limiting are multi-worker safe, but three pieces
 of state are still per-process: in-flight pipeline tasks (so cancel does not
 cross workers), SSE run state, and metrics. See `DEPLOYMENT.md` §8b before
 scaling out.
+
+## Admission Control
+
+Rate limiting bounds how fast requests *arrive*. It says nothing about how much
+work is already *running* — and an analysis runs for minutes, fanning out to
+several concurrent source fetches plus LLM calls. At the default 10 analyses per
+60s, one user could hold ten of them at once on a single-process server.
+
+`POST /analyze` therefore checks in-flight capacity before reserving a dedup
+slot:
+
+| Setting | Default | Rejection |
+| --- | --- | --- |
+| `max_concurrent_analyses_per_user` | 2 | `429 ANALYSIS_CAPACITY_EXCEEDED` |
+| `max_concurrent_analyses` | 8 | `503 ANALYSIS_CAPACITY_EXCEEDED` |
+
+The per-user cap is checked first, so a single account cannot consume the global
+budget and starve everyone else. Counts come from `PipelineTaskRegistry`, which
+records the owning user alongside each task and releases the slot in
+`_run_pipeline`'s `finally`. Both caps are per-process, so they scale with the
+single-process constraint above — raise them together with worker count, not
+independently.

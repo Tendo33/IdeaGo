@@ -160,7 +160,9 @@ class TestQualityScore:
     def test_github_zero_stars(self) -> None:
         r = _raw(Platform.GITHUB, stargazers_count=0, forks_count=0, description="")
         score = _quality_score(r)
-        assert score == pytest.approx(0.0, abs=0.01)
+        # Not exactly zero: an undated result now carries the neutral freshness
+        # prior (0.3) rather than being scored as ancient.
+        assert score == pytest.approx(0.027, abs=0.005)
 
     def test_hackernews_high_points(self) -> None:
         r = _raw(Platform.HACKERNEWS, points=300, num_comments=60)
@@ -269,8 +271,25 @@ class TestFreshnessSignal:
         assert _freshness_signal(published.isoformat(), _FIXED_FETCHED_AT) == 1.0
 
     @pytest.mark.parametrize("value", [None, "", "   ", "not-a-date", 12345, {}])
-    def test_unparseable_timestamp_yields_zero(self, value: object) -> None:
-        assert _freshness_signal(value, _FIXED_FETCHED_AT) == 0.0
+    def test_unknown_timestamp_gets_a_neutral_prior(self, value: object) -> None:
+        """Unknown age is not evidence of staleness.
+
+        Returning 0.0 here scored "we cannot tell how old this is" *worse* than
+        ">2 years old" (0.2). Tavily's general search returns no date at all, so
+        every one of its results paid that penalty — the source supplying ~39%
+        of evidence and ~94% of competitor matches.
+        """
+        assert _freshness_signal(value, _FIXED_FETCHED_AT) == pytest.approx(0.3)
+
+    def test_unknown_scores_between_ancient_and_recent(self) -> None:
+        ancient = _freshness_signal(
+            (_FIXED_FETCHED_AT - timedelta(days=1200)).isoformat(), _FIXED_FETCHED_AT
+        )
+        recent = _freshness_signal(
+            (_FIXED_FETCHED_AT - timedelta(days=10)).isoformat(), _FIXED_FETCHED_AT
+        )
+        unknown = _freshness_signal(None, _FIXED_FETCHED_AT)
+        assert ancient < unknown < recent
 
     def test_naive_timestamp_is_treated_as_utc(self) -> None:
         assert _parse_iso8601("2026-05-19T00:00:00") == _FIXED_FETCHED_AT
@@ -286,6 +305,65 @@ class TestFreshnessSignal:
         anchor = _FIXED_FETCHED_AT.astimezone(timezone(timedelta(hours=9)))
         published = _FIXED_FETCHED_AT - timedelta(days=100)
         assert _freshness_signal(published.isoformat(), anchor) == pytest.approx(0.6)
+
+
+class TestPlannerFamilyAliases:
+    """The LLM planner speaks QueryFamily; the scorer speaks its own vocabulary.
+
+    Three of the six names differ. An unmatched family gets no signal baseline
+    at all, so those results end up ranked on popularity alone — which reads as
+    "alternative discovery quietly stopped working" once the planner is live.
+    """
+
+    @pytest.mark.parametrize(
+        ("planner_family", "scoring_family"),
+        [
+            ("direct_competitor", "competitor_discovery"),
+            ("adjacent_analogy", "alternative_discovery"),
+            ("workflow_interface", "workflow_discovery"),
+        ],
+    )
+    def test_planner_family_scores_like_its_native_equivalent(
+        self, planner_family: str, scoring_family: str
+    ) -> None:
+        def build(family: str) -> float:
+            return build_opportunity_score_breakdown(
+                _raw(
+                    Platform.TAVILY,
+                    title="Zotero",
+                    description="A free reference manager for researchers",
+                    matched_query="reference manager alternative",
+                    query_family=family,
+                    score=0.6,
+                    engagement_proxy=0.6,
+                )
+            ).score
+
+        assert build(planner_family) == pytest.approx(build(scoring_family))
+
+    def test_every_planner_family_is_understood(self) -> None:
+        """No QueryFamily value may fall through to a zero signal baseline."""
+        from ideago.models.research import QueryFamily
+        from ideago.pipeline.pre_filter import (
+            _FAMILY_BASE_COMPONENTS,
+            _canonical_family,
+        )
+
+        unmapped = [
+            family.value
+            for family in QueryFamily
+            if _canonical_family(family.value) not in _FAMILY_BASE_COMPONENTS
+        ]
+        assert not unmapped, (
+            f"planner families with no scoring baseline: {unmapped}. "
+            "Add an alias in _PLANNER_FAMILY_ALIASES or a baseline entry."
+        )
+
+    def test_unknown_family_passes_through_unchanged(self) -> None:
+        from ideago.pipeline.pre_filter import _canonical_family
+
+        assert _canonical_family("pain_discovery") == "pain_discovery"
+        assert _canonical_family("something_new") == "something_new"
 
 
 class TestSafeConversions:

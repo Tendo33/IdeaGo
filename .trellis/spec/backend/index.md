@@ -72,4 +72,5 @@ plumbing.
 - `http-api-when-added.md`
 - `database-when-added.md`
 - `hosted-operations.md`
+- `retrieval-scoring.md`
 - `testing.md`

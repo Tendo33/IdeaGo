@@ -17,6 +17,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from ideago.api.dependencies import (
     DedupReservationUnavailableError,
+    active_analysis_count,
+    active_analysis_count_for_user,
     cleanup_report_runs,
     get_cache,
     get_or_create_report_run,
@@ -56,6 +58,39 @@ _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS = 10.5
 _EXISTING_SLOT_CONFIRM_INITIAL_DELAY_SECONDS = 0.1
 _EXISTING_SLOT_CONFIRM_MAX_DELAY_SECONDS = 1.5
 _RESERVE_RETRY_MAX = 3
+
+
+def _assert_capacity_available(user_id: str) -> None:
+    """Reject new analyses when too much work is already in flight.
+
+    Rate limiting bounds how fast requests arrive; it says nothing about how
+    much work is already running. An analysis takes minutes and fans out to
+    several concurrent source fetches and LLM calls, so at 10 requests/minute a
+    single user could hold ten of them at once on a single-process server.
+    Admission control is what actually bounds the load.
+    """
+    settings = get_settings()
+
+    per_user = active_analysis_count_for_user(user_id)
+    if per_user >= settings.max_concurrent_analyses_per_user:
+        app_metrics.increment_event("analysis_start_failed", reason="user_at_capacity")
+        raise AppError(
+            429,
+            ErrorCode.ANALYSIS_CAPACITY_EXCEEDED,
+            f"You already have {per_user} analyses running. "
+            "Wait for one to finish before starting another.",
+        )
+
+    total = active_analysis_count()
+    if total >= settings.max_concurrent_analyses:
+        app_metrics.increment_event(
+            "analysis_start_failed", reason="server_at_capacity"
+        )
+        raise AppError(
+            503,
+            ErrorCode.ANALYSIS_CAPACITY_EXCEEDED,
+            "The server is at analysis capacity. Please retry shortly.",
+        )
 
 
 async def _refund_quota_charge_for_report(report_id: str, user_id: str) -> None:
@@ -260,6 +295,7 @@ async def start_analysis(
 ) -> AnalyzeResponse:
     """Start a competitor research pipeline for the given idea."""
     query = request.query.strip()
+    _assert_capacity_available(user.id)
 
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
     report_id = ""
@@ -349,7 +385,7 @@ async def start_analysis(
                 force_refresh=request.force_refresh,
             )
         )
-        await register_pipeline_task(report_id, task)
+        await register_pipeline_task(report_id, task, user_id=user.id)
     except DependencyUnavailableError as exc:
         app_metrics.increment_event(
             "analysis_status_persist_failed",

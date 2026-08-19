@@ -581,6 +581,27 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- Admission control / 准入控制 ---
+    max_concurrent_analyses: int = Field(
+        default=8,
+        ge=1,
+        le=200,
+        description=(
+            "Global cap on analyses running at once. Rate limiting bounds how "
+            "fast requests arrive; this bounds how much work is in flight. "
+            "/ 全局同时进行的分析数上限"
+        ),
+    )
+    max_concurrent_analyses_per_user: int = Field(
+        default=2,
+        ge=1,
+        le=50,
+        description=(
+            "Per-user cap on analyses running at once, so one account cannot "
+            "consume the whole global budget. / 单用户同时进行的分析数上限"
+        ),
+    )
+
     # --- Quota / 配额 ---
     daily_analysis_limit: int = Field(
         default=5,

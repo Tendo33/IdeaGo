@@ -1,0 +1,276 @@
+{
+  "_comment": [
+    "Benchmark ideas for retrieval evaluation.",
+    "",
+    "`intent` is populated by `--refresh-intents` (one real LLM call per case) and",
+    "then reused. Caching it is deliberate: if intent parsing varied between the",
+    "baseline run and the after run, the two would not be comparable and any",
+    "measured change could just be the LLM phrasing things differently.",
+    "",
+    "`known_competitors` is hand-authored. It is the only relevance signal here",
+    "with a human ground truth, which is why it exists despite being narrow.",
+    "Names should be distinctive enough to match on (avoid generic words).",
+    "INTENTS BELOW ARE HAND-AUTHORED, not produced by the real IntentParser: the configured LLM gateway returns 401 (token unusable), so --refresh-intents cannot run. They follow the rules in llm/prompts/intent_parser.txt (3-6 concrete searchable nouns; Chinese keywords only for Chinese input). Re-run --refresh-intents once a working key exists, and re-baseline if they change."
+  ],
+  "cases": [
+    {
+      "id": "zh-web-research-notes",
+      "lang": "zh",
+      "app_type": "web",
+      "query": "给研究者用的笔记工具，能自动整理文献引用和参考文献",
+      "known_competitors": [
+        "Zotero",
+        "Mendeley",
+        "Obsidian",
+        "Notion",
+        "Roam"
+      ],
+      "intent": {
+        "keywords_en": [
+          "research notes",
+          "reference manager",
+          "citation management",
+          "academic notes"
+        ],
+        "keywords_zh": [
+          "文献管理",
+          "笔记工具",
+          "参考文献",
+          "科研笔记"
+        ],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "web",
+        "target_scenario": "研究者需要在记笔记时自动整理文献引用和参考文献",
+        "output_language": "zh",
+        "search_queries": [],
+        "cache_key": "eval::zh-web-research-notes"
+      }
+    },
+    {
+      "id": "zh-mobile-hydration",
+      "lang": "zh",
+      "app_type": "mobile",
+      "query": "一个提醒上班族喝水和起身活动的手机应用",
+      "known_competitors": [
+        "Waterllama",
+        "Plant Nanny",
+        "WaterMinder",
+        "Stand Up"
+      ],
+      "intent": {
+        "keywords_en": [
+          "water reminder",
+          "hydration tracker",
+          "sedentary reminder",
+          "health reminder app"
+        ],
+        "keywords_zh": [
+          "喝水提醒",
+          "久坐提醒",
+          "健康提醒",
+          "饮水记录"
+        ],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "mobile",
+        "target_scenario": "上班族需要被提醒定时喝水和起身活动",
+        "output_language": "zh",
+        "search_queries": [],
+        "cache_key": "eval::zh-mobile-hydration"
+      }
+    },
+    {
+      "id": "zh-cli-deploy",
+      "lang": "zh",
+      "app_type": "cli",
+      "query": "一个命令行工具，把本地项目一键部署到自己的云服务器",
+      "known_competitors": [
+        "Dokku",
+        "Coolify",
+        "CapRover",
+        "fly.io",
+        "Vercel"
+      ],
+      "intent": {
+        "keywords_en": [
+          "deployment cli",
+          "self hosted deploy",
+          "one click deploy",
+          "paas self hosted"
+        ],
+        "keywords_zh": [
+          "一键部署",
+          "命令行部署",
+          "自建服务器",
+          "私有部署"
+        ],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "cli",
+        "target_scenario": "开发者希望用命令行把本地项目一键部署到自己的云服务器",
+        "output_language": "zh",
+        "search_queries": [],
+        "cache_key": "eval::zh-cli-deploy"
+      }
+    },
+    {
+      "id": "zh-api-invoice-ocr",
+      "lang": "zh",
+      "app_type": "api",
+      "query": "给中小企业做电子发票识别和报销录入的 API 服务",
+      "known_competitors": [
+        "Mindee",
+        "Veryfi",
+        "Klippa",
+        "Rossum",
+        "Nanonets"
+      ],
+      "intent": {
+        "keywords_en": [
+          "invoice ocr",
+          "receipt recognition api",
+          "expense automation",
+          "document extraction api"
+        ],
+        "keywords_zh": [
+          "发票识别",
+          "报销录入",
+          "票据 OCR",
+          "电子发票"
+        ],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "api",
+        "target_scenario": "中小企业需要通过 API 自动识别电子发票并录入报销",
+        "output_language": "zh",
+        "search_queries": [],
+        "cache_key": "eval::zh-api-invoice-ocr"
+      }
+    },
+    {
+      "id": "en-web-recruiting-crm",
+      "lang": "en",
+      "app_type": "web",
+      "query": "A lightweight CRM for small recruiting agencies that tracks candidates and clients",
+      "known_competitors": [
+        "Recruit CRM",
+        "Bullhorn",
+        "Loxo",
+        "Manatal",
+        "Zoho Recruit"
+      ],
+      "intent": {
+        "keywords_en": [
+          "recruiting crm",
+          "applicant tracking",
+          "candidate pipeline",
+          "staffing software"
+        ],
+        "keywords_zh": [],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "web",
+        "target_scenario": "Small recruiting agencies need to track candidates and clients in one place",
+        "output_language": "en",
+        "search_queries": [],
+        "cache_key": "eval::en-web-recruiting-crm"
+      }
+    },
+    {
+      "id": "en-mobile-plant-care",
+      "lang": "en",
+      "app_type": "mobile",
+      "query": "A mobile app that identifies houseplants from a photo and reminds you to water them",
+      "known_competitors": [
+        "PictureThis",
+        "PlantNet",
+        "Planta",
+        "Blossom",
+        "Vera"
+      ],
+      "intent": {
+        "keywords_en": [
+          "plant identification",
+          "plant care reminder",
+          "houseplant app",
+          "watering reminder"
+        ],
+        "keywords_zh": [],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "mobile",
+        "target_scenario": "Houseplant owners want to identify plants from a photo and get watering reminders",
+        "output_language": "en",
+        "search_queries": [],
+        "cache_key": "eval::en-mobile-plant-care"
+      }
+    },
+    {
+      "id": "en-cli-secrets",
+      "lang": "en",
+      "app_type": "cli",
+      "query": "A command line tool to manage and sync secrets across development environments",
+      "known_competitors": [
+        "Doppler",
+        "Infisical",
+        "sops",
+        "Vault",
+        "1Password"
+      ],
+      "intent": {
+        "keywords_en": [
+          "secrets management",
+          "environment variables cli",
+          "secret sync",
+          "developer secrets"
+        ],
+        "keywords_zh": [],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "cli",
+        "target_scenario": "Developers need to manage and sync secrets across environments from the terminal",
+        "output_language": "en",
+        "search_queries": [],
+        "cache_key": "eval::en-cli-secrets"
+      }
+    },
+    {
+      "id": "en-api-screenshot",
+      "lang": "en",
+      "app_type": "api",
+      "query": "An API that turns any web page URL into a high quality screenshot image",
+      "known_competitors": [
+        "Urlbox",
+        "ScreenshotOne",
+        "ApiFlash",
+        "Browserless",
+        "Screenshotapi"
+      ],
+      "intent": {
+        "keywords_en": [
+          "screenshot api",
+          "url to image",
+          "web page rendering api",
+          "headless browser screenshot"
+        ],
+        "keywords_zh": [],
+        "exact_entities": [],
+        "comparison_anchors": [],
+        "search_goal": "find_direct_competitors",
+        "app_type": "api",
+        "target_scenario": "Developers need an API that renders any URL into a screenshot image",
+        "output_language": "en",
+        "search_queries": [],
+        "cache_key": "eval::en-api-screenshot"
+      }
+    }
+  ]
+}

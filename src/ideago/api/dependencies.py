@@ -370,9 +370,20 @@ async def reserve_processing_report(
     return _processing_dedup_registry.reserve(key, report_id)
 
 
-async def register_pipeline_task(report_id: str, task: asyncio.Task[None]) -> None:
+async def register_pipeline_task(
+    report_id: str, task: asyncio.Task[None], *, user_id: str = ""
+) -> None:
     """Atomically register pipeline task."""
-    _pipeline_task_registry.register(report_id, task)
+    _pipeline_task_registry.register(report_id, task, user_id=user_id)
+
+
+def active_analysis_count() -> int:
+    """How many analyses are running right now, process-wide."""
+    return _pipeline_task_registry.active_count()
+
+
+def active_analysis_count_for_user(user_id: str) -> int:
+    return _pipeline_task_registry.active_count_for_user(user_id)
 
 
 async def remove_pipeline_task(report_id: str) -> asyncio.Task[None] | None:

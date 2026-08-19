@@ -12,6 +12,10 @@ from ideago.models.research import OpportunityScoreBreakdown, Platform, RawResul
 
 _DEFAULT_MAX_PER_SOURCE = 15
 _DEFAULT_MAX_AGE_DAYS = 0
+# Neutral prior for results whose age cannot be determined. Sits between the
+# ">1y" (0.4) and ">2y" (0.2) buckets: not treated as fresh, but not punished
+# as harder than genuinely ancient content either.
+_UNKNOWN_FRESHNESS = 0.3
 _PAIN_TERMS = (
     "pain",
     "complaint",
@@ -62,6 +66,29 @@ _FAMILY_BASE_COMPONENTS: dict[str, tuple[float, float, float]] = {
     "ecosystem_discovery": (0.0, 0.12, 0.08),
     "competitor_discovery": (0.0, 0.08, 0.0),
 }
+# The LLM query planner emits QueryFamily values, which are *not* the same
+# vocabulary as the scoring families below. Three of the six do not match, and an
+# unmatched family falls through to (0.0, 0.0, 0.0) — no signal baseline at all,
+# leaving the result ranked on popularity alone. Measured on one fixture:
+# `adjacent_analogy` scored 0.204 where the equivalent `alternative_discovery`
+# scored 0.589, a 2.9x gap purely from the name.
+#
+# This is latent rather than active: the deterministic template path supplies
+# scoring-native names, and a planned query only appears when the LLM is
+# reachable. It would surface as "alternative discovery silently stopped
+# working" the moment the planner came back.
+_PLANNER_FAMILY_ALIASES: dict[str, str] = {
+    "direct_competitor": "competitor_discovery",
+    "adjacent_analogy": "alternative_discovery",
+    "workflow_interface": "workflow_discovery",
+}
+
+
+def _canonical_family(query_family: str) -> str:
+    """Map a planner family onto the scoring vocabulary."""
+    return _PLANNER_FAMILY_ALIASES.get(query_family, query_family)
+
+
 _FAMILY_COMPETITION_PENALTY: dict[str, float] = {
     "competitor_discovery": 0.38,
     "launch_discovery": 0.28,
@@ -135,7 +162,7 @@ def build_opportunity_score_breakdown(result: RawResult) -> OpportunityScoreBrea
     if platform == Platform.GOOGLE_TRENDS:
         return OpportunityScoreBreakdown(score=0.5 if has_description else 0.1)
 
-    query_family = _safe_str(raw.get("query_family")).lower()
+    query_family = _canonical_family(_safe_str(raw.get("query_family")).lower())
     signal_text = _signal_text(result)
     popularity = _popularity_signal(result)
     engagement = _engagement_signal(raw)
@@ -347,9 +374,21 @@ def _engagement_signal(raw: dict[str, object]) -> float:
 
 
 def _freshness_signal(value: object, fetched_at: datetime) -> float:
+    """Score how recent a result is.
+
+    An unknown age is *not* evidence of staleness. Returning 0.0 for it — the
+    same value as ">2 years old", and lower than any dated bucket — silently
+    demoted every result from a source that cannot supply dates. Tavily's
+    general-topic search returns no date field at all, so 100% of its results
+    took that penalty: measured at 26% of the total score, applied to the source
+    that supplies ~39% of all evidence and ~94% of competitor matches.
+
+    Unknown now scores a neutral prior instead: better than confirmed-ancient,
+    worse than confirmed-recent.
+    """
     parsed = _parse_iso8601(value)
     if parsed is None:
-        return 0.0
+        return _UNKNOWN_FRESHNESS
     anchor = fetched_at.astimezone(timezone.utc)
     age_days = max(0.0, (anchor - parsed).total_seconds() / 86400)
     if age_days <= 30:

@@ -1,0 +1,471 @@
+{
+  "mode": "dry-run",
+  "cases": {
+    "zh-web-research-notes": {
+      "lang": "zh",
+      "app_type": "web",
+      "keywords_en": [
+        "research notes",
+        "reference manager",
+        "citation management",
+        "academic notes"
+      ],
+      "keywords_zh": [
+        "文献管理",
+        "笔记工具",
+        "参考文献",
+        "科研笔记"
+      ],
+      "queries": {
+        "tavily": [
+          "文献管理 笔记工具 参考文献 竞品",
+          "research notes reference manager citation management academic notes alternative",
+          "research notes reference manager citation management academic notes pain points",
+          "research notes reference manager citation management academic notes workflow",
+          "research notes reference manager citation management academic notes pricing"
+        ],
+        "github": [
+          "research notes reference manager citation management academic notes",
+          "topic:research-notes topic:reference-manager topic:citation-management",
+          "research notes web app",
+          "research notes saas"
+        ],
+        "hackernews": [
+          "research notes reference manager citation management academic notes",
+          "research notes reference manager",
+          "web app",
+          "research notes citation management",
+          "saas"
+        ],
+        "appstore": [
+          "research notes",
+          "research notes review problem",
+          "reference manager",
+          "research notes review",
+          "research notes problem"
+        ],
+        "producthunt": [
+          "saas",
+          "research notes",
+          "research notes positioning",
+          "web-app",
+          "reference manager"
+        ],
+        "reddit": [
+          "research notes reference manager citation management academic notes pain",
+          "research notes reference manager citation management academic notes alternative",
+          "switch from research notes",
+          "research notes reference manager citation management academic notes recommend",
+          "research notes webapp"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 1
+    },
+    "zh-mobile-hydration": {
+      "lang": "zh",
+      "app_type": "mobile",
+      "keywords_en": [
+        "water reminder",
+        "hydration tracker",
+        "sedentary reminder",
+        "health reminder app"
+      ],
+      "keywords_zh": [
+        "喝水提醒",
+        "久坐提醒",
+        "健康提醒",
+        "饮水记录"
+      ],
+      "queries": {
+        "tavily": [
+          "喝水提醒 久坐提醒 健康提醒 竞品",
+          "water reminder hydration tracker sedentary reminder health reminder app alternative",
+          "water reminder hydration tracker sedentary reminder health reminder app pain points",
+          "water reminder hydration tracker sedentary reminder health reminder app workflow",
+          "water reminder hydration tracker sedentary reminder health reminder app pricing"
+        ],
+        "github": [
+          "water reminder hydration tracker sedentary reminder health reminder app",
+          "topic:water-reminder topic:hydration-tracker topic:sedentary-reminder",
+          "water reminder mobile app"
+        ],
+        "hackernews": [
+          "water reminder hydration tracker sedentary reminder health reminder app",
+          "water reminder hydration tracker",
+          "mobile app",
+          "water reminder sedentary reminder",
+          "water reminder health reminder app"
+        ],
+        "appstore": [
+          "water reminder",
+          "lifestyle",
+          "water reminder review problem",
+          "hydration tracker",
+          "utilities"
+        ],
+        "producthunt": [
+          "mobile-apps",
+          "water reminder",
+          "water reminder positioning",
+          "ios",
+          "hydration tracker"
+        ],
+        "reddit": [
+          "water reminder hydration tracker sedentary reminder health reminder app pain",
+          "water reminder hydration tracker sedentary reminder health reminder app alternative",
+          "switch from water reminder",
+          "water reminder hydration tracker sedentary reminder health reminder app recommend",
+          "water reminder app"
+        ]
+      },
+      "total_queries": 28,
+      "cjk_query_count": 1
+    },
+    "zh-cli-deploy": {
+      "lang": "zh",
+      "app_type": "cli",
+      "keywords_en": [
+        "deployment cli",
+        "self hosted deploy",
+        "one click deploy",
+        "paas self hosted"
+      ],
+      "keywords_zh": [
+        "一键部署",
+        "命令行部署",
+        "自建服务器",
+        "私有部署"
+      ],
+      "queries": {
+        "tavily": [
+          "一键部署 命令行部署 自建服务器 竞品",
+          "deployment cli self hosted deploy one click deploy paas self hosted alternative",
+          "deployment cli self hosted deploy one click deploy paas self hosted pain points",
+          "deployment cli self hosted deploy one click deploy paas self hosted workflow",
+          "deployment cli self hosted deploy one click deploy paas self hosted pricing"
+        ],
+        "github": [
+          "deployment cli self hosted deploy one click deploy paas self hosted",
+          "topic:deployment-cli topic:self-hosted-deploy topic:one-click-deploy",
+          "deployment cli cli tool",
+          "deployment cli command line"
+        ],
+        "hackernews": [
+          "deployment cli self hosted deploy one click deploy paas self hosted",
+          "deployment cli self hosted deploy",
+          "cli tool",
+          "deployment cli one click deploy",
+          "deployment cli paas self hosted"
+        ],
+        "appstore": [
+          "deployment cli",
+          "deployment cli review problem",
+          "self hosted deploy",
+          "deployment cli review",
+          "deployment cli problem"
+        ],
+        "producthunt": [
+          "developer-tools",
+          "deployment cli",
+          "deployment cli positioning",
+          "command-line-tools",
+          "self hosted deploy"
+        ],
+        "reddit": [
+          "deployment cli self hosted deploy one click deploy paas self hosted pain",
+          "deployment cli self hosted deploy one click deploy paas self hosted alternative",
+          "switch from deployment cli",
+          "deployment cli self hosted deploy one click deploy paas self hosted recommend",
+          "deployment cli cli"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 1
+    },
+    "zh-api-invoice-ocr": {
+      "lang": "zh",
+      "app_type": "api",
+      "keywords_en": [
+        "invoice ocr",
+        "receipt recognition api",
+        "expense automation",
+        "document extraction api"
+      ],
+      "keywords_zh": [
+        "发票识别",
+        "报销录入",
+        "票据 OCR",
+        "电子发票"
+      ],
+      "queries": {
+        "tavily": [
+          "发票识别 报销录入 票据 OCR 竞品",
+          "invoice ocr receipt recognition api expense automation document extraction api alternative",
+          "invoice ocr receipt recognition api expense automation document extraction api pain points",
+          "invoice ocr receipt recognition api expense automation document extraction api workflow",
+          "invoice ocr receipt recognition api expense automation document extraction api pricing"
+        ],
+        "github": [
+          "invoice ocr receipt recognition api expense automation document extraction api",
+          "topic:invoice-ocr topic:receipt-recognition-api topic:expense-automation",
+          "invoice ocr api",
+          "invoice ocr sdk"
+        ],
+        "hackernews": [
+          "invoice ocr receipt recognition api expense automation document extraction api",
+          "invoice ocr receipt recognition api",
+          "api",
+          "invoice ocr expense automation",
+          "developer tool"
+        ],
+        "appstore": [
+          "invoice ocr",
+          "invoice ocr review problem",
+          "receipt recognition api",
+          "invoice ocr review",
+          "invoice ocr problem"
+        ],
+        "producthunt": [
+          "developer-tools",
+          "invoice ocr",
+          "invoice ocr positioning",
+          "apis",
+          "receipt recognition api"
+        ],
+        "reddit": [
+          "invoice ocr receipt recognition api expense automation document extraction api pain",
+          "invoice ocr receipt recognition api expense automation document extraction api alternative",
+          "switch from invoice ocr",
+          "invoice ocr receipt recognition api expense automation document extraction api recommend",
+          "invoice ocr api"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 1
+    },
+    "en-web-recruiting-crm": {
+      "lang": "en",
+      "app_type": "web",
+      "keywords_en": [
+        "recruiting crm",
+        "applicant tracking",
+        "candidate pipeline",
+        "staffing software"
+      ],
+      "keywords_zh": [],
+      "queries": {
+        "tavily": [
+          "best recruiting crm applicant tracking candidate pipeline staffing software competitor",
+          "recruiting crm applicant tracking candidate pipeline staffing software alternative",
+          "recruiting crm applicant tracking candidate pipeline staffing software pain points",
+          "recruiting crm applicant tracking candidate pipeline staffing software workflow",
+          "recruiting crm applicant tracking candidate pipeline staffing software pricing"
+        ],
+        "github": [
+          "recruiting crm applicant tracking candidate pipeline staffing software",
+          "topic:recruiting-crm topic:applicant-tracking topic:candidate-pipeline",
+          "recruiting crm web app",
+          "recruiting crm saas"
+        ],
+        "hackernews": [
+          "recruiting crm applicant tracking candidate pipeline staffing software",
+          "recruiting crm applicant tracking",
+          "web app",
+          "recruiting crm candidate pipeline",
+          "saas"
+        ],
+        "appstore": [
+          "recruiting crm",
+          "recruiting crm review problem",
+          "applicant tracking",
+          "recruiting crm review",
+          "recruiting crm problem"
+        ],
+        "producthunt": [
+          "saas",
+          "recruiting crm",
+          "recruiting crm positioning",
+          "web-app",
+          "applicant tracking"
+        ],
+        "reddit": [
+          "recruiting crm applicant tracking candidate pipeline staffing software pain",
+          "recruiting crm applicant tracking candidate pipeline staffing software alternative",
+          "switch from recruiting crm",
+          "recruiting crm applicant tracking candidate pipeline staffing software recommend",
+          "recruiting crm webapp"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 0
+    },
+    "en-mobile-plant-care": {
+      "lang": "en",
+      "app_type": "mobile",
+      "keywords_en": [
+        "plant identification",
+        "plant care reminder",
+        "houseplant app",
+        "watering reminder"
+      ],
+      "keywords_zh": [],
+      "queries": {
+        "tavily": [
+          "best plant identification plant care reminder houseplant app watering reminder competitor",
+          "plant identification plant care reminder houseplant app watering reminder alternative",
+          "plant identification plant care reminder houseplant app watering reminder pain points",
+          "plant identification plant care reminder houseplant app watering reminder workflow",
+          "plant identification plant care reminder houseplant app watering reminder pricing"
+        ],
+        "github": [
+          "plant identification plant care reminder houseplant app watering reminder",
+          "topic:plant-identification topic:plant-care-reminder topic:houseplant-app",
+          "plant identification mobile app"
+        ],
+        "hackernews": [
+          "plant identification plant care reminder houseplant app watering reminder",
+          "plant identification plant care reminder",
+          "mobile app",
+          "plant identification houseplant app",
+          "plant identification watering reminder"
+        ],
+        "appstore": [
+          "plant identification",
+          "lifestyle",
+          "plant identification review problem",
+          "plant care reminder",
+          "utilities"
+        ],
+        "producthunt": [
+          "mobile-apps",
+          "plant identification",
+          "plant identification positioning",
+          "ios",
+          "plant care reminder"
+        ],
+        "reddit": [
+          "plant identification plant care reminder houseplant app watering reminder pain",
+          "plant identification plant care reminder houseplant app watering reminder alternative",
+          "switch from plant identification",
+          "plant identification plant care reminder houseplant app watering reminder recommend",
+          "plant identification app"
+        ]
+      },
+      "total_queries": 28,
+      "cjk_query_count": 0
+    },
+    "en-cli-secrets": {
+      "lang": "en",
+      "app_type": "cli",
+      "keywords_en": [
+        "secrets management",
+        "environment variables cli",
+        "secret sync",
+        "developer secrets"
+      ],
+      "keywords_zh": [],
+      "queries": {
+        "tavily": [
+          "best secrets management environment variables cli secret sync developer secrets competitor",
+          "secrets management environment variables cli secret sync developer secrets alternative",
+          "secrets management environment variables cli secret sync developer secrets pain points",
+          "secrets management environment variables cli secret sync developer secrets workflow",
+          "secrets management environment variables cli secret sync developer secrets pricing"
+        ],
+        "github": [
+          "secrets management environment variables cli secret sync developer secrets",
+          "topic:secrets-management topic:environment-variables-cli topic:secret-sync",
+          "secrets management cli tool",
+          "secrets management command line"
+        ],
+        "hackernews": [
+          "secrets management environment variables cli secret sync developer secrets",
+          "secrets management environment variables cli",
+          "cli tool",
+          "secrets management secret sync",
+          "secrets management developer secrets"
+        ],
+        "appstore": [
+          "secrets management",
+          "secrets management review problem",
+          "environment variables cli",
+          "secrets management review",
+          "secrets management problem"
+        ],
+        "producthunt": [
+          "developer-tools",
+          "secrets management",
+          "secrets management positioning",
+          "command-line-tools",
+          "environment variables cli"
+        ],
+        "reddit": [
+          "secrets management environment variables cli secret sync developer secrets pain",
+          "secrets management environment variables cli secret sync developer secrets alternative",
+          "switch from secrets management",
+          "secrets management environment variables cli secret sync developer secrets recommend",
+          "secrets management cli"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 0
+    },
+    "en-api-screenshot": {
+      "lang": "en",
+      "app_type": "api",
+      "keywords_en": [
+        "screenshot api",
+        "url to image",
+        "web page rendering api",
+        "headless browser screenshot"
+      ],
+      "keywords_zh": [],
+      "queries": {
+        "tavily": [
+          "best screenshot api url to image web page rendering api headless browser screenshot competitor",
+          "screenshot api url to image web page rendering api headless browser screenshot alternative",
+          "screenshot api url to image web page rendering api headless browser screenshot pain points",
+          "screenshot api url to image web page rendering api headless browser screenshot workflow",
+          "screenshot api url to image web page rendering api headless browser screenshot pricing"
+        ],
+        "github": [
+          "screenshot api url to image web page rendering api headless browser screenshot",
+          "topic:screenshot-api topic:url-to-image topic:web-page-rendering-api",
+          "screenshot api api",
+          "screenshot api sdk"
+        ],
+        "hackernews": [
+          "screenshot api url to image web page rendering api headless browser screenshot",
+          "screenshot api url to image",
+          "api",
+          "screenshot api web page rendering api",
+          "developer tool"
+        ],
+        "appstore": [
+          "screenshot api",
+          "screenshot api review problem",
+          "url to image",
+          "screenshot api review",
+          "screenshot api problem"
+        ],
+        "producthunt": [
+          "developer-tools",
+          "screenshot api",
+          "screenshot api positioning",
+          "apis",
+          "url to image"
+        ],
+        "reddit": [
+          "screenshot api url to image web page rendering api headless browser screenshot pain",
+          "screenshot api url to image web page rendering api headless browser screenshot alternative",
+          "switch from screenshot api",
+          "screenshot api url to image web page rendering api headless browser screenshot recommend",
+          "screenshot api api"
+        ]
+      },
+      "total_queries": 29,
+      "cjk_query_count": 0
+    }
+  }
+}
