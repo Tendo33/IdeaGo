@@ -17,7 +17,6 @@
     <a href="#how-it-works">How It Works</a> ·
     <a href="DEPLOYMENT.md">Deployment</a> ·
     <a href="frontend/README.md">Frontend Docs</a> ·
-    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -386,10 +385,6 @@ Analysis persistence notes:
 
 ## Documentation Map
 
-- Trellis spec entrypoint: [.trellis/spec/README.md](.trellis/spec/README.md)
-- Backend conventions: [.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
-- Frontend conventions: [.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
-- Settings and env vars: [.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - Frontend-specific notes: [frontend/README.md](frontend/README.md)
 - Deployment runbook: [DEPLOYMENT.md](DEPLOYMENT.md)
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)

@@ -4,9 +4,7 @@ description: Use when implementing IdeaGo backend API, pipeline, auth, persisten
 ---
 # Backend Engineering Playbook
 
-This legacy skill is a thin Trellis pointer.
 
-Read `.trellis/spec/backend/index.md` and `.trellis/spec/shared/verification.md`
 before backend work. Keep FastAPI handlers thin, report contracts typed, hosted
 ownership checks fail-closed, and secrets out of logs and browser-visible
 configuration.

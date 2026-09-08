@@ -20,11 +20,9 @@ repos:
     hooks:
       # Ruff linter
       - id: ruff
-        exclude: ^\.trellis/
         args: [--fix, --exit-non-zero-on-fix]
       # Ruff formatter (this is what formats the code)
       - id: ruff-format
-        exclude: ^\.trellis/
 
   # Optional: Type checking with mypy (commented out for now)
   # - repo: https://github.com/pre-commit/mirrors-mypy

@@ -5,7 +5,6 @@ PostgREST domain tables, Stripe, and Supabase auth. The work is therefore an
 explicit multi-phase saga with compensations, and the phase names and cleanup
 states are part of the API contract — the frontend picks its wording from them
 (see `getDeleteAccountErrorMessage` in ProfilePage.tsx) and
-`.trellis/spec/backend/hosted-operations.md` documents each state.
 
 Split out of `supabase_admin.py`, which had grown to mix plain PostgREST data
 access with this orchestration.

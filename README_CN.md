@@ -17,7 +17,6 @@
     <a href="#工作原理">工作原理</a> ·
     <a href="DEPLOYMENT.md">部署说明</a> ·
     <a href="frontend/README.md">前端说明</a> ·
-    <a href=".trellis/spec/README.md">Trellis Spec</a>
   </p>
 
   <p>
@@ -362,10 +361,6 @@ flowchart TD
 
 ## 文档导航
 
-- Trellis spec 入口：[.trellis/spec/README.md](.trellis/spec/README.md)
-- 后端约定：[.trellis/spec/backend/index.md](.trellis/spec/backend/index.md)
-- 前端约定：[.trellis/spec/frontend/index.md](.trellis/spec/frontend/index.md)
-- 设置与环境变量：[.trellis/spec/backend/config-logging.md](.trellis/spec/backend/config-logging.md)
 - 前端专属说明：[frontend/README.md](frontend/README.md)
 - 部署 runbook：[DEPLOYMENT.md](DEPLOYMENT.md)
 - 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)

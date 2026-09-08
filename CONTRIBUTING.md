@@ -16,11 +16,6 @@ When you touch docs, update the branch-specific docs in the same task. Do not as
 
 Read the current project standards first:
 
-- `.trellis/spec/README.md`
-- `.trellis/spec/shared/index.md`
-- `.trellis/spec/backend/index.md`
-- `.trellis/spec/frontend/index.md`
-- `.trellis/spec/shared/verification.md`
 - `AGENTS.md`
 - `CLAUDE.md`
 
@@ -47,7 +42,6 @@ The hosted branch expects Supabase and Turnstile configuration for normal auth f
 ## Development Workflow
 
 1. Understand whether the change belongs on `main`, `saas`, or both.
-2. Read the relevant `.trellis/spec/` files before editing.
 3. Keep changes small and branch-correct.
 4. Update docs and env examples if behavior changes.
 5. Run verification before asking for review.
@@ -139,4 +133,3 @@ Keep these aligned when conventions change:
 - `frontend/README.md`
 - `AGENTS.md`
 - `CLAUDE.md`
-- `.trellis/spec/*`
