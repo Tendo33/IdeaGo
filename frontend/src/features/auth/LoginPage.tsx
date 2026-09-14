@@ -119,6 +119,10 @@ export function LoginPage() {
 
   const handleOAuth = async (provider: 'github' | 'google') => {
     setError('')
+    const nextCaptchaToken = requireCaptcha()
+    if (!nextCaptchaToken) {
+      return
+    }
     setOauthLoading(provider)
     try {
       const { error: err } = await supabase.auth.signInWithOAuth({
@@ -132,6 +136,7 @@ export function LoginPage() {
     } catch {
       setError(t('auth.unexpectedError'))
     } finally {
+      resetCaptcha()
       setOauthLoading(null)
     }
   }
@@ -338,7 +343,7 @@ export function LoginPage() {
         {mode !== 'reset' && (
           <>
             <AuthProviderButtons
-              anyLoading={anyLoading}
+              anyLoading={anyLoading || authBlocked}
               oauthLoading={oauthLoading}
               onGithub={() => handleOAuth('github')}
               onGoogle={() => handleOAuth('google')}
@@ -406,7 +411,7 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setMode('register'); setError('') }}
-                className="text-primary underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer"
+                className="inline-flex min-h-[44px] items-center text-primary underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer"
               >
                 {t('auth.signUp', 'Sign Up')}
               </button>
@@ -417,7 +422,7 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError('') }}
-                className="text-primary underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer"
+                className="inline-flex min-h-[44px] items-center text-primary underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer"
               >
                 {t('auth.signIn', 'Sign In')}
               </button>
@@ -426,11 +431,11 @@ export function LoginPage() {
 
           <p className="mt-4 text-xs text-muted-foreground/70">
             {t('auth.legalNotice', 'By continuing, you agree to our')}{' '}
-            <Link to="/terms" className="underline underline-offset-2 hover:text-foreground transition-colors">
+            <Link to="/terms" className="inline-flex min-h-[44px] items-center underline underline-offset-2 hover:text-foreground transition-colors">
               {t('legal.termsTitle', 'Terms of Service')}
             </Link>{' '}
             {t('common.and', 'and')}{' '}
-            <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground transition-colors">
+            <Link to="/privacy" className="inline-flex min-h-[44px] items-center underline underline-offset-2 hover:text-foreground transition-colors">
               {t('legal.privacyTitle', 'Privacy Policy')}
             </Link>
           </p>

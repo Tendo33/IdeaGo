@@ -491,7 +491,7 @@ describe('LoginPage registration locale metadata', () => {
     expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
   })
 
-  it('allows Supabase social sign-in without requiring local turnstile and still requires it for LinuxDo', async () => {
+  it('requires turnstile for Supabase social sign-in and LinuxDo', async () => {
     const assignMock = vi.fn()
     const originalLocation = window.location
     Object.defineProperty(window, 'location', {
@@ -516,16 +516,22 @@ describe('LoginPage registration locale metadata', () => {
       )
 
       fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
+      expect(signInWithOAuthMock).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeDisabled()
+      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
+
+      act(() => {
+        latestTurnstileOptions?.callback?.('linuxdo-token')
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }))
       await waitFor(() => {
         expect(signInWithOAuthMock).toHaveBeenCalledWith({
           provider: 'google',
-          options: { redirectTo: 'https://ideago.simonsun.cc/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary' },
+          options: {
+            redirectTo: 'https://ideago.simonsun.cc/auth/callback?provider=supabase&returnTo=%2Freports%2Fr-1%3Ftab%3Dsummary',
+          },
         })
       })
-
-      fireEvent.click(screen.getByRole('button', { name: 'Continue with LinuxDo' }))
-      expect(startLinuxDoAuthMock).not.toHaveBeenCalled()
-      expect(screen.getAllByText('Verifying you are human...').length).toBeGreaterThan(0)
 
       act(() => {
         latestTurnstileOptions?.callback?.('linuxdo-token')

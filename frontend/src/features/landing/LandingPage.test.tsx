@@ -31,6 +31,16 @@ describe('LandingPage', () => {
     expect(screen.queryByRole('link', { name: /pricing|choose your plan/i })).not.toBeInTheDocument()
   })
 
+  it('exposes an accessible name for the compact sign-in control', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage themeMode="system" onSelectThemeMode={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: i18n.t('auth.signIn') })).toHaveAttribute('href', '/login')
+  })
+
   it('shows the theme mode toggle in the public top navigation', () => {
     render(
       <MemoryRouter>

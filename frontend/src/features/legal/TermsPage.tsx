@@ -149,7 +149,7 @@ export function TermsPage() {
                 {t('legal.termsTitle', 'Terms of Service')}
               </h1>
 
-              <p className="mt-6 max-w-2xl border-l-8 border-primary pl-5 text-base font-medium leading-8 text-muted-foreground md:text-lg">
+              <p className="mt-6 max-w-2xl text-base font-medium leading-8 text-muted-foreground md:text-lg">
                 {pageCopy.intro}
               </p>
             </div>

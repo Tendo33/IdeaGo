@@ -155,7 +155,9 @@
     "fallbackMessage": "发生了一个意外错误，请尝试刷新页面。",
     "backToHome": "返回首页",
     "notFoundTitle": "未找到报告",
-    "notFoundMessage": "该报告不存在或已过期，请重新发起新的分析。"
+    "notFoundMessage": "该报告不存在或已过期，请重新发起新的分析。",
+    "pageNotFoundTitle": "页面不存在",
+    "pageNotFoundMessage": "这个地址没有对应页面。返回首页继续使用。"
   },
   "loading": {
     "page": "正在加载页面内容..."

@@ -173,7 +173,7 @@ export function HistoryPage() {
               <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2">
                 {t('history.title')}
               </h1>
-              <p className="text-lg font-bold text-muted-foreground uppercase tracking-widest border-l-4 border-primary pl-4">
+              <p className="text-lg font-bold text-muted-foreground uppercase tracking-widest">
                 {t('home.description')}
               </p>
             </div>

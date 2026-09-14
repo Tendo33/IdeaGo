@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import time
 import uuid
@@ -58,6 +59,7 @@ _EXISTING_SLOT_CONFIRM_TIMEOUT_SECONDS = 10.5
 _EXISTING_SLOT_CONFIRM_INITIAL_DELAY_SECONDS = 0.1
 _EXISTING_SLOT_CONFIRM_MAX_DELAY_SECONDS = 1.5
 _RESERVE_RETRY_MAX = 3
+_CANCEL_WATCH_INTERVAL_SECONDS = 1.0
 
 
 def _assert_capacity_available(user_id: str) -> None:
@@ -213,6 +215,25 @@ def _claim_quota_warning(user_id: str, *, today: str | None = None) -> bool:
     return True
 
 
+async def _status_is_cancelled(report_id: str) -> bool:
+    """True when shared report status already records a user cancellation."""
+    status = await get_cache().get_status(report_id)
+    if not status:
+        return False
+    return str(status.get("status", "")).strip().lower() == "cancelled"
+
+
+async def _watch_shared_cancellation(
+    report_id: str, run_task: asyncio.Task[object]
+) -> None:
+    """Cancel the local orchestrator task when another worker persisted cancel."""
+    while not run_task.done():
+        if await _status_is_cancelled(report_id):
+            run_task.cancel()
+            return
+        await asyncio.sleep(_CANCEL_WATCH_INTERVAL_SECONDS)
+
+
 async def _run_pipeline(
     query: str,
     report_id: str,
@@ -223,6 +244,8 @@ async def _run_pipeline(
     """Background task: run the pipeline and push events to the queue."""
     run_state = get_or_create_report_run(report_id)
     callback = _RunStateCallback(report_id)
+    run_task: asyncio.Task[object] | None = None
+    watch_task: asyncio.Task[None] | None = None
     try:
         orchestrator = get_orchestrator()
         # Per-stage timeouts do not bound the total. Each LLM call retries up to
@@ -231,17 +254,25 @@ async def _run_pipeline(
         # minutes with no fallbacks and beyond 20 with two. A run that long
         # holds an admission slot the whole time, which would turn the capacity
         # cap into a slow deadlock. This is the outer bound.
-        report = await asyncio.wait_for(
+        run_task = asyncio.create_task(
             orchestrator.run(
                 query,
                 callback=callback,
                 report_id=report_id,
                 user_id=user_id,
                 force_refresh=force_refresh,
-            ),
+            )
+        )
+        watch_task = asyncio.create_task(
+            _watch_shared_cancellation(report_id, run_task)
+        )
+        report = await asyncio.wait_for(
+            run_task,
             timeout=get_settings().analysis_total_timeout_seconds,
         )
-        if run_state.history and run_state.history[-1].type == EventType.CANCELLED:
+        if await _status_is_cancelled(report_id) or (
+            run_state.history and run_state.history[-1].type == EventType.CANCELLED
+        ):
             logger.info("Skipping completion for cancelled report {}", report_id)
             return
         logger.info("Pipeline completed for report {}", report.id)
@@ -263,12 +294,17 @@ async def _run_pipeline(
                 logger.debug("Failed to send report-ready notification")
     except asyncio.CancelledError:
         logger.info("Pipeline cancelled for report {}", report_id)
-        await _refund_quota_charge_for_report(report_id, user_id)
-        await _mark_cancelled(
-            report_id,
-            fallback_query=query,
-            fallback_user_id=user_id,
-        )
+        if run_task is not None and not run_task.done():
+            run_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await run_task
+        if not await _status_is_cancelled(report_id):
+            await _refund_quota_charge_for_report(report_id, user_id)
+            await _mark_cancelled(
+                report_id,
+                fallback_query=query,
+                fallback_user_id=user_id,
+            )
     except asyncio.TimeoutError:
         # wait_for already cancelled the pipeline; only the caller sees a
         # timeout. A user-initiated cancel still arrives as CancelledError
@@ -322,6 +358,10 @@ async def _run_pipeline(
             )
         )
     finally:
+        if watch_task is not None:
+            watch_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await watch_task
         await release_processing_report(report_id)
         await remove_pipeline_task(report_id)
         cleanup_report_runs()
@@ -646,18 +686,19 @@ async def cancel_analysis(
             "No active analysis found for this report",
         )
 
+    existing_status = await get_cache().get_status(report_id)
+    existing_query = existing_status.get("query", "") if existing_status else ""
+    # Persist cancellation first so a worker that does not own the asyncio
+    # task can see it through shared status and stop before writing complete.
+    await _mark_cancelled(
+        report_id,
+        fallback_query=existing_query,
+        fallback_user_id=user.id,
+    )
+    await _refund_quota_charge_for_report(report_id, user.id)
     if task is not None and not task.done():
-        existing_status = await get_cache().get_status(report_id)
-        existing_query = existing_status.get("query", "") if existing_status else ""
         task.cancel()
-        await _mark_cancelled(
-            report_id,
-            fallback_query=existing_query,
-            fallback_user_id=user.id,
-        )
     else:
-        await _refund_quota_charge_for_report(report_id, user.id)
-        await _mark_cancelled(report_id, fallback_user_id=user.id)
         await release_processing_report(report_id)
 
     logger.info("Analysis cancelled for report {}", report_id)

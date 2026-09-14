@@ -155,7 +155,9 @@
     "fallbackMessage": "An unexpected error occurred. Please try reloading the page.",
     "backToHome": "Return to Home",
     "notFoundTitle": "Report Not Found",
-    "notFoundMessage": "This report doesn't exist or has expired. Please start a new analysis."
+    "notFoundMessage": "This report doesn't exist or has expired. Please start a new analysis.",
+    "pageNotFoundTitle": "Page not found",
+    "pageNotFoundMessage": "This page doesn't exist. Return home to keep going."
   },
   "loading": {
     "page": "Loading page content..."

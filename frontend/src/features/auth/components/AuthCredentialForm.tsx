@@ -60,7 +60,7 @@ export function AuthCredentialForm({
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                className="inline-flex min-h-[44px] items-center text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
               >
                 {t('auth.forgotPassword', 'Forgot password?')}
               </button>

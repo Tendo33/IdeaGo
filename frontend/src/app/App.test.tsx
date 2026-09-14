@@ -170,6 +170,8 @@ describe('App landing page', () => {
     render(<App />)
 
     expect(await screen.findByText('404')).toBeInTheDocument()
+    expect(await screen.findByText(/page not found/i)).toBeInTheDocument()
+    expect(screen.queryByText(/report not found/i)).not.toBeInTheDocument()
   })
 })
 

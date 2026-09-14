@@ -1771,6 +1771,83 @@ async def test_cancel_analysis_cancels_task_and_marks_status(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_cancel_analysis_without_local_task_marks_shared_status(
+    tmp_path,
+) -> None:
+    from ideago.auth.models import AuthUser
+
+    report_id = "report-remote-cancel"
+    user_id = "test-cancel-user"
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    await cache.put_status(report_id, "processing", "remote query", user_id=user_id)
+    mock_user = AuthUser(id=user_id, email="cancel@test.com")
+    release_processing = AsyncMock(return_value=None)
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.analyze.get_pipeline_task_for_report",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "ideago.api.routes.analyze.is_processing_report",
+            new=AsyncMock(return_value=True),
+        ),
+        patch(
+            "ideago.api.routes.analyze.refund_quota_charge",
+            new=AsyncMock(return_value=True),
+        ),
+        patch(
+            "ideago.api.routes.analyze.release_processing_report",
+            new=release_processing,
+        ),
+        patch("ideago.api.routes.analyze._assert_owner_or_deny", new=AsyncMock()),
+    ):
+        result = await analyze_route.cancel_analysis(report_id, user=mock_user)
+
+    assert result["status"] == "cancelled"
+    status = await cache.get_status(report_id)
+    assert status is not None
+    assert status["status"] == "cancelled"
+    release_processing.assert_awaited_once_with(report_id)
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_does_not_overwrite_shared_cancellation(tmp_path) -> None:
+    cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
+    report_id = "report-keep-cancelled"
+    await cache.put_status(
+        report_id,
+        "cancelled",
+        "already cancelled",
+        error_code="PIPELINE_CANCELLED",
+        message="Analysis cancelled by user",
+        user_id="u1",
+    )
+
+    class FastOrchestrator:
+        async def run(self, *_args, **_kwargs):
+            return type("Report", (), {"id": report_id})()
+
+    with (
+        patch("ideago.api.routes.analyze.get_cache", return_value=cache),
+        patch(
+            "ideago.api.routes.analyze.get_orchestrator",
+            return_value=FastOrchestrator(),
+        ),
+        patch(
+            "ideago.api.routes.analyze.release_processing_report",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        await analyze_route._run_pipeline("already cancelled", report_id, "u1")
+
+    status = await cache.get_status(report_id)
+    assert status is not None
+    assert status["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
 async def test_run_pipeline_redacts_internal_error_details(tmp_path) -> None:
     cache = FileCache(str(tmp_path / "cache"), ttl_hours=24)
     report_id = "report-internal-error"

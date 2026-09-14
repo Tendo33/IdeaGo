@@ -189,7 +189,7 @@ class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryStat
               {t('error.title')}
             </h1>
             {/* Raw exception text is for the console and Sentry, not the user. */}
-            <p className="text-lg font-bold text-destructive/80 mb-8 border-l-4 border-destructive pl-4 text-left break-words">
+            <p className="text-lg font-bold text-destructive/80 mb-8 text-left break-words">
               {t('error.fallbackMessage')}
             </p>
             <Button
@@ -220,8 +220,8 @@ function NotFound() {
     <div className="app-shell px-4 min-h-[70vh] flex items-center justify-center">
       <div className="max-w-xl w-full border-4 border-border bg-card p-8 md:p-16 shadow-lg text-center">
         <h1 className="mb-4 text-8xl font-black text-muted-foreground/30 leading-none">404</h1>
-          <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.notFoundTitle')}</h2>
-        <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.notFoundMessage')}</p>
+          <h2 className="mb-6 text-3xl font-black uppercase tracking-tight text-foreground break-words">{t('error.pageNotFoundTitle')}</h2>
+        <p className="mb-10 text-lg font-bold text-muted-foreground break-words">{t('error.pageNotFoundMessage')}</p>
         <Button
           size="lg"
           onClick={() => navigate('/')}

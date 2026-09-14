@@ -208,6 +208,7 @@ export function LandingPage({
           <Link
             to="/login"
             className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-3 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            aria-label={t('auth.signIn')}
           >
             <LogIn className="w-5 h-5 shrink-0" aria-hidden="true" />
             <span className="hidden sm:inline">{t('auth.signIn')}</span>
@@ -231,7 +232,7 @@ export function LandingPage({
                 <br />
                 <span className="text-primary inline-block transform hover:scale-105 transition-transform cursor-default">{t('landing.heroLine2')}</span>
               </h1>
-              <p className="max-w-xl text-xl sm:text-2xl font-bold text-muted-foreground leading-snug mb-12 min-w-0 break-words border-l-8 border-primary pl-6">
+              <p className="max-w-xl text-xl sm:text-2xl font-bold text-muted-foreground leading-snug mb-12 min-w-0 break-words">
                 {t('landing.heroDesc')}
               </p>
               <div className="flex flex-wrap gap-6 items-center">
@@ -265,7 +266,7 @@ export function LandingPage({
                     {t('landing.mockLabel')}
                   </span>
                 </div>
-                <p className="text-2xl font-black text-foreground mb-8 border-l-8 border-primary pl-6 leading-tight break-words [overflow-wrap:anywhere]" title={t('landing.mockQuery')}>
+                <p className="text-2xl font-black text-foreground mb-8 leading-tight break-words [overflow-wrap:anywhere]" title={t('landing.mockQuery')}>
                   &ldquo;{t('landing.mockQuery')}&rdquo;
                 </p>
                 <div className="flex flex-wrap border-t-4 border-border/20 pt-6 gap-y-6 mb-8">
@@ -294,22 +295,10 @@ export function LandingPage({
           </div>
         </div>
 
-        {/* Decorative grid lines */}
-        <div
-          className="absolute inset-0 -z-10 opacity-[0.05]"
-          style={{
-            backgroundImage: `
-              linear-gradient(var(--foreground) 2px, transparent 2px),
-              linear-gradient(90deg, var(--foreground) 2px, transparent 2px)
-            `,
-            backgroundSize: '100px 100px',
-          }}
-        />
       </section>
 
       {/* ─── DATA SOURCES STRIP ─── */}
       <section className="border-y-8 border-border py-12 bg-card overflow-hidden w-full min-w-0 relative">
-        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] dark:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] pointer-events-none" />
         <div className="app-shell relative z-10">
           <p className="text-center text-sm font-black uppercase tracking-[0.4em] text-muted-foreground mb-10">
             {t('landing.sourcesLabel')}
@@ -372,7 +361,6 @@ export function LandingPage({
 
       {/* ─── FEATURE HIGHLIGHTS ─── */}
       <section className="px-4 py-32 sm:py-48 bg-muted border-y-8 border-border relative">
-        <div className="absolute inset-0 bg-[radial-gradient(var(--border)_2px,transparent_2px)] [background-size:32px_32px] opacity-10" />
         <div className="app-shell relative z-10">
           <StaggerReveal motionMode={motionMode}>
             <h2 className="mb-20 max-w-4xl text-[clamp(2.5rem,5vw,4.5rem)] leading-none">
@@ -384,14 +372,12 @@ export function LandingPage({
             {/* Massive Hero Highlight Card */}
             <StaggerReveal className="sm:col-span-12 lg:col-span-12 mb-8" motionMode={motionMode}>
               <div className="p-12 sm:p-16 border-8 border-border bg-card shadow-4xl relative group hover:-translate-y-2 hover:-translate-x-2 hover:shadow-5xl active:translate-y-2 active:translate-x-2 active:shadow-2xl transition-all duration-300 ease-brutal">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary rounded-full blur-[100px] opacity-20 group-hover:opacity-40 transition-opacity" />
                 <h3 className="text-[clamp(3rem,6vw,5rem)] leading-[0.9] mb-8 max-w-3xl relative z-10">
                   {t('landing.feat1Title')}
                 </h3>
                 <p className="text-xl sm:text-2xl font-bold text-muted-foreground leading-relaxed max-w-2xl relative z-10">
                   {t('landing.feat1Desc')}
                 </p>
-                <div className="absolute bottom-8 right-8 w-24 h-24 border-8 border-primary rounded-full animate-[spin_10s_linear_infinite] opacity-50" />
               </div>
             </StaggerReveal>
 
@@ -421,10 +407,6 @@ export function LandingPage({
 
       {/* ─── FINAL CTA ─── */}
       <section className="px-4 py-32 sm:py-48 relative overflow-hidden">
-        {/* Wild background shapes */}
-        <div className="absolute top-1/2 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-destructive/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-
         <div className="app-shell relative z-10">
           <StaggerReveal motionMode={motionMode}>
             <div className="border-8 border-border p-12 sm:p-24 bg-card shadow-4xl text-center max-w-4xl mx-auto transform hover:-translate-y-2 hover:-translate-x-2 hover:shadow-5xl active:translate-y-4 active:translate-x-4 active:shadow-2xl transition-all duration-300 ease-brutal relative">
@@ -457,10 +439,10 @@ export function LandingPage({
             &copy; {new Date().getFullYear()} IdeaGo
           </span>
           <div className="flex items-center gap-4">
-            <Link to="/terms" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/terms" className="inline-flex min-h-[44px] items-center text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.termsTitle', 'Terms')}
             </Link>
-            <Link to="/privacy" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/privacy" className="inline-flex min-h-[44px] items-center text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
               {t('legal.privacyTitle', 'Privacy')}
             </Link>
           </div>

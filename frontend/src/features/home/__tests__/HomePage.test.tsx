@@ -136,6 +136,23 @@ describe('HomePage recent reports', () => {
     expect(screen.getByText('Hydrated cached report')).toBeInTheDocument()
   })
 
+  it('offers a first-analysis action when there are no recent reports', async () => {
+    vi.mocked(listReports).mockResolvedValue({
+      items: [],
+      has_next: false,
+      total: 0,
+    } as never)
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText(i18n.t('history.emptyState'))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('history.startFirst') })).toBeInTheDocument()
+  })
+
   it('clips oversized shared cache to the recent reports limit', () => {
     window.sessionStorage.setItem(
       HISTORY_CACHE_STORAGE_KEY,

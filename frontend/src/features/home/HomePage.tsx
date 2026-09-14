@@ -82,7 +82,7 @@ export function HomePage() {
             <span className="text-primary">{t('app.titleHighlight')}</span>
           </h1>
 
-          <p className="mb-12 max-w-2xl text-xl md:text-2xl font-bold leading-snug text-muted-foreground border-l-4 border-primary pl-6 min-w-0 break-words">
+          <p className="mb-12 max-w-2xl text-xl md:text-2xl font-bold leading-snug text-muted-foreground min-w-0 break-words">
             {t('home.description')}
           </p>
 
@@ -154,6 +154,14 @@ export function HomePage() {
               <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 {t('history.emptyState')}
               </p>
+              <Button
+                type="button"
+                variant="primary"
+                className="mt-6"
+                onClick={() => document.querySelector<HTMLInputElement>('input[name="idea-query"]')?.focus()}
+              >
+                {t('history.startFirst')}
+              </Button>
             </div>
           )}
         </aside>

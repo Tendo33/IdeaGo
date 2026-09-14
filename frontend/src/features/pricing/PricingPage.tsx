@@ -105,11 +105,11 @@ export function PricingPage() {
       </Link>
 
       <div className="border-4 border-border bg-card p-8 md:p-12 mb-12 shadow-lg relative group">
-        <div className="absolute top-0 right-0 h-8 w-20 bg-primary/20 border-l-4 border-b-4 border-border" />
+        <div className="absolute top-0 right-0 h-8 w-20 bg-primary/20 border-b-4 border-border" />
         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 relative z-10">
           {t('pricing.title')}
         </h1>
-        <p className="text-lg md:text-xl text-muted-foreground font-bold max-w-xl mb-6 relative z-10 border-l-4 border-primary pl-4">
+        <p className="text-lg md:text-xl text-muted-foreground font-bold max-w-xl mb-6 relative z-10">
           {t('pricing.subtitle')}
         </p>
         {user && error && (

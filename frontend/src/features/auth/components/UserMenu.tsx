@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -11,6 +11,7 @@ export function UserMenu() {
   const { t } = useTranslation()
   const { user, role, signOut } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -103,13 +104,16 @@ export function UserMenu() {
   }, [activeIndex, open])
 
   if (!user) {
+    if (pathname === '/login') {
+      return null
+    }
     return (
       <Link
         to="/login"
         className="topbar-action bg-primary text-primary-foreground min-w-[44px] px-2 sm:px-4 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         aria-label={t('auth.signIn')}
       >
-        <LogIn className="w-5 h-5 shrink-0" />
+        <LogIn className="w-5 h-5 shrink-0" aria-hidden="true" />
         <span className="hidden sm:inline">{t('auth.signIn')}</span>
       </Link>
     )

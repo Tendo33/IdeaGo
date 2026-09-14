@@ -131,6 +131,7 @@ function SearchBoxComponent({ onSubmit, isLoading = false }: SearchBoxProps) {
         <div className="relative flex-1">
           <input
             id={inputId}
+            name="idea-query"
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
