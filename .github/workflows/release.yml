@@ -117,8 +117,8 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/ideago
           tags: |
             type=semver,pattern={{version}},value=${{ needs.publish-release.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.publish-release.outputs.tag }}
-            type=semver,pattern={{major}},value=${{ needs.publish-release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.publish-release.outputs.tag }},enable=${{ !contains(needs.publish-release.outputs.tag, '-') }}
+            type=semver,pattern={{major}},value=${{ needs.publish-release.outputs.tag }},enable=${{ !contains(needs.publish-release.outputs.tag, '-') }}
             type=raw,value=latest,enable=${{ !contains(needs.publish-release.outputs.tag, '-') }}
           labels: |
             org.opencontainers.image.title=IdeaGo
