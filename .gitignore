@@ -1,0 +1,16 @@
+# Leftovers from the main/saas branches when switching in the same worktree
+/.cache/
+/.coverage
+/.env
+/.history/
+/coverage.xml
+/htmlcov/
+/docs/
+/frontend/
+/logs/
+/scripts/
+/src/
+/tests/
+__pycache__/
+*.pyc
+/reports/
