@@ -14,7 +14,7 @@
 
 | 主题 | 强度 | 频率 | 证据 |
 |---|---|---|---|
-| 官方桌面版在 Windows 上卡顿、黑屏、无法启动 | 高 | 中 | [8] [9] |
+| 官方桌面版黑屏、输出时卡顿、无法启动（相关 issue 均已关闭） | 中 | 中 | [8] [9] |
 | 官方桌面版选项过多、界面拥挤 | 中 | 低 | [4] |
 | 从 Cursor 转来的用户觉得 CLI 门槛高 | 中 | 中 | [10] |
 
@@ -36,7 +36,7 @@
 - **证据：** [6] [11]（已有 CloudCLI、Kanna 往这个方向走，空间有限）
 
 **差异化角度：**
-- 官方版 Windows 稳定性差 [8][9]
+- 官方版曾反复出现稳定性问题，虽已修复但影响口碑 [8][9]
 - 官方版 Chat / Cowork / Code 三套设置分散 [4]
 - CloudCLI 是 AGPL，对想闭源集成的团队不友好 [6]
 
@@ -45,7 +45,7 @@
 ### 直接竞品
 | 产品 | 做什么 | 价格 | 热度 | 优势 | 劣势 |
 |---|---|---|---|---|---|
-| [Claude Code Desktop](https://claude.com/blog/claude-code-desktop-redesign) | 官方桌面版，多会话 + diff + 终端 + 预览 | 含在 Pro $20/月起 | 官方 | 原生集成、插件对齐 CLI | Windows 问题、界面拥挤 |
+| [Claude Code Desktop](https://claude.com/blog/claude-code-desktop-redesign) | 官方桌面版，多会话 + diff + 终端 + 预览 | 含在 Pro $20/月起 | 官方 | 原生集成、插件对齐 CLI | 曾有稳定性问题、界面拥挤 |
 | [opcode](https://github.com/winfunc/opcode) | Claude Code 桌面 GUI | 开源 | 22k★ | 社区大 | 最近更新 2026-09 |
 | [CloudCLI](https://github.com/siteboon/claudecodeui) | Web/移动端 UI，支持多 agent | 开源 + Cloud €7/月 | 14k★ | 远程、移动、多 agent | AGPL |
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | JetBrains 内的 Claude Code GUI | 开源 | 7.3k★ | 填补 JetBrains 生态 | 单一 IDE |
@@ -65,8 +65,8 @@ Codex 桌面版 [4]、Cursor。
 5. [winfunc/opcode](https://github.com/winfunc/opcode) — GitHub, 22k★
 6. [siteboon/claudecodeui](https://github.com/siteboon/claudecodeui) — GitHub, 14k★ — "Starts at €7/month"
 7. [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) — GitHub, 7.3k★
-8. [anthropics/claude-code#21764](https://github.com/anthropics/claude-code/issues/21764) — "This is frustrating for customers who rely on Claude Code"
-9. [anthropics/claude-code#42045](https://github.com/anthropics/claude-code/issues/42045) — 流式输出时桌面卡顿
+8. [anthropics/claude-code#21764](https://github.com/anthropics/claude-code/issues/21764) — Code tab 黑屏（已关闭）
+9. [anthropics/claude-code#42045](https://github.com/anthropics/claude-code/issues/42045) — 高刷高分屏下输出时桌面卡顿（已关闭）
 10. [I Used Claude Code for 30 Days](https://alekdobrohotov.substack.com/p/i-used-claude-code-for-30-days-7) — "felt like a step backward" coming from Cursor
 11. [Show HN: Kanna](https://github.com/jakemor/kanna) — HN, 2026-03 — Claude Code + Codex Web UI
 

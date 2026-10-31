@@ -8,7 +8,7 @@ Usage:
   search.py hn "claude code gui" "claude code desktop"
   search.py appstore "habit tracker" --country cn
   search.py github "claude code gui" --max-age-days 365
-  search.py all "claude code gui"            # hn + github (+ appstore with --with-appstore)
+  search.py all "claude code gui"   # hn + github (+ appstore with --with-appstore)
 
 Reddit blocks anonymous JSON search, so use web search with site:reddit.com instead.
 
@@ -19,17 +19,18 @@ caller can note degraded sources in the confidence section.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import subprocess
 import sys
-import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 USER_AGENT = "ideago-skill/1.0 (idea validation research)"
 TIMEOUT = 20
+UTC = timezone.utc  # datetime.UTC needs Python 3.11
 
 
 def _get_json(url: str, params: dict, headers: dict | None = None) -> dict:
@@ -174,7 +175,7 @@ def run(source_names: list[str], queries: list[str], options: dict) -> dict:
         for query in queries:
             try:
                 items = SOURCES[name](query, **options)
-            except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            except (OSError, ValueError, http.client.HTTPException) as exc:
                 errors.append({"source": name, "query": query, "error": str(exc)})
                 continue
             for item in items:
