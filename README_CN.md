@@ -151,6 +151,12 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 ```
 
+环境文件职责：
+
+- 根 `.env`：后端运行时与 Docker Compose 变量
+- `frontend/.env`：仅供前端本地开发
+- 生产部署只用根 `.env`（不要用 `.env.prod` / `.env.production`）
+
 托管版最小后端配置：
 
 - `OPENAI_API_KEY`
@@ -162,11 +168,14 @@ cp frontend/.env.example frontend/.env
 - `FRONTEND_APP_URL`
 - `TURNSTILE_SECRET_KEY`
 
-前端最小构建/运行配置：
+前端配置由后端在运行时通过 `GET /api/v1/config` 下发，因此浏览器需要的值同样写在根 `.env`：
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_TURNSTILE_SITE_KEY`
+- `TURNSTILE_SITE_KEY`（与 `TURNSTILE_SECRET_KEY` 配套）
+- `SUPABASE_URL` 与 `SUPABASE_ANON_KEY`（浏览器复用）
+
+可选：`FRONTEND_SENTRY_DSN`、`PRICING_ENABLED`。
+
+唯一的前端构建期输入是 `VITE_API_BASE_URL`，且只有在前端与 API 不同源时才需要填写。
 
 可选认证增强：
 
@@ -182,8 +191,9 @@ cp frontend/.env.example frontend/.env
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRO_PRICE_ID`
 
-如果你走 Docker 构建，`VITE_*` 是构建期输入，必须在 `docker compose build` 或
-`docker compose up --build` 前提供。
+Docker 构建不再需要 Supabase / Turnstile 的构建期参数，SPA 会向后端取这些值。构建参数只有
+`VITE_API_BASE_URL`，默认同源部署时留空即可。CI 会拒绝把 `VITE_SUPABASE_*`、
+`VITE_TURNSTILE_*`、`VITE_SENTRY_*` 写进 Dockerfile 或 compose 构建参数。
 
 ### 本地开发运行
 
