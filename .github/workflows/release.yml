@@ -33,8 +33,6 @@ jobs:
     needs: verify
     if: ${{ !cancelled() && (needs.verify.result == 'success' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.value }}
 
     steps:
       - name: Checkout
