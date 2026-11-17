@@ -1,14 +1,13 @@
+# 生产：拉 CI 推到 GHCR 的镜像，服务器上不构建。saas 分支的镜像标签是 saas-latest。
+#   docker compose pull && docker compose up -d
+# 固定或回滚版本：IMAGE_TAG=sha-xxxxxxx docker compose up -d
+#
+# 本地自己构建时叠加 override：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   ideago:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      # Public frontend config now comes from GET /api/v1/config at runtime,
-      # so no VITE_SUPABASE_* / VITE_TURNSTILE_* build args are needed.
-      # VITE_API_BASE_URL stays empty for this same-origin deployment.
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-    image: ideago:local
+    image: ghcr.io/tendo33/ideago:${IMAGE_TAG:-saas-latest}
+    pull_policy: always
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
     env_file: .env

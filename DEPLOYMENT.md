@@ -235,19 +235,32 @@ FastAPI serves the built SPA from `frontend/dist`.
 
 ## 7. Docker Compose Deployment
 
-The `saas` branch `docker-compose.yml` builds a local image from the current repository instead of
-pulling a prebuilt image.
+CI builds the image and pushes it to GHCR. The server only pulls; it never builds.
 
-Build and run:
+| Trigger | Workflow | Image tags pushed to `ghcr.io/tendo33/ideago` |
+|---|---|---|
+| Pull request | `ci.yml`, `image.yml` | none (checks run, image is built but not pushed) |
+| Push to `main` | `image.yml` | `sha-<7 chars>`, `latest` |
+| Push to `saas` | `image.yml` | `sha-<7 chars>`, `saas-latest` |
+| Push a `v*` tag | `image.yml`, `release.yml` | `<version>`, plus `<major>.<minor>` for non-prerelease tags; also creates the GitHub release |
+
+Images are only pushed after `ci.yml` passes. Both `linux/amd64` and `linux/arm64` are published.
+
+The `saas` branch `docker-compose.yml` pulls `saas-latest`:
 
 ```bash
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
-The compose build forwards a single frontend build arg:
+Roll back to any published commit with `IMAGE_TAG=sha-abc1234 docker compose up -d`.
 
-- `VITE_API_BASE_URL` (empty by default — same-origin)
+The published image is built with a single frontend build arg, `VITE_API_BASE_URL`, left empty
+(same-origin). If you need a different value, build locally:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 Everything else the browser needs is served at runtime from `GET /api/v1/config`,
 so rebuilding is not required to change Supabase, Turnstile, Sentry, or the
@@ -350,12 +363,12 @@ Branch policy:
 - `saas` merges `main`
 - do not merge hosted-only dependencies back into `main`
 
-When updating a live hosted deployment from source:
+When updating a live hosted deployment:
 
 ```bash
 git checkout saas
-git pull
-docker compose build
+git pull                      # picks up compose changes; the image comes from GHCR
+docker compose pull
 docker compose up -d
 ```
 

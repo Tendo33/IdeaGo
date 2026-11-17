@@ -1,9 +1,10 @@
 name: CI
 
+# 仓库自己的检查。PR 上直接跑；推部署分支 / 打标签时由 image.yml、release.yml 调用。
 on:
-  push:
-    branches: ["main", "master", "saas"]
   pull_request:
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   backend:
@@ -132,7 +133,7 @@ jobs:
       - name: Compose must not pass public config as build args
         run: |
           set -euo pipefail
-          if grep -nE '^[[:space:]]+(VITE_(SUPABASE|TURNSTILE|SENTRY)|SUPABASE_(URL|ANON_KEY)):' docker-compose.yml; then
+          if grep -nE '^[[:space:]]+(VITE_(SUPABASE|TURNSTILE|SENTRY)|SUPABASE_(URL|ANON_KEY)):' docker-compose.yml docker-compose.build.yml; then
             echo "::error::docker-compose build args must not carry public frontend config."
             exit 1
           fi
