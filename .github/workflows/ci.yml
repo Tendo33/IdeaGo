@@ -48,7 +48,9 @@ jobs:
           UV_DEFAULT_INDEX: https://pypi.org/simple
         run: |
           uv export --format requirements-txt --no-dev --no-header --no-hashes --no-emit-project > requirements.audit.txt
-          uvx pip-audit --strict --desc -r requirements.audit.txt
+          # uv export is already the full pinned closure from uv.lock, so audit it as-is.
+          # Without --no-deps pip-audit re-resolves with pip and audits whatever pip picks.
+          uvx pip-audit --strict --desc --no-deps --disable-pip -r requirements.audit.txt
 
       - name: Pytest
         run: uv run pytest
