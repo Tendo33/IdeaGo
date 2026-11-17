@@ -201,20 +201,25 @@ uv run python -m ideago
 
 ### Docker Compose
 
-`main` 自带的 `docker-compose.yml` 默认会从 Docker Hub 拉取已发布镜像：
+`main` 自带的 `docker-compose.yml` 默认会从 GHCR 拉取已发布镜像（`ghcr.io/tendo33/ideago`，支持 `linux/amd64` 和 `linux/arm64`）：
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-如果想固定到某个发布版本，而不是 `latest`：
+`latest` 跟随 `main`。要固定版本或回滚，设置 `IMAGE_TAG`：
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.9 docker compose up -d
+IMAGE_TAG=0.3.9 docker compose up -d        # 发布版本
+IMAGE_TAG=sha-abc1234 docker compose up -d  # CI 发布过的任一提交
 ```
 
-如果你想自行构建，分支里也保留了 Dockerfile。
+如果想从源码自行构建：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 ## 工作原理
 

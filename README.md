@@ -207,20 +207,25 @@ Open: [http://localhost:8000](http://localhost:8000)
 
 ### Docker Compose
 
-`main` ships with a simple `docker-compose.yml` that pulls the published image from Docker Hub:
+`main` ships with a `docker-compose.yml` that pulls the published image from GHCR (`ghcr.io/tendo33/ideago`, `linux/amd64` and `linux/arm64`):
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-Optional: pin to a release tag instead of `latest`:
+`latest` follows `main`. To pin a release or roll back, set `IMAGE_TAG`:
 
 ```bash
-IDEAGO_IMAGE_TAG=0.3.9 docker compose up -d
+IMAGE_TAG=0.3.9 docker compose up -d        # release tag
+IMAGE_TAG=sha-abc1234 docker compose up -d  # any commit CI published
 ```
 
-If you prefer to build from source, the branch also includes a Dockerfile.
+To build from source instead:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 ## How It Works
 
