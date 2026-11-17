@@ -43,7 +43,10 @@ jobs:
       - name: Mypy
         run: uv run mypy src
 
+      # The lock is the same on every matrix entry; audit it once, on the
+      # Python the Docker image runs (python:3.13 in Dockerfile).
       - name: Security audit (pip-audit)
+        if: matrix.python-version == '3.13'
         env:
           UV_DEFAULT_INDEX: https://pypi.org/simple
         run: |
