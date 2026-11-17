@@ -192,7 +192,7 @@ cp frontend/.env.example frontend/.env
 - `STRIPE_PRO_PRICE_ID`
 
 Docker 构建不再需要 Supabase / Turnstile 的构建期参数，SPA 会向后端取这些值。构建参数只有
-`VITE_API_BASE_URL`，默认同源部署时留空即可。CI 会拒绝把 `VITE_SUPABASE_*`、
+`VITE_API_BASE_URL`，默认同源部署时留空即可（CI 发布的镜像就是留空构建的）。CI 会拒绝把 `VITE_SUPABASE_*`、
 `VITE_TURNSTILE_*`、`VITE_SENTRY_*` 写进 Dockerfile 或 compose 构建参数。
 
 ### 本地开发运行
@@ -225,11 +225,18 @@ uv run python -m ideago
 
 ### Docker Compose
 
-`saas` 分支的 `docker-compose.yml` 会基于当前仓库构建本地镜像，并把前端构建需要的参数透传到镜像构建阶段。
+CI 把 `saas` 镜像推到 GHCR：`ghcr.io/tendo33/ideago:saas-latest`，每个提交另有 `sha-<7 位>` 标签。
+`saas` 分支的 `docker-compose.yml` 直接拉这个镜像，服务器不构建：
 
 ```bash
-docker compose build
+docker compose pull
 docker compose up -d
+```
+
+回滚：`IMAGE_TAG=sha-abc1234 docker compose up -d`。要从源码自行构建：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 完整托管部署流程请看 [DEPLOYMENT.md](DEPLOYMENT.md)。

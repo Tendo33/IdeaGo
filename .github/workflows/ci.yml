@@ -1,9 +1,10 @@
 name: CI
 
+# 仓库自己的检查。PR 上直接跑；推部署分支 / 打标签时由 image.yml、release.yml 调用。
 on:
-  push:
-    branches: ["main", "master", "saas"]
   pull_request:
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   backend:
@@ -40,7 +41,10 @@ jobs:
       - name: Mypy
         run: uv run mypy src
 
+      # The lock is the same on every matrix entry; audit it once, on the
+      # Python the Docker image runs (python:3.13 in Dockerfile).
       - name: Security audit (pip-audit)
+        if: matrix.python-version == '3.13'
         run: |
           audit_requirements="$(mktemp)"
           trap 'rm -f "$audit_requirements"' EXIT
@@ -132,7 +136,7 @@ jobs:
       - name: Compose must not pass public config as build args
         run: |
           set -euo pipefail
-          if grep -nE '^[[:space:]]+(VITE_(SUPABASE|TURNSTILE|SENTRY)|SUPABASE_(URL|ANON_KEY)):' docker-compose.yml; then
+          if grep -nE '^[[:space:]]+(VITE_(SUPABASE|TURNSTILE|SENTRY)|SUPABASE_(URL|ANON_KEY)):' docker-compose.yml docker-compose.build.yml; then
             echo "::error::docker-compose build args must not carry public frontend config."
             exit 1
           fi

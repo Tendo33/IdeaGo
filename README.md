@@ -202,7 +202,8 @@ Optional observability and billing:
 
 Docker builds no longer need Supabase/Turnstile values at build time — the SPA
 fetches them from the running backend. Only `VITE_API_BASE_URL` is a build arg,
-and it stays empty for the default same-origin deployment.
+and it stays empty for the default same-origin deployment (the CI-published image is built
+with it empty).
 
 ### Run In Development
 
@@ -234,12 +235,19 @@ Open: [http://localhost:8000](http://localhost:8000)
 
 ### Docker Compose
 
-The `saas` branch `docker-compose.yml` builds a local image from this repository and forwards the
-required frontend build args into the container build.
+CI publishes the `saas` image to GHCR as `ghcr.io/tendo33/ideago:saas-latest` (plus a
+`sha-<7 chars>` tag per commit). The `saas` branch `docker-compose.yml` pulls it; the server does
+not build:
 
 ```bash
-docker compose build
+docker compose pull
 docker compose up -d
+```
+
+Roll back with `IMAGE_TAG=sha-abc1234 docker compose up -d`. To build from source instead:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full hosted deployment checklist.

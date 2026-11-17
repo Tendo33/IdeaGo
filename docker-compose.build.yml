@@ -1,0 +1,16 @@
+# 本地构建用的叠加配置，生产服务器不要用。
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  ideago:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Public frontend config now comes from GET /api/v1/config at runtime,
+      # so no VITE_SUPABASE_* / VITE_TURNSTILE_* build args are needed.
+      # VITE_API_BASE_URL stays empty for this same-origin deployment
+      # (CI builds the published image with it empty too).
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    # 覆盖主文件的 GHCR 地址，避免本地构建结果冒充线上镜像。
+    image: ideago:local
+    pull_policy: build
