@@ -21,11 +21,11 @@
   </p>
 
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
-    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
-    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Branch-main-111827" alt="Branch main" />
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2EA043?style=flat-square" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Branch-main-111827?style=flat-square" alt="Branch main" />
   </p>
 </div>
 
@@ -95,21 +95,42 @@ Operational safeguards now baked into `main`:
 
 ## Product Walkthrough
 
+Real screenshots from the running app: a hosted report for "an AI tool that summarises meeting
+notes".
+
 ### Landing And Idea Intake
 
-![Landing and intake](docs/assets/1.png)
+Describe the idea in one box; recent research sits on the right with how many competitors each
+one turned up.
+
+![IdeaGo landing page with the idea input and recent research list](docs/assets/screenshots/landing.webp)
 
 ### Real-Time Research Pipeline
 
-![Pipeline progress](docs/assets/2.png)
+Each analysis streams progress through intent parsing, query planning, platform adaptation,
+multi-source retrieval, extraction, aggregation and report assembly.
+
+![The research pipeline progress view](docs/assets/screenshots/pipeline.webp)
 
 ### Decision Summary
 
-![Decision summary](docs/assets/3.png)
+The report opens with a recommendation, a why-now framing, an opportunity score and counts of the
+signals it found.
+
+![The decision summary: recommendation, opportunity score, pain and commercial signal counts](docs/assets/screenshots/decision.webp)
 
 ### Evidence-Backed Landscape
 
-![Report workspace](docs/assets/4.png)
+| Pain signals | Commercial signals |
+| --- | --- |
+| ![Pain signals with intensity and frequency per item, each linked to a source](docs/assets/screenshots/pain.webp) | ![Commercial signals with intent scores and what each one implies](docs/assets/screenshots/commercial.webp) |
+
+| Competitors | Evidence and trust |
+| --- | --- |
+| ![The competitor table filtered by source platform, with strengths and gaps per competitor](docs/assets/screenshots/competitors.webp) | ![Evidence highlights with trust metadata and trust warnings](docs/assets/screenshots/evidence.webp) |
+
+Every claim carries the platform it came from. The evidence panel also lists trust warnings, so a
+conclusion that only one source supports says so.
 
 ## Quick Start
 

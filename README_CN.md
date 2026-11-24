@@ -20,11 +20,11 @@
   </p>
 
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
-    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
-    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Branch-main-111827" alt="Branch main" />
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2EA043?style=flat-square" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Branch-main-111827?style=flat-square" alt="Branch main" />
   </p>
 </div>
 
@@ -91,21 +91,37 @@ IdeaGo 现在已经不是单纯的竞品搜索流程。报告契约是决策优�
 
 ## 产品演示
 
-### 落地页与想法输入
+下面都是运行中的真实截图，看的是「一款能自动总结会议记录的 AI 工具」这份报告。
 
-![落地页与想法输入](docs/assets/1.png)
+### Landing 与想法输入
 
-### 实时研究管线
+一个输入框描述想法，右侧是最近的调研，以及每次调研翻出了多少个竞品。
 
-![实时研究管线](docs/assets/2.png)
+![IdeaGo 首页：想法输入框与最近的调研列表](docs/assets/screenshots/landing.webp)
+
+### 实时研究流水线
+
+每次分析通过 SSE 流式返回进度：意图解析、查询规划、平台适配、多源检索、抽取、聚合、报告组装。
+
+![研究流水线进度界面](docs/assets/screenshots/pipeline.webp)
 
 ### 决策摘要
 
-![决策摘要](docs/assets/3.png)
+报告开头是推荐结论、why-now、机会分值和各平台信号计数。
 
-### 证据化竞争格局
+![决策摘要：推荐结论、机会评分、痛点与商业信号计数](docs/assets/screenshots/decision.webp)
 
-![证据化竞争格局](docs/assets/4.png)
+### 证据支撑的全景
+
+| 痛点信号 | 商业信号 |
+| --- | --- |
+| ![痛点信号：每条带强度和频次，并标注来源](docs/assets/screenshots/pain.webp) | ![商业信号：每条带意向分值与含义](docs/assets/screenshots/commercial.webp) |
+
+| 竞品 | 证据与可信度 |
+| --- | --- |
+| ![竞品表：可按来源平台筛选，逐个列出优势与不足](docs/assets/screenshots/competitors.webp) | ![证据摘要、可信度元数据与信任警告](docs/assets/screenshots/evidence.webp) |
+
+每条结论都带着它来自哪个平台。证据面板还会列出信任警告，只有单一来源支撑的结论会明确标出来。
 
 ## 快速开始
 
