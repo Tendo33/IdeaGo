@@ -20,12 +20,12 @@
   </p>
 
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
-    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
-    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
-    <img src="https://img.shields.io/badge/Stripe-已接入但入口隐藏-635BFF?logo=stripe&logoColor=white" alt="Stripe integration present" />
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2EA043?style=flat-square" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Stripe-已接入但入口隐藏-635BFF?style=flat-square&logo=stripe&logoColor=white" alt="Stripe integration present" />
   </p>
 </div>
 
@@ -88,29 +88,27 @@ Stripe 代码链路已经存在，但对用户的定价入口目前是故意隐�
 
 ## 产品演示
 
+下面四段是登录用户实际经过的流程。配图是这套流程的概念示意，不是产品截图。
+
 ### Landing 与想法输入
 
-未登录用户先看到营销页；已登录用户直接进入产品工作区提交想法并开始分析。
-
-![Landing 与输入](assets/banner_new.png)
+未登录访客先看到营销页；登录用户直接进入产品工作区，填一条想法就开始分析。
 
 ### 实时研究流水线
 
-分析过程会实时展示：意图解析、查询规划、平台适配、多源抓取、信号提取、聚合和报告组装。
+每次分析通过 SSE 流式返回进度：意图解析、查询规划、平台适配、多源检索、抽取、聚合、报告组装。
 
-![流水线进度](assets/usage_new.png)
+![概念示意：从想法输入到报告生成的流水线](assets/usage_new.png)
 
 ### 决策摘要
 
-报告最先展示 recommendation、why-now、机会分以及高层级信号数量。
-
-![决策摘要](assets/usage_new.png)
+报告开头是推荐结论、why-now、机会分值和各平台信号计数。
 
 ### 证据驱动的报告工作区
 
-托管版报告页包含历史记录、竞品详情、信任元数据、图表与原始证据。
+托管版报告工作区包含历史记录、竞品详情、可信度元数据、图表和六类来源的支撑证据。
 
-![报告工作区](assets/banner.png)
+![概念示意：六类证据源汇入 IdeaGo 引擎](assets/banner_new.png)
 
 ## 快速开始
 
@@ -291,6 +289,13 @@ flowchart TD
 - 通过 `/api/v1/auth/profile` 编辑资料
 - 通过 `/api/v1/auth/account` 删除账户
 
+配额约定：
+
+- 管理员覆盖值存在 `profiles.plan_limit_override`
+- API 响应继续用 `plan_limit` 作为实际展示的上限
+- `503 DEPENDENCY_UNAVAILABLE` 表示 Supabase 或托管持久化异常，不代表用户没有数据
+- 账户删除失败时按阶段补偿：早期失败会尝试清掉 `deletion_pending`；后期失败可能只能恢复访问，或把账户留在待删除状态，直到人工介入
+
 ## API 概览
 
 ### 分析与报告
@@ -316,13 +321,6 @@ flowchart TD
 - `GET /api/v1/auth/profile`
 - `PUT /api/v1/auth/profile`
 - `DELETE /api/v1/auth/account`
-
-配额契约说明：
-
-- 管理员覆写值存储在 `profiles.plan_limit_override`
-- API 返回仍保持 `plan_limit` 作为前端展示和编辑的有效额度
-- `503 DEPENDENCY_UNAVAILABLE` 表示 Supabase 或持久化依赖降级，不代表业务空数据
-- 账户删除失败现在按阶段补偿：前半段会尝试清掉 `deletion_pending`，后半段失败可能只恢复访问能力，或保留 `deletion_pending` 并需要人工介入
 
 对依赖 Cookie 会话的写操作，请继续携带 `X-Requested-With`；当浏览器发送
 `Origin` 或 `Referer` 时，它们也必须命中已配置的 allowlist。

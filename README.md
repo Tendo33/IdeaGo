@@ -20,12 +20,12 @@
   </p>
 
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
-    <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
-    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
-    <img src="https://img.shields.io/badge/Stripe-Integrated%20but%20Hidden-635BFF?logo=stripe&logoColor=white" alt="Stripe integration present" />
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2EA043?style=flat-square" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+    <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Data-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Stripe-Integrated%20but%20Hidden-635BFF?style=flat-square&logo=stripe&logoColor=white" alt="Stripe integration present" />
   </p>
 </div>
 
@@ -91,33 +91,32 @@ is re-enabled on purpose.
 
 ## Product Walkthrough
 
+The four stages below describe the flow a signed-in user goes through. The illustrations are
+concept diagrams of that flow, not product screenshots.
+
 ### Landing And Idea Intake
 
 Signed-out visitors land on a marketing page. Signed-in users go directly to the product workspace
 to submit an idea and start analysis.
-
-![Landing and intake](assets/banner_new.png)
 
 ### Real-Time Research Pipeline
 
 Each analysis streams progress through intent parsing, query planning, platform adaptation,
 multi-source retrieval, extraction, aggregation, and report assembly.
 
-![Pipeline progress](assets/usage_new.png)
+![Concept diagram of the idea-to-report pipeline: idea input, analysis and processing, report generation](assets/usage_new.png)
 
 ### Decision Summary
 
 The report opens with the recommendation, why-now framing, opportunity score, and high-level
 signal counts.
 
-![Decision summary](assets/usage_new.png)
-
 ### Evidence-Backed Landscape
 
 The hosted report workspace includes history, competitor details, trust metadata, charts, and
 supporting evidence across all six sources.
 
-![Report workspace](assets/banner.png)
+![Concept banner showing the six evidence sources feeding the IdeaGo engine](assets/banner_new.png)
 
 ## Quick Start
 
@@ -308,9 +307,9 @@ Quota contract notes:
 - admin overrides are stored in `profiles.plan_limit_override`
 - API responses continue exposing `plan_limit` as the effective display limit
 - `503 DEPENDENCY_UNAVAILABLE` means Supabase or hosted persistence is degraded, not that the user has no data
-- failed account deletion attempts now use phase-aware compensation:
-- early failures try to clear `deletion_pending`
-- later failures may only restore access or leave the account in a stuck-pending state that requires operator intervention
+- failed account deletion attempts use phase-aware compensation: early failures try to clear
+  `deletion_pending`; later failures may only restore access, or leave the account stuck pending
+  until an operator intervenes
 
 ## API Overview
 
