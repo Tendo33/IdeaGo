@@ -1,16 +1,5 @@
-# Claude Code Project Instructions
+# IdeaGo
 
-Use this file as the Claude Code entrypoint for IdeaGo on the `saas` branch.
+入口在 [AGENTS.md](AGENTS.md)，分支规则与命令都以那里为准。
 
-## Branch Guardrails
-
-- `main` is the anonymous/personal deployment edition.
-- `saas` is the hosted/commercial edition.
-- Shared product work should land on `main` first when practical.
-- Do not move hosted-only auth, billing, Supabase, quota, or admin runtime dependencies back into `main`.
-
-## Working Rules
-
-- Keep changes small, typed, and branch-correct.
-- Use `pnpm` for the frontend and `uv` for Python.
-- Do not claim completion without running the checks that match the changed surface.
+开工前先确认分支：`git branch --show-current`。`main` 是个人版，`saas` 是商业版，不要把两边的运行时依赖混在一起。
